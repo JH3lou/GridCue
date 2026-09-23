@@ -99,8 +99,8 @@ const AMBIGUOUS_NUMBER = /^\d{1,3}(?:\.\d{3})+$|,(?!\d{3}(?:\D|$))/;
 
 const cleanText = (raw: string): string =>
   raw
-    .replace(/[""]/g, '"')
-    .replace(/['']/g, "'")
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
     .replace(/\s+comma\b/gi, ",")
     .replace(/\s+(?:period|full stop)\b/gi, ".")
     .replace(/\s+/g, " ")

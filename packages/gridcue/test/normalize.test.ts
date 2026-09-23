@@ -46,6 +46,10 @@ describe("normalize: literals", () => {
       { kind: "text", value: "smith trust" },
     ]);
   });
+
+  it("treats curly quotes like straight quotes", () => {
+    expect(lits("named “smith trust”")).toEqual([{ kind: "text", value: "smith trust" }]);
+  });
 });
 
 describe("normalize: review focus", () => {
