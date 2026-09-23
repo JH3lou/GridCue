@@ -192,7 +192,7 @@ These branches were open before Round 1. Round 2 below replaces this list.
 | Q | Answer | Recorded as |
 | --- | --- | --- |
 | Q10 Key entry on the Site | "b or c" | Decided (c) for the first release: no key entry on the Site. Visitors use the Mock Provider demo, or download the demo and use their own key locally. No GridCue server ever handles a visitor's key. (b), a stateless relay, can follow later on the same Server Handler. |
-| Q11 Internal demo | "I bought gridque.dev for hosting" | Domain recorded. Where the internal demo runs is still open, see Q20. |
+| Q11 Internal demo | "I bought gridque.dev for hosting", corrected later to gridcue.dev | Domain recorded as gridcue.dev. Where the internal demo runs is still open, see Q20. |
 | Q12 Downloadable demo | Agree | Clone and run in the library build, starter command with the Site. |
 | Q13 First release | The first release ships the utility on Next.js, Vite, and TanStack, plus the Vite Site with marketing, demo, and docs. | Replaces Q6's "library first, website later". See Q19. |
 | Q14 Docs search | Drop Algolia entirely | Fumadocs' built-in search only. |
@@ -235,7 +235,7 @@ These branches were open before Round 1. Round 2 below replaces this list.
 ---
 
 ❓ **Q20 - Where the internal demo with your Jev key runs.**
-(a) Locally only, with the key in a git-ignored `.env` file. (b) Also at a private address on your domain, such as `internal.<domain>`, behind Cloudflare Access login. Access is free for small teams. The key is stored as a Cloudflare Worker secret.
+(a) Locally only, with the key in a git-ignored `.env` file. (b) Also at a private address on your domain, such as `internal.gridcue.dev`, behind Cloudflare Access login. Access is free for small teams. The key is stored as a Cloudflare Worker secret.
 
 ➡️ (a) during the library build, then (b) with the Site. You get a shareable live Jev demo without exposing the key.
 
@@ -259,6 +259,14 @@ These branches were open before Round 1. Round 2 below replaces this list.
 (a) Keep that. (b) Use your name or a company name. Tell me which.
 
 ➡️ (a), unless you want a legal entity named. It stays valid as contributors join.
+
+## Round 3 answers so far (owner, 2026-09-23)
+
+| Q | Answer | Recorded as |
+| --- | --- | --- |
+| Q16 Domain | "Sorry, I bought gridcue.dev" | Settled. The name, npm scope, and domain all match. ADR 0006 names the domain. |
+
+Q17 to Q23 are still open.
 
 ## Waiting on Round 3
 
