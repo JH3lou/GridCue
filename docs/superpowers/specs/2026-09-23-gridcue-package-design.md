@@ -1,6 +1,6 @@
 # GridCue package: design spec
 
-**Status:** draft for the owner's review
+**Status:** approved by the owner on 2026-09-23
 **Date:** 2026-09-23
 **Scope:** the first of two specs for GridCue's first release. This one covers the `gridcue` npm package, its component registry source, and the Vite and Next.js examples. The second spec covers the Site at gridcue.dev.
 

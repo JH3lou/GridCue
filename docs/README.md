@@ -26,6 +26,7 @@ These explain what the source alone can't: the product boundary, the pipeline, a
 - [0006: Host the Site on Cloudflare](./adr/0006-host-on-cloudflare.md)
 - [0007: One npm package with subpath exports](./adr/0007-one-npm-package.md)
 - [0008: Plain-CSS command bar in the package](./adr/0008-built-in-plain-css-command-bar.md)
+- [0009: Grid adapters report manual view changes](./adr/0009-grid-adapters-report-manual-changes.md)
 
 ### Planning
 
