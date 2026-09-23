@@ -68,6 +68,10 @@ _Avoid_: Summary, explanation
 A pluggable service that picks among closed, Host-approved choices to help interpret an Utterance. It never produces View Operations directly.
 _Avoid_: Model, LLM, AI backend
 
+**Controller**:
+The single object a developer creates to wire one grid to GridCue. It takes a View Schema, a Grid Adapter, and an Intent Provider, and runs a request from Utterance to applied View Plan.
+_Avoid_: Client, engine, instance
+
 **Grid Adapter**:
 The translator between GridCue's View State and one specific grid library.
 _Avoid_: Driver, connector, plugin
@@ -75,3 +79,21 @@ _Avoid_: Driver, connector, plugin
 **Candidate**:
 One option in a closed set of choices offered to an Intent Provider, always including an explicit "none" or "unsupported" option.
 _Avoid_: Suggestion, completion
+
+**Mock Provider**:
+An Intent Provider that answers from fixed rules instead of a model, so GridCue runs with no account or key. It powers tests and the public fake demo.
+_Avoid_: Fake model, stub, dummy provider
+
+**Server Handler**:
+A small Host-side endpoint that holds the Intent Provider's credentials and answers resolution requests, so keys never reach the User's browser.
+_Avoid_: Backend, proxy, API route
+
+## Distribution
+
+**Component Registry**:
+GridCue's shadcn-styled UI components, published so developers copy them into their own app with the shadcn CLI.
+_Avoid_: UI kit, component library, theme
+
+**Site**:
+The public GridCue website, which holds the marketing page, the developer docs, and the Component Registry.
+_Avoid_: Landing page, docs app, homepage

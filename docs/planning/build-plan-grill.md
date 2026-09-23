@@ -31,6 +31,7 @@ These were looked up, not decided. Items marked *unverified* came from search sn
 - **React Bits** is licensed MIT plus Commons Clause. It may be used inside an app or site, but its components may not be redistributed. The free tier has **CardSwap** (uses gsap) and **ScrollStack** (uses lenis). The Pro "Scroll Stack" is a different, paid component. Pro pricing is *unverified*.
 - **sveltebits.xyz** is a Svelte port of React Bits. It cannot drop into a React site.
 - **Jev is real and public.** The SDK is `@typesafe-ai/sdk`. A request carries a `state` plus typed questions: choice, score, or yes/no. Each answer returns a choice with confidence and full probabilities. This matches the proposal's "closed candidates plus confidence" design. Pricing and free credit are *unverified*.
+- **Jev in the browser.** The Jev SDK refuses to run in a browser unless the caller passes `dangerouslyAllowBrowser: true`. Whether the Jev API allows browser requests (CORS) is *unverified*.
 - **Fumadocs** is React, Tailwind, and Radix based, and can run on Vite through React Router. Starlight is Astro, VitePress is Vue, and Docusaurus is webpack. None of those three match shadcn styling out of the box.
 - **npm names** `gridcue` and `@gridcue/core` are both unclaimed.
 - **Current stable versions:** Node 24 LTS, pnpm 12.6, TypeScript 7.0, Vite 8.3, React 19.3, Tailwind 4.3, TanStack Table 9.2, Vitest 5.0, zod 4.6, Biome 2.5, shadcn CLI 4.21.
@@ -105,12 +106,83 @@ Answer by number. A bare "agree" accepts the recommendation.
 
 ➡️ Yes to all three. The npm names are free today. Claim the `@gridcue` npm org before anything is published, since claiming an org is cheap and not reversible by anyone else.
 
-## Waiting on Round 1
+## Round 1 answers (owner, 2026-09-23)
 
-These branches open once Round 1 is answered.
+| Q | Answer | Recorded as |
+| --- | --- | --- |
+| Q1 Purpose | Agree: open-source library for real adoption | Settled |
+| Q2 Boundary | Agree: adopt the proposal's view-only boundary unchanged | Settled |
+| Q3 Backend interface | The internal demo links to the owner's Jev account. The public demo offers a fake version, a downloadable demo that uses the visitor's own credentials, or a Swagger-style credential input to try it live. | Taken as (c) both a browser factory and a server handler, since a demo tied to a Jev account needs the handler. Demo modes open Round 2. |
+| Q4 Styled UI | Agree: headless npm hooks plus a shadcn registry | ADR 0001 |
+| Q5 Provider | Partial agree: Jev first, with the demo modes from Q3 | Settled for v1. Demo modes open Round 2. |
+| Q6 Build order | Agree: library first, then website | Settled |
+| Q7 Website stack | Agree. Vite is required for the website only. The utility must work with Vite, React, TanStack, and others. | ADR 0002. Integration breadth opens Round 2. |
+| Q8 Marketing effects | Free only. The links are inspiration, not a fixed list. Effects stay in the marketing site, never in a package. Components are shadcn/ui. | ADR 0003 |
+| Q9 Name, license, scope | Agree: GridCue, Apache-2.0, `@gridcue` | ADR 0004 |
+
+## Superseded: waiting on Round 1
+
+These branches were open before Round 1. Round 2 below replaces this list.
 
 - **Docs search.** Fumadocs' built-in local search, or Algolia DocSearch with the SiteSearch UI. This depends on Q7 and on having a public domain.
 - **Hosting and domain** for the website and registry. This depends on Q6 and Q7.
 - **Where the demo lives.** Its own app, or embedded as live examples in the docs. This depends on Q6 and Q7.
 - **Jev integration depth.** Live, opt-in tests against the real API, and who holds the key. This depends on Q5.
 - **First spec's acceptance criteria.** Whether to keep `BUILD_AGENT.md`'s list as-is, plus shadcn styling. This depends on Q2, Q4, and Q6.
+
+## Round 2
+
+❓ **Q10 - Swagger-style "try it with your key" on the public site.** A visitor pastes their own Jev key into the website. Where does that key go?
+(a) Straight from the visitor's browser to Jev. The key lives only in page memory and is never saved. Jev's SDK allows this only with an explicit `dangerouslyAllowBrowser` flag. Whether Jev's API accepts browser calls at all is *unverified*, because the proxy here blocks it.
+(b) Through a small relay function on the GridCue site that forwards each request and never stores or logs the key.
+(c) No key entry on the website. Visitors get the fake demo, or download the demo and run it with their key locally.
+
+➡️ (a), with (b) as the fallback if Jev's API refuses browser calls. The key then never touches a GridCue server, which is how Swagger's "Authorize" button works. The page warns visitors to use a low-limit key and saves nothing. This is a deliberate exception to the "no credentials in the browser" rule, so it gets its own ADR. Host integrations still keep keys on their own servers.
+
+---
+
+❓ **Q11 - Where the internal demo runs.**
+(a) Locally only. `pnpm dev` reads your Jev key from a git-ignored `.env` file.
+(b) Also deployed at a private URL behind a login.
+
+➡️ (a) for the library build. A private deployed demo needs hosting and a login, so it belongs with the website build.
+
+---
+
+❓ **Q12 - Form of the downloadable demo.**
+(a) The demo app inside this repo. Clone it, add a key to `.env`, and run it.
+(b) A standalone starter such as `pnpm create gridcue`, which doubles as the getting-started path for adopters.
+(c) A one-click online sandbox such as StackBlitz.
+
+➡️ (a) in the library build, because it comes for free. (b) in the website build, where it becomes the docs' quick start. (c) needs no key storage but depends on StackBlitz, so it is optional.
+
+---
+
+❓ **Q13 - "Vite, React, TanStack, any others?"** The core is plain TypeScript with no framework or bundler ties, so it already works in Vite, Next.js, webpack, or plain Node. What else ships in v1?
+(a) React bindings plus the TanStack Table adapter only. AG Grid is the named next adapter.
+(b) Also a second grid adapter in v1, such as AG Grid or MUI X Data Grid.
+(c) Also a framework-free command bar, such as a web component, for Vue, Svelte, or plain HTML hosts.
+
+➡️ (a). A second adapter is the best proof the adapter contract is real, but it doubles the testing surface before the design has met a user. The shared adapter contract suite makes adding AG Grid later cheap. AG Grid is the most common enterprise grid in finance, which is the proving ground.
+
+---
+
+❓ **Q14 - Docs search.** Your note names Algolia.
+(a) Algolia's SiteSearch UI, installed as shadcn components, reading a free DocSearch index. DocSearch needs a live public domain, so the docs use Fumadocs' built-in local search until launch.
+(b) Fumadocs' built-in local search only. No account is needed.
+(c) Algolia from day one, with a paid or self-filled index.
+
+➡️ (a). It keeps your Algolia choice and costs nothing, and the switch at launch is a small config change.
+
+---
+
+❓ **Q15 - Hosting and domain for the website.** The website, the component registry, and any relay from Q10 need a home. Do you already own a domain, such as `gridcue.dev`?
+(a) Cloudflare Pages plus Workers. (b) Vercel. (c) Netlify.
+
+➡️ (a). The server handler from Q3 is a standard `Request` to `Response` function, which runs on Cloudflare Workers unchanged. The free tier covers a docs site. Please tell me which domain you own, or whether to shortlist some.
+
+## Waiting on Round 2
+
+- **First spec's acceptance criteria.** `BUILD_AGENT.md`'s list plus shadcn registry components, the demo modes, and opt-in live Jev tests. This depends on Q10 to Q13.
+- **Relay design, if any.** Depends on Q10 and Q15.
+- **Website page map and content.** Hero, how-it-works, live demo, and docs sections. This depends on Q10, Q12, and Q14.
