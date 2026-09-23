@@ -322,6 +322,8 @@ Provider-specific outputs are internal. A provider returns selected candidate ID
 
 Every candidate set includes an explicit escape such as `none`, `ambiguous`, or `unsupported`. A provider error, malformed response, unknown choice, or missing material decision yields a non-applicable result.
 
+The concrete contract lives in `packages/gridcue/src/core/resolution.ts`. A `ResolutionRequest` carries the normalized clauses and their literals, the closed candidate families and columns, and a summary of the current view. It never carries rows, restricted columns, or enum values the Host did not approve. A `ResolutionResult` returns, per clause, the families it asks for, the columns it mentions in order, any enum or boolean values, an optional sort direction, and phrases that matched no column. Every pick carries a confidence between 0 and 1.
+
 ## Versioning
 
 - Additive optional fields may remain within protocol `0.1` during pre-release development.
