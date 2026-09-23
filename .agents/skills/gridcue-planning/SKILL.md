@@ -29,5 +29,7 @@ Follow them as written, with this file's paths taking precedence.
 
 ## Rules that override the generic skills
 
+- Any spec or plan that includes UI runs a design pass first with `emil-design-eng`, `better-ui`, and `principle-experience-first`, and records it as a Before/After table.
+
 - AGENTS.md's non-negotiables are not up for re-grilling unless the owner raises them.
 - Never scaffold or write product code before the spec and the plan are both approved.

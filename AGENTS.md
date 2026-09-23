@@ -108,6 +108,10 @@ This is the planned layout. It becomes true as the approved plan is built.
 - Minimize runtime dependencies, especially in core. Pin exact versions in the lockfile. No `.env` files in git; keep `.env.example` current.
 - React Bits and other effect libraries stay in the Site and never enter a package. See ADR 0003.
 
+## UI work
+
+Before designing or implementing any UI, load the `emil-design-eng` and `better-ui` skills, and apply `principle-experience-first` from `.agents/skills/`. That covers the command bars, registry components, examples, and the Site. Report design reviews in their Before/After tables. Their values are exact, not ranges. Check every UI change in a real browser, light and dark, before calling it done.
+
 ## Taste
 
 Build the smallest thing that makes the correct behaviour unsurprising. No speculative abstractions, placeholder services, or roadmap features nobody asked for. If a rule here fights the task in front of you, say so plainly and get the owner's sign-off before breaking it.
@@ -115,5 +119,7 @@ Build the smallest thing that makes the correct behaviour unsurprising. No specu
 ## Skills
 
 Project skills live in `.agents/skills/`, and `.claude/skills` links to the same folder. Planning uses the superpowers and Matt Pocock skill plugins, which `.claude/settings.json` enables for Claude Code. See `.agents/skills/gridcue-planning/SKILL.md` for how they fit together here.
+
+UI design uses three vendored skills, each with its upstream MIT license: `emil-design-eng` from emilkowalski/skills, `better-ui` from jakubkrehel/skills, and `principle-experience-first` from pstack in cursor/plugins. The last is invoked by name only.
 
 For anything touching Jev or other TypeSafe models, use the `typesafe-ai` skill from the TypeSafe plugin, also enabled in `.claude/settings.json`. Other agents can run `npx skills add typesafe-ai/skills --skill typesafe-ai`. The skill treats the live docs at docs.typesafe.ai as the source of truth. The Claude Code cloud environment blocks that host unless the owner allows it, so say so when you work from the installed SDK's types instead.

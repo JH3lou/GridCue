@@ -17,10 +17,10 @@ Every code block below was built and run in a scratch workspace on 2026-09-23 be
 | Check | Result |
 | --- | --- |
 | `pnpm check` | exit 0 |
-| Unit, contract, UI, and eval tests | 154 passed, 1 skipped (the live Jev test, with no key set) |
+| Unit, contract, UI, and eval tests | 158 passed, 1 skipped (the live Jev test, with no key set) |
 | `pnpm eval` with the Mock Provider | 15 cases: 9 exact, 2 safe abstentions, 4 rejections, 0 mismatches, 0 unsafe |
 | `publint` and `attw` | clean |
-| Both examples in headless Chromium | request, preview, apply, undo, refusal, and clarification all worked, with no page errors |
+| Both examples in headless Chromium, light and dark | request, preview, apply with the mouse and with Ctrl+Enter, undo, refusal, and clarification all worked, with no page errors |
 
 Code blocks are the Biome-formatted files from that run. When a step says "run `pnpm format`", Biome may still reorder export lines; that is expected.
 
@@ -34,6 +34,7 @@ These refine the spec without changing its intent. Task 2 records them in ADR 00
 - **`gridcue/tanstack-table` imports nothing from TanStack at runtime.** It types the table structurally, so it needs no TanStack peer dependency.
 - **The TanStack example creates its controller with `useState(() => …)`, not `useMemo`.** TanStack v9's `useTable` returns a new object whenever table state changes, and a `useMemo` keyed on it would rebuild the controller in the middle of an apply.
 - **shadcn primitives are vendored, not fetched.** This environment's network policy blocks `ui.shadcn.com`, so `shadcn add` fails. The button, input, card, badge, and table sources are copied verbatim from `shadcn-ui/ui` at commit `98a1fe6` (`apps/v4/registry/new-york-v4/ui`), with `from "cn"` rewritten to `from "@/lib/utils"`. `shadcn build` works offline.
+- **UI design pass.** Before the UI code was finalized, both command bars were reviewed with the `emil-design-eng` and `better-ui` skills and the `principle-experience-first` principle. The results are in "UI design pass" below.
 - **pnpm install policy.** pnpm 12 runs no dependency build scripts unless allowed, so `pnpm-workspace.yaml` allows esbuild. It also refuses packages published less than a day ago.
 
 ## Global Constraints
@@ -49,6 +50,7 @@ These refine the spec without changing its intent. Task 2 records them in ADR 00
 - Commit titles use conventional commits, such as `feat(core): add the view reducer`.
 - User-facing strings are exactly as written in the code blocks. Tests assert several of them.
 - Jev work follows the `typesafe-ai` skill, and API keys stay server-side.
+- Before designing or implementing any UI, load the `emil-design-eng` and `better-ui` skills and apply `principle-experience-first`, all vendored in `.agents/skills/`. Their values are exact: press scale `0.96`, interaction transitions at `150ms` or less, and no animation on keyboard-driven changes.
 
 ## Review Focus
 
@@ -59,6 +61,24 @@ The spec does not name these inputs, but they are the five most likely to hurt s
 3. **Overlapping submissions.** A user presses Enter twice with different text, and the first answer arrives last. Only the latest request may win. Tested in Task 10.
 4. **Oversized requests** with more than 12 steps. These must get a plain "try fewer steps" message, not a provider error. Tested in Task 10.
 5. **Markup typed into the request**, such as `<img onerror=…>`. It must show as text and never render. Tested in Task 15 for both command bars.
+
+## UI design pass
+
+This review of the command bars was applied to the code in Tasks 15 and 17. It uses the Before/After format from `emil-design-eng` and the severity levels from `better-ui`.
+
+| Severity | Location | Before | After | Why |
+| --- | --- | --- | --- | --- |
+| MEDIUM | `styles.css` buttons, registry buttons | No press feedback | `scale: 0.96` on `:active:not(:disabled)`, transitioning `scale` over 150ms ease-out | Scale on press: the button confirms it heard the click |
+| MEDIUM | `styles.css` `.gridcue-bar` | A 1px border for depth | A layered transparent `box-shadow` ring; a single white ring in dark mode | Shadows show elevation; borders stay on inputs and dividers |
+| MEDIUM | `styles.css` bar and controls | Bar radius 8px with 12px padding, controls 6px | Bar radius = control radius + padding, via `--gridcue-radius` and `--gridcue-pad` | Concentric radius |
+| LOW | `styles.css` buttons | No hover state | A background change inside `@media (hover: hover) and (pointer: fine)`, 150ms | Hover gated for touch; motion restraint |
+| LOW | `styles.css` | Nothing for reduced motion | Press scale off under `prefers-reduced-motion` | Reduced motion keeps color and drops movement |
+| Kept | Preview panel | Appears instantly | No enter animation | It follows Enter, many times a day. Never animate keyboard-driven changes |
+| Kept | Vendored shadcn `Button` | `transition-all` | Unchanged | Vendored primitives stay byte-identical; GridCue adds only the press scale |
+
+Applying `principle-experience-first` tightened the core loop. Ctrl+Enter or Cmd+Enter now applies a ready preview without leaving the input, which suits dictation users. The key handling lives in `useGridCue` as `onInputKeyDown`, so both UIs share it, and the shared suite tests it. The Apply button declares `aria-keyshortcuts`, and a visible hint shows the shortcut.
+
+Checking the bars in a browser also found two layout bugs in the examples. They are fixed in the Task 18 and 19 files. A wide table widened the page grid and pushed the bar off-screen, so both pages now use a `minmax(0, 1fr)` column. Tailwind was not scanning the registry files, which sit outside the Vite example, so `index.css` now has an `@source` line.
 
 ---
 
@@ -5329,9 +5349,13 @@ git commit -m "feat(tanstack): drive TanStack Table v9 view state through the ad
 
 **Interfaces:**
 - Consumes: `GridCueController`, `ControllerState` (Task 10).
-- Produces: `useGridCue(controller): GridCueBinding` (state plus `propose`, `answer`, `apply`, `cancel`, `undo`); `STATUS_LABEL`; `<GridCueBar controller label? placeholder? className? />`; `gridcue/styles.css` with `--gridcue-*` variables. Test-only: `runCommandBarSuite(name, renderBar)`, which Task 17 reuses for the registry.
+- Produces: `useGridCue(controller): GridCueBinding` (state plus `propose`, `answer`, `apply`, `cancel`, `undo`, and `onInputKeyDown` for Escape and Ctrl/Cmd+Enter); `STATUS_LABEL`; `APPLY_SHORTCUT`; `<GridCueBar controller label? placeholder? className? />`; `gridcue/styles.css` with `--gridcue-*` variables. Test-only: `runCommandBarSuite(name, renderBar)`, which Task 17 reuses for the registry.
 
 The Review Focus test for markup is `shows typed markup as text and never renders it`.
+
+- [ ] **Step 0: Design pass**
+
+Load the `emil-design-eng` and `better-ui` skills, and read `.agents/skills/principle-experience-first/SKILL.md`. Check the code below against "UI design pass" at the top of this plan. It should already match. If you change any UI detail, record the change in the same Before/After table format in your handoff.
 
 - [ ] **Step 1: Write the shared suite and the failing test**
 
@@ -5371,6 +5395,23 @@ export const runCommandBarSuite = (name: string, renderBar: (controller: GridCue
       expect(screen.getByRole("status").textContent).toContain("View updated.");
       await user.click(screen.getByRole("button", { name: "Undo" }));
       await waitFor(() => expect(adapter.getState().state.sorts).toHaveLength(0));
+    });
+
+    it("applies a ready preview with Ctrl+Enter without leaving the input", async () => {
+      const { adapter, user, input } = setup();
+      await user.type(input, "sort by value{Enter}");
+      const apply = await screen.findByRole("button", { name: "Apply" });
+      expect(apply.getAttribute("aria-keyshortcuts")).toBe("Control+Enter Meta+Enter");
+      await user.type(input, "{Control>}{Enter}{/Control}");
+      await waitFor(() => expect(adapter.getState().state.sorts).toHaveLength(1));
+      expect(document.activeElement).toBe(input);
+    });
+
+    it("ignores Ctrl+Enter when nothing is ready to apply", async () => {
+      const { adapter, user, input } = setup();
+      const before = adapter.getState();
+      await user.type(input, "sort by value{Control>}{Enter}{/Control}");
+      expect(adapter.getState()).toEqual(before);
     });
 
     it("cancels with Escape and changes nothing", async () => {
@@ -5440,7 +5481,15 @@ export interface GridCueBinding extends ControllerState {
   apply: GridCueController["apply"];
   cancel: GridCueController["cancel"];
   undo: GridCueController["undo"];
+  /**
+   * Keyboard behaviour for the request input, shared by every GridCue UI:
+   * Escape cancels, and Ctrl+Enter or Cmd+Enter applies a ready preview without leaving the input.
+   */
+  onInputKeyDown: (event: { key: string; metaKey: boolean; ctrlKey: boolean; preventDefault(): void }) => void;
 }
+
+/** The shortcut that applies a ready preview, for `aria-keyshortcuts` and visible hints. */
+export const APPLY_SHORTCUT = { aria: "Control+Enter Meta+Enter", label: "Ctrl/⌘ Enter" };
 
 /** Subscribes a component to a GridCue controller. No styling and no credentials. */
 export const useGridCue = (controller: GridCueController): GridCueBinding => {
@@ -5452,6 +5501,14 @@ export const useGridCue = (controller: GridCueController): GridCueBinding => {
     apply: controller.apply,
     cancel: controller.cancel,
     undo: controller.undo,
+    onInputKeyDown: (event) => {
+      if (event.key === "Escape") {
+        controller.cancel();
+      } else if (event.key === "Enter" && (event.metaKey || event.ctrlKey) && controller.getState().status === "ready") {
+        event.preventDefault();
+        void controller.apply();
+      }
+    },
   };
 };
 
@@ -5471,9 +5528,9 @@ export const STATUS_LABEL: Record<ControllerState["status"], string> = {
 Create `packages/gridcue/src/react/grid-cue-bar.tsx`:
 
 ```tsx
-import { type FormEvent, type KeyboardEvent, useId, useRef, useState } from "react";
+import { type FormEvent, useId, useRef, useState } from "react";
 import type { GridCueController } from "../index";
-import { STATUS_LABEL, useGridCue } from "./use-grid-cue";
+import { APPLY_SHORTCUT, STATUS_LABEL, useGridCue } from "./use-grid-cue";
 
 export interface GridCueBarProps {
   controller: GridCueController;
@@ -5500,13 +5557,10 @@ export const GridCueBar = ({
     event.preventDefault();
     void cue.propose(text);
   };
-  const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === "Escape") cue.cancel();
-  };
   const edit = () => inputRef.current?.focus();
 
   return (
-    <section className={["gridcue-bar", className].filter(Boolean).join(" ")} aria-label="GridCue">
+    <section className={["gridcue-bar", className].filter(Boolean).join(" ")} aria-label="GridCue" aria-busy={busy}>
       <form className="gridcue-form" onSubmit={submit}>
         <label className="gridcue-label" htmlFor={`${id}-input`}>
           {label}
@@ -5521,7 +5575,7 @@ export const GridCueBar = ({
             autoComplete="off"
             aria-describedby={`${id}-status`}
             onChange={(e) => setText(e.target.value)}
-            onKeyDown={onKeyDown}
+            onKeyDown={cue.onInputKeyDown}
           />
           <button className="gridcue-button" type="submit" disabled={busy || !text.trim()}>
             Preview
@@ -5544,12 +5598,20 @@ export const GridCueBar = ({
           </ul>
           <p className="gridcue-note">No records will be changed.</p>
           <div className="gridcue-actions">
-            <button className="gridcue-button gridcue-primary" type="button" onClick={() => void cue.apply()}>
+            <button
+              className="gridcue-button gridcue-primary"
+              type="button"
+              aria-keyshortcuts={APPLY_SHORTCUT.aria}
+              onClick={() => void cue.apply()}
+            >
               Apply
             </button>
             <button className="gridcue-button" type="button" onClick={cue.cancel}>
               Cancel
             </button>
+            <span className="gridcue-hint" aria-hidden="true">
+              <kbd>{APPLY_SHORTCUT.label}</kbd>
+            </span>
           </div>
         </div>
       )}
@@ -5595,29 +5657,38 @@ Create `packages/gridcue/src/react/index.ts`:
 
 ```ts
 export { GridCueBar, type GridCueBarProps } from "./grid-cue-bar";
-export { type GridCueBinding, STATUS_LABEL, useGridCue } from "./use-grid-cue";
+export { APPLY_SHORTCUT, type GridCueBinding, STATUS_LABEL, useGridCue } from "./use-grid-cue";
 ```
 
 Create `packages/gridcue/src/react/styles.css`:
 
 ```css
-/* GridCue command bar. Override the variables to match your app. */
+/*
+ * GridCue command bar. Override the variables to match your app.
+ * Design notes: shadows give the bar depth and borders stay on inputs (better-ui), the outer radius is the
+ * control radius plus the padding (concentric radius), buttons scale to 0.96 on press, and nothing animates
+ * on keyboard-driven changes such as a preview appearing (emil-design-eng).
+ */
 .gridcue-bar {
   --gridcue-bg: #ffffff;
   --gridcue-fg: #111827;
   --gridcue-muted: #4b5563;
   --gridcue-border: #d1d5db;
+  --gridcue-hover: oklch(0 0 0 / 0.04);
   --gridcue-accent: #2563eb;
+  --gridcue-accent-hover: #1d4ed8;
   --gridcue-accent-fg: #ffffff;
-  --gridcue-radius: 8px;
+  --gridcue-radius: 6px;
+  --gridcue-pad: 12px;
   --gridcue-gap: 8px;
   --gridcue-font: inherit;
+  --gridcue-shadow: 0px 0px 0px 1px oklch(0 0 0 / 0.06), 0px 1px 2px -1px oklch(0 0 0 / 0.06), 0px 2px 4px 0px oklch(0 0 0 / 0.04);
   font-family: var(--gridcue-font);
   color: var(--gridcue-fg);
   background: var(--gridcue-bg);
-  border: 1px solid var(--gridcue-border);
-  border-radius: var(--gridcue-radius);
-  padding: calc(var(--gridcue-gap) * 1.5);
+  box-shadow: var(--gridcue-shadow);
+  border-radius: calc(var(--gridcue-radius) + var(--gridcue-pad));
+  padding: var(--gridcue-pad);
   display: grid;
   gap: var(--gridcue-gap);
 }
@@ -5627,8 +5698,11 @@ Create `packages/gridcue/src/react/styles.css`:
     --gridcue-fg: #f9fafb;
     --gridcue-muted: #d1d5db;
     --gridcue-border: #374151;
+    --gridcue-hover: oklch(1 0 0 / 0.06);
     --gridcue-accent: #60a5fa;
+    --gridcue-accent-hover: #93c5fd;
     --gridcue-accent-fg: #111827;
+    --gridcue-shadow: 0 0 0 1px oklch(1 0 0 / 0.08);
   }
 }
 .gridcue-label {
@@ -5647,7 +5721,7 @@ Create `packages/gridcue/src/react/styles.css`:
   color: inherit;
   background: transparent;
   border: 1px solid var(--gridcue-border);
-  border-radius: calc(var(--gridcue-radius) - 2px);
+  border-radius: var(--gridcue-radius);
   padding: 6px 10px;
 }
 .gridcue-button {
@@ -5655,9 +5729,15 @@ Create `packages/gridcue/src/react/styles.css`:
   color: inherit;
   background: transparent;
   border: 1px solid var(--gridcue-border);
-  border-radius: calc(var(--gridcue-radius) - 2px);
+  border-radius: var(--gridcue-radius);
   padding: 6px 12px;
   cursor: pointer;
+  transition-property: scale, background-color;
+  transition-duration: 150ms;
+  transition-timing-function: ease-out;
+}
+.gridcue-button:active:not(:disabled) {
+  scale: 0.96;
 }
 .gridcue-button:disabled {
   opacity: 0.5;
@@ -5667,6 +5747,19 @@ Create `packages/gridcue/src/react/styles.css`:
   background: var(--gridcue-accent);
   color: var(--gridcue-accent-fg);
   border-color: var(--gridcue-accent);
+}
+@media (hover: hover) and (pointer: fine) {
+  .gridcue-button:hover:not(:disabled) {
+    background-color: var(--gridcue-hover);
+  }
+  .gridcue-primary:hover:not(:disabled) {
+    background-color: var(--gridcue-accent-hover);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gridcue-button:active:not(:disabled) {
+    scale: 1;
+  }
 }
 .gridcue-input:focus-visible,
 .gridcue-button:focus-visible {
@@ -5704,8 +5797,17 @@ Create `packages/gridcue/src/react/styles.css`:
 .gridcue-actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: var(--gridcue-gap);
   margin-top: var(--gridcue-gap);
+}
+.gridcue-hint {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: var(--gridcue-muted);
+}
+.gridcue-hint kbd {
+  font: inherit;
 }
 ```
 
@@ -5749,7 +5851,7 @@ pnpm --filter gridcue typecheck
 pnpm build
 ```
 
-Expected: 5 tests pass, and `dist/react.js` and `dist/styles.css` exist.
+Expected: 7 tests pass, and `dist/react.js` and `dist/styles.css` exist.
 
 - [ ] **Step 5: Format and commit**
 
@@ -5877,6 +5979,10 @@ git commit -m "test(package): enforce entry boundaries and check the published p
 **Interfaces:**
 - Consumes: `gridcue` (`GridCueController`, `Preview`, `Clarification`), `gridcue/react` (`useGridCue`, `STATUS_LABEL`), and `runCommandBarSuite` (Task 15).
 - Produces: `<CommandBar controller label? placeholder? />`, `<PreviewPanel preview onApply onCancel />`, `<ClarificationPrompt clarification onAnswer />`, installed by adopters into `components/gridcue/`. `pnpm registry:build` writes `registry/dist/r/command-bar.json`.
+
+- [ ] **Step 0: Design pass**
+
+Load the `emil-design-eng` and `better-ui` skills before writing the registry components. They must match "UI design pass" above. The shared `PRESS` class in `preview-panel.tsx` adds the press scale to every GridCue button, and the vendored shadcn primitives stay untouched.
 
 - [ ] **Step 1: Create the registry workspace**
 
@@ -6257,8 +6363,12 @@ Create `registry/registry/gridcue/preview-panel.tsx`:
 
 ```tsx
 import type { Preview } from "gridcue";
+import { APPLY_SHORTCUT } from "gridcue/react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+
+/** Tactile press feedback for GridCue buttons (better-ui: scale 0.96 on press). */
+export const PRESS = "active:not-disabled:scale-[0.96] motion-reduce:active:scale-100";
 
 export interface PreviewPanelProps {
   preview: Preview;
@@ -6282,12 +6392,15 @@ export function PreviewPanel({ preview, onApply, onCancel }: PreviewPanelProps) 
         <p className="text-muted-foreground mt-2 text-xs">No records will be changed.</p>
       </CardContent>
       <CardFooter className="gap-2 px-4">
-        <Button size="sm" onClick={onApply}>
+        <Button size="sm" className={PRESS} aria-keyshortcuts={APPLY_SHORTCUT.aria} onClick={onApply}>
           Apply
         </Button>
-        <Button size="sm" variant="outline" onClick={onCancel}>
+        <Button size="sm" variant="outline" className={PRESS} onClick={onCancel}>
           Cancel
         </Button>
+        <span aria-hidden="true" className="text-muted-foreground ml-auto text-xs">
+          <kbd className="font-sans">{APPLY_SHORTCUT.label}</kbd>
+        </span>
       </CardFooter>
     </Card>
   );
@@ -6298,6 +6411,7 @@ Create `registry/registry/gridcue/clarification-prompt.tsx`:
 
 ```tsx
 import type { Clarification } from "gridcue";
+import { PRESS } from "@/components/gridcue/preview-panel";
 import { Button } from "@/components/ui/button";
 
 export interface ClarificationPromptProps {
@@ -6311,7 +6425,7 @@ export function ClarificationPrompt({ clarification, onAnswer }: ClarificationPr
   return (
     <fieldset aria-label={clarification.prompt} className="m-0 flex min-w-0 flex-wrap gap-2 border-0 p-0">
       {clarification.options.map((option) => (
-        <Button key={option.id} size="sm" variant="outline" onClick={() => onAnswer(clarification.id, option.id)}>
+        <Button key={option.id} size="sm" variant="outline" className={PRESS} onClick={() => onAnswer(clarification.id, option.id)}>
           {option.label}
         </Button>
       ))}
@@ -6325,9 +6439,9 @@ Create `registry/registry/gridcue/command-bar.tsx`:
 ```tsx
 import type { GridCueController } from "gridcue";
 import { STATUS_LABEL, useGridCue } from "gridcue/react";
-import { type FormEvent, type KeyboardEvent, useId, useRef, useState } from "react";
+import { type FormEvent, useId, useRef, useState } from "react";
 import { ClarificationPrompt } from "@/components/gridcue/clarification-prompt";
-import { PreviewPanel } from "@/components/gridcue/preview-panel";
+import { PRESS, PreviewPanel } from "@/components/gridcue/preview-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6355,12 +6469,9 @@ export function CommandBar({
     event.preventDefault();
     void cue.propose(text);
   };
-  const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === "Escape") cue.cancel();
-  };
 
   return (
-    <section aria-label="GridCue" className="grid gap-3">
+    <section aria-label="GridCue" aria-busy={busy} className="grid gap-3">
       <form onSubmit={submit} className="grid gap-1.5">
         <label htmlFor={`${id}-input`} className="text-sm font-medium">
           {label}
@@ -6374,9 +6485,9 @@ export function CommandBar({
             autoComplete="off"
             aria-describedby={`${id}-status`}
             onChange={(e) => setText(e.target.value)}
-            onKeyDown={onKeyDown}
+            onKeyDown={cue.onInputKeyDown}
           />
-          <Button type="submit" disabled={busy || !text.trim()}>
+          <Button type="submit" disabled={busy || !text.trim()} className={PRESS}>
             Preview
           </Button>
         </div>
@@ -6398,7 +6509,7 @@ export function CommandBar({
 
       <div className="flex gap-2">
         {(cue.status === "unsupported" || cue.status === "error" || cue.status === "needs_clarification") && (
-          <Button size="sm" variant="outline" onClick={() => inputRef.current?.focus()}>
+          <Button size="sm" variant="outline" className={PRESS} onClick={() => inputRef.current?.focus()}>
             Edit request
           </Button>
         )}
@@ -6459,7 +6570,7 @@ pnpm --filter @gridcue-internal/registry typecheck
 pnpm registry:build
 ```
 
-Expected: the same 5 command-bar tests pass against the registry `CommandBar`. The registry build prints `Building registry.` and writes `registry/dist/r/command-bar.json` with three files.
+Expected: the same 7 command-bar tests pass against the registry `CommandBar`. The registry build prints `Building registry.` and writes `registry/dist/r/command-bar.json` with three files.
 
 - [ ] **Step 6: Format and commit**
 
@@ -6625,6 +6736,9 @@ Create `examples/vite/src/index.css`:
 
 ```css
 @import "tailwindcss";
+/* The registry components live outside this app in the monorepo, so Tailwind must scan them too.
+   Apps that copy them in with the shadcn CLI need nothing here. */
+@source "../../../registry/registry/gridcue";
 
 :root {
   --radius: 0.625rem;
@@ -6798,7 +6912,7 @@ export function App() {
   const rows = table.getRowModel().rows;
 
   return (
-    <main className="mx-auto grid max-w-6xl gap-4 p-6">
+    <main className="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)] gap-4 p-6">
       <header className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Accounts</h1>
         <label className="flex items-center gap-2 text-sm">
@@ -6982,6 +7096,8 @@ Expected: no type errors, and Vite writes `examples/vite/dist/index.html` plus o
 
 - [ ] **Step 3: Smoke-test in a browser**
 
+Load `better-ui` for its verification method: walk each state, and replay any motion at 10% speed.
+
 ```bash
 pnpm dev:vite
 ```
@@ -6993,6 +7109,8 @@ Open http://localhost:5173 and check:
 3. Apply. The status reads `Applied View updated.` and the row count drops. The verified run showed `89 rows`.
 4. Undo. It shows `500 rows` again.
 5. Type "Show restricted holdings, then place the trades" and press Enter. It shows `Can't do that` and the explanation, with no Apply button.
+6. Type "Only taxable accounts over $1 million, sort market value largest first", press Enter, then Ctrl+Enter or Cmd+Enter. It applies without leaving the input. The verified run showed `57 rows`.
+7. At a 900px-wide window, the Preview button stays on screen, and the preview list shows bullets.
 
 Stop the dev server by its own process.
 
@@ -7121,7 +7239,12 @@ main {
   margin: 0 auto;
   padding: 24px;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 16px;
+}
+.table-scroll {
+  overflow-x: auto;
+  min-width: 0;
 }
 table {
   border-collapse: collapse;
@@ -7198,30 +7321,32 @@ export function AccountsView() {
       <h1>Accounts</h1>
       <GridCueBar controller={cue} />
       <p>{view.rows.length} rows</p>
-      <table>
-        <thead>
-          <tr>
-            {view.columns.map((id) => (
-              <th key={id}>{label(id)}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {view.groups
-            ? view.groups.map((group) => [
-                <tr key={JSON.stringify(group.key)} className="group-row">
-                  <td colSpan={view.columns.length}>
-                    {Object.entries(group.key)
-                      .map(([id, v]) => `${label(id)}: ${format(id, v)}`)
-                      .join(" · ")}{" "}
-                    ({group.rows.length})
-                  </td>
-                </tr>,
-                ...body(group.rows),
-              ])
-            : body(view.rows)}
-        </tbody>
-      </table>
+      <div className="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              {view.columns.map((id) => (
+                <th key={id}>{label(id)}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {view.groups
+              ? view.groups.map((group) => [
+                  <tr key={JSON.stringify(group.key)} className="group-row">
+                    <td colSpan={view.columns.length}>
+                      {Object.entries(group.key)
+                        .map(([id, v]) => `${label(id)}: ${format(id, v)}`)
+                        .join(" · ")}{" "}
+                      ({group.rows.length})
+                    </td>
+                  </tr>,
+                  ...body(group.rows),
+                ])
+              : body(view.rows)}
+          </tbody>
+        </table>
+      </div>
     </main>
   );
 }
@@ -7268,7 +7393,8 @@ Open http://localhost:3100 and check:
 
 1. Type "Group by advisor and sort market value largest first" and apply. It shows grey group rows, five in the verified run.
 2. Type "Show accounts over $1 million" and apply. The row count drops. The verified run showed `285 rows`.
-3. Type "Sort by risk score" and press Enter. It shows `Needs your input There's no column called “risk score”. Which column should be sorted by?` with one button per column.
+3. Switch the OS to dark mode. The bar uses its dark palette, with a single white ring instead of a shadow.
+4. Type "Sort by risk score" and press Enter. It shows `Needs your input There's no column called “risk score”. Which column should be sorted by?` with one button per column.
 
 Stop the dev server by its own process.
 
@@ -7488,7 +7614,7 @@ pnpm install --frozen-lockfile
 pnpm check
 ```
 
-Expected: exit 0. The summary shows 154 tests passing and 1 skipped, evals with 0 `mismatch` and 0 `unsafe`, `All good!` from publint, `gridcue/server refuses to load in browsers.`, and `Browser bundles clean`.
+Expected: exit 0. The summary shows 158 tests passing and 1 skipped, evals with 0 `mismatch` and 0 `unsafe`, `All good!` from publint, `gridcue/server refuses to load in browsers.`, and `Browser bundles clean`.
 
 - [ ] **Step 4: Commit**
 
