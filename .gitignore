@@ -9,3 +9,5 @@ coverage/
 !.env.example
 .DS_Store
 *.log
+.next/
+next-env.d.ts

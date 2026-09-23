@@ -1,0 +1,13 @@
+packages:
+  - packages/*
+  - fixtures/*
+  - evals
+  - registry
+  - examples/*
+
+# pnpm runs no dependency install scripts unless listed here.
+allowBuilds:
+  esbuild: true
+
+# Refuse packages published less than a day ago, a basic supply-chain guard.
+minimumReleaseAge: 1440
