@@ -1,5 +1,5 @@
 ---
-status: license part superseded by ADR 0005
+status: license part superseded by ADR 0005, npm scope superseded by ADR 0007
 ---
 
 # Name GridCue, license Apache-2.0, npm scope @gridcue

@@ -22,10 +22,10 @@ The semantic provider is deliberately boxed in. It may help choose from declared
 
 | Area | Responsibility | Must not know about |
 | --- | --- | --- |
-| `packages/core` | Protocol, normalization, compilation, validation, diff, summary, audit redaction | React, DOM, TanStack, Jev transport |
-| `packages/provider-jev` | Convert bounded resolution questions to Jev requests and normalize decisions | Grid internals, UI state mutation |
-| `packages/react` | Command input, preview, clarification, apply/cancel/undo controls | Provider credentials, table-library internals |
-| `packages/tanstack-table` | Translate canonical state/operations to TanStack Table | Natural-language classification |
+| `gridcue` root entry | Protocol, normalization, compilation, validation, diff, summary, audit redaction | React, DOM, grid libraries, Jev transport |
+| `gridcue` server entry | Server Handler; convert bounded resolution questions to Jev requests and normalize decisions | Grid internals, UI state mutation |
+| `gridcue` React entry | Command input, preview, clarification, apply/cancel/undo controls | Provider credentials, table-library internals |
+| Grid adapters | Translate canonical state/operations to one grid library | Natural-language classification |
 | `apps/demo` | Reference assembly and synthetic examples | Production secrets or real client data |
 
 ## End-to-end pipeline

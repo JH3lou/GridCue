@@ -1,6 +1,6 @@
 # Styled UI ships as a shadcn registry, not a styled npm package
 
-GridCue's command bar, preview panel, and clarification UI ship in two layers. Headless React hooks and controllers are published on npm as `@gridcue/react`. The shadcn/ui-styled components are published as a shadcn registry that developers install with `npx shadcn add`, so they own and restyle the copied code. We chose this over one pre-styled npm package because GridCue targets shadcn and Tailwind users, and a copied component can't clash with a host's design system.
+GridCue's command bar, preview panel, and clarification UI ship in two layers. Headless React hooks and controllers are published in the `gridcue` npm package, under its React entry point (ADR 0007). The shadcn/ui-styled components are published as a shadcn registry that developers install with `npx shadcn add`, so they own and restyle the copied code. We chose this over one pre-styled npm package because GridCue targets shadcn and Tailwind users, and a copied component can't clash with a host's design system.
 
 ## Consequences
 

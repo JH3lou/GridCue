@@ -19,13 +19,12 @@ body:
     attributes:
       label: Area
       options:
-        - packages/core
-        - packages/react
-        - packages/tanstack-table
-        - packages/provider-jev
+        - gridcue (core)
+        - gridcue React entry
+        - gridcue server entry or Jev provider
         - Component Registry
         - Site or docs
-        - Examples (Vite, Next.js, TanStack)
+        - Examples (Vite, Next.js)
         - Not sure
     validations:
       required: true

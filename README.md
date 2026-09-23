@@ -63,14 +63,13 @@ Jev is the first semantic decision provider. It is a good fit because it maps un
 - **Uncertainty is a feature.** Low confidence produces clarification or no-op behavior.
 - **Enterprise-safe integration.** The host retains authorization, credentials, data access, and audit policy.
 
-## Proposed packages
+## Proposed distribution
 
 | Package | Purpose |
 | --- | --- |
-| `@gridcue/core` | Protocol, compiler, validation, policy, diff, audit, provider/adapter interfaces |
-| `@gridcue/provider-jev` | Jev-backed bounded intent resolution |
-| `@gridcue/react` | Headless hooks and controller bindings for React |
-| `@gridcue/tanstack-table` | First grid adapter |
+| `gridcue` | The one npm package. Its root entry holds the protocol, compiler, validation, policy, diff, audit, and provider and adapter interfaces |
+| `gridcue` React entry | Headless hooks and controller bindings for React |
+| `gridcue` server entry | The Server Handler and the Jev provider, never reachable from a browser bundle |
 | Component Registry | shadcn/ui command bar, preview, and clarification components, installed with the shadcn CLI |
 
 The demo will use synthetic wealth-management data and a deterministic mock provider, so contributors need no external account or API key.

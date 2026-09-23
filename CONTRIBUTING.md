@@ -19,7 +19,7 @@ GridCue is early. The protocol and package boundaries are still settling, so we 
 
 - Large PRs that mix several changes.
 - Anything that lets GridCue change data rather than views. That boundary is deliberate; see `AGENTS.md`.
-- New runtime dependencies in `packages/core`.
+- New runtime dependencies in the package's root entry.
 - Features from the roadmap that nobody asked to build yet.
 
 ## Opening a PR

@@ -260,15 +260,74 @@ These branches were open before Round 1. Round 2 below replaces this list.
 
 ➡️ (a), unless you want a legal entity named. It stays valid as contributors join.
 
-## Round 3 answers so far (owner, 2026-09-23)
+## Round 3 answers (owner, 2026-09-23)
 
 | Q | Answer | Recorded as |
 | --- | --- | --- |
-| Q16 Domain | "Sorry, I bought gridcue.dev" | Settled. The name, npm scope, and domain all match. ADR 0006 names the domain. |
+| Q16 Domain | "I bought gridcue.dev" | Settled. The name, npm package, and domain all match. ADR 0006 names the domain. |
+| Q17 TanStack | "Drop TanStack from scope" | TanStack Start and TanStack Table are both out of the first release. That removes the first grid adapter, see Q24. |
+| Q18 Next.js | "It should be one npm package that works with Next or Vite" | ADR 0007: one `gridcue` package with subpath exports, replacing the four `@gridcue/*` packages. |
+| Q21 Committing plans | "Commit is allowed" | Specs and plans are committed to `docs/superpowers/`. AGENTS.md updated. |
+| Q19, Q20, Q22, Q23 | Not answered yet | Carried into Round 4. |
 
-Q17 to Q23 are still open.
-
-## Waiting on Round 3
+## Superseded: waiting on Round 3
 
 - **First spec's acceptance criteria.** These depend on Q17 to Q20. Once Round 3 is answered, I write the first spec in `docs/superpowers/specs/` for your review.
 - **Site page map.** Hero, how it works, live Mock Provider demo, docs sections, and download. This depends on Q19.
+
+## Round 4
+
+❓ **Q24 - Which grid does GridCue drive without TanStack Table?** GridCue changes a grid's view, so the first release needs at least one grid to control.
+(a) GridCue's own built-in adapter. The Host keeps rows in memory, GridCue applies the View State to them, and any table renders the result, including shadcn's plain Table. A Host with server-side data can instead turn the View State into its own query.
+(b) AG Grid as the first external grid.
+(c) Keep TanStack Table, but only inside the Site demo, not in the package.
+
+➡️ (a). It adds no third-party grid dependency, suits a single package, and works the same in Vite and Next.js. The adapter interface stays, so AG Grid or TanStack Table can arrive later as new subpaths. If you meant to drop only TanStack Start, say so and we keep TanStack Table as the first adapter.
+
+---
+
+❓ **Q25 - The package's entry points.**
+- `gridcue`: the framework-free core.
+- `gridcue/react`: headless hooks. React is an optional peer dependency.
+- `gridcue/server`: the Server Handler and the Jev provider. The Jev SDK is an optional peer dependency, so it only installs for people who use Jev.
+- `gridcue/mock`: the Mock Provider, safe in a browser.
+
+➡️ Use this layout. Each entry maps to one of AGENTS.md's boundaries, and the server entry is the only one that can ever hold a key.
+
+---
+
+❓ **Q26 - Shape of the first release.** This repeats Q19, updated for one package.
+(a) One launch built from two specs and plans. The first covers the package plus the Vite and Next.js examples. The second covers the Site: marketing, demo, docs, and the hosted registry. Nothing is published until both are done.
+(b) One combined spec and plan.
+(c) Publish the package as soon as it's done, and launch the Site later.
+
+➡️ (a).
+
+---
+
+❓ **Q27 - Where the internal demo with your Jev key runs.** This repeats Q20.
+(a) Locally only, with the key in a git-ignored `.env` file.
+(b) Also at `internal.gridcue.dev` behind Cloudflare Access login, with the key stored as a Worker secret.
+
+➡️ (a) during the package build, then (b) with the Site.
+
+---
+
+❓ **Q28 - Contribution posture.** This repeats Q22.
+(a) Open but scoped, as the current `CONTRIBUTING.md` says.
+(b) T3's closed stance for now.
+
+➡️ (a).
+
+---
+
+❓ **Q29 - Copyright line.** This repeats Q23.
+(a) Keep "The GridCue Authors".
+(b) Use your name or a company name.
+
+➡️ (a).
+
+## Waiting on Round 4
+
+- **The first spec**, for the package and its examples, is written once Q24 to Q27 are answered. That is the next step after this round.
+- **Site page map** depends on Q26.

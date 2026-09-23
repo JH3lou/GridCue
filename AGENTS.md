@@ -33,7 +33,7 @@ Raw row data is not sent to an Intent Provider by default. Provider input is lim
 
 ### 5. Works where developers already are
 
-The core has no framework, bundler, grid, or provider imports. The first release must work in Vite, Next.js, and TanStack apps. A feature that only works in the Site demo is not done.
+GridCue is one npm package, `gridcue` (ADR 0007). Its root entry has no framework, bundler, grid, or provider imports. The first release must work in both Vite and Next.js apps. A feature that only works in the Site demo is not done.
 
 ## A small glossary
 
@@ -47,9 +47,9 @@ Project vocabulary lives in `CONTEXT.md`. Use its terms and avoid the words it l
 
 The most likely defect is a change that works where you tested it and nowhere else. Before calling work done, say which of these applied:
 
-- **Packages.** Core, React bindings, the TanStack Table adapter, the Jev provider, and the Mock Provider. A protocol change reaches all of them.
+- **Entry points.** The package's root, React, and server entries, plus the Jev provider and the Mock Provider. A protocol change reaches all of them.
 - **Component Registry.** Styled components are copied into apps by the shadcn CLI, so behaviour belongs in hooks and look belongs in components. See ADR 0001.
-- **Frameworks.** The Vite, Next.js, and TanStack examples. Server-only code must never be importable from a client bundle.
+- **Frameworks.** The Vite and Next.js examples. Server-only code must never be reachable from a client bundle.
 - **The Site.** The marketing page, live demo, and developer docs. Update the docs page for any public API you change.
 - **Failure paths.** Every new way in needs its way out: cancel, undo, clarification, and the unsupported result.
 
@@ -81,20 +81,17 @@ The most likely defect is a change that works where you tested it and nowhere el
 
 ## Plans and work artifacts
 
-- Approved specs and plans live in `docs/superpowers/` until the first release ships, as the owner's approval record. After that, track work in GitHub issues and delete finished plans.
+- Approved specs and plans are committed to `docs/superpowers/` as the owner's approval record.
 - Keep scratch notes, research dumps, and temporary files outside the repository.
 
 ## Where code will live
 
 This is the planned layout. It becomes true as the approved plan is built.
 
-- `packages/core`: protocol, schemas, compiler, validation, policy, diff, preview text, audit redaction, and the provider and adapter interfaces.
-- `packages/react`: headless hooks and controller bindings.
-- `packages/tanstack-table`: the TanStack Table adapter.
-- `packages/provider-jev`: the Jev provider and its Server Handler entry point.
+- `packages/gridcue`: the one published package. Its root entry holds the protocol, schemas, compiler, validation, policy, diff, preview text, audit redaction, and the provider and adapter interfaces. Separate subpath entries hold the React bindings and the server-only code: the Server Handler and the Jev provider. The exact subpaths are open in the planning log.
 - `registry/`: source for the shadcn Component Registry.
 - `apps/site`: the Vite Site with marketing, demo, and docs. See ADR 0002.
-- `examples/`: minimal Vite, Next.js, and TanStack integrations.
+- `examples/`: minimal Vite and Next.js integrations.
 - `evals/`: synthetic eval cases.
 
 ## Code standards
