@@ -115,3 +115,5 @@ Build the smallest thing that makes the correct behaviour unsurprising. No specu
 ## Skills
 
 Project skills live in `.agents/skills/`, and `.claude/skills` links to the same folder. Planning uses the superpowers and Matt Pocock skill plugins, which `.claude/settings.json` enables for Claude Code. See `.agents/skills/gridcue-planning/SKILL.md` for how they fit together here.
+
+For anything touching Jev or other TypeSafe models, use the `typesafe-ai` skill from the TypeSafe plugin, also enabled in `.claude/settings.json`. Other agents can run `npx skills add typesafe-ai/skills --skill typesafe-ai`. The skill treats the live docs at docs.typesafe.ai as the source of truth. The Claude Code cloud environment blocks that host unless the owner allows it, so say so when you work from the installed SDK's types instead.

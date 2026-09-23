@@ -48,6 +48,7 @@ These refine the spec without changing its intent. Task 2 records them in ADR 00
 - Biome formats with 2-space indentation, double quotes, semicolons, and a 140-column line width.
 - Commit titles use conventional commits, such as `feat(core): add the view reducer`.
 - User-facing strings are exactly as written in the code blocks. Tests assert several of them.
+- Jev work follows the `typesafe-ai` skill, and API keys stay server-side.
 
 ## Review Focus
 
@@ -4234,7 +4235,11 @@ git commit -m "feat(server): add the Fetch-standard Server Handler, Node helper,
 - Consumes: `@typesafe-ai/sdk` (`TypeSafeClient`, `choice`, `noul`); `IntentProvider`, `ResolutionRequest`, `ClauseResolution`, `Pick`, `GridCueError`.
 - Produces: `createJevProvider({ apiKey?, model?, client?, maxQuestions? }): IntentProvider`; `interface JevClient { systemOne(request, options?) }` for injecting a fake in tests. Error codes: `PROVIDER_FAILED`, `PROVIDER_MALFORMED`, `PROVIDER_TOO_COMPLEX`.
 
-Jev question names are `c{clause}_f{familyIndex}` (yes/no), `c{clause}_col{columnIndex}` (yes/no), `c{clause}_val{columnIndex}` (enum choice), `c{clause}_bool{columnIndex}` (boolean choice), and `c{clause}_dir` (sort direction choice). Only exposed columns are asked about.
+Before starting, load the `typesafe-ai` skill (the TypeSafe plugin in `.claude/settings.json`). Read the live JavaScript SDK, Choice, Noul, State, and Confidence pages at docs.typesafe.ai if the network allows it. If they are blocked, work from the installed `@typesafe-ai/sdk` types and say so in the handoff.
+
+The provider follows the skill's guidance. All questions go in one parallel request. Each question is one narrow judgment: a yes/no Noul for every family and column that may apply, and a Choice with an explicit `none` for enum values, booleans, and sort direction. The clauses and columns are named state fields, and every question points at them by path, such as `` `clauses[0].text` `` and `` `columns[3]` ``, because question IDs are never sent to the model. Question IDs are `c{clause}_f{familyIndex}`, `c{clause}_col{columnIndex}`, `c{clause}_val{columnIndex}`, `c{clause}_bool{columnIndex}`, and `c{clause}_dir`. Only exposed columns are asked about.
+
+`maxQuestions` (default 96) is GridCue's own budget per request, not an API limit, and the SDK documents none. The SDK retries twice with a 10-second timeout per attempt, so a stalled call can take about 30 seconds. The user can cancel at any time. Measure real question counts, cost, and latency with `pnpm eval:live` before changing the budget or thresholds.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -4280,6 +4285,8 @@ describe("createJevProvider", () => {
       values: [{ columnId: "status", valueId: "open", confidence: 0.97 }],
     });
     expect(JSON.stringify(seen)).not.toContain("tax_id");
+    expect(seen.state).toMatchObject({ clauses: [{ text: "open accounts over $1m" }] });
+    expect(JSON.stringify(seen.questions?.c0_col0)).toContain("`clauses[0].text`");
   });
 
   it("treats unknown choices as malformed", async () => {
@@ -4335,7 +4342,7 @@ export interface JevProviderOptions {
   apiKey?: string;
   model?: string;
   client?: JevClient;
-  /** Refuse requests that would need more questions than this. Default 96. */
+  /** GridCue's own per-request question budget, not an API limit. Default 96. Measure cost and latency with `pnpm eval:live`. */
   maxQuestions?: number;
 }
 
@@ -4366,38 +4373,45 @@ export const createJevProvider = (options: JevProviderOptions): IntentProvider =
     async resolve(request: ResolutionRequest, signal?: AbortSignal) {
       const { columns, families } = request.candidates;
       const questions: Record<string, unknown> = {};
-      for (const clause of request.clauses) {
+      // Questions point at named state by path, so each carries its full meaning (question IDs are never sent).
+      request.clauses.forEach((clause, p) => {
         const q = `c${clause.index}`;
-        const about = `Clause ${clause.index}: “${clause.text}”.`;
+        const about = `The request step \`clauses[${p}].text\``;
         families.forEach((f, i) => {
-          questions[`${q}_f${i}`] = noul(`${about} Does this clause ask to ${FAMILY_TEXT[f] ?? f}?`);
+          questions[`${q}_f${i}`] = noul(`Does ${about} ask to ${FAMILY_TEXT[f] ?? f}?`);
         });
         columns.forEach((c, i) => {
           questions[`${q}_col${i}`] = noul(
-            `${about} Does it refer to the column “${c.label}”${c.aliases?.length ? ` (also called ${c.aliases.join(", ")})` : ""}?`,
+            `Does ${about} refer to the grid column \`columns[${i}]\` (“${c.label}”), by its label or an alias?`,
           );
           if (c.enumValues?.length) {
-            questions[`${q}_val${i}`] = choice(`${about} Which ${c.label} value does it mention, if any?`, {
-              none: "No value of this column is mentioned",
-              ...Object.fromEntries(c.enumValues.map((v) => [v.id, v.label])),
-            });
+            questions[`${q}_val${i}`] = choice(
+              `Which value of the column \`columns[${i}]\` (“${c.label}”) does ${about} mention, if any?`,
+              {
+                none: "No value of this column is mentioned",
+                ...Object.fromEntries(c.enumValues.map((v) => [v.id, v.label])),
+              },
+            );
           }
           if (c.kind === "boolean") {
-            questions[`${q}_bool${i}`] = choice(`${about} Does it want rows where ${c.label} is true or false?`, {
-              none: "Neither",
-              true: "Yes / true",
-              false: "No / false",
-            });
+            questions[`${q}_bool${i}`] = choice(
+              `Does ${about} want rows where the column \`columns[${i}]\` (“${c.label}”) is true or false?`,
+              {
+                none: "Neither",
+                true: "Yes / true",
+                false: "No / false",
+              },
+            );
           }
         });
         if (!clause.direction) {
-          questions[`${q}_dir`] = choice(`${about} If it sorts, which direction?`, {
+          questions[`${q}_dir`] = choice(`If ${about} sorts rows, which direction does it ask for?`, {
             none: "No direction given",
             asc: "Smallest, earliest, or A first",
             desc: "Largest, latest, or Z first",
           });
         }
-      }
+      });
       if (Object.keys(questions).length > maxQuestions) {
         throw new GridCueError("PROVIDER_TOO_COMPLEX", "That request is too complex. Try a shorter one.");
       }
@@ -4408,7 +4422,8 @@ export const createJevProvider = (options: JevProviderOptions): IntentProvider =
             ...(options.model ? { model: options.model } : {}),
             state: {
               request: request.utterance,
-              columns: columns.map(({ id, label, kind, description }) => ({ id, label, kind, description })),
+              clauses: request.clauses.map((c) => ({ text: c.text })),
+              columns: columns.map(({ id, label, kind, aliases, description }) => ({ id, label, kind, aliases, description })),
             },
             questions,
           },
