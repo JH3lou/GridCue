@@ -346,3 +346,43 @@ These branches were open before Round 1. Round 2 below replaces this list.
 ## Status
 
 The frontier for the first spec is empty. The spec is written at `docs/superpowers/specs/2026-09-23-gridcue-package-design.md` and waits for the owner's review. The Site's page map and content are grilled after the first plan is approved, as the second spec.
+
+## Owner direction (2026-09-23)
+
+> "The idea is something people can add to their existing app or site."
+
+Recorded in the spec's purpose as a design test: GridCue is added to an existing app, not built around. Checked against the draft spec, three gaps remain. They are Q30 to Q33.
+
+## Round 5
+
+❓ **Q30 - How far "existing app or site" reaches in the first release.**
+(a) Existing React apps on Vite or Next.js, which is the current spec.
+(b) Also any website, through a script tag that adds a command bar to an ordinary HTML `<table>`, with no React or build step.
+(c) Also Vue and Svelte apps.
+
+➡️ (a) for the first release, with (b) named as the next step. The grids worth steering by language hold thousands of rows inside apps, and those are mostly React. A script-tag version needs its own styling and table adapter, which roughly doubles the UI work. The core already has no framework ties, so (b) can be added later without redesign.
+
+---
+
+❓ **Q31 - Setup effort.** The draft spec makes the developer hand-write a `ViewSchema` for every column. That is the biggest barrier to adding GridCue to an existing app.
+(a) Infer it. GridCue reads the existing TanStack column definitions, or the Rows Adapter's column list, and builds the schema automatically. The developer only adds aliases and marks sensitive columns.
+(b) Keep writing it by hand, with good docs.
+
+➡️ (a). Target a quick start of about ten lines. The safety defaults stay intact: only column labels and types are ever sent to the provider, never values. Enum values are sent only when the developer lists them, and a column marked restricted is never sent. A helper that lists what will be sent lets the developer check before shipping.
+
+---
+
+❓ **Q32 - Apps that don't use shadcn or Tailwind.** The styled components ship only through the shadcn registry (ADR 0001).
+(a) Keep that. Other apps build their own small UI on the headless hooks, and the docs include a recipe.
+(b) Also ship a plain-CSS `<GridCueBar />` inside the package that works in any React app with no Tailwind. This changes ADR 0001.
+(c) shadcn only, with no guidance for other apps.
+
+➡️ (b). A drop-in component that works on first render is what "add to an existing app" means for most people. shadcn users still get the registry version they can restyle. The plain version uses CSS variables, so it can pick up a Host's colours.
+
+---
+
+❓ **Q33 - Where the Server Handler runs in an existing app.** Next.js has route handlers, but a plain Vite app has no server in production. Many existing apps use Express or another Node backend.
+(a) Ship a tiny `toNodeHandler()` in `gridcue/server` so the handler mounts in Express, Fastify, or plain Node in one line. Add docs recipes for Hono and Cloudflare Workers.
+(b) Fetch-standard only, with recipes in the docs.
+
+➡️ (a). It is a few lines of code, and it removes the most common "where do I put this?" question. Apps that only use the Mock Provider need no server at all.

@@ -8,6 +8,8 @@
 
 A developer adds one package to a Vite or Next.js app that already shows a data grid. Their users can then type or dictate a request such as "only taxable accounts over $1 million, grouped by advisor, biggest first". GridCue shows exactly what will change, applies it on approval, and can undo it. GridCue never changes data, only the view.
 
+**GridCue is added to an existing app, not built around.** The Host keeps its data layer, its grid, its state management, and its styling. Adding GridCue should mean installing one package, pointing it at the grid that is already there, and placing a command bar. Every design choice below is checked against that.
+
 Success for this spec: a fresh clone runs `pnpm install && pnpm check` with no credentials. Both examples then run with the Mock Provider, and also with the owner's Jev key when one is set in `.env`.
 
 The product rules in `AGENTS.md` and `docs/internals/product.md` apply unchanged. The intent protocol in `docs/internals/intent-protocol.md` is normative for every public type named here.
@@ -152,6 +154,7 @@ A shared **adapter contract suite** ships in the repo, not in the package. Every
 ### 5.10 TanStack Table adapter (`gridcue/tanstack-table`)
 
 - `createTanStackAdapter({ schema, table })` maps `ViewState` to and from TanStack Table v9's controlled state. That covers column filters, sorting, grouping, column visibility, and column order.
+- It must work whether the Host's table keeps its own internal state or the Host controls that state. GridCue reads and writes through the table instance, so the Host doesn't restructure its state to adopt GridCue.
 - It applies every slice in one state update, so apply is atomic.
 - It registers a GridCue filter function so that predicates behave the same as in the Rows Adapter.
 - The v9 state API names must be verified against the installed version before implementing. Do not assume v8 names.
