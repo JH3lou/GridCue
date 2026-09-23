@@ -48,6 +48,7 @@ These refine the spec without changing its intent. Task 2 records them in ADR 00
 - Every fixture, eval, and example row is synthetic.
 - Biome formats with 2-space indentation, double quotes, semicolons, and a 140-column line width.
 - Commit titles use conventional commits, such as `feat(core): add the view reducer`.
+- `pnpm lint` runs Biome, then Oxlint with the `@shadcn/lint` plugin. The owner set this up during execution (see `.oxlintrc.json`). Do not enable shadcn rules; the owner chooses them.
 - User-facing strings are exactly as written in the code blocks. Tests assert several of them.
 - Jev work follows the `typesafe-ai` skill, and API keys stay server-side.
 - Before designing or implementing any UI, load the `emil-design-eng` and `better-ui` skills and apply `principle-experience-first`, all vendored in `.agents/skills/`. Their values are exact: press scale `0.96`, interaction transitions at `150ms` or less, and no animation on keyboard-driven changes.
@@ -7468,7 +7469,7 @@ The final root `package.json` must match this:
     "build": "pnpm --filter gridcue build",
     "dev:vite": "pnpm build && pnpm --filter @gridcue-internal/example-vite dev",
     "dev:next": "pnpm build && pnpm --filter @gridcue-internal/example-next dev",
-    "lint": "biome check .",
+    "lint": "biome check . && oxlint",
     "format": "biome check --write .",
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "vitest run",
@@ -7482,6 +7483,8 @@ The final root `package.json` must match this:
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.14",
+    "@shadcn/lint": "0.2.0",
+    "oxlint": "1.85.0",
     "tsx": "4.23.15",
     "typescript": "7.0.2",
     "vitest": "5.0.1"
@@ -7573,6 +7576,7 @@ pnpm install
 | Command | What it does |
 | --- | --- |
 | `pnpm check` | The merge gate: lint, build, typecheck, tests, evals, registry build, package checks, bundle leak check |
+| `pnpm lint` | Biome, then Oxlint with `@shadcn/lint` on `registry/` and `examples/vite/`. No shadcn rules are enabled yet; the owner adds them in `.oxlintrc.json` |
 | `pnpm test` | Unit, contract, UI, registry, and eval tests. The live Jev test skips without a key |
 | `pnpm eval` | Runs `evals/cases.jsonl` against the Mock Provider and prints the verdict table |
 | `pnpm eval:live`, `pnpm test:live` | The same against real Jev. Requires `JEV_API_KEY` |

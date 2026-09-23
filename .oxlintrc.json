@@ -1,0 +1,14 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "categories": {
+    "correctness": "off"
+  },
+  "rules": {},
+  "overrides": [
+    {
+      "files": ["registry/**", "examples/vite/**"],
+      "jsPlugins": ["@shadcn/lint"],
+      "rules": {}
+    }
+  ]
+}
