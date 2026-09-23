@@ -90,7 +90,7 @@ The adapter receives a validated plan tied to a base revision. It either commits
 
 ## Key interfaces
 
-Names are illustrative; `docs/INTENT_PROTOCOL.md` is normative for public shapes.
+Names are illustrative; `docs/internals/intent-protocol.md` is normative for public shapes.
 
 ```ts
 interface IntentProvider {

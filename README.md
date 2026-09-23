@@ -69,22 +69,15 @@ Jev is the first semantic decision provider. It is a good fit because it maps un
 | --- | --- |
 | `@gridcue/core` | Protocol, compiler, validation, policy, diff, audit, provider/adapter interfaces |
 | `@gridcue/provider-jev` | Jev-backed bounded intent resolution |
-| `@gridcue/react` | Optional command bar, preview, clarification, and undo UI |
+| `@gridcue/react` | Headless hooks and controller bindings for React |
 | `@gridcue/tanstack-table` | First grid adapter |
+| Component Registry | shadcn/ui command bar, preview, and clarification components, installed with the shadcn CLI |
 
 The demo will use synthetic wealth-management data and a deterministic mock provider, so contributors need no external account or API key.
 
-## Repository bootstrap
+## Repository status
 
-This packet describes the repository before the initial build. A build agent should begin with:
-
-1. `AGENTS.md`
-2. `BUILD_AGENT.md`
-3. `docs/PRODUCT.md`
-4. `docs/ARCHITECTURE.md`
-5. `docs/INTENT_PROTOCOL.md`
-
-The initial build should stop at the tested vertical slice in `BUILD_AGENT.md`; the roadmap is not permission to build speculative features.
+The build plan is being settled and nothing is scaffolded yet. Read [AGENTS.md](AGENTS.md) first, then [docs/README.md](docs/README.md) for the design documents, decisions, and open planning questions.
 
 ## Independence
 
@@ -98,4 +91,4 @@ GridCue is an independent project concept. It is not made, sponsored, or endorse
 
 ## License
 
-Apache-2.0 is the proposed license because the project is intended for broad commercial integration and an explicit patent grant is useful. The owner should confirm this before the first public release.
+[MIT](LICENSE).

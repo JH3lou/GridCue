@@ -1,4 +1,6 @@
-# Initial build work order
+# Initial build work order (original proposal)
+
+> **Historical.** This is the bootstrap agent's original work order, kept for reference. It is not an approved plan. Where it conflicts with `docs/planning/build-plan-grill.md` or the ADRs in `docs/adr/`, those win. Its design documents now live in `docs/internals/`.
 
 ## Mission
 

@@ -156,7 +156,7 @@ type ViewOperation =
   | { type: "view.reset" };
 ```
 
-The first implementation supports the subset listed in `BUILD_AGENT.md`. A declared-but-unimplemented operation returns `unsupported`; it is not silently dropped.
+The first implementation supports the MVP subset named in the approved build spec under `docs/superpowers/specs/`. A declared-but-unimplemented operation returns `unsupported`; it is not silently dropped.
 
 Operation order is significant during compilation and preview, but the validator calculates one final state and the adapter applies it atomically.
 

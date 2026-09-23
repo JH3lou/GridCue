@@ -1,1 +1,1 @@
-Follow `/AGENTS.md` as the canonical repository instructions. For the initial empty-repository build, also follow `/BUILD_AGENT.md`. Use the context-routing table in `AGENTS.md`; do not preload all design documents or implement roadmap items outside the current task.
+Follow `/AGENTS.md` as the canonical repository instructions. Use its routing table and do not preload every design document.

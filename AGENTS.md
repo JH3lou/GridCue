@@ -1,126 +1,120 @@
-# GridCue repository instructions
+# GridCue
 
-## Purpose
+GridCue lets a user say what they want to see in a dense data grid, in plain language, and turns that into a checked, previewable, undoable change to the grid's view. It is an open-source TypeScript toolkit: a framework-free core, React bindings, grid adapters, pluggable intent providers, and shadcn/ui components that developers copy into their own apps.
 
-GridCue is an open-source, headless intent-to-view compiler for dense data grids. A user describes the view they need in ordinary language—typed directly, dictated with a tool such as Wispr Flow, or supplied by another host UI—and GridCue produces a validated, reviewable patch to the grid's view state.
+The first provider is TypeSafe AI's Jev. Jev picks among closed, typed choices. Deterministic code owns parsing, validation, policy, preview, apply, and undo.
 
-The first provider is TypeSafe AI's Jev. Jev helps resolve bounded semantic choices; deterministic code owns parsing, validation, policy, preview, execution, and undo.
+## Planning status
 
-## Instruction precedence
+The build plan is still being settled. Nothing is scaffolded yet.
 
-1. The current user request or work order.
-2. This file.
-3. The relevant document named in **Context routing**.
-4. Existing code, tests, and established local conventions.
+- Open decisions and their history: `docs/planning/build-plan-grill.md`.
+- Decisions already made: `docs/adr/`.
+- The bootstrap agent's original work order is `docs/planning/bootstrap-work-order.md`. It is a proposal, not an approved plan.
+- Do not scaffold or write product code until the owner approves a spec in `docs/superpowers/specs/` and a plan in `docs/superpowers/plans/`.
 
-If instructions conflict, stop and report the conflict. Do not silently reinterpret product boundaries.
+## What we never compromise on
 
-## Context routing
+### 1. View state only
 
-Always read this file. Then read only what the task needs:
+GridCue filters, sorts, groups, aggregates, shows, hides, reorders, and pins columns, changes density, and resets views. It never edits cells, places trades, submits orders, exports data, navigates to privileged screens, or triggers business workflows. Record editing would be a separate product with its own risk model, not a flag.
 
-| Task | Read next |
-| --- | --- |
-| Empty-repo or initial scaffold | `docs/planning/build-plan-grill.md`, then `BUILD_AGENT.md` (a proposal until the owner approves a plan) |
-| Project vocabulary | `CONTEXT.md` |
-| Product behavior, UX, scope, examples | `docs/PRODUCT.md` |
-| Package boundaries, data flow, security | `docs/ARCHITECTURE.md` |
-| Public types, operations, validation semantics | `docs/INTENT_PROTOCOL.md` |
+### 2. The model proposes, code decides
 
-Do not preload every document, scan the whole repository, or research adjacent features without a task-specific reason. Use targeted file and symbol searches first.
+Provider output is a proposal, never authority. Every plan is validated against the Host's View Schema and the adapter's capabilities before preview and again before apply. Unknown columns, operators, values, and actions fail closed. Ambiguous or low-confidence requests ask a Clarification or abstain. Never invent a plausible interpretation.
 
-## Non-negotiable product rules
+### 3. Preview, apply atomically, undo
 
-- GridCue changes **view state**, not underlying records.
-- The MVP may filter, sort, group, aggregate, show, hide, reorder, or pin columns; change density; and reset a view.
-- The MVP must not edit cells, place trades, submit orders, export data, navigate to privileged screens, or trigger business workflows.
-- Model output is a proposal, never executable authority.
-- Every proposal is validated against a host-supplied schema and capability registry before preview or apply.
-- Unknown columns, operators, values, and actions fail closed.
-- Ambiguous or low-confidence requests ask for clarification or do nothing. Never invent a plausible interpretation.
-- Applying a multi-operation plan is atomic. A failed operation applies nothing.
-- Applied plans are undoable and produce a structured audit event.
-- Raw row data is not sent to an intent provider by default. Provider inputs are limited to the utterance, approved schema metadata, current view state, and host-approved candidate values.
-- API keys and provider credentials never enter browser bundles, logs, examples, fixtures, or source control.
-- Voice is an input method, not a core dependency. Wispr Flow can populate the same text field used by typed commands.
+Nothing applies without a preview. A multi-operation plan applies completely or not at all. Every applied plan is undoable and emits a structured audit event. A stale Revision is rejected rather than overwriting the user's manual changes.
 
-## Architecture boundaries
+### 4. The Host owns data and secrets
 
-- `packages/core` is framework-, grid-, and provider-independent. Keep it deterministic except for the injected intent provider.
-- `packages/provider-jev` translates bounded resolution questions to and from Jev. It never applies a view change.
-- `packages/react` renders optional UI and depends on public core contracts only.
-- Grid adapters translate the canonical view protocol to a grid library. They do not contain intent logic.
-- `apps/demo` demonstrates the public API. Do not make production packages depend on demo code.
-- Host applications own data access, authorization, sensitive-field policy, and the final apply decision.
-- Prefer small interfaces and explicit dependency injection over globals, registries with hidden mutation, or provider-specific branches in core.
+Raw row data is not sent to an Intent Provider by default. Provider input is limited to the Utterance, approved schema metadata, current View State, and Host-approved candidate values. API keys never enter browser bundles, logs, examples, fixtures, or source control. Provider calls go through a Server Handler the Host controls.
 
-## Working method
+### 5. Works where developers already are
 
-1. Restate the smallest observable outcome for the task.
-2. Inspect only the files and symbols that can affect that outcome.
-3. Add or update a failing test or eval case when behavior changes.
-4. Implement the smallest coherent vertical slice.
-5. Run the narrowest relevant checks, then the repository-wide quality gate.
-6. Update documentation only when a public contract, architectural decision, setup step, or user-visible behavior changed.
+The core has no framework, bundler, grid, or provider imports. The first release must work in Vite, Next.js, and TanStack apps. A feature that only works in the Site demo is not done.
 
-Do not add speculative abstractions, placeholder services, unrelated cleanup, or dependencies for hypothetical future features. Do not implement later phases merely because they are described in a roadmap.
+## A small glossary
 
-## Expected commands after initial scaffold
+Project vocabulary lives in `CONTEXT.md`. Use its terms and avoid the words it lists under _Avoid_. When talking about this repo:
 
-```bash
-pnpm install
-pnpm dev
-pnpm lint
-pnpm typecheck
-pnpm test
-pnpm build
-pnpm check
-```
+- **you** means the agent reading this file.
+- **the owner** means the repository owner, who makes the product decisions.
+- **Host**, **User**, **Utterance**, **View Plan**, and the rest mean exactly what `CONTEXT.md` says.
 
-`pnpm check` must run the merge gate: formatting/linting, type checking, unit and contract tests, and build. Live provider tests must be separate and opt-in.
+## Hit every surface
 
-## Code and API standards
+The most likely defect is a change that works where you tested it and nowhere else. Before calling work done, say which of these applied:
 
-- TypeScript strict mode; ESM; no untyped `any` at public boundaries.
-- Public inputs and provider responses receive runtime validation.
-- Public package exports are explicit. Avoid deep-import contracts.
-- Canonical operations use stable IDs, not display labels.
-- User-facing summaries are rendered deterministically from validated operations; do not ask a model to explain its own plan.
-- Preserve accessibility: keyboard operation, visible focus, screen-reader labels, and non-color-only status cues.
-- Use structured errors with stable codes and safe messages.
-- Treat utterances, schema descriptions, aliases, and enum labels as untrusted input.
-- Keep telemetry off by default. Never record raw utterances or schema details without explicit host configuration.
+- **Packages.** Core, React bindings, the TanStack Table adapter, the Jev provider, and the Mock Provider. A protocol change reaches all of them.
+- **Component Registry.** Styled components are copied into apps by the shadcn CLI, so behaviour belongs in hooks and look belongs in components. See ADR 0001.
+- **Frameworks.** The Vite, Next.js, and TanStack examples. Server-only code must never be importable from a client bundle.
+- **The Site.** The marketing page, live demo, and developer docs. Update the docs page for any public API you change.
+- **Failure paths.** Every new way in needs its way out: cancel, undo, clarification, and the unsupported result.
 
-## Testing rules
+## Verifying
 
-- Unit-test parsing, compilation, validation, diffing, confidence gates, and redaction.
-- Every grid adapter implements the shared adapter contract suite.
-- Provider tests use mocked transport by default; no network or secret is required for `pnpm test`.
-- Live Jev tests require an explicit command and `JEV_API_KEY`; they must skip cleanly otherwise.
-- Evals use synthetic data only and include ambiguity, unsupported actions, hidden fields, aliases, compound requests, and adversarial text.
-- A regression that could apply the wrong view is release-blocking.
+- Prove the smallest thing first: the tests you touched, then lint and typecheck for the package you changed.
+- The merge gate is `pnpm check` once the workspace exists: format, lint, typecheck, unit and contract tests, and build. CI runs it on every PR.
+- Every grid adapter passes the shared adapter contract suite.
+- Provider tests use a mocked transport. Live Jev tests need an explicit command and `JEV_API_KEY`, and skip cleanly without it.
+- Evals use synthetic data only and cover ambiguity, unsupported actions, hidden fields, aliases, compound requests, and adversarial text.
+- A regression that could apply the wrong view blocks a release.
 
-## Dependency and security rules
+## Pull requests
 
-- Use current stable releases, pin exact resolved versions in the lockfile, and avoid prerelease dependencies unless the task explicitly requires one.
-- Minimize runtime dependencies, especially in `core`.
-- Never expose provider credentials to the browser. The reference Jev path goes through a host-controlled server endpoint or callback.
-- Do not log row contents, credentials, full provider payloads, or sensitive schema labels.
-- Do not commit `.env` files. Maintain `.env.example` with names and safe descriptions only.
+- Never open a PR unless the owner asks for one.
+- Conventional commit titles in plain language, such as `fix(core): stale revisions no longer apply`.
+- Body: the problem in a sentence or two, then how you fixed it.
+- UI changes need before and after screenshots. Motion needs a short video.
+- One concern per PR. If the description says "also", split it.
 
-## Changes that require an explicit decision
+## Documentation
 
-Record a short ADR before changing any of these:
+- **Developer docs** live in the Site and teach adopters how to use GridCue. Update the relevant page when a public API or setup step changes.
+- **`docs/internals/`** holds the product definition, architecture, and intent protocol, plus constraints a maintainer would get wrong without them. If reading the code answers the question, leave it out.
+- **`docs/adr/`** records hard-to-reverse decisions, one short file each. Changing the intent protocol, the view-only boundary, the provider or adapter interfaces, confirmation or confidence defaults, telemetry defaults, licensing, or package names needs an ADR first.
+- **`docs/operations/`** will hold maintainer runbooks such as local development, release, and deploy. Create pages only when there is a procedure to write down.
+- **`CONTEXT.md`** is a glossary and nothing else.
+- When a documented decision changes, rewrite or remove the old text. Do not append a second account.
 
-- the canonical intent protocol;
-- the view-only safety boundary;
-- the provider or grid adapter interfaces;
-- default confirmation or confidence behavior;
-- telemetry defaults;
-- licensing or public package names.
+## Plans and work artifacts
 
-## Definition of done
+- Approved specs and plans live in `docs/superpowers/` until the first release ships, as the owner's approval record. After that, track work in GitHub issues and delete finished plans.
+- Keep scratch notes, research dumps, and temporary files outside the repository.
 
-A change is done when the intended behavior works through the public API, failure paths are safe, relevant tests pass, `pnpm check` passes, documentation is current, and no secret or real client data appears in the diff.
+## Where code will live
 
-In the handoff, report the outcome, files changed, checks run, and any unresolved decision. Keep the summary proportional to the change.
+This is the planned layout. It becomes true as the approved plan is built.
+
+- `packages/core`: protocol, schemas, compiler, validation, policy, diff, preview text, audit redaction, and the provider and adapter interfaces.
+- `packages/react`: headless hooks and controller bindings.
+- `packages/tanstack-table`: the TanStack Table adapter.
+- `packages/provider-jev`: the Jev provider and its Server Handler entry point.
+- `registry/`: source for the shadcn Component Registry.
+- `apps/site`: the Vite Site with marketing, demo, and docs. See ADR 0002.
+- `examples/`: minimal Vite, Next.js, and TanStack integrations.
+- `evals/`: synthetic eval cases.
+
+## Code standards
+
+- Strict TypeScript and ESM. No untyped `any` at public boundaries.
+- Runtime-validate public inputs and provider responses.
+- Explicit package exports. No deep-import contracts.
+- Operations use stable IDs, never display labels.
+- Preview text is rendered deterministically from validated operations. Never ask a model to explain its own plan.
+- Accessibility: keyboard operation, visible focus, screen-reader labels, and status cues that don't rely on colour alone.
+- Structured errors with stable codes grouped by stage: `INPUT_`, `RESOLUTION_`, `PLAN_`, `POLICY_`, `ADAPTER_`, `PROVIDER_`.
+- Treat Utterances, schema descriptions, aliases, and enum labels as untrusted input.
+- Telemetry is off by default. Never record raw Utterances or schema details without explicit Host configuration.
+- Minimize runtime dependencies, especially in core. Pin exact versions in the lockfile. No `.env` files in git; keep `.env.example` current.
+- React Bits and other effect libraries stay in the Site and never enter a package. See ADR 0003.
+
+## Taste
+
+Build the smallest thing that makes the correct behaviour unsurprising. No speculative abstractions, placeholder services, or roadmap features nobody asked for. If a rule here fights the task in front of you, say so plainly and get the owner's sign-off before breaking it.
+
+## Skills
+
+Project skills live in `.agents/skills/`, and `.claude/skills` links to the same folder. Planning uses the superpowers and Matt Pocock skill plugins, which `.claude/settings.json` enables for Claude Code. See `.agents/skills/gridcue-planning/SKILL.md` for how they fit together here.

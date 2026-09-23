@@ -95,5 +95,5 @@ GridCue's shadcn-styled UI components, published so developers copy them into th
 _Avoid_: UI kit, component library, theme
 
 **Site**:
-The public GridCue website, which holds the marketing page, the developer docs, and the Component Registry.
+The public GridCue website, which holds the marketing page, the public demo, the developer docs, and the Component Registry.
 _Avoid_: Landing page, docs app, homepage

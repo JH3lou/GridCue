@@ -181,8 +181,86 @@ These branches were open before Round 1. Round 2 below replaces this list.
 
 ➡️ (a). The server handler from Q3 is a standard `Request` to `Response` function, which runs on Cloudflare Workers unchanged. The free tier covers a docs site. Please tell me which domain you own, or whether to shortlist some.
 
-## Waiting on Round 2
+## Superseded: waiting on Round 2
 
 - **First spec's acceptance criteria.** `BUILD_AGENT.md`'s list plus shadcn registry components, the demo modes, and opt-in live Jev tests. This depends on Q10 to Q13.
 - **Relay design, if any.** Depends on Q10 and Q15.
 - **Website page map and content.** Hero, how-it-works, live demo, and docs sections. This depends on Q10, Q12, and Q14.
+
+## Round 2 answers (owner, 2026-09-23)
+
+| Q | Answer | Recorded as |
+| --- | --- | --- |
+| Q10 Key entry on the Site | "b or c" | Decided (c) for the first release: no key entry on the Site. Visitors use the Mock Provider demo, or download the demo and use their own key locally. No GridCue server ever handles a visitor's key. (b), a stateless relay, can follow later on the same Server Handler. |
+| Q11 Internal demo | "I bought gridque.dev for hosting" | Domain recorded. Where the internal demo runs is still open, see Q20. |
+| Q12 Downloadable demo | Agree | Clone and run in the library build, starter command with the Site. |
+| Q13 First release | The first release ships the utility on Next.js, Vite, and TanStack, plus the Vite Site with marketing, demo, and docs. | Replaces Q6's "library first, website later". See Q19. |
+| Q14 Docs search | Drop Algolia entirely | Fumadocs' built-in search only. |
+| Q15 Hosting | Agree: Cloudflare | ADR 0006 |
+
+## Other owner instructions (2026-09-23)
+
+- **Use T3 Code as the model** for repo layout, docs, AGENTS.md, CLAUDE.md, skills, and contributing guidelines. Done: CLAUDE.md imports AGENTS.md. AGENTS.md follows T3's sections. Design docs moved to `docs/internals/`. Project skills live in `.agents/skills/` with a `.claude/skills` link. CONTRIBUTING.md, a PR template, issue forms, and SECURITY.md were added. T3's `.repos/` vendoring was not copied, since nothing needs it yet.
+- **MIT license.** Added `LICENSE`. ADR 0005 supersedes the Apache-2.0 part of ADR 0004.
+- **Planning skills** are enabled as Claude Code plugins in `.claude/settings.json` instead of being copied in. Both are MIT.
+
+## Round 3
+
+❓ **Q16 - Domain spelling.** You bought **gridque.dev**, with "que". The project and npm scope are **GridCue**, with "cue". A domain that doesn't match the name makes people mistype it and search for the wrong thing.
+(a) Keep the name GridCue, and also buy gridcue.dev if it's free, pointing gridque.dev at it. (b) Rename the project to GridQue to match the domain. (c) Keep both as they are.
+
+➡️ (a), if gridcue.dev is available. Otherwise tell me whether "que" was deliberate, and I'll check GridQue's npm names before we commit to (b).
+
+---
+
+❓ **Q17 - What "TanStack" means in "Next.js, Vite, TanStack".**
+(a) TanStack Start, the full-stack framework alongside Next.js. (b) TanStack Table, the grid library. (c) Both.
+
+➡️ (c). TanStack Table is already the first grid adapter. A TanStack Start example is cheap, because the Server Handler is a standard web function that Start route handlers accept directly.
+
+---
+
+❓ **Q18 - What "ships on Next.js" means.**
+(a) The React package works in Next.js client components, and the Server Handler mounts in a Next.js route handler. A tested `examples/next` app and a docs page prove it. (b) A dedicated `@gridcue/next` package.
+
+➡️ (a). A separate package adds a release to maintain without adding behaviour. Add one only if the examples show real Next-specific glue.
+
+---
+
+❓ **Q19 - Shape of the first release.** The Site is now part of it.
+(a) One release, built from two specs and plans. The library plus Vite, Next.js, and TanStack examples come first. Then the Site with marketing, demo, docs, and the hosted registry. Nothing is published until both are done. (b) One combined spec and plan. (c) Publish the packages to npm as soon as the library is done, and launch the Site afterward.
+
+➡️ (a). Each spec stays reviewable, and the launch still happens as one event on your domain.
+
+---
+
+❓ **Q20 - Where the internal demo with your Jev key runs.**
+(a) Locally only, with the key in a git-ignored `.env` file. (b) Also at a private address on your domain, such as `internal.<domain>`, behind Cloudflare Access login. Access is free for small teams. The key is stored as a Cloudflare Worker secret.
+
+➡️ (a) during the library build, then (b) with the Site. You get a shareable live Jev demo without exposing the key.
+
+---
+
+❓ **Q21 - Committing plans.** T3 Code says never to commit plans, and to track work in GitHub issues instead. Superpowers commits specs and plans to `docs/superpowers/`.
+(a) Commit them until the first release, as your approval record, then delete them and move to issues. (b) Follow T3 strictly: keep them out of the repo from now on. (c) Keep them forever.
+
+➡️ (a). AGENTS.md currently says this, so change it if you choose otherwise.
+
+---
+
+❓ **Q22 - Contribution posture.** T3 Code says it is "not actively accepting contributions". Your goal is real adoption.
+(a) Open but scoped: bugs in issues, ideas and new adapters in Discussions first, small PRs. (b) T3's closed stance for now.
+
+➡️ (a). The draft `CONTRIBUTING.md` already says this. Adapters are where outside help pays off most.
+
+---
+
+❓ **Q23 - Copyright line.** `LICENSE` says "Copyright (c) 2026 The GridCue Authors".
+(a) Keep that. (b) Use your name or a company name. Tell me which.
+
+➡️ (a), unless you want a legal entity named. It stays valid as contributors join.
+
+## Waiting on Round 3
+
+- **First spec's acceptance criteria.** These depend on Q17 to Q20. Once Round 3 is answered, I write the first spec in `docs/superpowers/specs/` for your review.
+- **Site page map.** Hero, how it works, live Mock Provider demo, docs sections, and download. This depends on Q19.
