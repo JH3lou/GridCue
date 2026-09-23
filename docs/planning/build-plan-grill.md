@@ -386,3 +386,7 @@ Recorded in the spec's purpose as a design test: GridCue is added to an existing
 (b) Fetch-standard only, with recipes in the docs.
 
 ➡️ (a). It is a few lines of code, and it removes the most common "where do I put this?" question. Apps that only use the Mock Provider need no server at all.
+
+## Round 5 answers (owner, 2026-09-23)
+
+"Agree all." Q30: existing React apps on Vite or Next.js first, with a script-tag version as the named next step. Q31: the schema is inferred. Q32: a plain-CSS `<GridCueBar />` ships in the package (ADR 0008). Q33: `toNodeHandler()` ships in `gridcue/server`. The spec is updated and back with the owner for final review.

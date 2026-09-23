@@ -68,7 +68,7 @@ Jev is the first semantic decision provider. It is a good fit because it maps un
 | Package | Purpose |
 | --- | --- |
 | `gridcue` | The one npm package. Its root entry holds the protocol, compiler, validation, policy, diff, audit, and provider and adapter interfaces |
-| `gridcue` React entry | Headless hooks and controller bindings for React |
+| `gridcue` React entry | Headless hooks, plus a ready-made `<GridCueBar />` styled with plain CSS |
 | `gridcue` server entry | The Server Handler and the Jev provider, never reachable from a browser bundle |
 | `gridcue` TanStack Table entry | Adapter for TanStack Table v9, including shadcn's Data Table |
 | Component Registry | shadcn/ui command bar, preview, and clarification components, installed with the shadcn CLI |

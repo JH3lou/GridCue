@@ -24,6 +24,10 @@ The product rules in `AGENTS.md` and `docs/internals/product.md` apply unchanged
 | First real provider: Jev. The Mock Provider for tests and demos | Round 1 Q5 |
 | MIT license | ADR 0005 |
 | No provider key ever reaches a browser | AGENTS.md, Round 2 Q10 |
+| First release targets existing React apps on Vite or Next.js | Round 5 Q30 |
+| The schema is inferred from the existing table | Round 5 Q31 |
+| A plain-CSS `<GridCueBar />` ships in the package | ADR 0008 |
+| A Node helper mounts the Server Handler in Express or plain Node | Round 5 Q33 |
 
 ## 3. Scope
 
@@ -35,7 +39,10 @@ The product rules in `AGENTS.md` and `docs/internals/product.md` apply unchanged
 - Two Grid Adapters: the Rows Adapter and TanStack Table v9.
 - Two Intent Providers: the Mock Provider and Jev.
 - A Server Handler for Jev that runs anywhere a standard `Request` to `Response` function runs.
+- Schema inference from the Host's existing table, plus a helper that lists exactly what a provider will receive.
 - React hooks and a controller binding.
+- A built-in, plain-CSS `<GridCueBar />` that works in any React app.
+- `toNodeHandler()`, which mounts the Server Handler in Express, Fastify, Connect, or plain Node.
 - Component Registry source with a command bar, preview panel, and clarification prompt, built on shadcn/ui.
 - `examples/vite` and `examples/next`, each wired to a synthetic wealth-management table.
 - A synthetic eval set and an eval report command.
@@ -46,6 +53,8 @@ The product rules in `AGENTS.md` and `docs/internals/product.md` apply unchanged
 - The Site, hosting, the hosted registry, and `internal.gridcue.dev`. These belong to the second spec.
 - Publishing to npm, and claiming the npm name.
 - TanStack Start, AG Grid, MUI, and other grids.
+- A script-tag or web-component version for sites without React. This is the named next step after launch.
+- Vue and Svelte bindings.
 - Any API key entry in a browser, and any key relay.
 - Algolia or any other hosted search.
 - Speech capture. Dictation tools type into the same text field.
@@ -55,7 +64,8 @@ The product rules in `AGENTS.md` and `docs/internals/product.md` apply unchanged
 
 ```text
 gridcue                   framework-free core
-gridcue/react             headless React hooks            peer: react (optional)
+gridcue/react             hooks + plain-CSS GridCueBar     peer: react (optional)
+gridcue/styles.css        stylesheet for GridCueBar
 gridcue/mock              Mock Provider, browser-safe
 gridcue/server            Server Handler + Jev provider   peer: @typesafe-ai/sdk (optional)
 gridcue/tanstack-table    TanStack Table v9 adapter       peer: @tanstack/table-core (optional)
@@ -87,6 +97,15 @@ Each unit has one job. Names in `code` are proposed public API.
 - `buildCandidates(schema, capabilities, state, literals)` produces the closed choice sets for a provider: operation families, eligible columns per family, legal operators per column kind, and host-approved values.
 - Every set includes explicit `none`, `ambiguous`, and `unsupported` choices.
 - Only columns with `exposeToProvider` are included. Restricted columns are excluded by default.
+
+### 5.3a Schema inference
+
+- `defineSchema(columns, overrides?)` builds a `ViewSchema` from a light column list of IDs, labels, and optional kinds. It is used with the Rows Adapter.
+- `schemaFromTanStack(table, overrides?)` in `gridcue/tanstack-table` builds the same thing from a table's existing column definitions.
+- When a kind is missing, it is inferred locally from a sample of rows. That sample never leaves the browser.
+- `overrides` adds aliases and descriptions, marks columns restricted, and lists approved enum values.
+- **Defaults.** Labels and kinds are exposed to the provider. Values never are. Enum values are exposed only when listed. Restricted columns are never exposed.
+- `describeProviderPayload(schema)` returns exactly what a provider will receive, so developers can review it before shipping.
 
 ### 5.4 Intent Provider interface (root)
 
@@ -139,7 +158,7 @@ interface GridAdapter {
 }
 ```
 
-The `subscribe` method is added to the protocol sketch so that manual grid changes bump the revision. That keeps language changes and manual changes interoperable. This counts as an interface change under AGENTS.md, so ADR 0008 records it when this spec is approved.
+The `subscribe` method is added to the protocol sketch so that manual grid changes bump the revision. That keeps language changes and manual changes interoperable. This counts as an interface change under AGENTS.md, so ADR 0009 records it when this spec is approved.
 
 A shared **adapter contract suite** ships in the repo, not in the package. Every adapter must pass it. It checks atomic apply, rejection of a stale revision, exact restore, revision bumps on manual change, and unsupported operations failing closed.
 
@@ -168,6 +187,7 @@ A shared **adapter contract suite** ships in the repo, not in the package. Every
 ### 5.12 Jev provider and Server Handler (`gridcue/server`)
 
 - `createJevProvider({ apiKey, model?, fetch? })` turns candidates into Jev `choice` and `noul` (yes/no) questions, run in parallel. It maps answers and probabilities back to candidate IDs. Any error, malformed answer, or unknown label becomes a non-applicable result.
+- `toNodeHandler(handler)` wraps the Server Handler as a Node `(req, res)` listener, so it mounts in Express, Fastify, Connect, or `node:http` in one line.
 - `createGridCueHandler({ provider, policy? })` returns `(request: Request) => Promise<Response>`. It validates the incoming `ResolutionRequest`, calls the provider, and returns the `ResolutionResult`. It never logs Utterances, payloads, or keys.
 - A browser-side `createRemoteProvider({ endpoint })` in the root entry calls this handler. That is how a client uses Jev without seeing the key.
 - The Jev request and response shapes must be verified against `@typesafe-ai/sdk` and TypeSafe's docs when implementing. Nothing in core depends on them.
@@ -175,7 +195,24 @@ A shared **adapter contract suite** ships in the repo, not in the package. Every
 ### 5.13 React bindings (`gridcue/react`)
 
 - `useGridCue(controller)` exposes the interaction state, the current plan, the preview text, clarifications, and the actions: propose, apply, cancel, undo, and answer a clarification.
-- There is no styling and no credential handling.
+- The hooks have no styling and handle no credentials.
+- `<GridCueBar controller={cue} />` is the built-in command bar, with preview, clarification, apply, cancel, and undo. It is styled by `gridcue/styles.css` through CSS variables, with no Tailwind or icon library (ADR 0008).
+- It meets the same accessibility bar as the registry components, and both are checked by one shared component test suite.
+
+The target quick start for an existing TanStack app is about ten lines:
+
+```tsx
+import { createGridCue, createRemoteProvider } from "gridcue";
+import { createTanStackAdapter, schemaFromTanStack } from "gridcue/tanstack-table";
+import { GridCueBar } from "gridcue/react";
+import "gridcue/styles.css";
+
+const schema = schemaFromTanStack(table, { restricted: ["ssn"] });
+const cue = createGridCue({ schema, adapter: createTanStackAdapter({ schema, table }),
+  provider: createRemoteProvider({ endpoint: "/api/gridcue" }) });
+
+<GridCueBar controller={cue} />
+```
 
 ### 5.14 Component Registry source (`registry/`)
 
@@ -200,10 +237,10 @@ Both examples share a private workspace package, `fixtures/wealth`. It holds a s
 
 | Example | Grid | Server Handler | Default provider |
 | --- | --- | --- | --- |
-| `examples/vite` | TanStack Table v9 through a shadcn Data Table | Vite dev-server middleware at `/api/gridcue` | Mock, or Jev if `JEV_API_KEY` is set |
-| `examples/next` | Rows Adapter with shadcn's plain Table | App Router route handler at `app/api/gridcue/route.ts` | Mock, or Jev if `JEV_API_KEY` is set |
+| `examples/vite` | TanStack Table v9 through a shadcn Data Table, with the registry components | `toNodeHandler` in Vite's dev server, plus a small Express server for production | Mock, or Jev if `JEV_API_KEY` is set |
+| `examples/next` | Rows Adapter with a plain HTML table, the built-in `<GridCueBar />`, and no Tailwind | App Router route handler at `app/api/gridcue/route.ts` | Mock, or Jev if `JEV_API_KEY` is set |
 
-Using a different grid in each example proves that both adapters and both frameworks work. Each example has a toggleable developer panel that shows the plan, confidence, validation result, and before-and-after View State. Running either example locally with your key is the internal demo from Round 4, Q27.
+Each example is written as if GridCue were being added to an app that already existed. Together they prove both adapters, both frameworks, both UIs, and apps with and without shadcn. Each example has a toggleable developer panel that shows the plan, confidence, validation result, and before-and-after View State. Running either example locally with your key is the internal demo from Round 4, Q27.
 
 ## 8. Required cases
 
@@ -234,7 +271,9 @@ The Mock Provider and the eval set must cover at least these:
 - **Contract tests:** both adapters pass the shared adapter suite.
 - **Provider tests:** Jev with a mocked `fetch`. `pnpm test:live` is opt-in and skips cleanly without `JEV_API_KEY`.
 - **Boundary tests:** the root entry imports no framework, grid, or provider code. The server entry does not resolve in a browser build. Neither example's client bundle contains `JEV_API_KEY` or `api.typesafe.ai`.
-- **Component tests:** the registry components' keyboard flow and accessible names.
+- **Component tests:** one suite runs against both `<GridCueBar />` and the registry components, covering keyboard flow, focus, accessible names, and live announcements.
+- **Inference tests:** schemas inferred from TanStack columns and from light column lists, override handling, and `describeProviderPayload` never including values or restricted columns.
+- **Node handler tests:** `toNodeHandler` with `node:http` and Express request shapes.
 - **Evals:** section 8.
 
 ## 11. Tooling
@@ -256,7 +295,9 @@ The Mock Provider and the eval set must cover at least these:
 7. Both adapters pass the contract suite.
 8. The boundary tests in section 10 pass.
 9. All fixtures and evals are synthetic.
-10. The README describes GridCue as an independent project with no TypeSafe or Wispr endorsement.
+10. The README's quick start matches section 5.13 and is the code the Vite example actually runs.
+11. The Next.js example uses no Tailwind or shadcn and still gets a working, styled command bar.
+12. The README describes GridCue as an independent project with no TypeSafe or Wispr endorsement.
 
 ## 13. Left for the second spec
 

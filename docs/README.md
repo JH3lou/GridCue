@@ -18,13 +18,14 @@ These explain what the source alone can't: the product boundary, the pipeline, a
 
 ### Decisions
 
-- [0001: Styled UI ships as a shadcn registry](./adr/0001-styled-ui-ships-as-shadcn-registry.md)
+- [0001: Styled UI ships as a shadcn registry](./adr/0001-styled-ui-ships-as-shadcn-registry.md), amended by 0008
 - [0002: The website is one Vite app with Fumadocs](./adr/0002-website-is-one-vite-app-with-fumadocs.md)
 - [0003: Marketing effects stay in the website](./adr/0003-marketing-effects-stay-in-the-website.md)
 - [0004: Name, license, and npm scope](./adr/0004-name-license-and-npm-scope.md), license and scope superseded
 - [0005: MIT license](./adr/0005-mit-license.md)
 - [0006: Host the Site on Cloudflare](./adr/0006-host-on-cloudflare.md)
 - [0007: One npm package with subpath exports](./adr/0007-one-npm-package.md)
+- [0008: Plain-CSS command bar in the package](./adr/0008-built-in-plain-css-command-bar.md)
 
 ### Planning
 
