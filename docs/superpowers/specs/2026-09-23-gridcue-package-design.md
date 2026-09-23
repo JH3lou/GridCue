@@ -61,7 +61,7 @@ gridcue/tanstack-table    TanStack Table v9 adapter       peer: @tanstack/table-
 
 Rules:
 
-- **Root entry.** No imports of React, DOM globals, grid libraries, Jev, or network code. Its only runtime dependency is zod 4.
+- **Root entry.** No imports of React, DOM globals, grid libraries, or Jev. Its only runtime dependency is zod 4. The one root export that does I/O is `createRemoteProvider`, which calls a Host's Server Handler through the global or an injected `fetch`.
 - **Server entry.** Package `exports` conditions stop it from resolving in browser builds, and a test proves it. It is the only entry that may read a credential.
 - **Optional peers.** An app that never imports an entry never needs that entry's peer dependency installed.
 - **ESM only.** Types ship for every entry.
