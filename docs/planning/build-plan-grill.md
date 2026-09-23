@@ -327,7 +327,22 @@ These branches were open before Round 1. Round 2 below replaces this list.
 
 ➡️ (a).
 
-## Waiting on Round 4
+## Superseded: waiting on Round 4
 
 - **The first spec**, for the package and its examples, is written once Q24 to Q27 are answered. That is the next step after this round.
 - **Site page map** depends on Q26.
+
+## Round 4 answers (owner, 2026-09-23)
+
+| Q | Answer | Recorded as |
+| --- | --- | --- |
+| Q24 Grid | "GridCue works with any of the supported frameworks' tables, including TanStack. Let's add it back." | Two Grid Adapters in the first release: the built-in Rows Adapter for any table, and TanStack Table v9, which also covers shadcn's Data Table. TanStack Start stays out. ADR 0007 updated. |
+| Q25 Entry points | Agree | `gridcue`, `gridcue/react`, `gridcue/server`, `gridcue/mock`, plus `gridcue/tanstack-table`. |
+| Q26 Release shape | Agree | Two specs and plans, one launch. |
+| Q27 Internal demo | Agree | Local `.env` first, then `internal.gridcue.dev` behind Cloudflare Access with the Site. |
+| Q28 Contributions | Agree | Open but scoped. |
+| Q29 Copyright | Agree | "The GridCue Authors". |
+
+## Status
+
+The frontier for the first spec is empty. The spec is written at `docs/superpowers/specs/2026-09-23-gridcue-package-design.md` and waits for the owner's review. The Site's page map and content are grilled after the first plan is approved, as the second spec.

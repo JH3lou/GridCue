@@ -22,6 +22,7 @@ body:
         - gridcue (core)
         - gridcue React entry
         - gridcue server entry or Jev provider
+        - gridcue TanStack Table adapter
         - Component Registry
         - Site or docs
         - Examples (Vite, Next.js)

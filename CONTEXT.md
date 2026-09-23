@@ -76,6 +76,10 @@ _Avoid_: Client, engine, instance
 The translator between GridCue's View State and one specific grid library.
 _Avoid_: Driver, connector, plugin
 
+**Rows Adapter**:
+GridCue's built-in Grid Adapter for Hosts that hold their rows in memory. It applies View State to the rows so any table can render the result.
+_Avoid_: Default adapter, in-memory grid, local engine
+
 **Candidate**:
 One option in a closed set of choices offered to an Intent Provider, always including an explicit "none" or "unsupported" option.
 _Avoid_: Suggestion, completion

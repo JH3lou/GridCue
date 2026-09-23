@@ -47,9 +47,9 @@ Project vocabulary lives in `CONTEXT.md`. Use its terms and avoid the words it l
 
 The most likely defect is a change that works where you tested it and nowhere else. Before calling work done, say which of these applied:
 
-- **Entry points.** The package's root, React, and server entries, plus the Jev provider and the Mock Provider. A protocol change reaches all of them.
+- **Entry points.** The package's root, React, server, mock, and TanStack Table entries. A protocol change reaches all of them.
 - **Component Registry.** Styled components are copied into apps by the shadcn CLI, so behaviour belongs in hooks and look belongs in components. See ADR 0001.
-- **Frameworks.** The Vite and Next.js examples. Server-only code must never be reachable from a client bundle.
+- **Frameworks and tables.** The Vite and Next.js examples, and both Grid Adapters: the Rows Adapter and TanStack Table. Server-only code must never be reachable from a client bundle.
 - **The Site.** The marketing page, live demo, and developer docs. Update the docs page for any public API you change.
 - **Failure paths.** Every new way in needs its way out: cancel, undo, clarification, and the unsupported result.
 
@@ -88,7 +88,7 @@ The most likely defect is a change that works where you tested it and nowhere el
 
 This is the planned layout. It becomes true as the approved plan is built.
 
-- `packages/gridcue`: the one published package. Its root entry holds the protocol, schemas, compiler, validation, policy, diff, preview text, audit redaction, and the provider and adapter interfaces. Separate subpath entries hold the React bindings and the server-only code: the Server Handler and the Jev provider. The exact subpaths are open in the planning log.
+- `packages/gridcue`: the one published package. Its root entry holds the protocol, schemas, compiler, validation, policy, diff, preview text, audit redaction, and the provider and adapter interfaces. Subpath entries: `gridcue/react` for hooks, `gridcue/server` for the Server Handler and Jev provider, `gridcue/mock` for the Mock Provider, and `gridcue/tanstack-table` for the TanStack Table adapter.
 - `registry/`: source for the shadcn Component Registry.
 - `apps/site`: the Vite Site with marketing, demo, and docs. See ADR 0002.
 - `examples/`: minimal Vite and Next.js integrations.
