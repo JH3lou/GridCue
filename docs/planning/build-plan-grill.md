@@ -346,7 +346,7 @@ These branches were open before Round 1. Round 2 below replaces this list.
 ## Status
 
 - **Spec:** approved by the owner on 2026-09-23, at `docs/superpowers/specs/2026-09-23-gridcue-package-design.md`.
-- **Plan:** written on 2026-09-23 at `docs/superpowers/plans/2026-09-23-gridcue-package.md`, and waiting for the owner's review and choice of execution method. Every code block in it was built and tested in a scratch workspace first.
+- **Plan:** approved by the owner on 2026-09-23 at `docs/superpowers/plans/2026-09-23-gridcue-package.md`, to be executed with superpowers subagent-driven development. Every code block in it was built and tested in a scratch workspace first.
 - **Next:** the Site's page map and content are grilled as the second spec, after the package plan is approved.
 
 ## Owner direction (2026-09-23)
