@@ -100,9 +100,11 @@ interface IntentProvider {
 interface GridAdapter {
   getSchema(): ViewSchema;
   getCapabilities(): ViewCapabilities;
-  getState(): Promise<VersionedViewState> | VersionedViewState;
+  getState(): VersionedViewState;
+  getDefaultState(): ViewState;
   apply(plan: ApplicableViewPlan): Promise<ApplyResult>;
   restore(snapshot: VersionedViewState): Promise<ApplyResult>;
+  subscribe(listener: (state: VersionedViewState) => void): () => void;
 }
 ```
 

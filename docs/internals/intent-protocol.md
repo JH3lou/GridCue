@@ -60,6 +60,7 @@ interface ViewCapabilities {
   maxGroups?: number;
   supportsAtomicApply: boolean;
   supportsSnapshotRestore: boolean;
+  observesChanges: boolean;      // ADR 0009
 }
 ```
 
@@ -172,7 +173,7 @@ interface DecisionEvidence {
   key: string;
   selectedId?: string;
   confidence?: number;
-  source: "deterministic" | "provider" | "host";
+  source: "deterministic" | "provider" | "host" | "user";
 }
 
 interface Clarification {
@@ -197,7 +198,7 @@ interface ViewPlan {
   clarifications: Clarification[];
   unsupportedSegments: Array<{
     text?: string;
-    category: "data_mutation" | "workflow_action" | "navigation" | "export" | "unknown";
+    category: "data_mutation" | "workflow_action" | "navigation" | "export" | "restricted_column" | "unknown";
   }>;
 }
 ```
