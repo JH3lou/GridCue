@@ -6,9 +6,11 @@
 
 ## 1. Purpose and positioning
 
-GridCue is **an open-source framework for putting TypeSafe's Jev behind a data grid**: a User says what they want to see, and the grid shows a checked, previewable change to the view.
+**Use natural language to get the insights you need from complicated data, dense grids and tables.** A User asks in plain words; GridCue turns the request into a checked, previewable change to the grid's view (filters, sorts, groups and columns), so the answer is on screen without learning the grid's controls. It is open source and built on TypeSafe's Jev.
 
-The Site's one job is to let a developer **touch the product in seconds, then install it in minutes**:
+Positioning in the owner's words: "used natural language to get the data insights on complicated data, dense grids and tables".
+
+The Site speaks to two readers: the people who work in dense grids (the insight they need in one sentence), and the developers who add GridCue to their app. Its job is to let a developer **touch the product in seconds, then install it in minutes**:
 - the hero is the working product, not a picture of it;
 - the demo shows what the model decided and why;
 - the docs get a developer from `npm i gridcue` to a working command bar.
@@ -81,7 +83,7 @@ Each row is a decision the design skills changed or fixed. **Before** is the gri
 
 ### 5.1 `/`, marketing
 
-1. **Hero.** The headline "Tell your data grid what you want to see." and one line: "GridCue turns plain-language requests into safe, previewable view changes, built on TypeSafe's Jev and open source." Below it, a **live command bar over a 12-row synthetic grid**, running on the Mock Provider in the browser. Three suggestion chips fill the bar in one click: "Roth IRAs grouped by rep", "largest accounts first", "hide the custodian column". A Preview appears, then Apply, then Undo. Buttons: "Try the full demo" and "Read the docs".
+1. **Hero.** The headline "Ask your data a plain question. See the view that answers it." and one line: "Use natural language to get insights from complicated data, dense grids and tables. GridCue turns each request into a safe, previewable view change. Open source, built on TypeSafe's Jev." The final wording is settled in the prototype step. Below it, a **live command bar over a 12-row synthetic grid**, running on the Mock Provider in the browser. Three suggestion chips fill the bar in one click: "Roth IRAs grouped by rep", "largest accounts first", "hide the custodian column". A Preview appears, then Apply, then Undo. Buttons: "Try the full demo" and "Read the docs".
 2. **How it works.** Three sticky steps, as in the design pass: *You ask* → *GridCue previews exactly what will change* → *You apply, and can undo*.
 3. **Safe by design.** Four short points:
    - view-only (never edits data);

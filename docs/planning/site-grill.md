@@ -222,3 +222,11 @@ Recorded as follows:
 **Positioning:** "an open source framework for Jev integration for this capability". The Site presents GridCue as the open-source way to put Jev behind a data grid.
 
 Within the independence rule: the Site names TypeSafe's Jev as the model it is built for, with no endorsement implied, and keeps the provider-neutral core visible, since the Mock Provider and any other provider plug in the same way.
+
+## Owner direction: positioning (2026-09-24)
+
+> "The positioning is used natural language to get the data insights on complicated data, dense grids and tables"
+
+This replaces the earlier "framework for Jev integration" framing as the lead message. The Site leads with the User's benefit: plain-language questions answered from complicated data, dense grids and tables. GridCue as the open-source way to do this with Jev comes second.
+
+The copy stays accurate to the product: GridCue answers a question by changing the view (filters, sorts, groups and columns). It does not compute new data.
