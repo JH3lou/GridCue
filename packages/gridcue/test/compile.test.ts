@@ -139,6 +139,60 @@ describe("compile", () => {
     );
   });
 
+  it("confirms a middling family confidence, then resolves on the user's answer", () => {
+    const clause = { families: [{ id: "sort", confidence: 0.7 }], columns: [hi("value")] };
+    const asked = run("sort by worth", [clause]);
+    expect(asked.status).toBe("needs_clarification");
+    const clarification = asked.clarifications.find((q) => q.id === "c0.family.sort");
+    expect(clarification).toMatchObject({ prompt: "Did you want to sort the rows?" });
+    expect(clarification?.options?.map((o) => o.id)).toEqual(["sort", "none"]);
+
+    const yes = run("sort by worth", [clause], { "c0.family.sort": "sort" });
+    expect(yes.status).toBe("ready");
+    expect(yes.operations).toEqual([{ type: "sort.set", sorts: [{ columnId: "value", direction: "asc" }] }]);
+    expect(yes.evidence).toContainEqual({ key: "c0.family.sort", selectedId: "sort", confidence: 1, source: "user" });
+
+    const no = run("sort by worth", [clause], { "c0.family.sort": "none" });
+    expect(no.operations).toEqual([]);
+  });
+
+  it("leaves a confident family and a confident value exactly as before", () => {
+    const plan = run("open ones", [
+      { families: [{ id: "filter", confidence: 0.9 }], values: [{ columnId: "status", valueId: "open", confidence: 0.9 }] },
+    ]);
+    expect(plan.status).toBe("ready");
+    expect(plan.operations).toEqual([
+      expect.objectContaining({
+        type: "filter.add",
+        predicate: expect.objectContaining({ columnId: "status", operator: "eq", value: "open" }),
+        combineWith: "and",
+      }),
+    ]);
+  });
+
+  it("confirms a middling value confidence, then resolves on the user's answer", () => {
+    const clause = { families: [hi("filter")], values: [{ columnId: "status", valueId: "open", confidence: 0.7 }] };
+    const asked = run("open ones", [clause]);
+    expect(asked.status).toBe("needs_clarification");
+    const clarification = asked.clarifications.find((q) => q.id === "c0.value.status.open");
+    expect(clarification).toMatchObject({ prompt: "Did you mean Status: Open?" });
+    expect(clarification?.options?.map((o) => o.id)).toEqual(["open", "none"]);
+
+    const yes = run("open ones", [clause], { "c0.value.status.open": "open" });
+    expect(yes.status).toBe("ready");
+    expect(yes.operations).toEqual([
+      expect.objectContaining({
+        type: "filter.add",
+        predicate: expect.objectContaining({ columnId: "status", operator: "eq", value: "open" }),
+        combineWith: "and",
+      }),
+    ]);
+    expect(yes.evidence).toContainEqual({ key: "c0.value.status.open", selectedId: "open", confidence: 1, source: "user" });
+
+    const no = run("open ones", [clause], { "c0.value.status.open": "none" });
+    expect(no.operations).toEqual([]);
+  });
+
   it("expands keep-only into show, hide, and order", () => {
     const plan = run("keep only name and value", [{ families: [hi("columns.only")], columns: [hi("name"), hi("value")] }]);
     expect(plan.operations).toEqual([

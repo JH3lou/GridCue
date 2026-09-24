@@ -16,6 +16,7 @@ import {
 import {
   type ClauseResolution,
   COLUMN_FAMILIES,
+  type Pick,
   type ResolutionResult,
   UNSUPPORTED_FAMILIES,
   VIEW_FAMILIES,
@@ -63,6 +64,23 @@ const COLUMN_WORD: Record<string, string> = {
   "columns.only": "kept",
 };
 
+const FAMILY_PHRASE: Record<string, string> = {
+  filter: "filter the rows",
+  sort: "sort the rows",
+  group: "group the rows",
+  "columns.show": "show some columns",
+  "columns.hide": "hide some columns",
+  "columns.only": "show only some columns",
+  "filter.clear": "clear the filters",
+  "sort.clear": "clear the sort",
+  "group.clear": "clear the grouping",
+  "view.reset": "reset the view",
+  "unsupported.data_mutation": "edit the data",
+  "unsupported.workflow_action": "run a workflow action",
+  "unsupported.navigation": "navigate somewhere else",
+  "unsupported.export": "export the data",
+};
+
 const isView = (f: string): f is ViewFamily => !f.startsWith("unsupported.");
 const KNOWN_FAMILY_IDS: ReadonlySet<string> = new Set([...VIEW_FAMILIES, ...UNSUPPORTED_FAMILIES]);
 
@@ -100,8 +118,33 @@ export const compile = (c: CompileInput): ViewPlan => {
         values: [],
         unmatchedTerms: [],
       };
-      const families = res.families.filter((f) => f.confidence >= bands.clarify && KNOWN_FAMILY_IDS.has(f.id));
-      for (const f of families) note(`${key}.family`, f.id, f.confidence, "provider");
+      // Family picks: confident ones are used, middling ones are confirmed, weak ones are dropped.
+      let familyPending = false;
+      const families: Pick[] = [];
+      for (const f of res.families) {
+        if (!KNOWN_FAMILY_IDS.has(f.id)) continue;
+        const answerKey = `${key}.family.${f.id}`;
+        if (answers[answerKey] !== undefined) {
+          if (answers[answerKey] === f.id) {
+            families.push(f);
+            note(answerKey, f.id, 1, "user");
+          }
+        } else if (f.confidence >= bands.ready) {
+          families.push(f);
+          note(`${key}.family`, f.id, f.confidence, "provider");
+        } else if (f.confidence >= bands.clarify) {
+          clarifications.push({
+            id: answerKey,
+            prompt: `Did you want to ${FAMILY_PHRASE[f.id] ?? "change the view"}?`,
+            options: [
+              { id: f.id, label: "Yes" },
+              { id: "none", label: "No" },
+            ],
+            required: true,
+          });
+          familyPending = true;
+        }
+      }
 
       const blocked = families.filter((f) => !isView(f.id));
       for (const f of blocked) {
@@ -110,11 +153,13 @@ export const compile = (c: CompileInput): ViewPlan => {
       const viewFamilies = families.filter((f) => isView(f.id)).map((f) => f.id as ViewFamily);
       if (blocked.length > 0) continue;
       if (viewFamilies.length === 0) {
-        clarifications.push({
-          id: `${key}.family`,
-          prompt: `I'm not sure what to change for “${clause.text}”. Try asking to filter, sort, group, or show or hide columns.`,
-          required: true,
-        });
+        if (!familyPending) {
+          clarifications.push({
+            id: `${key}.family`,
+            prompt: `I'm not sure what to change for “${clause.text}”. Try asking to filter, sort, group, or show or hide columns.`,
+            required: true,
+          });
+        }
         continue;
       }
       if (viewFamilies.filter((f) => COLUMN_FAMILIES[f]).length > 1) {
@@ -165,14 +210,36 @@ export const compile = (c: CompileInput): ViewPlan => {
           const byColumn = new Map<string, string[]>();
           for (const v of res.values) {
             const col = column(v.columnId);
-            if (!col || v.confidence < bands.clarify) continue;
-            if (col.kind === "boolean") {
-              if (v.valueId !== "true" && v.valueId !== "false") continue;
-              pred(col.id, "eq", v.valueId === "true");
-              note(`${key}.value.${col.id}`, v.valueId, v.confidence, "provider");
-            } else if (col.enumValues?.some((e) => e.id === v.valueId)) {
-              byColumn.set(col.id, [...(byColumn.get(col.id) ?? []), v.valueId]);
-              note(`${key}.value.${col.id}`, v.valueId, v.confidence, "provider");
+            if (!col) continue;
+            const isBoolean = col.kind === "boolean";
+            const valueLabel = isBoolean
+              ? v.valueId === "true"
+                ? "Yes"
+                : v.valueId === "false"
+                  ? "No"
+                  : undefined
+              : col.enumValues?.find((e) => e.id === v.valueId)?.label;
+            if (valueLabel === undefined) continue;
+            const use = (confidence: number, source: DecisionEvidence["source"], noteKey: string) => {
+              if (isBoolean) pred(col.id, "eq", v.valueId === "true");
+              else byColumn.set(col.id, [...(byColumn.get(col.id) ?? []), v.valueId]);
+              note(noteKey, v.valueId, confidence, source);
+            };
+            const answerKey = `${key}.value.${col.id}.${v.valueId}`;
+            if (answers[answerKey] !== undefined) {
+              if (answers[answerKey] === v.valueId) use(1, "user", answerKey);
+            } else if (v.confidence >= bands.ready) {
+              use(v.confidence, "provider", `${key}.value.${col.id}`);
+            } else if (v.confidence >= bands.clarify) {
+              clarifications.push({
+                id: answerKey,
+                prompt: `Did you mean ${col.label}: ${valueLabel}?`,
+                options: [
+                  { id: v.valueId, label: `Yes, ${valueLabel}` },
+                  { id: "none", label: "No" },
+                ],
+                required: true,
+              });
             }
           }
           for (const [id, ids] of byColumn) {
