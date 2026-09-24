@@ -11,23 +11,6 @@ GridCue is an open-source, headless toolkit for controlling dense data tables wi
 
 GridCue turns that request into a typed view plan, validates it against the host application's actual columns and permissions, previews the change, and applies it through a grid adapter. It never gives a model direct control of the UI or the underlying records.
 
-## Why the name
-
-**GridCue** is the recommended working name. A user gives the grid a cue; the grid presents the right view. It is short, descriptive, and does not make the project sound like an official TypeSafe product.
-
-The initial collision search found no obvious software project using the exact name, but GitHub organization, npm scope, domain, and trademark availability must be checked again immediately before public launch.
-
-Other viable names:
-
-| Name | Strength | Tradeoff |
-| --- | --- | --- |
-| ViewSpeak | Immediately conveys language-driven views | Sounds voice-only |
-| GridIntent | Technically explicit | Existing commercial use makes it a poor launch choice |
-| LensCue | Broader than tables | Less immediately clear |
-| ViewShift | Conveys transformation | More crowded phrase |
-
-Avoid `JevView`, `Jeview`, and `Jev Lens`: similar names already exist in the young Jev ecosystem, and a vendor name would unnecessarily constrain the architecture.
-
 ## The product boundary
 
 GridCue is an **intent-to-view compiler**, not:
