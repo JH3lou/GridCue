@@ -2,7 +2,7 @@
 
 > Say what you need to see; GridCue safely configures the view.
 
-GridCue is a proposed open-source, headless toolkit for controlling dense data tables with ordinary language. It is meant for advisor desktops, trading systems, operations consoles, and other applications where users can already filter, sort, group, aggregate, and manage columns—but must fight the interface to reach the view they have in mind.
+GridCue is an open-source, headless toolkit for controlling dense data tables with ordinary language. It is built for advisor desktops, trading systems, operations consoles, and other applications where users can already filter, sort, group, aggregate, and manage columns—but must fight the interface to reach the view they have in mind.
 
 ```text
 “Show taxable accounts with more than 10% in one position,
@@ -63,7 +63,7 @@ Jev is the first semantic decision provider. It is a good fit because it maps un
 - **Uncertainty is a feature.** Low confidence produces clarification or no-op behavior.
 - **Enterprise-safe integration.** The host retains authorization, credentials, data access, and audit policy.
 
-## Proposed distribution
+## What ships
 
 | Package | Purpose |
 | --- | --- |
@@ -73,7 +73,7 @@ Jev is the first semantic decision provider. It is a good fit because it maps un
 | `gridcue` TanStack Table entry | Adapter for TanStack Table v9, including shadcn's Data Table |
 | Component Registry | shadcn/ui command bar, preview, and clarification components, installed with the shadcn CLI |
 
-The demo will use synthetic wealth-management data and a deterministic mock provider, so contributors need no external account or API key.
+The examples and evals use synthetic wealth-management data and a deterministic Mock Provider, so contributors need no external account or API key.
 
 ## Quick start
 
@@ -98,6 +98,8 @@ const [cue] = useState(() => {
 Mount the server side where your API lives. It keeps your provider key off the browser:
 
 ```ts
+import { createGridCueHandler, createJevProvider, toNodeHandler } from "gridcue/server";
+
 // Next.js: app/api/gridcue/route.ts
 export const POST = createGridCueHandler({ provider: createJevProvider({ apiKey: process.env.JEV_API_KEY }) });
 
@@ -105,7 +107,7 @@ export const POST = createGridCueHandler({ provider: createJevProvider({ apiKey:
 app.post("/api/gridcue", toNodeHandler(createGridCueHandler({ provider })));
 ```
 
-Using shadcn/ui? Copy the styled components instead of `GridCueBar`: see `registry/`. Keeping rows in memory instead of TanStack? Use `createRowsAdapter` and `applyView`, as `examples/next` does.
+Using shadcn/ui? Copy the styled components instead of `GridCueBar`: see `registry/`. Keeping rows in memory instead of TanStack? Use `createRowsAdapter` and `applyView`, as `examples/next` does. `examples/vite` runs this quick start, with the registry `CommandBar` in place of `GridCueBar`.
 
 Create the controller once, as above. TanStack's `useTable` returns a new object whenever table state changes, so a `useMemo` keyed on `table` would rebuild the controller.
 
@@ -125,7 +127,7 @@ The first package build is implemented. See `docs/operations/development.md` for
 
 ## Independence
 
-GridCue is an independent project concept. It is not made, sponsored, or endorsed by TypeSafe AI or Wispr Flow. Jev is intended as the first provider integration; Wispr Flow is simply one possible way to enter text.
+GridCue is an independent project. It is not made, sponsored, or endorsed by TypeSafe AI or Wispr Flow. Jev is intended as the first provider integration; Wispr Flow is simply one possible way to enter text.
 
 ## Source notes
 
