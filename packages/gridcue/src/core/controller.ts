@@ -70,7 +70,7 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
     restricted: ReturnType<typeof screenRestricted>;
   } | null = null;
   let applicable: ApplicableViewPlan | null = null;
-  let undoEntry: { before: VersionedViewState; appliedRevision: string } | null = null;
+  let undoEntry: { before: VersionedViewState; appliedRevision: string; plan: ViewPlan } | null = null;
   let ids = 0;
   const listeners = new Set<() => void>();
 
@@ -220,7 +220,7 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
         });
         return false;
       }
-      undoEntry = { before, appliedRevision: result.state.revision };
+      undoEntry = { before, appliedRevision: result.state.revision, plan };
       applicable = null;
       audit(plan, "applied", { newRevision: result.state.revision });
       set({ status: "applied", message: "View updated." });
@@ -254,7 +254,7 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
         set({ status: "error", message: "Couldn't undo that change.", issues: [{ code: result.code, message: result.message }] });
         return false;
       }
-      if (state.plan) audit(state.plan, "undone", { newRevision: result.state.revision });
+      audit(entry.plan, "undone", { newRevision: result.state.revision });
       set({ ...IDLE, utterance: state.utterance, message: "Change undone." });
       return true;
     },

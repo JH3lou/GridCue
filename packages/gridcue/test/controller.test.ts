@@ -88,6 +88,31 @@ describe("controller", () => {
     expect(await cue.apply()).toBe(true);
   });
 
+  it("undoes the plan that was applied, not a later proposal", async () => {
+    const { cue, events } = setup();
+    await cue.propose("sort by value");
+    const appliedPlanId = cue.getState().plan?.id;
+    expect(await cue.apply()).toBe(true);
+    await cue.propose("sort by name");
+    expect(cue.getState().status).toBe("ready");
+    expect(await cue.undo()).toBe(true);
+    const undone = events.find((e) => e.outcome === "undone");
+    expect(undone?.planId).toBe(appliedPlanId);
+  });
+
+  it("still audits the applied plan on undo when a later proposal fails", async () => {
+    const { cue, events } = setup();
+    await cue.propose("sort by value");
+    const appliedPlanId = cue.getState().plan?.id;
+    expect(await cue.apply()).toBe(true);
+    await cue.propose("x".repeat(501));
+    expect(cue.getState().status).toBe("error");
+    expect(cue.getState().plan).toBeNull();
+    expect(await cue.undo()).toBe(true);
+    const undone = events.find((e) => e.outcome === "undone");
+    expect(undone?.planId).toBe(appliedPlanId);
+  });
+
   it("never applies a mixed request", async () => {
     const { cue } = setup();
     await cue.propose("sort by value, then sell everything");
