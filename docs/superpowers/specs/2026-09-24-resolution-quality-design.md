@@ -83,11 +83,18 @@ interface Mention {
 }
 ```
 
-- **What it matches.** It matches exposed columns' labels and aliases, and exposed enum values' labels and aliases. It uses `findMentions`, the whole-word matcher that already handles punctuation variants.
-- **Plurals.** `findMentions` gains a `plural` option, default `true` so restricted-column screening stays unchanged. `matchMentions` passes `false`. "accounts" therefore no longer matches the `account` alias, and plural forms go to the provider.
+- **What it matches.** It matches exposed columns' labels and aliases, and exposed enum values' labels and aliases. It uses `findMentions`, the whole-word matcher that already handles punctuation variants, with plurals on.
 - **Values before columns.** Value names are matched first and masked out, and column names are matched in what remains. That way "Roth IRA" is not also read as a column. This is the Mock's current approach.
+- **Context: the rows versus a column.** A column-name match is dropped when it sits where the rows go. The rules are general grammar and never name this schema's words:
+  1. **Directly after another matched name**, such as a value or a boolean alias: "Roth accounts", "restricted accounts".
+  2. **Directly before a qualifier:** with, without, where, whose, that, which, at, in, from, having, held, owned. For example, "accounts with…" or "households at…".
+  3. **Directly before "by".** In "sort households by assets", the column comes after "by".
+  4. **Directly before a comparison** ("over", "above", "between", and so on) **with a literal its kind can't hold.** In "accounts over $1M", Account number is text.
+
+  A dropped match is not a Mention, so the provider decides that column as usual. Evidence: 0 wrong and 0 missed on a 36-request dev set and a 30-request held-out set written before the rules. See the grill log's context-rule experiment. Those 66 labelled requests become unit-test fixtures.
 - **Ambiguity.** A name that matches more than one column, or more than one value, is ignored and left to the provider. Nothing is guessed.
 - **Booleans.** Boolean columns are matched like any other column. Deciding true or false stays with the provider, because negation needs context.
+- **Restricted-column screening is unchanged.** It keeps matching every form, with no context rules, so it errs toward refusing.
 
 How the compiler uses Mentions:
 
@@ -148,7 +155,7 @@ All changes are optional additions, so the protocol stays at 0.1. A provider tha
 Unit tests, all with no network:
 
 - One test per precedence rule, including the tie in rule 3 and exactly 0.10 in rule 5.
-- `matchMentions`: aliases, value aliases masking columns, plurals off, ambiguous names ignored, and restricted columns never matched. Restricted-column screening still matches plurals.
+- `matchMentions`: the 66 labelled requests from the experiment, value aliases masking columns, each context rule on its own, ambiguous names ignored, and restricted columns never matched. Restricted-column screening is unchanged.
 - Literal targets: the provider's pick in each band, the fallback when `literalColumns` is absent, and the operator check.
 - `unknownTerm`: the Mock's existing risk-score case, pronouns, empty text, and more than four words.
 - Jev provider, with a fake client:
@@ -173,5 +180,6 @@ Unit tests, all with no network:
 ## 10. Risks
 
 - **Rule 1 could hide something a User meant.** A middling second family is dropped silently. The Preview shows what will change, so the User can see what's missing. The larger eval set is where this would first show up.
-- **Mentions could over-match a common word used as an alias**, such as a Host alias "value" in "value accounts". Ambiguous names are already ignored. A Host that declares a very common word as an alias can see this in the Preview. The docs will say so.
+- **Mentions could over-match a common word used as an alias**, such as a Host alias "value" in "value accounts". Context rule 1 catches this example; others may slip through. Ambiguous names are already ignored, and a wrong match is visible in the Preview before anything applies. The context rules were measured on one schema, so new schemas go into the eval set.
+- **Context rules are English.** Like the normaliser's verb list, they assume English word order. Other languages are out of scope for this release.
 - **Literal Choices are unmeasured.** Whether Jev places "$1 million" on Market value at or above `ready` is *unverified* until the first live run. If it lands in the middle band, the case asks "Which column…?" with Market value first. That is safe, but `accounts-over-1m` would still not be exact.

@@ -178,3 +178,58 @@ These are expectations to be checked with `pnpm eval:live`, not results.
 - **Question tokens.** Measured by building the requests with a fake client, estimated at 4 characters per token (*unverified* against Jev's tokenizer). 1 Clause is 27 questions, about 1.1k tokens. 12 Clauses are 324 questions, about 12.7k tokens, plus about 0.5k of state. That is well under Jev's 64k per request, and about $0.0005 at $0.042 per million.
 - **Plurals.** `findMentions` (`core/text-match.ts`) also matches plural forms, so "accounts" matches the `account` alias of Account number. The Mock already relies on this. Q2's claim that whole-word matching keeps "accounts" from matching "account" holds only if the new matching turns plurals off. The spec does.
 - **`accounts-over-1m` is not fixed by rule 1 alone.** columns.show scored 0.85 in the first run and 0.83 in the second. At 0.85, filter and show are both confident, so the split message would fire even after Q1's rules. The spec adds a margin rule for this and flags it for approval.
+
+## Plural experiment (2026-09-24)
+
+The owner asked to test plural handling before the spec fixes it. Throwaway scripts ran 36 synthetic requests. Each request was labelled with the columns and enum values it really names, and "accounts" as the word for the rows does not count as naming Account number. The scripts compared three matcher variants deterministically, then combined each with one live Jev run. A Mention counts as 1. Anything else uses Jev's column Noul, or the chosen value's probability, against 0.85 and 0.65.
+
+| Variant | Wrong column used | Expected missed | Expected asked | Requests fully right |
+| --- | --- | --- | --- | --- |
+| Jev only | 0 | 6 | 6 | 23/36 |
+| Plurals on everywhere | 14 | 0 | 0 | 21/36 |
+| Plurals off everywhere | 0 | 2 | 2 | 27/36 |
+| Plurals on for enum values only | 0 | 1 | 1 | 29/36 |
+
+What the numbers show:
+
+- **Plurals on everywhere.** 13 of its 14 errors are "accounts", the row noun, matched to the `account` alias. The other is "households" in "Sort households by assets".
+  - This is worse than it looks: a Mention overrides Jev, and Jev scored Account number low in every one of these cases.
+  - Column plurals can't be trusted whenever a Host's alias is also the word for its rows.
+- **Plurals on for enum values only.** It catches "IRAs", "trusts" and "Roth IRAs" with no errors. Column plurals ("custodians", "balances", "households", "reps'") go to Jev:
+  - "Group by custodians" and "Hide the balances" scored at or above `ready`.
+  - "Group by households" scored 0.84, so GridCue asks.
+  - "Show the reps' largest positions" scored 0.46 for Advisor, so it is missed.
+- **Every remaining extra question** in this variant is either Registration type alongside a value that was already matched, or Market value for a bare amount. The spec's "a value selects its column" rule and the literal Choice address these, so the adjusted count is about 33/36. That is *unverified* until built.
+- **Jev's value Choice misses often.** One run gave:
+  - Summit Trust 0.03 in "Show Summit Trust accounts".
+  - Brokerage 0.13 and Northgate 0.22 in "Show only brokerage accounts at Northgate".
+  - Roth IRA 0.06 in "Show IRA and Roth accounts". That is a structural limit: one single-answer Choice per column can't return two values.
+  - Deterministic value matching catches all of these. **Finding for later:** a request naming two values of one column that aren't Host-declared names needs one Noul per value (the docs' multi-value pattern), not one Choice.
+- **Caveat.** This is one live run on 36 requests written for this test.
+
+## Context-rule experiment (2026-09-24)
+
+The owner's direction: "use context clues to make sure it works instead of shifting goal post". The target stays fixed: no wrong matches, and plural column names ("custodians", "households") are still caught by the matcher, not handed to Jev.
+
+**Rules.** Plurals are on everywhere. A column-name match is **not** a column reference when it sits where the rows go:
+
+1. **Directly after another name.** "Roth accounts", "restricted accounts".
+2. **Before a qualifier.** with, without, where, whose, that, which, at, in, from, having, held, owned.
+3. **Before "by".** In "sort households by assets", the column comes after "by".
+4. **Before a comparison with a literal its kind can't hold.** "accounts over $1M", where Account number is text.
+
+Otherwise the match is a column. The rules refer only to grammar and column kinds, never to this schema's words.
+
+**Method.** The rules were written after seeing the 36-request dev set. A held-out set of 30 new requests was written and labelled **before** the rules were implemented or run. It includes traps such as "Keep only accounts, balances, and reps", where "accounts" does mean the column. Both sets were scored on the matcher alone, then combined with a live Jev run.
+
+| Set | Plurals on | Values-only plurals | Context rules |
+| --- | --- | --- | --- |
+| Dev, matcher only: wrong / missed | 14 / 0 | 0 / 9 | 0 / 0 |
+| Held-out, matcher only: wrong / missed | 11 / 0 | 0 / 9 | 0 / 0 |
+| Dev with live Jev: fully right | 21/36 | 29/36 | 31/36 |
+| Held-out with live Jev: fully right | 19/30 | 28/30 | 28/30 |
+
+- **All 25 decisions that a match means the rows were correct** across both sets.
+- **The held-out set's one "wrong" is a labelling artefact.** In "Taxable accounts only", Jev scored Registration type 0.86, which is the column the value belongs to.
+- **The remaining shortfalls are all Jev asking about an implied column.** That is Registration type next to a matched value, or Market value for a bare amount. The spec's "a value selects its column" rule and the literal Choice target exactly these. *Unverified until built.*
+- **Decision:** the context rules replace "plurals off" in spec section 5.2. The 66 labelled requests become Mention unit-test fixtures.
