@@ -1,0 +1,146 @@
+/*
+ * GridCue command bar. Override the variables to match your app.
+ * Design notes: shadows give the bar depth and borders stay on inputs (better-ui), the outer radius is the
+ * control radius plus the padding (concentric radius), buttons scale to 0.96 on press, and nothing animates
+ * on keyboard-driven changes such as a preview appearing (emil-design-eng).
+ */
+.gridcue-bar {
+  --gridcue-bg: #ffffff;
+  --gridcue-fg: #111827;
+  --gridcue-muted: #4b5563;
+  --gridcue-border: #d1d5db;
+  --gridcue-hover: oklch(0 0 0 / 0.04);
+  --gridcue-accent: #2563eb;
+  --gridcue-accent-hover: #1d4ed8;
+  --gridcue-accent-fg: #ffffff;
+  --gridcue-radius: 6px;
+  --gridcue-pad: 12px;
+  --gridcue-gap: 8px;
+  --gridcue-font: inherit;
+  --gridcue-shadow: 0px 0px 0px 1px oklch(0 0 0 / 0.06), 0px 1px 2px -1px oklch(0 0 0 / 0.06), 0px 2px 4px 0px oklch(0 0 0 / 0.04);
+  font-family: var(--gridcue-font);
+  color: var(--gridcue-fg);
+  background: var(--gridcue-bg);
+  box-shadow: var(--gridcue-shadow);
+  border-radius: calc(var(--gridcue-radius) + var(--gridcue-pad));
+  padding: var(--gridcue-pad);
+  display: grid;
+  gap: var(--gridcue-gap);
+}
+@media (prefers-color-scheme: dark) {
+  .gridcue-bar {
+    --gridcue-bg: #111827;
+    --gridcue-fg: #f9fafb;
+    --gridcue-muted: #d1d5db;
+    --gridcue-border: #374151;
+    --gridcue-hover: oklch(1 0 0 / 0.06);
+    --gridcue-accent: #60a5fa;
+    --gridcue-accent-hover: #93c5fd;
+    --gridcue-accent-fg: #111827;
+    --gridcue-shadow: 0 0 0 1px oklch(1 0 0 / 0.08);
+  }
+}
+.gridcue-label {
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+.gridcue-row {
+  display: flex;
+  gap: var(--gridcue-gap);
+  margin-top: 4px;
+}
+.gridcue-input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 1px solid var(--gridcue-border);
+  border-radius: var(--gridcue-radius);
+  padding: 6px 10px;
+}
+.gridcue-button {
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 1px solid var(--gridcue-border);
+  border-radius: var(--gridcue-radius);
+  padding: 6px 12px;
+  cursor: pointer;
+  transition-property: scale, background-color;
+  transition-duration: 150ms;
+  transition-timing-function: ease-out;
+}
+.gridcue-button:active:not(:disabled) {
+  scale: 0.96;
+}
+.gridcue-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.gridcue-primary {
+  background: var(--gridcue-accent);
+  color: var(--gridcue-accent-fg);
+  border-color: var(--gridcue-accent);
+}
+@media (hover: hover) and (pointer: fine) {
+  .gridcue-button:hover:not(:disabled) {
+    background-color: var(--gridcue-hover);
+  }
+  .gridcue-primary:hover:not(:disabled) {
+    background-color: var(--gridcue-accent-hover);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gridcue-button:active:not(:disabled) {
+    scale: 1;
+  }
+}
+.gridcue-input:focus-visible,
+.gridcue-button:focus-visible {
+  outline: 2px solid var(--gridcue-accent);
+  outline-offset: 2px;
+}
+.gridcue-status {
+  font-size: 0.875rem;
+  color: var(--gridcue-muted);
+  min-height: 1.25em;
+}
+.gridcue-fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+.gridcue-panel {
+  border-top: 1px solid var(--gridcue-border);
+  padding-top: var(--gridcue-gap);
+}
+.gridcue-heading {
+  font-size: 0.875rem;
+  margin: 0 0 4px;
+}
+.gridcue-list {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+.gridcue-note {
+  font-size: 0.8125rem;
+  color: var(--gridcue-muted);
+  margin: 4px 0 0;
+}
+.gridcue-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--gridcue-gap);
+  margin-top: var(--gridcue-gap);
+}
+.gridcue-hint {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: var(--gridcue-muted);
+}
+.gridcue-hint kbd {
+  font: inherit;
+}

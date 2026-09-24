@@ -3,6 +3,7 @@ import { defineConfig } from "tsdown";
 export default defineConfig({
   entry: {
     index: "src/index.ts",
+    react: "src/react/index.ts",
     mock: "src/mock/index.ts",
     server: "src/server/index.ts",
     "server-browser": "src/server/browser.ts",
@@ -12,4 +13,5 @@ export default defineConfig({
   platform: "neutral",
   dts: true,
   clean: true,
+  copy: [{ from: "src/react/styles.css", to: "dist" }],
 });
