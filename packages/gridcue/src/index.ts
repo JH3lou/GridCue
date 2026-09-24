@@ -1,3 +1,4 @@
+export { type ApplyResult, type GridAdapter, MVP_OPERATIONS } from "./core/adapter";
 export { type CompileInput, type ConfidencePolicy, compile, DEFAULT_CONFIDENCE } from "./core/compile";
 export * from "./core/errors";
 export { matchesFilter, matchesPredicate } from "./core/evaluate";
@@ -7,6 +8,7 @@ export * from "./core/preview";
 export * from "./core/protocol";
 export { applyOperations } from "./core/reduce";
 export * from "./core/resolution";
+export { applyView, createRowsAdapter, type RowsAdapter, type RowsAdapterOptions, type ViewResult } from "./core/rows-adapter";
 export * from "./core/schema";
 export {
   type ApplicableViewPlan,
