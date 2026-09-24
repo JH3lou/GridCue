@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["node", "vite/client"],
+    "allowImportingTsExtensions": true,
+    "noUncheckedIndexedAccess": false,
+    "paths": {
+      "@/components/gridcue/*": ["../../registry/registry/gridcue/*"],
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["src", "vite.config.ts", "server.ts", "gridcue-api.ts"]
+}
