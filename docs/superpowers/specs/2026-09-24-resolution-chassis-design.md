@@ -1,6 +1,6 @@
 # Resolution chassis: design spec
 
-**Status:** draft, waiting for the owner's approval
+**Status:** approved by the owner on 2026-09-24
 **Date:** 2026-09-24
 **Scope:** grill answers Q1, Q3, Q4 and Q5 in `docs/planning/configurable-resolution-grill.md`. The comparison demo (Q2) and grid routing are later specs.
 
