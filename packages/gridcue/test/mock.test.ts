@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { MVP_OPERATIONS } from "../src/core/adapter";
 import { normalize } from "../src/core/normalize";
 import { emptyViewState } from "../src/core/protocol";
 import { buildResolutionRequest } from "../src/core/resolution";
@@ -65,5 +66,16 @@ describe("mock provider", () => {
   it("detects several clears in one clause", async () => {
     const [clause] = await resolve("clear the filters and sorting");
     expect(clause?.families.map((f) => f.id)).toEqual(["filter.clear", "sort.clear"]);
+  });
+});
+
+describe("Mock Provider fan-out answers", () => {
+  it("gives a role to a column named right after its verb, and an add-a-level answer for 'also'", async () => {
+    const schema = defineSchema([{ id: "name" }, { id: "value", kind: "currency" }]);
+    const caps = { operations: [...MVP_OPERATIONS], supportsAtomicApply: true, supportsSnapshotRestore: true, observesChanges: true };
+    const req = buildResolutionRequest(normalize("also sort by value"), schema, caps, emptyViewState(["name", "value"]));
+    const [clause] = (await createMockProvider().resolve(req)).clauses;
+    expect(clause?.roles).toEqual([{ columnId: "value", family: "sort", confidence: 0.95 }]);
+    expect(clause?.adds).toBe(0.95);
   });
 });

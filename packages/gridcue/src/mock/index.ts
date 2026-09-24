@@ -17,6 +17,14 @@ const UNSUPPORTED: Array<[RegExp, string]> = [
 ];
 
 const NEGATION = /\b(?:without|no|not|non|excluding)\s+(?:any\s+)?$/;
+/** A column named directly after one of these gets that role (fan-out spec, 5.3). */
+const ROLE_BEFORE: Array<[RegExp, string]> = [
+  [/\b(?:sort(?:ed)?|order(?:ed)?)\s+by\s+(?:the\s+)?$/, "sort"],
+  [/\bgroup(?:ed)?\s+by\s+(?:the\s+)?$/, "group"],
+  [/\bhide\s+(?:the\s+)?$/, "columns.hide"],
+  [/\bshow\s+(?:the\s+)?$/, "columns.show"],
+];
+const ADDS = /\b(?:also|too|as well)\b/;
 
 const pick = (id: string, confidence: number): Pick => ({ id, confidence });
 
@@ -80,9 +88,15 @@ export const createMockProvider = (options: MockProviderOptions = {}): IntentPro
         }
         const needsColumns = families.some((f) => ["sort", "group", "columns.hide", "columns.show", "columns.only"].includes(f));
         const term = needsColumns && picked.length === 0 ? unknownTerm(clause.text) : undefined;
+        const roles = columnHits.flatMap((m) => {
+          const role = ROLE_BEFORE.find(([re]) => re.test(clause.text.slice(0, m.start)))?.[1];
+          return role ? [{ columnId: m.columnId, family: role, confidence: 0.95 }] : [];
+        });
         return {
           clauseIndex: clause.index,
           families: families.map((f) => pick(f, 0.95)),
+          ...(roles.length > 0 ? { roles } : {}),
+          ...(ADDS.test(clause.text) ? { adds: 0.95 } : {}),
           columns: picked,
           values,
           unmatchedTerms: term ? [term] : [],
