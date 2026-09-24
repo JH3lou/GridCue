@@ -6,7 +6,10 @@ import {
   constructTable,
   createFilteredRowModel,
   createGroupedRowModel,
+  createPaginatedRowModel,
   createSortedRowModel,
+  rowPaginationFeature,
+  rowSelectionFeature,
   rowSortingFeature,
   tableFeatures,
 } from "@tanstack/table-core";
@@ -30,10 +33,19 @@ const features = tableFeatures({
   columnGroupingFeature,
   columnVisibilityFeature,
   columnOrderingFeature,
+  rowPaginationFeature,
+  rowSelectionFeature,
   filteredRowModel: createFilteredRowModel(),
   sortedRowModel: createSortedRowModel(),
   groupedRowModel: createGroupedRowModel(),
+  paginatedRowModel: createPaginatedRowModel(),
 });
+
+type TestTable = TanStackTableLike & {
+  getRowModel(): { rows: Array<{ original: (typeof rows)[number] }> };
+  setPageIndex(index: number): void;
+  setRowSelection(selection: Record<string, boolean>): void;
+};
 
 const makeTable = () =>
   constructTable({
@@ -45,7 +57,7 @@ const makeTable = () =>
       { accessorKey: "team", header: "Team" },
       { accessorKey: "name", header: "Name" },
     ],
-  } as never) as unknown as TanStackTableLike & { getRowModel(): { rows: Array<{ original: (typeof rows)[number] }> } };
+  } as never) as unknown as TestTable;
 
 runAdapterContract("TanStack Table adapter", () => {
   const table = makeTable();
@@ -123,5 +135,43 @@ describe("TanStack end to end", () => {
     const undone = await cue.undo();
     expect(undone).toBe(true);
     expect(table.store.state.columnFilters?.map((f) => f.id)).toEqual(["team"]);
+  });
+
+  it("keeps undo available across pagination and TanStack's own auto-reset after a sort", async () => {
+    const table = makeTable();
+    table.getRowModel(); // an initial render, so the sorted row model is already memoized once
+    table.setPageIndex(1);
+    const schema = schemaFromTanStack(table);
+    const cue = createGridCue({ adapter: createTanStackAdapter({ schema, table }), provider: createMockProvider() });
+    await cue.propose("sort by value largest first");
+    await cue.apply();
+    // Reading the row model again is what makes TanStack notice the sort changed and schedule its
+    // own pageIndex reset to 0.
+    table.getRowModel();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect((table.store.state as unknown as { pagination: { pageIndex: number } }).pagination.pageIndex).toBe(0);
+    expect(cue.getState().canUndo).toBe(true);
+    expect(await cue.undo()).toBe(true);
+  });
+
+  it("still applies after row selection changes between preview and apply", async () => {
+    const table = makeTable();
+    const schema = schemaFromTanStack(table);
+    const cue = createGridCue({ adapter: createTanStackAdapter({ schema, table }), provider: createMockProvider() });
+    await cue.propose("sort by value largest first");
+    table.setRowSelection({ 0: true });
+    await cue.apply();
+    expect(cue.getState().status).toBe("applied");
+  });
+
+  it("still rejects a stale preview after a real manual sort change", async () => {
+    const table = makeTable();
+    const schema = schemaFromTanStack(table);
+    const cue = createGridCue({ adapter: createTanStackAdapter({ schema, table }), provider: createMockProvider() });
+    await cue.propose("sort by value largest first");
+    table.setSorting([{ id: "team", desc: false }]);
+    await cue.apply();
+    expect(cue.getState().status).toBe("error");
   });
 });
