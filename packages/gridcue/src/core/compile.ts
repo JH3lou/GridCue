@@ -773,6 +773,18 @@ export const compile = (c: CompileInput): ViewPlan => {
     }
   }
 
+  // A "No" never dead-ends (v1 grill, Q1): when the User declined something in a part and all that is left there
+  // is a question with no choices, say plainly that nothing will change, with the request kept for editing.
+  for (const clause of c.input.clauses) {
+    const key = `c${clause.index}`;
+    const declined = Object.entries(answers).some(([k, v]) => k.startsWith(`${key}.`) && v === "none");
+    const open = clarifications.filter((q) => q.id === key || q.id.startsWith(`${key}.`));
+    if (declined && open.length > 0 && open.every((q) => !q.options?.length)) {
+      for (const q of open) clarifications.splice(clarifications.indexOf(q), 1);
+      clarifications.push({ id: `${key}.declined`, prompt: "Okay, nothing will change. Rephrase or edit your request.", required: true });
+    }
+  }
+
   const status: ViewPlan["status"] =
     unsupportedSegments.length > 0 ? "unsupported" : clarifications.length > 0 || operations.length === 0 ? "needs_clarification" : "ready";
   if (status === "needs_clarification" && clarifications.length === 0) {
