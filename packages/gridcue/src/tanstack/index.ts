@@ -111,13 +111,12 @@ export const createTanStackAdapter = ({ schema, table, maxSorts = 3, maxGroups =
   const defaultState = read();
   const listeners = new Set<(s: VersionedViewState) => void>();
   const current = (): VersionedViewState => ({ revision: `tanstack:${n}`, state: read() });
-  // Only the slices GridCue reads should bump the revision. TanStack's store also notifies for
+  // Only a change to the View State should bump the revision. TanStack's store also notifies for
   // pagination, row selection, expanded rows, column sizing, and its own auto-resets (e.g.
-  // getRowModel() resetting pageIndex to 0 after a sort), none of which change the View State.
-  const fingerprint = () => {
-    const s = table.store.state;
-    return JSON.stringify([s.columnFilters, s.sorting, s.grouping, s.columnVisibility, s.columnOrder]);
-  };
+  // getRowModel() resetting pageIndex to 0 after a sort), none of which change it. The View State
+  // holds only GridCue's own scalar values, so serialising it never trips on a Host filter value
+  // such as a BigInt.
+  const fingerprint = () => JSON.stringify(read());
   let lastFingerprint = fingerprint();
   const sub = table.store.subscribe(() => {
     const next = fingerprint();

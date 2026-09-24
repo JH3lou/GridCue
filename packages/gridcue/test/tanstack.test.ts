@@ -137,6 +137,14 @@ describe("TanStack end to end", () => {
     expect(table.store.state.columnFilters?.map((f) => f.id)).toEqual(["team"]);
   });
 
+  it("tolerates a Host filter value that cannot be serialised, such as a BigInt", () => {
+    const table = makeTable();
+    table.setColumnFilters([{ id: "team", value: 10n }]);
+    const schema = schemaFromTanStack(table);
+    expect(() => createTanStackAdapter({ schema, table })).not.toThrow();
+    expect(() => table.setColumnFilters([{ id: "team", value: 11n }])).not.toThrow();
+  });
+
   it("keeps undo available across pagination and TanStack's own auto-reset after a sort", async () => {
     const table = makeTable();
     table.getRowModel(); // an initial render, so the sorted row model is already memoized once
