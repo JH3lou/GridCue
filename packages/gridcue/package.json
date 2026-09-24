@@ -22,6 +22,11 @@
       "types": "./dist/mock.d.ts",
       "default": "./dist/mock.js"
     },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "browser": "./dist/server-browser.js",
+      "default": "./dist/server.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [
