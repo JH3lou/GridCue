@@ -1,6 +1,6 @@
 # Resolution quality: design spec
 
-**Status:** draft, waiting for the owner's approval
+**Status:** approved by the owner on 2026-09-24, including the margin rule in section 4
 **Date:** 2026-09-24
 **Scope:** fix the six live-eval mismatches from `docs/planning/handoff-2026-09-24.md` and lift the question budget. The decisions come from `docs/planning/resolution-quality-grill.md`, Round 1. This spec does not change the confidence defaults, the UI, or the Site.
 

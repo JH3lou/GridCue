@@ -233,3 +233,8 @@ Otherwise the match is a column. The rules refer only to grammar and column kind
 - **The held-out set's one "wrong" is a labelling artefact.** In "Taxable accounts only", Jev scored Registration type 0.86, which is the column the value belongs to.
 - **The remaining shortfalls are all Jev asking about an implied column.** That is Registration type next to a matched value, or Market value for a bare amount. The spec's "a value selects its column" rule and the literal Choice target exactly these. *Unverified until built.*
 - **Decision:** the context rules replace "plurals off" in spec section 5.2. The 66 labelled requests become Mention unit-test fixtures.
+
+## Status
+
+- **Spec:** approved by the owner on 2026-09-24 ("Sure"), including the 0.10 margin rule. It is at `docs/superpowers/specs/2026-09-24-resolution-quality-design.md`.
+- **Next:** ADRs 0012 and 0013, then the plan. Its code is built and tested in a scratch copy first, as with the first plan.
