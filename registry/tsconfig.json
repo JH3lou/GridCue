@@ -1,0 +1,10 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "paths": {
+      "@/components/gridcue/*": ["./registry/gridcue/*"],
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["src", "registry", "test"]
+}
