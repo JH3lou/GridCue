@@ -1,6 +1,6 @@
 # Contributing
 
-GridCue is early. The protocol and package boundaries are still settling, so we keep scope tight and changes small.
+GridCue is early stage in development still. The protocol and package boundaries are still settling, so we keep scope tight and changes small.
 
 ## Before you start
 
