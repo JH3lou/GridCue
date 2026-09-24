@@ -238,3 +238,21 @@ Otherwise the match is a column. The rules refer only to grammar and column kind
 
 - **Spec:** approved by the owner on 2026-09-24 ("Sure"), including the 0.10 margin rule. It is at `docs/superpowers/specs/2026-09-24-resolution-quality-design.md`.
 - **Next:** ADRs 0012 and 0013, then the plan. Its code is built and tested in a scratch copy first, as with the first plan.
+
+## Verification findings (2026-09-24)
+
+The plan's code was built and tested in a scratch worktree before the plan was written. Live runs found problems that changed the design. The plan's "Decisions made while verifying" section lists them, and ADRs 0012 and 0013 record them.
+
+| Set | Written before | Run result that changed the design |
+| --- | --- | --- |
+| Live-only, 16 cases | the grammar rules ran live | 4 wrong views from "account" as the row noun ("Biggest accounts first" sorted by Account number). Jev had scored the column 0.02 to 0.05. This led to the provider floor of 0.40. |
+| Held-out 3, 20 cases | the provider floor | 2 wrong views ("Smallest accounts first", "Largest households first"), which led to the superlative rule. 1 dropped filter ("Roth IRAs grouped by rep"), which led to never silently ignoring a named value. |
+| Held-out 4, 20 cases | the superlative rule | 0 wrong views. |
+| Full live set, third run | | 1 wrong view ("Group the accounts under each advisor"), because Jev's score for the row noun crossed 0.40 in that run. This led to the comparison-word rule. |
+| Full live set, two further verbose runs | | 0 wrong views in 81 requests, and 0 unsafe. |
+
+Remaining live misses all ask instead of applying. The handoff lists them as findings.
+
+## Status
+
+- **Plan:** written, waiting for the owner's approval, at `docs/superpowers/plans/2026-09-24-resolution-quality.md`.
