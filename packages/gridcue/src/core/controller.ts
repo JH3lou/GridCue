@@ -8,7 +8,7 @@ import { type AuditEvent, type AuditPolicy, type Preview, renderPreview, toAudit
 import type { VersionedViewState, ViewPlan, ViewSchema } from "./protocol";
 import { buildResolutionRequest, type IntentProvider, ResolutionResult } from "./resolution";
 import { isExposed } from "./schema";
-import { type ApplicableViewPlan, validatePlan } from "./validate";
+import { type ApplicableViewPlan, resultingState, validatePlan } from "./validate";
 
 export type InteractionStatus = "idle" | "resolving" | "ready" | "needs_clarification" | "unsupported" | "applying" | "applied" | "error";
 
@@ -280,15 +280,27 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
       try {
         result = await adapter.apply(recheck.plan);
       } catch {
-        // A write that throws part-way may have changed the grid: put the previous view back.
+        // A write that throws part-way may have changed the grid. Put the previous view back only when every part of
+        // the view still holds either its old value or this plan's value: then nothing else has changed it since,
+        // and restoring can't erase a newer change (review fix).
         let restored = false;
+        let untouched = false;
         try {
-          restored = (await adapter.restore(before)).ok;
+          const now = adapter.getState().state;
+          const after = resultingState(recheck.plan);
+          const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+          untouched = same(now, before.state);
+          const ours = (Object.keys(now) as Array<keyof typeof now>).every((k) => same(now[k], before.state[k]) || same(now[k], after[k]));
+          if (!untouched && ours) restored = (await adapter.restore(before)).ok;
         } catch {
           restored = false;
         }
         return failed(
-          restored ? "The grid couldn't apply that change. The previous view is back." : "The grid couldn't apply that change.",
+          untouched
+            ? "The grid couldn't apply that change. Nothing was changed."
+            : restored
+              ? "The grid couldn't apply that change. The previous view is back."
+              : "The grid couldn't apply that change, and the view changed meanwhile, so GridCue left it as it is.",
         );
       }
       if (!result.ok) {
