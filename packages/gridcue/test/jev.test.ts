@@ -11,7 +11,7 @@ const caps = { operations: ["filter.add", "sort.set"], supportsAtomicApply: true
 const request = buildResolutionRequest(normalize("open accounts over $1m"), schema, caps, emptyViewState(["value", "status", "tax_id"]));
 
 /** The question keys this provider asks as Choices; every other key is a Noul. */
-const isChoice = (k: string) => /_(?:val|bool)\d+$|_dir$|_lit\d+$|_kind$/.test(k);
+const isChoice = (k: string) => /_(?:val|bool)\d+$|_dir$|_lit\d+$|_kind$|_reading\d+$/.test(k);
 
 type Seen = { questions?: Record<string, unknown>; state?: unknown; model?: string };
 const fakeClient = (answer: (name: string) => unknown, seen: Seen = {}): JevClient => ({
@@ -27,6 +27,7 @@ describe("createJevProvider", () => {
   it("asks closed questions and maps answers to candidate IDs", async () => {
     const seen: Seen = {};
     const provider = createJevProvider({
+      strategy: "focused",
       client: fakeClient((k) => {
         if (k === "c0_f0") return { noul: 0.93 }; // filter
         if (k.endsWith("_col0")) return { noul: 0.91 }; // value
@@ -58,6 +59,7 @@ describe("createJevProvider", () => {
 
   it("treats a missing answer as malformed", async () => {
     const provider = createJevProvider({
+      strategy: "focused",
       client: fakeClient((k) =>
         k === "c0_val1" ? undefined : isChoice(k) ? { choice: "none", probabilities: { none: 0.9 } } : { noul: 0.1 },
       ),
@@ -176,6 +178,67 @@ describe("createJevProvider", () => {
     };
     expect(await keysFor("sort by market value within status")).toEqual(["c0_outer0_1", "c0_outer1_0"]);
     expect(await keysFor("sort by market value and status")).toEqual([]);
+  });
+
+  it("asks one yes/no per enum value when the values signal is on, so several values can come back", async () => {
+    const seen: Seen = {};
+    const provider = createJevProvider({
+      signals: { values: true },
+      client: fakeClient(
+        (k) => (k === "c0_is1_0" ? { noul: 0.93 } : isChoice(k) ? { choice: "none", probabilities: { none: 1 } } : { noul: 0.05 }),
+        seen,
+      ),
+    });
+    const [clause] = (await provider.resolve(request)).clauses;
+    expect(Object.keys(seen.questions ?? {})).toContain("c0_is1_0");
+    expect(Object.keys(seen.questions ?? {})).not.toContain("c0_val1");
+    expect(clause?.values).toContainEqual({ columnId: "status", valueId: "open", confidence: 0.93 });
+  });
+
+  it("asks the focused strategy's questions only, and rejects unknown strategies and signals", async () => {
+    const seen: Seen = {};
+    const answer = (k: string) => (isChoice(k) ? { choice: "none", probabilities: { none: 1 } } : { noul: 0 });
+    await createJevProvider({ strategy: "focused", client: fakeClient(answer, seen) }).resolve(request);
+    const keys = Object.keys(seen.questions ?? {});
+    expect(keys.some((k) => /_role|_kind|_adds|_is\d|_reading|_outer/.test(k))).toBe(false);
+    expect(keys).toContain("c0_val1");
+    const onlyKind: Seen = {};
+    await createJevProvider({ strategy: "focused", signals: { kind: true }, client: fakeClient(answer, onlyKind) }).resolve(request);
+    expect(Object.keys(onlyKind.questions ?? {})).toContain("c0_kind");
+    expect(() => createJevProvider({ strategy: "everything" as never })).toThrow(/Unknown strategy/);
+    expect(() => createJevProvider({ signals: { magic: true } as never })).toThrow(/Unknown signal/);
+  });
+
+  it("asks what an ambiguous row or entity noun means, with only the readings that apply", async () => {
+    const entitySchema = defineSchema(
+      [
+        { id: "house", label: "Household", kind: "string" },
+        { id: "value", label: "Market value", kind: "currency" },
+      ],
+      {
+        rowNoun: "account",
+        columns: { house: { entity: "household" } },
+      },
+    );
+    const input = normalize("largest households first");
+    const mentions = [{ clauseIndex: 0, columnId: "house", start: 8, end: 18, ambiguous: true as const, text: "households" }];
+    const req = buildResolutionRequest(input, entitySchema, caps, emptyViewState(["house", "value"]), mentions);
+    const seen: Seen = {};
+    const provider = createJevProvider({
+      client: fakeClient(
+        (k) =>
+          k === "c0_reading0"
+            ? { choice: "records", probabilities: { column: 0.1, records: 0.9 } }
+            : isChoice(k)
+              ? { choice: "none", probabilities: { none: 1 } }
+              : { noul: 0.05 },
+        seen,
+      ),
+    });
+    const [clause] = (await provider.resolve(req)).clauses;
+    expect(JSON.stringify(seen.questions?.c0_reading0)).toContain("households as whole records");
+    expect(JSON.stringify(seen.questions?.c0_reading0)).not.toContain("rows of this grid");
+    expect(clause?.readings).toEqual([{ columnId: "house", reading: "records", confidence: 0.9 }]);
   });
 
   it("wraps transport errors", async () => {
