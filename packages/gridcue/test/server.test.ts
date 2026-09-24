@@ -1,4 +1,4 @@
-import { createServer } from "node:http";
+import { createServer, request as httpRequest } from "node:http";
 import type { AddressInfo } from "node:net";
 import express from "express";
 import { afterEach, describe, expect, it } from "vitest";
@@ -62,6 +62,31 @@ describe("toNodeHandler and createRemoteProvider", () => {
     const url = await listen(toNodeHandler(handler));
     const result = await createRemoteProvider({ endpoint: url }).resolve(request);
     expect(result.clauses[0]?.families[0]?.id).toBe("sort");
+  });
+
+  it("answers 413 with INPUT_TOO_LARGE for a streamed body over maxBodyBytes, with no Content-Length", async () => {
+    const url = await listen(toNodeHandler(handler, { maxBodyBytes: 1024 }));
+    const { hostname, port, pathname } = new URL(url);
+    const { status, body } = await new Promise<{ status: number; body: string }>((resolve, reject) => {
+      const req = httpRequest(
+        { hostname, port, path: pathname, method: "POST", headers: { "content-type": "application/json" } },
+        (res) => {
+          let received = "";
+          res.on("data", (chunk) => {
+            received += chunk;
+          });
+          res.on("end", () => resolve({ status: res.statusCode ?? 0, body: received }));
+        },
+      );
+      req.on("error", reject);
+      // No Content-Length is set, so Node sends this as a chunked request body, over several writes.
+      expect(req.getHeader("content-length")).toBeUndefined();
+      req.write("x".repeat(2000));
+      req.write("x".repeat(2000));
+      req.end();
+    });
+    expect(status).toBe(413);
+    expect(JSON.parse(body)).toMatchObject({ error: { code: "INPUT_TOO_LARGE" } });
   });
 
   it("serves Express, with or without a JSON body parser", async () => {

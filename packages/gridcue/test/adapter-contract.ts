@@ -112,5 +112,33 @@ export const runAdapterContract = (name: string, make: () => ContractHarness) =>
       adapter.getCapabilities().operations.push("cells.edit");
       expect(adapter.getCapabilities().operations).not.toContain("cells.edit");
     });
+
+    it("stops notifying once the function returned by subscribe is called", async () => {
+      const h = make();
+      let calls = 0;
+      const unsubscribe = h.adapter.subscribe(() => calls++);
+      h.manualChange();
+      expect(calls).toBeGreaterThan(0);
+      unsubscribe();
+      const before = calls;
+      const { plan } = validated(h.adapter, [{ type: "sort.set", sorts: [{ columnId: h.numericColumn, direction: "asc" }] }]);
+      await h.adapter.apply(plan);
+      h.manualChange();
+      expect(calls).toBe(before);
+    });
+
+    it("rejects every kind of invalid apply with a code starting with ADAPTER_", async () => {
+      const h = make();
+      const { plan: stalePlan } = validated(h.adapter, [{ type: "sort.set", sorts: [{ columnId: h.numericColumn, direction: "asc" }] }]);
+      h.manualChange();
+      const staleResult = await h.adapter.apply(stalePlan);
+      expect(staleResult.ok).toBe(false);
+      if (!staleResult.ok) expect(staleResult.code).toMatch(/^ADAPTER_/);
+
+      const unvalidated = planFor(h.adapter, [{ type: "filter.clear" }]);
+      const unvalidatedResult = await h.adapter.apply(unvalidated as never);
+      expect(unvalidatedResult.ok).toBe(false);
+      if (!unvalidatedResult.ok) expect(unvalidatedResult.code).toMatch(/^ADAPTER_/);
+    });
   });
 };
