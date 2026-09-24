@@ -60,7 +60,7 @@ export const createMockProvider = (options: MockProviderOptions = {}): IntentPro
         if (unsupported) return { ...empty, families: [pick(unsupported[1], 0.95)] };
 
         // The Mock reads names with core's deterministic matcher, context rules included (ADR 0013).
-        const mentions = matchMentions([clause], columns);
+        const mentions = matchMentions([clause], columns, { rowNoun: request.candidates.rowNoun });
         const byId = new Map(columns.map((c) => [c.id, c]));
         const valueHits = mentions.filter((m) => m.valueId !== undefined);
         const columnHits = mentions.filter((m) => m.valueId === undefined);
