@@ -1,6 +1,6 @@
 # Per-part fan-out: design spec
 
-**Status:** draft, waiting for the owner's approval
+**Status:** approved by the owner on 2026-09-24, including both changes in section 4
 **Date:** 2026-09-24
 **Scope:** grill answers Q3 to Q8 in `docs/planning/fan-out-grill.md`. Grid routing (Q2) is a separate spec. Q1, the nesting fix, shipped in PR #2.
 
