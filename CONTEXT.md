@@ -28,6 +28,10 @@ _Avoid_: Step, sub-request, segment
 The kind of change a Clause asks for, such as filter, sort, show only some columns, or reset the view. An Intent Provider scores each family; the compiler decides which ones are used.
 _Avoid_: Intent, action type, command
 
+**Mention**:
+A column or enum value a Clause names by one of the Host's declared labels or aliases, found by deterministic code before any provider call. A name used for the rows themselves, as in "biggest accounts first", is not a Mention.
+_Avoid_: Match, hit, reference
+
 **Clarification**:
 A single focused question GridCue asks when a request cannot be resolved without a choice only the User can make.
 _Avoid_: Follow-up, disambiguation prompt
