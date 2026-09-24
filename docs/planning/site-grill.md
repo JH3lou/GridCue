@@ -199,3 +199,26 @@ Recorded as follows:
   - **Q1:** the Site is entirely static. React Router prerenders every page, and Cloudflare Workers static assets serves them, which is free with unlimited requests. There is no Worker code, no secret and no server; ADR 0002 stands.
   - **Q8:** removed.
   - **ADR 0011's open item**, whether `@typesafe-ai/sdk` runs under workerd, is checked locally with `wrangler dev` in the plan, as a docs-recipe check for Hosts. It is not a deploy.
+
+## Round 1 answers (owner, 2026-09-24)
+
+> "Yes I don't know what the internal site was intended for. Just an open source framework for Jev integration for this capability. I never owned gridQue that was a typo"
+
+| Q | Recorded as |
+| --- | --- |
+| Q1 | A static Site: React Router prerender, deployed on Cloudflare Workers static assets. ADR 0002 stands. |
+| Q2 | Page map: `/`, `/demo`, `/docs`, `/r`, `/changelog`. |
+| Q3 | `/demo` runs live on the Mock Provider with a developer panel, plus a recorded "Compare strategies" tab. |
+| Q4 | Docs sections as recommended, plus a Components explorer on kobra.systems' patterns. |
+| Q5 | Registry at `https://gridcue.dev/r/{name}.json`, namespace `@gridcue`, and an index submission after launch. |
+| Q6 | CardSwap in the hero and ScrollStack for "How it works", subject to the design pass. |
+| Q7 | Shadcn typeset, verified against Fumadocs' prose. |
+| Q8 | Removed: there is no internal site. |
+| Q9 | The `pnpm create gridcue` starter gets its own spec after launch. |
+| Q10 | Cloudflare Web Analytics. |
+| Q11 | `apps/site`, deployed through Cloudflare's Git integration, with preview URLs. |
+| Q12 | No redirect: `gridque.dev` was never owned. |
+
+**Positioning:** "an open source framework for Jev integration for this capability". The Site presents GridCue as the open-source way to put Jev behind a data grid.
+
+Within the independence rule: the Site names TypeSafe's Jev as the model it is built for, with no endorsement implied, and keeps the provider-neutral core visible, since the Mock Provider and any other provider plug in the same way.
