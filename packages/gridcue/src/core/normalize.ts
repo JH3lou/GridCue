@@ -165,6 +165,8 @@ const mergeBetween = (clause: string, literals: Literal[]): Literal[] => {
   return out;
 };
 
+/** A part with no instruction verb at all, such as "advisor" in "group by custodian, then advisor". */
+const NO_VERB = new RegExp(`^(?!.*\\b(?:${VERB_ALT})(?:ed)?\\b)`);
 /** A verb that takes "by", so a following "then by …" part can continue it. */
 const LEVEL_VERB = /\b(sort(?:ed)?|order(?:ed)?|group(?:ed)?)\s+by\b/;
 
@@ -183,7 +185,9 @@ export const normalize = (raw: string): NormalizedInput => {
     )
     .filter((p) => p.length > 0)
     .map((p) => {
-      const part = /^by\b/.test(p) && levelVerb ? `${levelVerb} ${p}` : p;
+      // "then by advisor", or a bare "then advisor" of at most three words, continues the sort or grouping before it.
+      const bare = !/^by\b/.test(p) && NO_VERB.test(p) && p.split(" ").length <= 3;
+      const part = levelVerb && /^by\b/.test(p) ? `${levelVerb} ${p}` : levelVerb && bare ? `${levelVerb} by ${p}` : p;
       levelVerb = part.match(LEVEL_VERB)?.[1];
       return part;
     });

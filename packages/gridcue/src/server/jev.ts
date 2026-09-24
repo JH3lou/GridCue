@@ -5,6 +5,7 @@ import {
   type IntentProvider,
   LITERAL_COLUMN_KINDS,
   type Pick,
+  REVERSAL_WORDING,
   type ResolutionRequest,
 } from "../index";
 
@@ -22,8 +23,8 @@ export interface JevProviderOptions {
   model?: string;
   client?: JevClient;
   /**
-   * GridCue's own per-request question budget, not an API limit. Default 600, about 24k tokens: under Jev's 64k per
-   * request. Twelve Clauses on a nine-column schema need about 330. Measure cost and latency with `pnpm eval:live`.
+   * GridCue's own per-request question budget, not an API limit. Default 800, about 31k tokens: under Jev's 64k per
+   * request. Twelve Clauses on a nine-column schema need about 790. Measure cost and latency with `pnpm eval:live`.
    */
   maxQuestions?: number;
 }
@@ -49,18 +50,27 @@ const FAMILY_TEXT: Record<string, string> = {
 
 type Answer = { noul?: number; choice?: string; probabilities?: Record<string, unknown> };
 
+/** Column families a role question can bind a column to, and how each question words it (fan-out spec, Q3). */
+const ROLE_TEXT: Record<string, string> = {
+  sort: "sort the rows by",
+  group: "group the rows by",
+  "columns.show": "show",
+  "columns.hide": "hide",
+};
+
 /** Jev resolves bounded yes/no and choice questions. It never sees rows or restricted columns. */
 export const createJevProvider = (options: JevProviderOptions): IntentProvider => {
   // `logLevel` otherwise falls back to `TYPESAFE_LOG_LEVEL`; at `debug` the SDK logs full request and response
   // bodies (the Utterance, column labels, aliases, descriptions). Set it explicitly so a Host's environment
   // can't turn that on by accident. A Host that wants SDK logs can inject its own `client` instead.
   const client: JevClient = options.client ?? (new TypeSafeClient({ apiKey: options.apiKey, logLevel: "off" }) as unknown as JevClient);
-  const maxQuestions = options.maxQuestions ?? 600;
+  const maxQuestions = options.maxQuestions ?? 800;
   const model = options.model ?? DEFAULT_JEV_MODEL;
   return {
     async resolve(request: ResolutionRequest, signal?: AbortSignal) {
       const { columns, families } = request.candidates;
       const questions: Record<string, unknown> = {};
+      const labelOf = (id: string) => columns.find((c) => c.id === id)?.label ?? id;
       // Questions point at named state by path, so each carries its full meaning (question IDs are never sent).
       request.clauses.forEach((clause, p) => {
         const q = `c${clause.index}`;
@@ -97,6 +107,36 @@ export const createJevProvider = (options: JevProviderOptions): IntentProvider =
             );
           }
         });
+        // Fan-out (spec 2026-09-24): asked for every part; the compiler reads only the answers that apply.
+        columns.forEach((c, i) => {
+          if (valued.has(c.id)) return;
+          Object.keys(ROLE_TEXT).forEach((family, r) => {
+            if (!c.families.includes(family)) return;
+            questions[`${q}_role${i}_${r}`] = noul(
+              `Does ${about} ask to ${ROLE_TEXT[family]} the grid column \`columns[${i}]\` (“${c.label}”)?`,
+            );
+          });
+        });
+        questions[`${q}_kind`] = choice(`Which kind of change does ${about} mainly ask for?`, {
+          ...Object.fromEntries(families.map((f) => [f, FAMILY_TEXT[f] ?? f])),
+          none: "No change to the view, or it is unclear",
+        });
+        questions[`${q}_adds`] = noul(
+          `If ${about} sorts or groups the rows, does it add another level to the current \`view\` sort or grouping, rather than replace it?`,
+        );
+        const named = [...new Set(clause.mentions?.filter((m) => m.valueId === undefined).map((m) => m.columnId))];
+        if (REVERSAL_WORDING.test(clause.text) && named.length > 1) {
+          for (const a of named) {
+            for (const b of named) {
+              if (a === b) continue;
+              const ia = columns.findIndex((c) => c.id === a);
+              const ib = columns.findIndex((c) => c.id === b);
+              questions[`${q}_outer${ia}_${ib}`] = noul(
+                `In ${about}, is the grid column \`columns[${ia}]\` the outer grouping or the primary sort, with \`columns[${ib}]\` inside it?`,
+              );
+            }
+          }
+        }
         clause.literals.forEach((lit, j) => {
           const fits = columns.filter((c) => c.families.includes("filter") && LITERAL_COLUMN_KINDS[lit.kind].includes(c.kind));
           if (fits.length === 0) return;
@@ -133,6 +173,10 @@ export const createJevProvider = (options: JevProviderOptions): IntentProvider =
                   : {}),
               })),
               columns: columns.map(({ id, label, kind, aliases, description }) => ({ id, label, kind, aliases, description })),
+              view: {
+                sorts: request.view.sorts.map((s) => ({ column: labelOf(s.columnId), direction: s.direction })),
+                groupBy: request.view.groupBy.map(labelOf),
+              },
             },
             questions,
           },
@@ -191,9 +235,28 @@ export const createJevProvider = (options: JevProviderOptions): IntentProvider =
             const pick = pickOf(key, ["none", ...columns.map((c) => c.id)]);
             if (pick) literalColumns.push({ literalIndex: j, columnId: pick.id, confidence: pick.confidence });
           });
+          const roles: NonNullable<ClauseResolution["roles"]> = [];
+          columns.forEach((c, i) => {
+            Object.keys(ROLE_TEXT).forEach((family, r) => {
+              const key = `${q}_role${i}_${r}`;
+              if (key in questions) roles.push({ columnId: c.id, family, confidence: yes(key) });
+            });
+          });
+          const kind = pickOf(`${q}_kind`, [...families, "none"]);
+          const outer: NonNullable<ClauseResolution["outer"]> = [];
+          for (const key of Object.keys(questions)) {
+            const m = key.match(/^c(\d+)_outer(\d+)_(\d+)$/);
+            const a = columns[Number(m?.[2])];
+            const b = columns[Number(m?.[3])];
+            if (m && m[1] === String(clause.index) && a && b) outer.push({ outerId: a.id, innerId: b.id, confidence: yes(key) });
+          }
           return {
             clauseIndex: clause.index,
             families: fam,
+            roles,
+            ...(kind ? { kind } : {}),
+            adds: yes(`${q}_adds`),
+            ...(outer.length > 0 ? { outer } : {}),
             columns: mentions.map((m) => ({ id: m.c.id, confidence: m.p })),
             values,
             ...(direction ? { direction } : {}),

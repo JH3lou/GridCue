@@ -157,5 +157,23 @@ Answer by number. A bare "agree" accepts the recommendation.
 | --- | --- | --- |
 | Q1 Hierarchy bug | "agree" | Fixed on `claude/resolution-quality` before its PR. |
 | Q2 Which grid | "for the demo we currently have in place, we will always be on the right grid, but this is not the reality of the use case. immagine an advisor desktop with many different views (client, household, account, positions…) redirect capability to correct grid." | Target routing across entity grids in a Host app, with a redirect to the right grid. Its own spec, after the fan-out spec. **Open for that spec:** today "navigate somewhere else" is an unsupported family, so redirecting means the Host navigates through a callback it owns, and GridCue picks the grid. |
-| Q3–Q8 | Not answered yet | To confirm when the fan-out spec starts. |
+| Q3–Q8 | "Agree, but with the understanding that this is our best understanding now, we should iterate to get better results if and when needed" | All six recommendations accepted as the current best design, not final. The spec states the evidence each new question must show, and removing or reworking a question that doesn't pay is expected. |
 | Q9 Sequencing | "I'll follow your guidance in order and segmentation of work." | (a): PR resolution quality with the Q1 fix, then the fan-out spec (Q3 to Q8), then the grid-routing spec (Q2). |
+
+## Verification findings (2026-09-24)
+
+The plan's code was built and run in a scratch worktree before the plan was written. The full account is in ADR 0014 and in the plan's "Decisions made while verifying".
+
+- **Before any fan-out code existed,** today's code proposed 7 wrong views on the 20 fan-out cases. They were the reversal, "also" and "Restricted accounts grouped by advisor" cases.
+- **Held-out sets.** Two more were written before the refinements they tested (16 and 14 cases). Each found gaps. The main ones: role answers must separate columns and never drop one, and a value named before another change's verb is a filter.
+- **Ablation** (`--without=<signal>`) showed four of the five questions deciding 4 to 6 cases each. The "more than one change" question decided none, so it was removed, as the spec's evidence bar requires.
+- **Final results, two identical live runs:**
+  - 0 wrong views and 0 unsafe;
+  - live-only 51 of 56 exact, up from 40;
+  - fan-out 49 of 50 exact;
+  - no regressions.
+
+## Status
+
+- **Spec:** approved 2026-09-24.
+- **Plan:** written, waiting for the owner's approval, at `docs/superpowers/plans/2026-09-24-fan-out.md`.

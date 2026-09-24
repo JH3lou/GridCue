@@ -7,6 +7,13 @@ import { loadCases, runCase, type Verdict } from "./run";
 
 const live = process.argv.includes("--live");
 const verbose = process.argv.includes("--verbose");
+// `--without=kind,adds` drops those fan-out answers before the compiler sees them, to measure what each is worth.
+const without = new Set(
+  (process.argv.find((a) => a.startsWith("--without="))?.slice("--without=".length) ?? "").split(",").filter(Boolean),
+);
+const SIGNALS = ["roles", "kind", "adds", "outer"] as const;
+for (const s of without)
+  if (!(SIGNALS as readonly string[]).includes(s)) throw new Error(`Unknown signal "${s}". Use ${SIGNALS.join(", ")}.`);
 if (live && !process.env.JEV_API_KEY) {
   console.log("Skipping live evals: JEV_API_KEY is not set.");
   process.exit(0);
@@ -31,7 +38,10 @@ const base: IntentProvider = live ? createJevProvider({ client }) : createMockPr
 let seen: { request?: ResolutionRequest; result?: ResolutionResult } = {};
 const provider: IntentProvider = {
   async resolve(request, signal) {
-    const result = await base.resolve(request, signal);
+    const raw = await base.resolve(request, signal);
+    const result = {
+      clauses: raw.clauses.map((c) => Object.fromEntries(Object.entries(c).filter(([k]) => !without.has(k))) as typeof c),
+    };
     seen = { request, result };
     return result;
   },
@@ -52,6 +62,13 @@ const describe = (ms: number) => {
     lines.push(`      families [${scores(c.families)}]  columns [${scores(c.columns)}]  mentions [${mentions}]`);
     if (c.values.length > 0)
       lines.push(`      values [${scores(c.values.map((v) => ({ id: `${v.columnId}=${v.valueId}`, confidence: v.confidence })))}]`);
+    const fan = [
+      c.roles?.length ? `roles [${scores(c.roles.map((r) => ({ id: `${r.columnId}:${r.family}`, confidence: r.confidence })))}]` : "",
+      c.kind ? `kind ${c.kind.id} ${c.kind.confidence.toFixed(2)}` : "",
+      c.adds !== undefined ? `adds ${c.adds.toFixed(2)}` : "",
+      c.outer?.length ? `outer [${c.outer.map((o) => `${o.outerId}>${o.innerId} ${o.confidence.toFixed(2)}`).join(", ")}]` : "",
+    ].filter(Boolean);
+    if (fan.length > 0) lines.push(`      ${fan.join("  ")}`);
     if (c.literalColumns?.length) {
       lines.push(
         `      literals [${scores(c.literalColumns.map((l) => ({ id: `#${l.literalIndex}→${l.columnId}`, confidence: l.confidence })))}]`,
@@ -77,7 +94,7 @@ const run = async (file: URL, label: string) => {
       console.log(`${verdict.toUpperCase()}: ${c.id}`);
     }
   }
-  console.log(`GridCue evals: ${label} (${live ? "Jev" : "Mock Provider"})`);
+  console.log(`GridCue evals: ${label} (${live ? "Jev" : "Mock Provider"}${without.size ? `, without ${[...without].join(", ")}` : ""})`);
   console.table(counts);
   return counts;
 };
@@ -85,7 +102,8 @@ const run = async (file: URL, label: string) => {
 const core = await run(new URL("./cases.jsonl", import.meta.url), "cases.jsonl");
 // Live-only cases need common sense the Mock doesn't have. They are findings, with no pass bar, except that none may be unsafe.
 const extra = live ? await run(new URL("./cases-live.jsonl", import.meta.url), "cases-live.jsonl") : undefined;
+const fanout = live ? await run(new URL("./cases-fanout.jsonl", import.meta.url), "cases-fanout.jsonl") : undefined;
 
 // Applying a view the user did not ask for is release-blocking with any provider.
 // With the Mock Provider every case must match exactly, because its answers are deterministic.
-if (core.unsafe > 0 || (extra?.unsafe ?? 0) > 0 || (!live && core.mismatch > 0)) process.exit(1);
+if (core.unsafe > 0 || (extra?.unsafe ?? 0) > 0 || (fanout?.unsafe ?? 0) > 0 || (!live && core.mismatch > 0)) process.exit(1);

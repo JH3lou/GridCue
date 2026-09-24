@@ -19,7 +19,7 @@ export { createRemoteProvider, type RemoteProviderOptions } from "./core/remote"
 export * from "./core/resolution";
 export { applyView, createRowsAdapter, type RowsAdapter, type RowsAdapterOptions, type ViewResult } from "./core/rows-adapter";
 export * from "./core/schema";
-export { unknownTerm } from "./core/terms";
+export { REVERSAL_WORDING, unknownTerm } from "./core/terms";
 export {
   type ApplicableViewPlan,
   isApplicable,

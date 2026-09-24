@@ -329,6 +329,15 @@ Two optional fields were added within 0.1 (ADR 0013). Providers that ignore them
 - `ResolutionRequest.clauses[].mentions`: `{ columnId, valueId? }[]`. These are the columns and enum values core already matched by a Host-declared name. A provider may skip asking about a named value. It should still score a named column, because the compiler drops a named column that the provider scores below 0.40.
 - `ClauseResolution.literalColumns`: `{ literalIndex, columnId, confidence }[]`. This is the column each literal applies to, with `literalIndex` being the literal's position in `clauses[].literals`.
 
+The fan-out (ADR 0014) adds four more optional `ClauseResolution` fields:
+
+- `roles`: `{ columnId, family, confidence }[]`, one per column and change type.
+- `kind`: `{ id, confidence }`, the main change type.
+- `adds`: a probability that a sort or grouping adds a level to the current view's.
+- `outer`: `{ outerId, innerId, confidence }[]`, for parts with reversal wording.
+
+A provider that omits any of them gets the behaviour from before the fan-out.
+
 ## Versioning
 
 - Additive optional fields may remain within protocol `0.1` during pre-release development.

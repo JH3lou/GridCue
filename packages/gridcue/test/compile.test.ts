@@ -297,6 +297,7 @@ describe("family precedence (ADR 0012)", () => {
       kept: [at("sort", 0.95)],
       ask: [],
       dropped: [at("group", 0.85), at("filter", 0.7)],
+      byKind: false,
     });
     expect(settleFamilies([at("sort", 0.95), at("group", 0.86)], []).kept).toHaveLength(2);
   });
@@ -316,17 +317,46 @@ describe("Mentions", () => {
     expect(plan.evidence).toContainEqual({ key: "dropped:c0.mention", selectedId: "gain", confidence: 0.05, source: "provider" });
   });
 
+  it("keeps a named column the provider doubts when its own value answer confirms it", () => {
+    const plan = run(
+      "flagged ones grouped by name",
+      [
+        {
+          families: [hi("group")],
+          columns: [at("flagged", 0.3), hi("name")],
+          values: [{ columnId: "flagged", valueId: "true", confidence: 0.96 }],
+        },
+      ],
+      undefined,
+      true,
+    );
+    expect(plan.operations).toMatchObject([
+      { type: "filter.add", predicate: { columnId: "flagged", operator: "eq", value: true } },
+      { type: "group.set", columnIds: ["name"] },
+    ]);
+  });
+
   it("never calls a named value an unknown column", () => {
     const plan = run("show closed ones", [{ families: [at("columns.show", 0.9)] }], undefined, true);
     expect(plan.clarifications.map((q) => q.prompt).join(" ")).not.toContain("no column called");
   });
 
   it("never silently ignores a named value in a part that doesn't filter", () => {
-    const plan = run("closed ones grouped by name", [{ families: [hi("group")], columns: [hi("name")] }], undefined, true);
+    const plan = run("group by name for closed ones", [{ families: [hi("group")], columns: [hi("name")] }], undefined, true);
     expect(plan.status).toBe("needs_clarification");
     expect(plan.clarifications[0]?.prompt).toBe(
-      "“closed ones grouped by name” also names Closed. Split it into separate parts, such as “only Closed” and the rest.",
+      "“group by name for closed ones” also names Closed. Split it into separate parts, such as “only Closed” and the rest.",
     );
+  });
+
+  it("filters on a value named before another change's verb", () => {
+    const plan = run("closed ones grouped by name", [{ families: [hi("group")], columns: [hi("name")] }], undefined, true);
+    expect(plan.status).toBe("ready");
+    expect(plan.operations).toMatchObject([
+      { type: "filter.add", predicate: { columnId: "status", operator: "eq", value: "closed" } },
+      { type: "group.set", columnIds: ["name"] },
+    ]);
+    expect(plan.evidence).toContainEqual({ key: "c0.modifier", selectedId: "filter", confidence: 1, source: "deterministic" });
   });
 
   it("uses a named value, and never asks about the column it implies", () => {
@@ -429,5 +459,100 @@ describe("sort and group levels", () => {
       { type: "sort.set", sorts: [] },
       { type: "sort.set", sorts: [{ columnId: "value", direction: "asc" }] },
     ]);
+  });
+});
+
+describe("fan-out signals", () => {
+  const role = (columnId: string, family: string, confidence = 0.9) => ({ columnId, family, confidence });
+
+  it("lets one part sort and hide when role answers give each its own column", () => {
+    const plan = run("sort by value with the gain column hidden", [
+      {
+        families: [hi("sort"), hi("columns.hide")],
+        columns: [hi("value"), hi("gain")],
+        roles: [role("value", "sort"), role("gain", "columns.hide")],
+      },
+    ]);
+    expect(plan.status).toBe("ready");
+    expect(plan.operations).toEqual([
+      { type: "sort.set", sorts: [{ columnId: "value", direction: "asc" }] },
+      { type: "columns.hide", columnIds: ["gain"] },
+    ]);
+  });
+
+  it("still asks for a split when role answers don't separate the columns", () => {
+    const plan = run("sort and hide value", [
+      {
+        families: [at("sort", 0.95), at("columns.hide", 0.9)],
+        columns: [hi("value")],
+        roles: [role("value", "sort"), role("value", "columns.hide")],
+      },
+    ]);
+    expect(plan.clarifications[0]?.prompt).toContain("Split it into separate parts");
+  });
+
+  it("lets a confident change-type pick decide between close families, and records it", () => {
+    const plan = run("value first", [{ families: [at("sort", 0.9), at("group", 0.88)], columns: [hi("value")], kind: at("sort", 0.8) }]);
+    expect(plan.operations.map((o) => o.type)).toEqual(["sort.set"]);
+    expect(plan.evidence).toContainEqual({ key: "c0.kind", selectedId: "sort", confidence: 0.8, source: "provider" });
+  });
+
+  it("promotes a middling family the change-type pick is sure of", () => {
+    const plan = run("show closed ones", [{ families: [at("filter", 0.7)], kind: at("filter", 0.9) }], undefined, true);
+    expect(plan.status).toBe("ready");
+    expect(plan.operations).toMatchObject([{ type: "filter.add", predicate: { columnId: "status", value: "closed" } }]);
+  });
+
+  it("appends to the current view's grouping when the part adds a level", () => {
+    const grouped = { ...state, groupBy: ["status"] };
+    const plan = compile({
+      input: normalize("also group by name"),
+      resolution: {
+        clauses: [{ clauseIndex: 0, families: [hi("group")], columns: [hi("name")], values: [], unmatchedTerms: [], adds: 0.9 }],
+      },
+      schema,
+      state: grouped,
+      baseRevision: "r1",
+      channel: "typed",
+      newId: (p) => `${p}_${++n}`,
+    });
+    expect(plan.operations).toEqual([{ type: "group.set", columnIds: ["status", "name"] }]);
+  });
+
+  it("replaces the current grouping when the add-a-level answer is low or the part says instead", () => {
+    const grouped = { ...state, groupBy: ["status"] };
+    const compileWith = (text: string, adds: number) =>
+      compile({
+        input: normalize(text),
+        resolution: { clauses: [{ clauseIndex: 0, families: [hi("group")], columns: [hi("name")], values: [], unmatchedTerms: [], adds }] },
+        schema,
+        state: grouped,
+        baseRevision: "r1",
+        channel: "typed",
+        newId: (p) => `${p}_${++n}`,
+      }).operations;
+    expect(compileWith("group by name", 0.3)).toEqual([{ type: "group.set", columnIds: ["name"] }]);
+    expect(compileWith("group by name instead", 0.9)).toEqual([{ type: "group.set", columnIds: ["name"] }]);
+  });
+
+  it("reverses nesting only with reversal wording and a confident answer, and keeps both columns", () => {
+    const outer = [{ outerId: "status", innerId: "name", confidence: 0.9 }];
+    const within = run("group by name within status", [
+      { families: [hi("group")], columns: [hi("name"), hi("status")], roles: [role("name", "group")], outer },
+    ]);
+    expect(within.operations).toEqual([{ type: "group.set", columnIds: ["status", "name"] }]);
+    const plain = run("group by name and status", [{ families: [hi("group")], columns: [hi("name"), hi("status")], outer }]);
+    expect(plain.operations).toEqual([{ type: "group.set", columnIds: ["name", "status"] }]);
+  });
+
+  it("counts a column with a confident role answer as meant, even when its column score is low", () => {
+    const plan = run("biggest first", [{ families: [hi("sort")], columns: [at("value", 0.5)], roles: [role("value", "sort", 0.92)] }]);
+    expect(plan.operations).toEqual([{ type: "sort.set", sorts: [{ columnId: "value", direction: "desc" }] }]);
+  });
+
+  it("filters when a value is the only reading left", () => {
+    const plan = run("show closed", [{ families: [at("columns.show", 0.84)] }], undefined, true);
+    expect(plan.status).toBe("ready");
+    expect(plan.evidence).toContainEqual({ key: "c0.only-reading", selectedId: "filter", confidence: 1, source: "deterministic" });
   });
 });

@@ -139,6 +139,12 @@ The defaults are `ready` 0.85 and `clarify` 0.65. They are unchanged since the f
   - A column or value named by a declared label or alias counts as confidence 1.
   - This does not apply when the name sits where the rows go, or when the provider scores the column below 0.40.
   - A named value is never silently ignored.
+- **Fan-out answers** (ADR 0014).
+  - Change-type answers bind columns to changes, so one part can carry several changes.
+  - A main-change-type pick decides between close families.
+  - An add-a-level answer appends to the current sort or grouping.
+  - With reversal wording, an outer answer decides nesting.
+  - A value named before another change's verb is a filter.
 
 ## Domain examples
 
