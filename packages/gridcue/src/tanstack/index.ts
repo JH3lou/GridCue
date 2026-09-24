@@ -128,7 +128,7 @@ export const createTanStackAdapter = ({ schema, table, maxSorts = 3, maxGroups =
     }
     const byColumn = new Map<string, FilterPredicate[]>();
     for (const p of predicates) byColumn.set(p.columnId, [...(byColumn.get(p.columnId) ?? []), p]);
-    const foreign = next.filters === null ? [] : (table.store.state.columnFilters ?? []).filter((f) => !isGridCueValue(f.value));
+    const foreign = (table.store.state.columnFilters ?? []).filter((f) => !isGridCueValue(f.value));
     const kind = (id: string) => schema.columns.find((c) => c.id === id)?.kind ?? "string";
     table._reactivity.batch(() => {
       table.setColumnFilters([

@@ -99,4 +99,29 @@ describe("TanStack end to end", () => {
     await cue.apply();
     expect(table.store.state.columnFilters?.map((f) => f.id)).toEqual(["team", "value"]);
   });
+
+  it("keeps a Host's own filters when GridCue clears its filters", async () => {
+    const table = makeTable();
+    table.setColumnFilters([{ id: "team", value: "b" }]);
+    const schema = schemaFromTanStack(table);
+    const cue = createGridCue({ adapter: createTanStackAdapter({ schema, table }), provider: createMockProvider() });
+    await cue.propose("value over 6");
+    await cue.apply();
+    await cue.propose("clear filters");
+    await cue.apply();
+    expect(cue.getState().status).toBe("applied");
+    expect(table.store.state.columnFilters?.map((f) => f.id)).toEqual(["team"]);
+  });
+
+  it("keeps a Host's own filters when undoing a GridCue filter", async () => {
+    const table = makeTable();
+    table.setColumnFilters([{ id: "team", value: "b" }]);
+    const schema = schemaFromTanStack(table);
+    const cue = createGridCue({ adapter: createTanStackAdapter({ schema, table }), provider: createMockProvider() });
+    await cue.propose("value over 6");
+    await cue.apply();
+    const undone = await cue.undo();
+    expect(undone).toBe(true);
+    expect(table.store.state.columnFilters?.map((f) => f.id)).toEqual(["team"]);
+  });
 });
