@@ -617,7 +617,12 @@ export const compile = (c: CompileInput): ViewPlan => {
           for (const [id, ids] of byColumn) {
             const ops = operatorsFor(column(id) ?? ({ kind: "enum" } as ColumnDescriptor));
             const out = excluded.filter((m) => m.columnId === id).map((m) => m.valueId ?? "");
-            if (ids.length === 1) pred(id, "eq", ids[0]);
+            const chosen = answers[`${key}.value.${id}`];
+            if (chosen !== undefined && ids.includes(chosen)) {
+              // The User picked one value from the one-value-at-a-time question below (review fix).
+              pred(id, "eq", chosen);
+              note(`${key}.value.${id}`, chosen, 1, "user");
+            } else if (ids.length === 1) pred(id, "eq", ids[0]);
             else if (ops.includes("in")) pred(id, "in", ids);
             // An exclusion the Host's operators can't express as "in" may still be one "not equal" (review fix).
             else if (out.length === 1 && ops.includes("neq")) pred(id, "neq", out[0]);

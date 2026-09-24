@@ -148,4 +148,14 @@ describe("review fixes", () => {
       { type: "group.set", columnIds: ["house"] },
     ]);
   });
+
+  it("accepts the answer to the one-value-at-a-time question", () => {
+    const text = "only northgate or harborline";
+    const asked = run(text, [{ families: [hi("filter")] }]);
+    const question = asked.clarifications[0];
+    expect(question).toMatchObject({ id: "c0.value.cust", options: [{ id: "ng" }, { id: "hl" }] });
+    const answered = run(text, [{ families: [hi("filter")] }], { [question?.id ?? ""]: "hl" });
+    expect(answered.status).toBe("ready");
+    expect(answered.operations).toMatchObject([{ predicate: { columnId: "cust", operator: "eq", value: "hl" } }]);
+  });
 });

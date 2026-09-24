@@ -218,9 +218,11 @@ export const createJevProvider = (options: JevProviderOptions): IntentProvider =
         return questions;
       };
       // A request too large for the budget with every signal falls back to the focused questions before giving up,
-      // so a wide schema degrades instead of failing (review fix).
+      // so a wide schema degrades instead of failing (review fix). The reading question stays: it is one per
+      // ambiguous noun, and without it such a noun could be read as a column.
       let questions = build(on);
-      if (Object.keys(questions).length > maxQuestions && on.size > 0) questions = build(new Set());
+      const essential = new Set([...on].filter((signal) => signal === "reading"));
+      if (Object.keys(questions).length > maxQuestions && on.size > essential.size) questions = build(essential);
       if (Object.keys(questions).length > maxQuestions) {
         throw new GridCueError("PROVIDER_TOO_COMPLEX", "That request is too complex. Try a shorter one.");
       }

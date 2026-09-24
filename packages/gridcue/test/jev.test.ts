@@ -249,6 +249,27 @@ describe("createJevProvider", () => {
     const seen: Seen = {};
     await expect(createJevProvider({ maxQuestions: budget, client: fakeClient(answer, seen) }).resolve(request)).resolves.toBeDefined();
     expect(Object.keys(seen.questions ?? {})).toHaveLength(budget);
+    // The reading question survives the fallback: it is what keeps an ambiguous noun from being read as a column.
+    const entitySchema = defineSchema(
+      [
+        { id: "house", label: "Household", kind: "string" },
+        { id: "value", label: "Market value", kind: "currency" },
+      ],
+      {
+        columns: { house: { entity: "household" } },
+      },
+    );
+    const ambiguous = [{ clauseIndex: 0, columnId: "house", start: 5, end: 14, ambiguous: true as const, text: "household" }];
+    const readReq = buildResolutionRequest(normalize("show household"), entitySchema, caps, emptyViewState(["house", "value"]), ambiguous);
+    const readAnswer = (k: string) => (/_reading\d+$/.test(k) ? { choice: "column", probabilities: { column: 1 } } : answer(k));
+    const readFocused: Seen = {};
+    await createJevProvider({ strategy: "focused", signals: { reading: true }, client: fakeClient(readAnswer, readFocused) }).resolve(
+      readReq,
+    );
+    const readBudget = Object.keys(readFocused.questions ?? {}).length;
+    const fellBack: Seen = {};
+    await createJevProvider({ maxQuestions: readBudget, client: fakeClient(readAnswer, fellBack) }).resolve(readReq);
+    expect(Object.keys(fellBack.questions ?? {})).toContain("c0_reading0");
     await expect(createJevProvider({ maxQuestions: budget - 1, client: fakeClient(answer) }).resolve(request)).rejects.toMatchObject({
       code: "PROVIDER_TOO_COMPLEX",
     });
