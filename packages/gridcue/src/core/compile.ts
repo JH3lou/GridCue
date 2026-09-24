@@ -1,3 +1,4 @@
+import { LITERAL_COLUMN_KINDS, type Mention } from "./mentions";
 import type { Literal, NormalizedInput } from "./normalize";
 import type { RestrictedMention } from "./policy";
 import {
@@ -23,6 +24,7 @@ import {
   type ViewFamily,
 } from "./resolution";
 import { isExposed, operatorsFor } from "./schema";
+import { unknownTerm } from "./terms";
 
 export interface ConfidencePolicy {
   /** At or above this, a decision is used as-is. Default 0.85. */
@@ -41,20 +43,13 @@ export interface CompileInput {
   channel: ViewPlan["source"]["channel"];
   text?: string;
   restricted?: RestrictedMention[];
+  /** Columns and values matched by Host-declared names. Each counts as confidence 1 and overrides the provider. */
+  mentions?: readonly Mention[];
   /** Answers to earlier clarifications, keyed by clarification ID. */
   answers?: Record<string, string>;
   confidence?: ConfidencePolicy;
   newId: (prefix: string) => string;
 }
-
-const LITERAL_KINDS: Record<Literal["kind"], ColumnKind[]> = {
-  number: ["number", "currency", "percent"],
-  currency: ["currency", "number"],
-  percent: ["percent"],
-  date: ["date", "datetime"],
-  text: ["string"],
-  unreadable: [],
-};
 
 const COLUMN_WORD: Record<string, string> = {
   sort: "sorted by",
@@ -83,6 +78,42 @@ const FAMILY_PHRASE: Record<string, string> = {
 
 const isView = (f: string): f is ViewFamily => !f.startsWith("unsupported.");
 const KNOWN_FAMILY_IDS: ReadonlySet<string> = new Set([...VIEW_FAMILIES, ...UNSUPPORTED_FAMILIES]);
+const CLEARS: ReadonlySet<string> = new Set(["filter.clear", "sort.clear", "group.clear"]);
+const isColumnFamily = (f: Pick) => isView(f.id) && COLUMN_FAMILIES[f.id] !== undefined;
+/** How far the top column family must lead the next for the next to be dropped (ADR 0012). */
+export const FAMILY_MARGIN = 0.1;
+/** Below this provider score, a column named by a Host-declared word is read as not meant (ADR 0013). */
+export const MENTION_FLOOR = 0.4;
+
+/**
+ * Decides between competing families (ADR 0012). `accepted` are at or above `ready` or confirmed by the User;
+ * `middling` are view families between `clarify` and `ready`. `viable` says whether a family has something to act
+ * on in this Clause. Returns the families to use, the ones to ask about, and the ones dropped.
+ */
+export const settleFamilies = (accepted: readonly Pick[], middling: readonly Pick[], viable: (family: string) => boolean = () => true) => {
+  let kept = [...accepted];
+  const dropped: Pick[] = [];
+  const drop = (test: (f: Pick) => boolean) => {
+    dropped.push(...kept.filter(test));
+    kept = kept.filter((f) => !test(f));
+  };
+  // A family with nothing to act on yields to one that has something, as "show" does to "filter" in "show IRAs at Northgate".
+  if (kept.some((f) => !viable(f.id)) && [...kept, ...middling].some((f) => viable(f.id))) drop((f) => !viable(f.id));
+  if (kept.some((f) => f.id === "columns.only")) drop((f) => f.id === "columns.show" || f.id === "columns.hide");
+  const reset = kept.find((f) => f.id === "view.reset");
+  const clears = kept.filter((f) => CLEARS.has(f.id));
+  if (reset && clears.length > 0) {
+    if (clears.every((f) => reset.confidence > f.confidence)) drop((f) => CLEARS.has(f.id));
+    else drop((f) => f.id === "view.reset");
+  }
+  const ranked = kept.filter(isColumnFamily).sort((a, b) => b.confidence - a.confidence);
+  const [top, next] = ranked;
+  // The epsilon keeps 0.95 - 0.85 (0.0999…) on the "leads by 0.10" side.
+  if (top && next && top.confidence - next.confidence >= FAMILY_MARGIN - 1e-9) drop((f) => f !== top && isColumnFamily(f));
+  const confident = kept.some((f) => isView(f.id));
+  if (confident) dropped.push(...middling);
+  return { kept, ask: confident ? [] : [...middling], dropped };
+};
 
 /** Turns provider picks and parsed literals into a View Plan. Deterministic; never guesses. */
 export const compile = (c: CompileInput): ViewPlan => {
@@ -94,7 +125,7 @@ export const compile = (c: CompileInput): ViewPlan => {
   const unsupportedSegments: ViewPlan["unsupportedSegments"] = [];
   const confidences: number[] = [];
   const column = (id: string) => c.schema.columns.find((col) => col.id === id && isExposed(col));
-  const optionsFor = (kinds: ColumnKind[] | null, capability: string) =>
+  const optionsFor = (kinds: readonly ColumnKind[] | null, capability: string) =>
     c.schema.columns
       .filter((col) => isExposed(col) && col.capabilities.includes(capability as never) && (!kinds || kinds.includes(col.kind)))
       .map((col) => ({ id: col.id, label: col.label }));
@@ -118,34 +149,71 @@ export const compile = (c: CompileInput): ViewPlan => {
         values: [],
         unmatchedTerms: [],
       };
-      // Family picks: confident ones are used, middling ones are confirmed, weak ones are dropped.
-      let familyPending = false;
-      const families: Pick[] = [];
+      // Mentions are deterministic: a named value is used at confidence 1. A named column is too, unless the provider
+      // scored that column below MENTION_FLOOR: "biggest accounts first" names the rows, not Account number (ADR 0013).
+      const own = (c.mentions ?? []).filter((m) => m.clauseIndex === clause.index);
+      const scored = new Map(res.columns.map((p) => [p.id, p.confidence]));
+      const mentionedColumns: string[] = [];
+      for (const id of new Set(own.filter((m) => m.valueId === undefined).map((m) => m.columnId))) {
+        const score = scored.get(id);
+        if (score !== undefined && score < MENTION_FLOOR) {
+          evidence.push({ key: `dropped:${key}.mention`, selectedId: id, confidence: score, source: "provider" });
+        } else mentionedColumns.push(id);
+      }
+      const mentionedValues = own.filter((m) => m.valueId !== undefined);
+      const valueColumns = new Set(mentionedValues.map((m) => m.columnId));
+      const values = [
+        ...[...new Set(mentionedValues.map((m) => `${m.columnId}\u0000${m.valueId}`))].map((k) => {
+          const [columnId = "", valueId = ""] = k.split("\u0000");
+          return { columnId, valueId, confidence: 1, mentioned: true };
+        }),
+        ...res.values.filter((v) => !valueColumns.has(v.columnId)).map((v) => ({ ...v, mentioned: false })),
+      ];
+      // A column already implied by a named or confident value, or by a confident literal pick, is never asked about.
+      const covered = new Set([
+        ...values.filter((v) => v.confidence >= bands.ready).map((v) => v.columnId),
+        ...(res.literalColumns ?? []).filter((l) => l.confidence >= bands.ready).map((l) => l.columnId),
+      ]);
+
+      const hasColumns = mentionedColumns.length > 0 || res.columns.some((p) => p.confidence >= bands.clarify && column(p.id));
+      const hasFilterArgs = clause.literals.length > 0 || values.some((v) => v.mentioned || v.confidence >= bands.clarify);
+      const viable = (f: string) => (f === "filter" ? hasFilterArgs : isView(f) && COLUMN_FAMILIES[f] ? hasColumns : true);
+
+      // Family picks: sort each into accepted, middling, or dropped, then settle competing ones (ADR 0012).
+      const accepted: Pick[] = [];
+      const middling: Pick[] = [];
       for (const f of res.families) {
         if (!KNOWN_FAMILY_IDS.has(f.id)) continue;
         const answerKey = `${key}.family.${f.id}`;
         if (answers[answerKey] !== undefined) {
           if (answers[answerKey] === f.id) {
-            families.push(f);
+            accepted.push({ id: f.id, confidence: 1 });
             note(answerKey, f.id, 1, "user");
           }
         } else if (f.confidence >= bands.ready || (!isView(f.id) && f.confidence >= bands.clarify)) {
           // An unsupported action is refused, not confirmed: asking "did you want to edit the data?" invites a yes that is refused anyway.
-          families.push(f);
-          note(`${key}.family`, f.id, f.confidence, "provider");
+          accepted.push(f);
         } else if (f.confidence >= bands.clarify) {
-          clarifications.push({
-            id: answerKey,
-            prompt: `Did you want to ${FAMILY_PHRASE[f.id] ?? "change the view"}?`,
-            options: [
-              { id: f.id, label: "Yes" },
-              { id: "none", label: "No" },
-            ],
-            required: true,
-          });
-          familyPending = true;
+          middling.push(f);
         }
       }
+      const settled = settleFamilies(accepted, middling, viable);
+      const families = settled.kept;
+      for (const f of families) if (answers[`${key}.family.${f.id}`] === undefined) note(`${key}.family`, f.id, f.confidence, "provider");
+      for (const f of settled.dropped)
+        evidence.push({ key: `dropped:${key}.family`, selectedId: f.id, confidence: f.confidence, source: "deterministic" });
+      for (const f of settled.ask) {
+        clarifications.push({
+          id: `${key}.family.${f.id}`,
+          prompt: `Did you want to ${FAMILY_PHRASE[f.id] ?? "change the view"}?`,
+          options: [
+            { id: f.id, label: "Yes" },
+            { id: "none", label: "No" },
+          ],
+          required: true,
+        });
+      }
+      const familyPending = settled.ask.length > 0;
 
       const blocked = families.filter((f) => !isView(f.id));
       for (const f of blocked) {
@@ -166,18 +234,36 @@ export const compile = (c: CompileInput): ViewPlan => {
       if (viewFamilies.filter((f) => COLUMN_FAMILIES[f]).length > 1) {
         clarifications.push({
           id: `${key}.family`,
-          prompt: `“${clause.text}” asks for more than one kind of change. Split it into separate steps.`,
+          prompt: `“${clause.text}” asks for more than one kind of change. Split it into separate parts.`,
+          required: true,
+        });
+        continue;
+      }
+      // A value the User named is never silently ignored: "roth iras grouped by rep" names Roth IRA but only groups.
+      const unused = viewFamilies.includes("filter") ? [] : mentionedValues;
+      if (unused.length > 0) {
+        const col = column(unused[0]?.columnId ?? "");
+        const label = col?.enumValues?.find((v) => v.id === unused[0]?.valueId)?.label ?? "a value";
+        clarifications.push({
+          id: `${key}.family`,
+          prompt: `“${clause.text}” also names ${label}. Split it into separate parts, such as “only ${label}” and the rest.`,
           required: true,
         });
         continue;
       }
 
-      // Column picks: confident ones are used, middling ones are confirmed, weak ones are dropped.
+      // Column picks: named ones are used; otherwise confident ones are used, middling ones are confirmed, weak ones are dropped.
       const picked: ColumnDescriptor[] = [];
+      for (const id of mentionedColumns) {
+        const col = column(id);
+        if (!col) continue;
+        picked.push(col);
+        note(`${key}.column`, id, 1, "deterministic");
+      }
       for (const p of res.columns) {
         const answerKey = `${key}.column.${p.id}`;
         const col = column(p.id);
-        if (!col) continue;
+        if (!col || mentionedColumns.includes(p.id)) continue;
         if (answers[answerKey] !== undefined) {
           if (answers[answerKey] === p.id) {
             picked.push(col);
@@ -186,7 +272,7 @@ export const compile = (c: CompileInput): ViewPlan => {
         } else if (p.confidence >= bands.ready) {
           picked.push(col);
           note(`${key}.column`, p.id, p.confidence, "provider");
-        } else if (p.confidence >= bands.clarify) {
+        } else if (p.confidence >= bands.clarify && !covered.has(p.id)) {
           clarifications.push({
             id: answerKey,
             prompt: `Did you mean ${col.label}?`,
@@ -209,7 +295,7 @@ export const compile = (c: CompileInput): ViewPlan => {
           const pred = (columnId: string, operator: FilterPredicate["operator"], value?: FilterPredicate["value"]) =>
             predicates.push({ id: c.newId("filter"), type: "predicate", columnId, operator, ...(value === undefined ? {} : { value }) });
           const byColumn = new Map<string, string[]>();
-          for (const v of res.values) {
+          for (const v of values) {
             const col = column(v.columnId);
             if (!col) continue;
             const isBoolean = col.kind === "boolean";
@@ -229,6 +315,8 @@ export const compile = (c: CompileInput): ViewPlan => {
             const answerKey = `${key}.value.${col.id}.${v.valueId}`;
             if (answers[answerKey] !== undefined) {
               if (answers[answerKey] === v.valueId) use(1, "user", answerKey);
+            } else if (v.mentioned) {
+              use(1, "deterministic", `${key}.value.${col.id}`);
             } else if (v.confidence >= bands.ready) {
               use(v.confidence, "provider", `${key}.value.${col.id}`);
             } else if (v.confidence >= bands.clarify) {
@@ -258,21 +346,29 @@ export const compile = (c: CompileInput): ViewPlan => {
               return;
             }
             const answerKey = `${key}.literal${j}.column`;
-            const fits = LITERAL_KINDS[lit.kind];
+            const fits = LITERAL_COLUMN_KINDS[lit.kind];
             const answered = answers[answerKey] ? column(answers[answerKey]) : undefined;
-            const target = answered ?? picked.find((col) => fits.includes(col.kind) && !used.has(col.id));
+            // The provider's pick for this literal: used when confident, offered first when middling.
+            const pick = res.literalColumns?.find((l) => l.literalIndex === j);
+            const pickCol = pick && column(pick.columnId);
+            const pickFits = pickCol && fits.includes(pickCol.kind) && pickCol.capabilities.includes("filter") && !used.has(pickCol.id);
+            const provided = pickFits && pick.confidence >= bands.ready ? pickCol : undefined;
+            const target = answered ?? provided ?? picked.find((col) => fits.includes(col.kind) && !used.has(col.id));
             const operator = lit.kind === "text" ? "contains" : (lit.comparator ?? "eq");
             if (!target || !operatorsFor(target).includes(operator)) {
+              const options = optionsFor(fits, "filter");
+              const first = pickFits && pick.confidence >= bands.clarify ? pickCol.id : undefined;
               clarifications.push({
                 id: answerKey,
                 prompt: `Which column should be ${describeLiteral(lit)}?`,
-                options: optionsFor(fits, "filter"),
+                options: first ? [...options.filter((o) => o.id === first), ...options.filter((o) => o.id !== first)] : options,
                 required: true,
               });
               return;
             }
             used.add(target.id);
             if (answered) note(answerKey, target.id, 1, "user");
+            else if (target === provided && pick) note(answerKey, target.id, pick.confidence, "provider");
             note(`${key}.literal${j}`, String(lit.value), 1, "deterministic");
             pred(target.id, operator, operator === "between" ? { min: lit.value, max: lit.upper ?? lit.value } : lit.value);
           });
@@ -293,7 +389,10 @@ export const compile = (c: CompileInput): ViewPlan => {
           );
           if (answered) note(answerKey, answered.id, 1, "user");
           if (cols.length === 0) {
-            const unknown = res.unmatchedTerms[0];
+            // A provider's own term wins. Core names one only when no "Did you mean …?" is pending here and the
+            // Clause named nothing it recognised: it never calls a Host-declared name unknown.
+            const pending = clarifications.some((q) => q.id.startsWith(`${key}.column.`));
+            const unknown = res.unmatchedTerms[0] ?? (pending || own.length > 0 ? undefined : unknownTerm(clause.text));
             clarifications.push({
               id: answerKey,
               prompt: unknown
