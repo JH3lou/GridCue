@@ -91,7 +91,11 @@ export const createJevProvider = (options: JevProviderOptions): IntentProvider =
   // `logLevel` otherwise falls back to `TYPESAFE_LOG_LEVEL`; at `debug` the SDK logs full request and response
   // bodies (the Utterance, column labels, aliases, descriptions). Set it explicitly so a Host's environment
   // can't turn that on by accident. A Host that wants SDK logs can inject its own `client` instead.
-  const client: JevClient = options.client ?? (new TypeSafeClient({ apiKey: options.apiKey, logLevel: "off" }) as unknown as JevClient);
+  // One retry at most, and a short per-attempt timeout: the SDK's defaults (2 retries of 10 s) once held a request
+  // for 78 s. The Controller's own time limit (8 s by default) still bounds the whole call (v1 grill, Q1).
+  const client: JevClient =
+    options.client ??
+    (new TypeSafeClient({ apiKey: options.apiKey, logLevel: "off", timeout: 4000, retry: { maxRetries: 1 } }) as unknown as JevClient);
   const maxQuestions = options.maxQuestions ?? 800;
   const model = options.model ?? DEFAULT_JEV_MODEL;
   return {

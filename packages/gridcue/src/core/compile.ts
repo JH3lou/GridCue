@@ -416,7 +416,7 @@ export const compile = (c: CompileInput): ViewPlan => {
       // the provider's per-value answer says so ("but just the trusts"). Otherwise it is still asked about below.
       const confirmed = (m: Mention) =>
         res.values.some((v) => v.columnId === m.columnId && v.valueId === m.valueId && v.confidence >= FAN_OUT.values);
-      const afterVerb = mentionedValues.filter((m) => !accepted.some((f) => f.id === "filter"));
+      const afterVerb = accepted.some((f) => f.id === "filter") ? [] : mentionedValues;
       if (afterVerb.length > 0 && otherChanges.length > 0) {
         const byPreposition = afterVerb.every((m) => PREPOSITION_BEFORE.test(clause.text.slice(0, m.start)));
         if (byPreposition || afterVerb.every(confirmed)) {
@@ -770,6 +770,21 @@ export const compile = (c: CompileInput): ViewPlan => {
           }
         }
       }
+    }
+  }
+
+  // A "No" never dead-ends (v1 grill, Q1): when the User declined something in a part and all that is left there
+  // is a question with no choices, say plainly that nothing will change, with the request kept for editing.
+  for (const clause of c.input.clauses) {
+    const key = `c${clause.index}`;
+    const declined = Object.entries(answers).some(([k, v]) => k.startsWith(`${key}.`) && v === "none");
+    const open = clarifications.filter((q) => q.id === key || q.id.startsWith(`${key}.`));
+    // Only GridCue's generic "nothing to do here" questions are replaced; an independent question, such as an
+    // unreadable number, stays (review fix).
+    const deadEnd = (q: Clarification) => !q.options?.length && (q.id === `${key}.family` || q.id === `${key}.value`);
+    if (declined && open.length > 0 && open.every(deadEnd)) {
+      for (const q of open) clarifications.splice(clarifications.indexOf(q), 1);
+      clarifications.push({ id: `${key}.declined`, prompt: "Okay, nothing will change. Rephrase or edit your request.", required: true });
     }
   }
 

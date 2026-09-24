@@ -1,0 +1,39 @@
+name: Release
+
+# Publishes `gridcue` to npm when a version tag is pushed, through npm trusted publishing (OIDC): no npm token is
+# stored, and npm attaches a provenance attestation automatically. See docs/operations/release.md.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 24
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+      # Trusted publishing needs npm 11.5.1 or later.
+      - run: npm install -g npm@^11.5.1
+      - run: pnpm install --frozen-lockfile
+      - name: Tag matches the package version
+        run: test "v$(node -p "require('./packages/gridcue/package.json').version")" = "$GITHUB_REF_NAME"
+      - run: pnpm check
+      # A version already on npm (for example, a first release published by hand; see release.md) is not
+      # published again, so the tag can always be pushed afterwards.
+      - name: Check whether this version is already on npm
+        id: published
+        run: |
+          VERSION="$(node -p "require('./packages/gridcue/package.json').version")"
+          if npm view "gridcue@${VERSION}" version >/dev/null 2>&1; then echo "exists=true" >> "$GITHUB_OUTPUT"; fi
+      - run: npm publish --access public
+        if: steps.published.outputs.exists != 'true'
+        working-directory: packages/gridcue
