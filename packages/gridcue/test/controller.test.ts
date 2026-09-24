@@ -229,7 +229,7 @@ describe("controller", () => {
     expect(cue.getState().issues[0]?.code).toBe("PROVIDER_FAILED");
   });
 
-  it("shows the same too-complex wording for a remote PROVIDER_TOO_COMPLEX as for a local INPUT_TOO_COMPLEX", async () => {
+  it("asks for fewer steps on a provider's PROVIDER_TOO_COMPLEX without naming GridCue's own limit", async () => {
     const { cue } = setup({
       resolve: async () => {
         throw new GridCueError("PROVIDER_TOO_COMPLEX", "That request is too complex. Try a shorter one.");
@@ -238,7 +238,7 @@ describe("controller", () => {
     await cue.propose("sort by value");
     expect(cue.getState()).toMatchObject({
       status: "error",
-      message: "Try fewer steps at once. GridCue handles up to 12 in one request.",
+      message: "Try fewer steps at once.",
       issues: [{ code: "PROVIDER_TOO_COMPLEX" }],
     });
   });
