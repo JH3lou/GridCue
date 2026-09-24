@@ -167,6 +167,7 @@ export const compile = (c: CompileInput): ViewPlan => {
             const col = column(v.columnId);
             if (!col || v.confidence < bands.clarify) continue;
             if (col.kind === "boolean") {
+              if (v.valueId !== "true" && v.valueId !== "false") continue;
               pred(col.id, "eq", v.valueId === "true");
               note(`${key}.value.${col.id}`, v.valueId, v.confidence, "provider");
             } else if (col.enumValues?.some((e) => e.id === v.valueId)) {

@@ -122,6 +122,14 @@ describe("compile", () => {
     expect(run("make it look better", [{}]).status).toBe("needs_clarification");
   });
 
+  it("ignores a boolean value that isn't true or false instead of treating it as false", () => {
+    const plan = run("restricted holdings", [
+      { families: [hi("filter")], values: [{ columnId: "flagged", valueId: "maybe", confidence: 0.95 }] },
+    ]);
+    expect(plan.status).toBe("needs_clarification");
+    expect(plan.operations).toEqual([]);
+  });
+
   it("drops a provider family id the protocol does not define", () => {
     const plan = run("do something weird", [{ families: [{ id: "cells.edit", confidence: 0.99 }] }]);
     expect(plan.status).toBe("needs_clarification");
