@@ -59,6 +59,23 @@ const makeTable = () =>
     ],
   } as never) as unknown as TestTable;
 
+/** Like `makeTable`, but the "value" column keeps its own Host filter function alongside GridCue's. */
+const makeTableWithHostFilter = () =>
+  constructTable({
+    features,
+    data: rows,
+    defaultColumn: { filterFn: gridcueFilterFn },
+    columns: [
+      {
+        accessorKey: "value",
+        header: "Value",
+        filterFn: withGridCueFilter((row, id, value) => (row.getValue(id) as number) >= (value as { min: number }).min),
+      },
+      { accessorKey: "team", header: "Team" },
+      { accessorKey: "name", header: "Name" },
+    ],
+  } as never) as unknown as TestTable;
+
 runAdapterContract("TanStack Table adapter", () => {
   const table = makeTable();
   const adapter = createTanStackAdapter({ schema: schemaFromTanStack(table), table });
@@ -135,6 +152,35 @@ describe("TanStack end to end", () => {
     const undone = await cue.undo();
     expect(undone).toBe(true);
     expect(table.store.state.columnFilters?.map((f) => f.id)).toEqual(["team"]);
+  });
+
+  it("keeps a Host filter and a GridCue filter on the same column as one entry", async () => {
+    const table = makeTableWithHostFilter();
+    table.setColumnFilters([{ id: "value", value: { min: 10 } }]);
+    const schema = schemaFromTanStack(table);
+    const cue = createGridCue({ adapter: createTanStackAdapter({ schema, table }), provider: createMockProvider() });
+    await cue.propose("value over 6");
+    await cue.apply();
+    const filters = table.store.state.columnFilters ?? [];
+    expect(filters.filter((f) => f.id === "value")).toHaveLength(1);
+    // 20 and 12 satisfy both the Host's min:10 and GridCue's over-6.
+    expect(table.getRowModel().rows.map((r) => r.original.value)).toEqual([20, 12]);
+    const undone = await cue.undo();
+    expect(undone).toBe(true);
+    expect(table.store.state.columnFilters).toEqual([{ id: "value", value: { min: 10 } }]);
+  });
+
+  it("gives the Host back its own filter entry when GridCue clears its filters on that column", async () => {
+    const table = makeTableWithHostFilter();
+    table.setColumnFilters([{ id: "value", value: { min: 10 } }]);
+    const schema = schemaFromTanStack(table);
+    const cue = createGridCue({ adapter: createTanStackAdapter({ schema, table }), provider: createMockProvider() });
+    await cue.propose("value over 6");
+    await cue.apply();
+    await cue.propose("clear filters");
+    await cue.apply();
+    expect(cue.getState().status).toBe("applied");
+    expect(table.store.state.columnFilters).toEqual([{ id: "value", value: { min: 10 } }]);
   });
 
   it("tolerates a Host filter value that cannot be serialised, such as a BigInt", () => {

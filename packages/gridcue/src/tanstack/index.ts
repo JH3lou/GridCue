@@ -40,11 +40,16 @@ export interface TanStackTableLike {
   getCoreRowModel(): { rows: Array<{ getValue(columnId: string): unknown }> };
 }
 
-/** The filter value GridCue stores in TanStack's column filter state. */
+/**
+ * The filter value GridCue stores in TanStack's column filter state. `host` carries the
+ * Host's own filter value for the same column, when there was one, so one TanStack column
+ * filter entry can hold both without either replacing the other.
+ */
 interface GridCueFilterValue {
   gridcue: 1;
   kind: ColumnDescriptor["kind"];
   predicates: FilterPredicate[];
+  host?: unknown;
 }
 
 const isGridCueValue = (v: unknown): v is GridCueFilterValue =>
@@ -52,7 +57,9 @@ const isGridCueValue = (v: unknown): v is GridCueFilterValue =>
 
 /**
  * Register once with `defaultColumn: { filterFn: gridcueFilterFn }` so GridCue filters
- * behave exactly as they do in the Rows Adapter.
+ * behave exactly as they do in the Rows Adapter. It only evaluates GridCue's own predicates:
+ * it has no Host filter function to call, so a `host` value carried alongside them is not
+ * evaluated here. Use `withGridCueFilter` on a column that needs its Host filter honoured too.
  */
 export const gridcueFilterFn = (row: { getValue(columnId: string): unknown }, columnId: string, value: unknown): boolean =>
   !isGridCueValue(value) ||
@@ -69,7 +76,9 @@ type FilterFn = (
 export const withGridCueFilter =
   (fallback: FilterFn): FilterFn =>
   (row, columnId, value, addMeta) =>
-    isGridCueValue(value) ? gridcueFilterFn(row, columnId, value) : fallback(row, columnId, value, addMeta);
+    isGridCueValue(value)
+      ? gridcueFilterFn(row, columnId, value) && (value.host === undefined || fallback(row, columnId, value.host, addMeta))
+      : fallback(row, columnId, value, addMeta);
 
 /** Builds a GridCue schema from a table's existing columns and a sample of its rows. */
 export const schemaFromTanStack = (table: TanStackTableLike, options: Omit<SchemaOptions, "sampleRows"> = {}): ViewSchema => {
@@ -138,14 +147,27 @@ export const createTanStackAdapter = ({ schema, table, maxSorts = 3, maxGroups =
     }
     const byColumn = new Map<string, FilterPredicate[]>();
     for (const p of predicates) byColumn.set(p.columnId, [...(byColumn.get(p.columnId) ?? []), p]);
-    const foreign = (table.store.state.columnFilters ?? []).filter((f) => !isGridCueValue(f.value));
+    // A column can carry a Host filter and a GridCue filter at once, but TanStack keeps only one
+    // columnFilters entry per column id. Collect the Host's value per column, from both its own
+    // plain entries and the `host` field of GridCue entries already holding one, so it survives
+    // being folded into (or, once GridCue's predicates are gone, back out of) that one entry.
+    const hostByColumn = new Map<string, unknown>();
+    for (const f of table.store.state.columnFilters ?? []) {
+      const host = isGridCueValue(f.value) ? f.value.host : f.value;
+      if (host !== undefined && !hostByColumn.has(f.id)) hostByColumn.set(f.id, host);
+    }
     const kind = (id: string) => schema.columns.find((c) => c.id === id)?.kind ?? "string";
     table._reactivity.batch(() => {
       table.setColumnFilters([
-        ...foreign,
+        ...[...hostByColumn].filter(([id]) => !byColumn.has(id)).map(([id, host]) => ({ id, value: host })),
         ...[...byColumn].map(([id, preds]) => ({
           id,
-          value: { gridcue: 1, kind: kind(id), predicates: preds } satisfies GridCueFilterValue,
+          value: {
+            gridcue: 1,
+            kind: kind(id),
+            predicates: preds,
+            ...(hostByColumn.has(id) ? { host: hostByColumn.get(id) } : {}),
+          } satisfies GridCueFilterValue,
         })),
       ]);
       table.setSorting(next.sorts.map((s) => ({ id: s.columnId, desc: s.direction === "desc" })));
