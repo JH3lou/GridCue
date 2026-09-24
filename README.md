@@ -94,6 +94,22 @@ Using shadcn/ui? Copy the styled components instead of `GridCueBar`: see `regist
 
 Create the controller once, as above. TanStack's `useTable` returns a new object whenever table state changes, so a `useMemo` keyed on `table` would rebuild the controller.
 
+### Protect the endpoint
+
+`/api/gridcue` spends your Jev credits, so put it behind the same auth and rate limits as the rest of your app. GridCue adds no auth of its own. For example:
+
+```ts
+// Next.js: app/api/gridcue/route.ts
+export async function POST(request: Request) {
+  const session = await auth(); // your app's session check
+  if (!session) return new Response("Unauthorized", { status: 401 });
+  return handler(request); // handler = createGridCueHandler({ provider })
+}
+
+// Express
+app.post("/api/gridcue", requireLogin, rateLimit({ windowMs: 60_000, limit: 30 }), toNodeHandler(handler));
+```
+
 ## Describe your domain, choose a strategy
 
 GridCue is a chassis: your data, grids, and words differ from anyone else's. Three optional schema declarations teach GridCue your domain:

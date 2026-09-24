@@ -5,7 +5,7 @@
     "includes": ["**", "!**/dist", "!**/.next", "!**/next-env.d.ts", "!registry/src/components/ui", "!examples/*/src/components/ui"]
   },
   "formatter": { "indentStyle": "space", "indentWidth": 2, "lineWidth": 140 },
-  "linter": { "rules": { "recommended": true } },
+  "linter": { "rules": { "preset": "none" } },
   "javascript": { "formatter": { "quoteStyle": "double", "semicolons": "always" } },
   "css": { "parser": { "tailwindDirectives": true } }
 }

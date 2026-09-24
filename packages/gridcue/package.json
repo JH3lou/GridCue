@@ -1,6 +1,6 @@
 {
   "name": "gridcue",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Say what you need to see; GridCue safely configures the grid view.",
   "license": "MIT",
   "repository": {
@@ -41,7 +41,8 @@
     "./package.json": "./package.json"
   },
   "files": [
-    "dist"
+    "dist",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build": "tsdown",

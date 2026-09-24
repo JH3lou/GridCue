@@ -1,0 +1,31 @@
+name: Release
+
+# Publishes `gridcue` to npm when a version tag is pushed, through npm trusted publishing (OIDC): no npm token is
+# stored, and npm attaches a provenance attestation automatically. See docs/operations/release.md.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+      # Trusted publishing needs npm 11.5.1 or later.
+      - run: npm install -g npm@^11.5.1
+      - run: pnpm install --frozen-lockfile
+      - name: Tag matches the package version
+        run: test "v$(node -p "require('./packages/gridcue/package.json').version")" = "$GITHUB_REF_NAME"
+      - run: pnpm check
+      - run: npm publish --access public
+        working-directory: packages/gridcue
