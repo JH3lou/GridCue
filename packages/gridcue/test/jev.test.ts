@@ -241,6 +241,19 @@ describe("createJevProvider", () => {
     expect(clause?.readings).toEqual([{ columnId: "house", reading: "records", confidence: 0.9 }]);
   });
 
+  it("falls back to the focused questions when every signal would exceed the question budget", async () => {
+    const answer = (k: string) => (isChoice(k) ? { choice: "none", probabilities: { none: 1 } } : { noul: 0 });
+    const focused: Seen = {};
+    await createJevProvider({ strategy: "focused", client: fakeClient(answer, focused) }).resolve(request);
+    const budget = Object.keys(focused.questions ?? {}).length;
+    const seen: Seen = {};
+    await expect(createJevProvider({ maxQuestions: budget, client: fakeClient(answer, seen) }).resolve(request)).resolves.toBeDefined();
+    expect(Object.keys(seen.questions ?? {})).toHaveLength(budget);
+    await expect(createJevProvider({ maxQuestions: budget - 1, client: fakeClient(answer) }).resolve(request)).rejects.toMatchObject({
+      code: "PROVIDER_TOO_COMPLEX",
+    });
+  });
+
   it("wraps transport errors", async () => {
     const provider = createJevProvider({
       client: {

@@ -97,123 +97,130 @@ export const createJevProvider = (options: JevProviderOptions): IntentProvider =
   return {
     async resolve(request: ResolutionRequest, signal?: AbortSignal) {
       const { columns, families } = request.candidates;
-      const questions: Record<string, unknown> = {};
       const labelOf = (id: string) => columns.find((c) => c.id === id)?.label ?? id;
-      // Questions point at named state by path, so each carries its full meaning (question IDs are never sent).
-      request.clauses.forEach((clause, p) => {
-        const q = `c${clause.index}`;
-        const about = `The request step \`clauses[${p}].text\``;
-        // A named value is final, so its column and value questions are skipped. A named column is still asked about:
-        // its score lets the compiler tell the column from the rows ("biggest accounts first"), ADR 0013.
-        const valued = new Set(clause.mentions?.filter((m) => m.valueId !== undefined).map((m) => m.columnId));
-        families.forEach((f, i) => {
-          questions[`${q}_f${i}`] = noul(`Does ${about} ask to ${FAMILY_TEXT[f] ?? f}?`);
-        });
-        columns.forEach((c, i) => {
-          if (!valued.has(c.id)) {
-            questions[`${q}_col${i}`] = noul(
-              `Does ${about} refer to the grid column \`columns[${i}]\` (“${c.label}”), by its label or an alias?`,
-            );
-          }
-          if (c.enumValues?.length && on.has("values")) {
-            // One Noul per value, so several can be yes ("retirement accounts" = IRA and Roth IRA). For a named value,
-            // only that value is asked, to confirm it limits the rows ("sort by gain but just the trusts"). ADR 0015.
-            const named = new Set(clause.mentions?.filter((m) => m.columnId === c.id && m.valueId).map((m) => m.valueId));
-            c.enumValues.forEach((v, j) => {
-              if (named.size > 0 && !named.has(v.id)) return;
-              questions[`${q}_is${i}_${j}`] = noul(`Does ${about} mean rows whose \`columns[${i}]\` (“${c.label}”) is “${v.label}”?`);
-            });
-          } else if (c.enumValues?.length && !valued.has(c.id)) {
-            questions[`${q}_val${i}`] = choice(
-              `Which value of the column \`columns[${i}]\` (“${c.label}”) does ${about} mention, if any?`,
-              {
-                none: "No value of this column is mentioned",
-                ...Object.fromEntries(c.enumValues.map((v) => [v.id, v.label])),
-              },
-            );
-          }
-          if (c.kind === "boolean") {
-            questions[`${q}_bool${i}`] = choice(
-              `Does ${about} want rows where the column \`columns[${i}]\` (“${c.label}”) is true or false?`,
-              {
-                none: "Neither",
-                true: "Yes / true",
-                false: "No / false",
-              },
-            );
-          }
-        });
-        // Fan-out (spec 2026-09-24): asked for every part; the compiler reads only the answers that apply.
-        columns.forEach((c, i) => {
-          if (valued.has(c.id) || !on.has("roles")) return;
-          Object.keys(ROLE_TEXT).forEach((family, r) => {
-            if (!c.families.includes(family)) return;
-            questions[`${q}_role${i}_${r}`] = noul(
-              `Does ${about} ask to ${ROLE_TEXT[family]} the grid column \`columns[${i}]\` (“${c.label}”)?`,
-            );
+      const build = (active: ReadonlySet<string>) => {
+        const questions: Record<string, unknown> = {};
+        // Questions point at named state by path, so each carries its full meaning (question IDs are never sent).
+        request.clauses.forEach((clause, p) => {
+          const q = `c${clause.index}`;
+          const about = `The request step \`clauses[${p}].text\``;
+          // A named value is final, so its column and value questions are skipped. A named column is still asked about:
+          // its score lets the compiler tell the column from the rows ("biggest accounts first"), ADR 0013.
+          const valued = new Set(clause.mentions?.filter((m) => m.valueId !== undefined).map((m) => m.columnId));
+          families.forEach((f, i) => {
+            questions[`${q}_f${i}`] = noul(`Does ${about} ask to ${FAMILY_TEXT[f] ?? f}?`);
           });
-        });
-        if (on.has("kind")) {
-          questions[`${q}_kind`] = choice(`Which kind of change does ${about} mainly ask for?`, {
-            ...Object.fromEntries(families.map((f) => [f, FAMILY_TEXT[f] ?? f])),
-            none: "No change to the view, or it is unclear",
-          });
-        }
-        if (on.has("adds")) {
-          questions[`${q}_adds`] = noul(
-            `If ${about} sorts or groups the rows, does it add another level to the current \`view\` sort or grouping, rather than replace it?`,
-          );
-        }
-        // An ambiguous row or entity noun: the column's values, the other records, or this grid's rows (ADR 0015).
-        if (on.has("reading")) {
-          for (const m of clause.mentions ?? []) {
-            const i = columns.findIndex((c) => c.id === m.columnId);
-            const c = columns[i];
-            if (!m.ambiguous || !c) continue;
-            const noun = (m.text ?? c.label).toLowerCase();
-            const rowNoun = request.candidates.rowNoun;
-            const isRowNoun = !!rowNoun && noun.replace(/(?:es|s)$/, "") === rowNoun.toLowerCase();
-            const options = {
-              column: `The values in the grid column \`columns[${i}]\` (“${c.label}”)`,
-              ...(c.entity ? { records: `${c.entity}s as whole records, each summing up several rows` } : {}),
-              ...(isRowNoun ? { rows: `The rows of this grid themselves (each row is one ${rowNoun})` } : {}),
-            };
-            if (Object.keys(options).length > 1)
-              questions[`${q}_reading${i}`] = choice(`In ${about}, what does “${noun}” refer to?`, options);
-          }
-        }
-        const named = [...new Set(clause.mentions?.filter((m) => m.valueId === undefined).map((m) => m.columnId))];
-        if (on.has("outer") && REVERSAL_WORDING.test(clause.text) && named.length > 1) {
-          for (const a of named) {
-            for (const b of named) {
-              if (a === b) continue;
-              const ia = columns.findIndex((c) => c.id === a);
-              const ib = columns.findIndex((c) => c.id === b);
-              questions[`${q}_outer${ia}_${ib}`] = noul(
-                `In ${about}, is the grid column \`columns[${ia}]\` the outer grouping or the primary sort, with \`columns[${ib}]\` inside it?`,
+          columns.forEach((c, i) => {
+            if (!valued.has(c.id)) {
+              questions[`${q}_col${i}`] = noul(
+                `Does ${about} refer to the grid column \`columns[${i}]\` (“${c.label}”), by its label or an alias?`,
               );
             }
-          }
-        }
-        clause.literals.forEach((lit, j) => {
-          const fits = columns.filter((c) => c.families.includes("filter") && LITERAL_COLUMN_KINDS[lit.kind].includes(c.kind));
-          if (fits.length === 0) return;
-          questions[`${q}_lit${j}`] = choice(
-            `Which grid column does the condition \`clauses[${p}].literals[${j}]\` in ${about} apply to?`,
-            {
-              none: "None of these columns",
-              ...Object.fromEntries(fits.map((c) => [c.id, c.label])),
-            },
-          );
-        });
-        if (!clause.direction) {
-          questions[`${q}_dir`] = choice(`If ${about} sorts rows, which direction does it ask for?`, {
-            none: "No direction given",
-            asc: "Smallest, earliest, or A first",
-            desc: "Largest, latest, or Z first",
+            if (c.enumValues?.length && active.has("values")) {
+              // One Noul per value, so several can be yes ("retirement accounts" = IRA and Roth IRA). For a named value,
+              // only that value is asked, to confirm it limits the rows ("sort by gain but just the trusts"). ADR 0015.
+              const named = new Set(clause.mentions?.filter((m) => m.columnId === c.id && m.valueId).map((m) => m.valueId));
+              c.enumValues.forEach((v, j) => {
+                if (named.size > 0 && !named.has(v.id)) return;
+                questions[`${q}_is${i}_${j}`] = noul(`Does ${about} mean rows whose \`columns[${i}]\` (“${c.label}”) is “${v.label}”?`);
+              });
+            } else if (c.enumValues?.length && !valued.has(c.id)) {
+              questions[`${q}_val${i}`] = choice(
+                `Which value of the column \`columns[${i}]\` (“${c.label}”) does ${about} mention, if any?`,
+                {
+                  none: "No value of this column is mentioned",
+                  ...Object.fromEntries(c.enumValues.map((v) => [v.id, v.label])),
+                },
+              );
+            }
+            if (c.kind === "boolean") {
+              questions[`${q}_bool${i}`] = choice(
+                `Does ${about} want rows where the column \`columns[${i}]\` (“${c.label}”) is true or false?`,
+                {
+                  none: "Neither",
+                  true: "Yes / true",
+                  false: "No / false",
+                },
+              );
+            }
           });
-        }
-      });
+          // Fan-out (spec 2026-09-24): asked for every part; the compiler reads only the answers that apply.
+          columns.forEach((c, i) => {
+            if (valued.has(c.id) || !active.has("roles")) return;
+            Object.keys(ROLE_TEXT).forEach((family, r) => {
+              if (!c.families.includes(family)) return;
+              questions[`${q}_role${i}_${r}`] = noul(
+                `Does ${about} ask to ${ROLE_TEXT[family]} the grid column \`columns[${i}]\` (“${c.label}”)?`,
+              );
+            });
+          });
+          if (active.has("kind")) {
+            questions[`${q}_kind`] = choice(`Which kind of change does ${about} mainly ask for?`, {
+              ...Object.fromEntries(families.map((f) => [f, FAMILY_TEXT[f] ?? f])),
+              none: "No change to the view, or it is unclear",
+            });
+          }
+          if (active.has("adds")) {
+            questions[`${q}_adds`] = noul(
+              `If ${about} sorts or groups the rows, does it add another level to the current \`view\` sort or grouping, rather than replace it?`,
+            );
+          }
+          // An ambiguous row or entity noun: the column's values, the other records, or this grid's rows (ADR 0015).
+          if (active.has("reading")) {
+            for (const m of clause.mentions ?? []) {
+              const i = columns.findIndex((c) => c.id === m.columnId);
+              const c = columns[i];
+              if (!m.ambiguous || !c) continue;
+              const noun = (m.text ?? c.label).toLowerCase();
+              const rowNoun = request.candidates.rowNoun;
+              const isRowNoun = !!rowNoun && noun.replace(/(?:es|s)$/, "") === rowNoun.toLowerCase();
+              const options = {
+                column: `The values in the grid column \`columns[${i}]\` (“${c.label}”)`,
+                ...(c.entity ? { records: `${c.entity}s as whole records, each summing up several rows` } : {}),
+                ...(isRowNoun ? { rows: `The rows of this grid themselves (each row is one ${rowNoun})` } : {}),
+              };
+              if (Object.keys(options).length > 1)
+                questions[`${q}_reading${i}`] = choice(`In ${about}, what does “${noun}” refer to?`, options);
+            }
+          }
+          const named = [...new Set(clause.mentions?.filter((m) => m.valueId === undefined).map((m) => m.columnId))];
+          if (active.has("outer") && REVERSAL_WORDING.test(clause.text) && named.length > 1) {
+            for (const a of named) {
+              for (const b of named) {
+                if (a === b) continue;
+                const ia = columns.findIndex((c) => c.id === a);
+                const ib = columns.findIndex((c) => c.id === b);
+                questions[`${q}_outer${ia}_${ib}`] = noul(
+                  `In ${about}, is the grid column \`columns[${ia}]\` the outer grouping or the primary sort, with \`columns[${ib}]\` inside it?`,
+                );
+              }
+            }
+          }
+          clause.literals.forEach((lit, j) => {
+            const fits = columns.filter((c) => c.families.includes("filter") && LITERAL_COLUMN_KINDS[lit.kind].includes(c.kind));
+            if (fits.length === 0) return;
+            questions[`${q}_lit${j}`] = choice(
+              `Which grid column does the condition \`clauses[${p}].literals[${j}]\` in ${about} apply to?`,
+              {
+                none: "None of these columns",
+                ...Object.fromEntries(fits.map((c) => [c.id, c.label])),
+              },
+            );
+          });
+          if (!clause.direction) {
+            questions[`${q}_dir`] = choice(`If ${about} sorts rows, which direction does it ask for?`, {
+              none: "No direction given",
+              asc: "Smallest, earliest, or A first",
+              desc: "Largest, latest, or Z first",
+            });
+          }
+        });
+        return questions;
+      };
+      // A request too large for the budget with every signal falls back to the focused questions before giving up,
+      // so a wide schema degrades instead of failing (review fix).
+      let questions = build(on);
+      if (Object.keys(questions).length > maxQuestions && on.size > 0) questions = build(new Set());
       if (Object.keys(questions).length > maxQuestions) {
         throw new GridCueError("PROVIDER_TOO_COMPLEX", "That request is too complex. Try a shorter one.");
       }
