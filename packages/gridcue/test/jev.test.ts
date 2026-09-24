@@ -53,7 +53,11 @@ describe("createJevProvider", () => {
   it("treats a missing answer as malformed", async () => {
     const provider = createJevProvider({
       client: fakeClient((k) =>
-        k === "c0_val1" ? undefined : k.includes("_val") ? { choice: "none", confidence: 0.9, probabilities: {} } : { noul: 0.1 },
+        k === "c0_val1"
+          ? undefined
+          : k.includes("_val") || k.endsWith("_dir")
+            ? { choice: "none", confidence: 0.9, probabilities: {} }
+            : { noul: 0.1 },
       ),
     });
     await expect(provider.resolve(request)).rejects.toMatchObject({ code: "PROVIDER_MALFORMED" });
