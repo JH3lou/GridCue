@@ -16,3 +16,9 @@ export const unknownTerm = (clauseText: string): string | undefined => {
   if (!term || term.split(" ").length > 4 || PRONOUNS.has(term)) return undefined;
   return term;
 };
+
+/**
+ * Wording that can put the inner level first, as in "group by advisor within custodian". Code keeps the order
+ * the User named unless this appears and the provider says the pair is reversed (fan-out spec, Q6).
+ */
+export const REVERSAL_WORDING = /\b(?:within|inside|under|nested (?:in|under|inside)|in each|for each|per)\b/;

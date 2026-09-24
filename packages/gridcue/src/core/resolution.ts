@@ -110,6 +110,14 @@ export const ClauseResolution = z.object({
   direction: Pick.optional(),
   /** Phrases that look like column references but match no candidate. Never guessed at. */
   unmatchedTerms: z.array(z.string()),
+  /** Per column and column family: does the Clause ask for that change to that column? Optional (fan-out spec). */
+  roles: z.array(z.object({ columnId: z.string(), family: z.string(), confidence: z.number().min(0).max(1) })).optional(),
+  /** The kind of change the Clause mainly asks for, as a relative pick over the families. Optional. */
+  kind: Pick.optional(),
+  /** Probability that a sort or grouping adds a level to the current view's, rather than replacing it. Optional. */
+  adds: z.number().min(0).max(1).optional(),
+  /** For reversal wording ("advisor within custodian"): is `outerId` the outer grouping or primary sort? Optional. */
+  outer: z.array(z.object({ outerId: z.string(), innerId: z.string(), confidence: z.number().min(0).max(1) })).optional(),
   /** The column each literal applies to, by its index in the Clause's `literals`. Optional. */
   literalColumns: z
     .array(z.object({ literalIndex: z.number().int().nonnegative(), columnId: z.string(), confidence: z.number().min(0).max(1) }))
