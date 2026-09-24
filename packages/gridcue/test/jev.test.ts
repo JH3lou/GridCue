@@ -32,10 +32,12 @@ describe("createJevProvider", () => {
     });
     const result = await provider.resolve(request);
     expect(result.clauses[0]).toMatchObject({
-      families: [{ id: "filter", confidence: 0.93 }],
-      columns: [{ id: "value", confidence: 0.91 }],
       values: [{ columnId: "status", valueId: "open", confidence: 0.97 }],
     });
+    expect(result.clauses[0]?.families.filter((f) => f.confidence >= 0.5)).toEqual([{ id: "filter", confidence: 0.93 }]);
+    expect(result.clauses[0]?.columns.filter((c) => c.confidence >= 0.5)).toEqual([{ id: "value", confidence: 0.91 }]);
+    expect(result.clauses[0]?.families.length).toBe(request.candidates.families.length);
+    expect(result.clauses[0]?.columns.map((c) => c.id).sort()).toEqual(request.candidates.columns.map((c) => c.id).sort());
     expect(JSON.stringify(seen)).not.toContain("tax_id");
     expect(seen.state).toMatchObject({ clauses: [{ text: "open accounts over $1m" }] });
     expect(JSON.stringify(seen.questions?.c0_col0)).toContain("`clauses[0].text`");
@@ -44,6 +46,15 @@ describe("createJevProvider", () => {
   it("treats unknown choices as malformed", async () => {
     const provider = createJevProvider({
       client: fakeClient((k) => (k.includes("_val") ? { choice: "closed", confidence: 1 } : { noul: 0.1 })),
+    });
+    await expect(provider.resolve(request)).rejects.toMatchObject({ code: "PROVIDER_MALFORMED" });
+  });
+
+  it("treats a missing answer as malformed", async () => {
+    const provider = createJevProvider({
+      client: fakeClient((k) =>
+        k === "c0_val1" ? undefined : k.includes("_val") ? { choice: "none", confidence: 0.9, probabilities: {} } : { noul: 0.1 },
+      ),
     });
     await expect(provider.resolve(request)).rejects.toMatchObject({ code: "PROVIDER_MALFORMED" });
   });

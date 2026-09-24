@@ -111,7 +111,7 @@ export const createJevProvider = (options: JevProviderOptions): IntentProvider =
       };
       const pickOf = (key: string, allowed: string[]): Pick | undefined => {
         const a = answers[key];
-        if (!a) return undefined;
+        if (!a) throw new GridCueError("PROVIDER_MALFORMED", "Jev omitted an answer.");
         if (typeof a.choice !== "string" || !allowed.includes(a.choice))
           throw new GridCueError("PROVIDER_MALFORMED", "Jev returned an unknown choice.");
         return a.choice === "none" ? undefined : { id: a.choice, confidence: a.confidence ?? 0 };
@@ -119,10 +119,9 @@ export const createJevProvider = (options: JevProviderOptions): IntentProvider =
       return {
         clauses: request.clauses.map((clause): ClauseResolution => {
           const q = `c${clause.index}`;
-          const fam = families.map((f, i) => ({ id: f, confidence: yes(`${q}_f${i}`) })).filter((p) => p.confidence >= 0.5);
+          const fam = families.map((f, i) => ({ id: f, confidence: yes(`${q}_f${i}`) }));
           const mentions = columns
             .map((c, i) => ({ c, i, p: yes(`${q}_col${i}`) }))
-            .filter((m) => m.p >= 0.5)
             .map((m) => ({
               ...m,
               at:
