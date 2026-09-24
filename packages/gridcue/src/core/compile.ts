@@ -618,7 +618,7 @@ export const compile = (c: CompileInput): ViewPlan => {
             const ops = operatorsFor(column(id) ?? ({ kind: "enum" } as ColumnDescriptor));
             const out = excluded.filter((m) => m.columnId === id).map((m) => m.valueId ?? "");
             const chosen = answers[`${key}.value.${id}`];
-            if (chosen !== undefined && ids.includes(chosen)) {
+            if (chosen !== undefined && ids.includes(chosen) && ops.includes("eq")) {
               // The User picked one value from the one-value-at-a-time question below (review fix).
               pred(id, "eq", chosen);
               note(`${key}.value.${id}`, chosen, 1, "user");
@@ -626,7 +626,14 @@ export const compile = (c: CompileInput): ViewPlan => {
             else if (ops.includes("in")) pred(id, "in", ids);
             // An exclusion the Host's operators can't express as "in" may still be one "not equal" (review fix).
             else if (out.length === 1 && ops.includes("neq")) pred(id, "neq", out[0]);
-            else {
+            else if (!ops.includes("eq")) {
+              // The Host allows neither "in" nor "eq" here, so no answer could be applied: say so instead of asking.
+              clarifications.push({
+                id: `${key}.value.${id}`,
+                prompt: `GridCue can't filter ${column(id)?.label ?? id} to these values here. Try a different filter.`,
+                required: true,
+              });
+            } else {
               clarifications.push({
                 id: `${key}.value.${id}`,
                 prompt: `GridCue can filter ${column(id)?.label ?? id} to one value at a time here. Which one?`,

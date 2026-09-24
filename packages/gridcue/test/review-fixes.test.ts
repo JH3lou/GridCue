@@ -158,4 +158,35 @@ describe("review fixes", () => {
     expect(answered.status).toBe("ready");
     expect(answered.operations).toMatchObject([{ predicate: { columnId: "cust", operator: "eq", value: "hl" } }]);
   });
+
+  it("never offers a one-value choice the Host's operators can't apply", () => {
+    const neqOnly = defineSchema([{ id: "cust", label: "Custodian", kind: "enum" }], {
+      columns: {
+        cust: {
+          enumValues: [
+            { id: "ng", label: "Northgate" },
+            { id: "hl", label: "Harborline" },
+          ],
+          allowedOperators: ["neq"],
+        },
+      },
+    });
+    const input = normalize("only northgate or harborline");
+    const plan = compile({
+      input,
+      resolution: { clauses: [{ clauseIndex: 0, families: [hi("filter")], columns: [], values: [], unmatchedTerms: [] }] },
+      schema: neqOnly,
+      state: emptyViewState(["cust"]),
+      baseRevision: "r1",
+      channel: "typed",
+      mentions: matchMentions(input.clauses, neqOnly.columns),
+      answers: { "c0.value.cust": "ng" },
+      newId: (p) => `${p}_${++n}`,
+    });
+    expect(plan.operations).toEqual([]);
+    expect(plan.clarifications[0]).toMatchObject({
+      prompt: "GridCue can't filter Custodian to these values here. Try a different filter.",
+    });
+    expect(plan.clarifications[0]).not.toHaveProperty("options");
+  });
 });
