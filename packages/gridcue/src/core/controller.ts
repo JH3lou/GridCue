@@ -177,9 +177,15 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
       } catch (error) {
         if (controller.signal.aborted) return null;
         const code = isGridCueError(error) ? error.code : "PROVIDER_FAILED";
+        // A provider (local or remote) can find a request too complex on its own terms; show the same
+        // wording as the local clause-count check above rather than the generic interpretation failure.
+        const message =
+          code === "PROVIDER_TOO_COMPLEX"
+            ? `Try fewer steps at once. GridCue handles up to ${MAX_CLAUSES} in one request.`
+            : "Couldn't interpret that request. The view hasn't changed.";
         set({
           status: "error",
-          message: "Couldn't interpret that request. The view hasn't changed.",
+          message,
           issues: [{ code, message: "Provider failed." }],
         });
         return null;

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { createGridCue } from "../src/core/controller";
+import { GridCueError } from "../src/core/errors";
 import type { AuditEvent } from "../src/core/preview";
 import type { IntentProvider } from "../src/core/resolution";
 import { createRowsAdapter } from "../src/core/rows-adapter";
@@ -226,5 +227,19 @@ describe("controller", () => {
     });
     await cue.propose("sort by value");
     expect(cue.getState().issues[0]?.code).toBe("PROVIDER_FAILED");
+  });
+
+  it("shows the same too-complex wording for a remote PROVIDER_TOO_COMPLEX as for a local INPUT_TOO_COMPLEX", async () => {
+    const { cue } = setup({
+      resolve: async () => {
+        throw new GridCueError("PROVIDER_TOO_COMPLEX", "That request is too complex. Try a shorter one.");
+      },
+    });
+    await cue.propose("sort by value");
+    expect(cue.getState()).toMatchObject({
+      status: "error",
+      message: "Try fewer steps at once. GridCue handles up to 12 in one request.",
+      issues: [{ code: "PROVIDER_TOO_COMPLEX" }],
+    });
   });
 });

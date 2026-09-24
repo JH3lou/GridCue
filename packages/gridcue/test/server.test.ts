@@ -3,7 +3,7 @@ import type { AddressInfo } from "node:net";
 import express from "express";
 import { afterEach, describe, expect, it } from "vitest";
 import { defineSchema } from "../src/core/schema";
-import { buildResolutionRequest, createRemoteProvider, emptyViewState, normalize } from "../src/index";
+import { buildResolutionRequest, createRemoteProvider, emptyViewState, GridCueError, normalize } from "../src/index";
 import { createMockProvider } from "../src/mock";
 import { createGridCueHandler, toNodeHandler } from "../src/server";
 
@@ -76,5 +76,47 @@ describe("toNodeHandler and createRemoteProvider", () => {
   it("reports endpoint failures with stable codes", async () => {
     const provider = createRemoteProvider({ endpoint: "http://x", fetch: async () => new Response("nope", { status: 500 }) });
     await expect(provider.resolve(request)).rejects.toMatchObject({ code: "PROVIDER_FAILED" });
+  });
+
+  it("passes through the handler's own error code, such as PROVIDER_TOO_COMPLEX", async () => {
+    const tooComplex = createGridCueHandler({
+      provider: {
+        resolve: async () => {
+          throw new GridCueError("PROVIDER_TOO_COMPLEX", "That request is too complex. Try a shorter one.");
+        },
+      },
+    });
+    const url = await listen(toNodeHandler(tooComplex));
+    await expect(createRemoteProvider({ endpoint: url }).resolve(request)).rejects.toMatchObject({ code: "PROVIDER_TOO_COMPLEX" });
+  });
+
+  it("falls back to PROVIDER_FAILED for a body code that isn't a GridCue error code", async () => {
+    const provider = createRemoteProvider({
+      endpoint: "http://x",
+      fetch: async () => new Response(JSON.stringify({ error: { code: "ECONNRESET", message: "connection reset" } }), { status: 500 }),
+    });
+    await expect(provider.resolve(request)).rejects.toMatchObject({ code: "PROVIDER_FAILED" });
+  });
+
+  it("falls back to PROVIDER_FAILED when the body carries no code at all", async () => {
+    const provider = createRemoteProvider({ endpoint: "http://x", fetch: async () => new Response(null, { status: 500 }) });
+    await expect(provider.resolve(request)).rejects.toMatchObject({ code: "PROVIDER_FAILED" });
+  });
+
+  it("never surfaces the server's own error message text to the caller", async () => {
+    const provider = createRemoteProvider({
+      endpoint: "http://x",
+      fetch: async () =>
+        new Response(JSON.stringify({ error: { code: "PROVIDER_TOO_COMPLEX", message: "internal detail nobody should see" } }), {
+          status: 500,
+        }),
+    });
+    await expect(provider.resolve(request)).rejects.toMatchObject({ code: "PROVIDER_TOO_COMPLEX" });
+    try {
+      await provider.resolve(request);
+      throw new Error("expected resolve() to reject");
+    } catch (error) {
+      expect((error as Error).message).not.toContain("internal detail nobody should see");
+    }
   });
 });
