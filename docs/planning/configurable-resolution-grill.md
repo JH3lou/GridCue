@@ -90,3 +90,20 @@ Answer by number. A bare "agree" accepts the recommendation.
 (b) Everything in one spec.
 
 ➡️ (a). The chassis changes are measurable without UI. The demo is better once there are several strategies worth comparing. Routing reuses the entity declarations.
+
+## Round 1 answers (owner, 2026-09-24)
+
+"I'm good with your proposal": every recommendation (Q1 to Q6) accepted, as the current best design (see the owner's standing "iterate when needed" direction).
+
+| Q | Recorded as |
+| --- | --- |
+| Q1 | `strategy: "focused" \| "fan-out"` on the Jev provider, plus per-signal toggles. |
+| Q2 | A comparison demo, in its own UI spec, after this one. |
+| Q3 | `rowNoun` and column `entity` declarations, plus a Jev reading Choice only when grammar can't settle it. "Whole records" is offered, never applied silently. |
+| Q4 | A deterministic preposition rule, plus a Jev check for named values. |
+| Q5 | Host `valueGroups`, plus per-value Nouls in the fan-out preset. |
+| Q6 | A chassis spec (Q1, Q3, Q4, Q5), then the demo UI spec, then grid routing. |
+
+### Found while writing the spec
+
+**Q4's Jev check and Q5's per-value Nouls are the same question.** "Does the part mean rows whose Registration type is Trust?" both limits the rows and allows several values. The spec therefore asks it once per enum value, and uses the answer for both jobs.
