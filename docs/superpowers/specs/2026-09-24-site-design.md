@@ -57,6 +57,7 @@ Each row is a decision the design skills changed or fixed. **Before** is the gri
 | Cloudflare Web Analytics (cookieless) | Q10 |
 | `apps/site` in the workspace, deployed by Cloudflare's Git integration | Q11 |
 | No `gridque.dev` redirect | Q12 |
+| Positioning, messaging, calls to action, and page changes | `docs/planning/product-brief.md` §9, agreed by the owner |
 
 ## 4. Scope
 
@@ -68,6 +69,8 @@ Each row is a decision the design skills changed or fixed. **Before** is the gri
 - **Docs `/docs`** (5.4), including the Components explorer (5.5).
 - **Registry hosting** (5.6): `registry/dist/r` copied into the Site's static output at `/r`.
 - **`/changelog`**, rendered from `packages/gridcue/CHANGELOG.md`.
+- **`/blog`:** one MDX route, reserved for the launch post "Why we don't let the model write the filter" (brief §6).
+- **One Open Graph image,** also used as the GitHub social preview.
 - **SEO:** a title, description and Open Graph image per page, `sitemap.xml`, and `robots.txt`.
 - **Deploy:** `wrangler.jsonc` with `assets` only, and Cloudflare Git integration. The owner connects the repository and the domain.
 - **A local check that `gridcue/server` with `@typesafe-ai/sdk` builds and runs under workerd** (`wrangler dev`), closing ADR 0011's open item. It is a docs-recipe check, not a deploy.
@@ -83,16 +86,25 @@ Each row is a decision the design skills changed or fixed. **Before** is the gri
 
 ### 5.1 `/`, marketing
 
-1. **Hero.** The headline "Ask your data a plain question. See the view that answers it." and one line: "Use natural language to get insights from complicated data, dense grids and tables. GridCue turns each request into a safe, previewable view change. Open source, built on TypeSafe's Jev." The final wording is settled in the prototype step. Below it, a **live command bar over a 12-row synthetic grid**, running on the Mock Provider in the browser. Three suggestion chips fill the bar in one click: "Roth IRAs grouped by rep", "largest accounts first", "hide the custodian column". A Preview appears, then Apply, then Undo. Buttons: "Try the full demo" and "Read the docs".
+1. **Hero.**
+   - **Headline:** "Ask your data a plain question. See the view that answers it."
+   - **Sub-line:** "Get to the insight in complicated data, dense grids and tables. GridCue previews every change and never touches your data."
+   - **Badge row:** "MIT · Headless · Built for Jev" (product brief §9.1: the User's benefit first, Jev as a badge). The final wording is settled in the prototype step.
+   - **Demo:** a **live command bar over a 12-row synthetic grid**, running on the Mock Provider in the browser. A Preview appears, then Apply, then Undo.
+   - **Chips, shaped as insights**, each filling the bar in one click: "Taxable accounts over $1M, biggest concentration first", "Roth IRAs grouped by rep", and "largest accounts first". Add **one refusal chip**, "Sell anything over 10%", which shows the safety story in one click. The prototype checks that the Mock resolves every chip.
+   - **Calls to action:** primary "Try it" (inline); secondary a copyable `npm i gridcue`; tertiary "Star on GitHub".
 2. **How it works.** Three sticky steps, as in the design pass: *You ask* → *GridCue previews exactly what will change* → *You apply, and can undo*.
-3. **Safe by design.** Four short points:
+3. **Why the model doesn't write the filter.** A three-row comparison, *an LLM writes the grid state* against *GridCue*: closed choices, code decides, preview and undo. It carries the dated evidence line, "176 labelled live requests on a synthetic wealth schema, 0 wrong views (jev-1.13.0, Sept 2026)", always with its scope (product brief §1 and §9.3).
+4. **Safe by design.** Four short points:
    - view-only (never edits data);
    - preview before apply;
    - rows never leave your app, only column names and approved values;
    - no provider key in the browser.
-4. **Fits your domain.** A side-by-side code block: the three schema declarations (`rowNoun`, `entity`, `valueGroups`), and the choice of `strategy`.
-5. **Quick start.** Install, the ten-line example, and a link to the docs.
-6. **Footer:** GitHub, docs, changelog, the MIT license, and the independence line from section 1.
+5. **What GridCue is not.** A one-line strip: not SQL, not a chatbot; it doesn't edit data or compute answers. It protects the "insight" claim (brief §9.4).
+6. **Providers and grids.** A text-only band: "Jev · Mock · your provider" and "TanStack · any array · AG Grid (next)". It shows neutrality without implying partnership (brief §9.7).
+7. **Fits your domain.** A side-by-side code block: the three schema declarations (`rowNoun`, `entity`, `valueGroups`), and the choice of `strategy`.
+8. **Quick start, keyless first.** Install, then the Mock Provider in the browser (no server, no key), then "Turn on Jev". Link to the docs.
+9. **Footer:** GitHub, docs, changelog, the MIT license, and the independence line from section 1.
 
 ### 5.2 `/demo`
 
@@ -108,6 +120,7 @@ Each row is a decision the design skills changed or fixed. **Before** is the gri
   - the resolution request as the provider saw it, showing that no rows were sent.
 - **Compare strategies** tab (section 5.3).
 - The theme follows the system setting, with a toggle.
+- The layout leaves room for a **dataset switcher**, for the second dataset (shipments and orders) planned after launch.
 
 ### 5.3 The recorded strategy comparison
 
@@ -123,7 +136,7 @@ Each row is a decision the design skills changed or fixed. **Before** is the gri
 ### 5.4 `/docs`
 
 - **Structure** (Fumadocs, MDX, with typeset prose):
-  - **Get started:** Install; Quick start; Run the examples.
+  - **Get started:** "Your grid in 5 minutes (Mock, no key)"; "Turn on Jev"; "Describe your domain"; "Run the examples". The keyless page is first (owner decision 2).
   - **Concepts:** the pipeline diagram, then one page per glossary cluster:
     - Requests (Utterance, Clause, Mention, Clarification);
     - Views (View State, View Plan, Preview);
@@ -135,7 +148,9 @@ Each row is a decision the design skills changed or fixed. **Before** is the gri
     - protecting the endpoint;
     - describing your domain;
     - choosing a strategy;
-    - running evals.
+    - running evals;
+    - **"Going to production"** (auth, rate limits, timeouts, audit);
+    - **"Build a provider"** and **"Build an adapter"**, each with its contract suite.
   - **Components:** the explorer (5.5).
   - **API reference:**
     - `createGridCue` and the Controller;
