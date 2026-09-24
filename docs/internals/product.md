@@ -126,6 +126,20 @@ Suggested initial bands, to be tuned with eval evidence:
 
 The host may set stricter bands. Auto-apply is off in the MVP regardless of confidence.
 
+The defaults are `ready` 0.85 and `clarify` 0.65. They are unchanged since the first live run and need an ADR to change. Around them, the compiler applies fixed rules:
+
+- **Competing families** (ADR 0012).
+  - A family with nothing to act on yields to one that has something.
+  - A confident family drops middling ones.
+  - Show-only absorbs show and hide.
+  - Reset and the clears: the higher score wins.
+  - A lead of at least 0.10 decides between column families.
+  - Otherwise, GridCue asks the User to split the part.
+- **Host-declared names** (ADR 0013).
+  - A column or value named by a declared label or alias counts as confidence 1.
+  - This does not apply when the name sits where the rows go, or when the provider scores the column below 0.40.
+  - A named value is never silently ignored.
+
 ## Domain examples
 
 | User request | Expected interpretation |

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { Mention } from "./mentions";
 import type { NormalizedInput } from "./normalize";
 import type { ColumnCapability, OperationType, ViewCapabilities, ViewSchema, ViewState } from "./protocol";
 import { ColumnKind, EnumValue, FilterOperator, PROTOCOL_VERSION, SortSpec } from "./protocol";
@@ -81,6 +82,8 @@ export const ResolutionRequest = z.object({
         text: z.string(),
         literals: z.array(LiteralSchema),
         direction: z.enum(["asc", "desc"]).optional(),
+        /** Columns and enum values core already matched by a Host-declared name. A provider may skip asking about them. */
+        mentions: z.array(z.object({ columnId: z.string(), valueId: z.string().optional() })).optional(),
       }),
     )
     .max(12),
@@ -107,6 +110,10 @@ export const ClauseResolution = z.object({
   direction: Pick.optional(),
   /** Phrases that look like column references but match no candidate. Never guessed at. */
   unmatchedTerms: z.array(z.string()),
+  /** The column each literal applies to, by its index in the Clause's `literals`. Optional. */
+  literalColumns: z
+    .array(z.object({ literalIndex: z.number().int().nonnegative(), columnId: z.string(), confidence: z.number().min(0).max(1) }))
+    .optional(),
 });
 export type ClauseResolution = z.infer<typeof ClauseResolution>;
 
@@ -141,10 +148,16 @@ export const buildResolutionRequest = (
   schema: ViewSchema,
   capabilities: ViewCapabilities,
   state: ViewState,
+  mentions: readonly Mention[] = [],
 ): ResolutionRequest => ({
   protocolVersion: PROTOCOL_VERSION,
   utterance: input.text,
-  clauses: input.clauses,
+  clauses: input.clauses.map((clause) => {
+    const own = mentions
+      .filter((m) => m.clauseIndex === clause.index)
+      .map(({ columnId, valueId }) => (valueId === undefined ? { columnId } : { columnId, valueId }));
+    return own.length > 0 ? { ...clause, mentions: own } : clause;
+  }),
   candidates: buildCandidates(schema, capabilities),
   view: {
     visibleColumnIds: state.visibleColumnIds,

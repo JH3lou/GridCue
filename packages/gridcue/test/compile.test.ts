@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { compile } from "../src/core/compile";
+import { compile, settleFamilies } from "../src/core/compile";
+import { matchMentions } from "../src/core/mentions";
 import { normalize } from "../src/core/normalize";
 import { renderPreview, toAuditEvent } from "../src/core/preview";
 import { emptyViewState } from "../src/core/protocol";
@@ -27,9 +28,10 @@ const schema = defineSchema(
 );
 const state = emptyViewState(schema.columns.map((c) => c.id));
 let n = 0;
-const run = (text: string, clauses: Array<Partial<ClauseResolution>>, answers?: Record<string, string>) =>
+const run = (text: string, clauses: Array<Partial<ClauseResolution>>, answers?: Record<string, string>, useMentions = false) =>
   compile({
     input: normalize(text),
+    ...(useMentions ? { mentions: matchMentions(normalize(text).clauses, schema.columns) } : {}),
     resolution: { clauses: clauses.map((c, i) => ({ clauseIndex: i, families: [], columns: [], values: [], unmatchedTerms: [], ...c })) },
     schema,
     state,
@@ -226,5 +228,206 @@ describe("toAuditEvent", () => {
     const plan = { ...base, confidence: 0.92 };
     expect(toAuditEvent(plan, "applied").confidenceBand).toBe("high");
     expect(toAuditEvent(plan, "applied", {}, {}, { ready: 0.95, clarify: 0.9 }).confidenceBand).toBe("medium");
+  });
+});
+
+const at = (id: string, confidence: number) => ({ id, confidence });
+const families = (plan: ReturnType<typeof run>) => plan.evidence.filter((e) => e.key === "c0.family").map((e) => e.selectedId);
+
+describe("family precedence (ADR 0012)", () => {
+  it("drops middling families once one is confident (rule 1)", () => {
+    const plan = run("reset the view", [{ families: [at("view.reset", 0.96), at("filter.clear", 0.83), at("sort.clear", 0.64)] }]);
+    expect(plan.status).toBe("ready");
+    expect(plan.operations).toEqual([{ type: "view.reset" }]);
+    expect(plan.evidence).toContainEqual({
+      key: "dropped:c0.family",
+      selectedId: "filter.clear",
+      confidence: 0.83,
+      source: "deterministic",
+    });
+  });
+
+  it("still asks about middling families when nothing is confident", () => {
+    const plan = run("tidy up", [{ families: [at("view.reset", 0.8)] }]);
+    expect(plan.clarifications.map((q) => q.prompt)).toEqual(["Did you want to reset the view?"]);
+  });
+
+  it("lets show-only absorb show and hide (rule 2)", () => {
+    const plan = run("keep only name and value", [
+      { families: [at("columns.only", 0.97), at("columns.hide", 0.88), at("columns.show", 0.67)], columns: [hi("name"), hi("value")] },
+    ]);
+    expect(plan.status).toBe("ready");
+    expect(plan.operations[0]).toEqual({ type: "columns.show", columnIds: ["name", "value"] });
+  });
+
+  it("lets explicit clears beat a weaker reset, and a stronger reset beat the clears (rule 3)", () => {
+    const clears = run("clear the filters and sorting", [
+      { families: [at("filter.clear", 0.99), at("sort.clear", 0.99), at("view.reset", 0.9)] },
+    ]);
+    expect(clears.operations).toEqual([{ type: "filter.clear" }, { type: "sort.set", sorts: [] }]);
+    const reset = run("reset everything", [{ families: [at("view.reset", 0.97), at("filter.clear", 0.9)] }]);
+    expect(reset.operations).toEqual([{ type: "view.reset" }]);
+    const tie = run("reset the filters", [{ families: [at("view.reset", 0.9), at("filter.clear", 0.9)] }]);
+    expect(tie.operations).toEqual([{ type: "filter.clear" }]);
+  });
+
+  it("keeps the top column family when it leads by at least 0.10 (rule 4)", () => {
+    const plan = run("show value over $1m", [{ families: [at("filter", 0.95), at("columns.show", 0.85)], columns: [hi("value")] }]);
+    expect(plan.status).toBe("ready");
+    expect(plan.operations.map((o) => o.type)).toEqual(["filter.add"]);
+    expect(families(plan)).toEqual(["filter"]);
+  });
+
+  it("asks for a split when column families are close (rule 5)", () => {
+    const plan = run("show value over $1m", [{ families: [at("filter", 0.95), at("columns.show", 0.9)], columns: [hi("value")] }]);
+    expect(plan.clarifications[0]?.prompt).toBe(
+      "“show value over $1m” asks for more than one kind of change. Split it into separate parts.",
+    );
+  });
+
+  it("lets a family with nothing to act on yield to one that has something", () => {
+    const plan = run("show closed ones", [{ families: [at("columns.show", 0.85), at("filter", 0.82)] }], undefined, true);
+    expect(plan.clarifications.map((q) => q.prompt)).toEqual(["Did you want to filter the rows?"]);
+    const alone = run("sort by risk score", [{ families: [hi("sort")] }]);
+    expect(alone.clarifications[0]?.prompt).toBe("There's no column called “risk score”. Which column should be sorted by?");
+  });
+
+  it("settles families as a pure function, with a lead of exactly 0.10 counting as a margin", () => {
+    expect(settleFamilies([at("sort", 0.95), at("group", 0.85)], [at("filter", 0.7)])).toEqual({
+      kept: [at("sort", 0.95)],
+      ask: [],
+      dropped: [at("group", 0.85), at("filter", 0.7)],
+    });
+    expect(settleFamilies([at("sort", 0.95), at("group", 0.86)], []).kept).toHaveLength(2);
+  });
+});
+
+describe("Mentions", () => {
+  it("uses a named column at confidence 1 whatever the provider scored", () => {
+    const plan = run("sort by gain", [{ families: [hi("sort")], columns: [at("gain", 0.7)] }], undefined, true);
+    expect(plan.status).toBe("ready");
+    expect(plan.operations).toEqual([{ type: "sort.set", sorts: [{ columnId: "gain", direction: "asc" }] }]);
+    expect(plan.evidence).toContainEqual({ key: "c0.column", selectedId: "gain", confidence: 1, source: "deterministic" });
+  });
+
+  it("drops a named column the provider scored below the floor, so the rows aren't read as a column", () => {
+    const plan = run("sort by gain", [{ families: [hi("sort")], columns: [at("gain", 0.05), at("value", 0.9)] }], undefined, true);
+    expect(plan.operations).toEqual([{ type: "sort.set", sorts: [{ columnId: "value", direction: "asc" }] }]);
+    expect(plan.evidence).toContainEqual({ key: "dropped:c0.mention", selectedId: "gain", confidence: 0.05, source: "provider" });
+  });
+
+  it("never calls a named value an unknown column", () => {
+    const plan = run("show closed ones", [{ families: [at("columns.show", 0.9)] }], undefined, true);
+    expect(plan.clarifications.map((q) => q.prompt).join(" ")).not.toContain("no column called");
+  });
+
+  it("never silently ignores a named value in a part that doesn't filter", () => {
+    const plan = run("closed ones grouped by name", [{ families: [hi("group")], columns: [hi("name")] }], undefined, true);
+    expect(plan.status).toBe("needs_clarification");
+    expect(plan.clarifications[0]?.prompt).toBe(
+      "“closed ones grouped by name” also names Closed. Split it into separate parts, such as “only Closed” and the rest.",
+    );
+  });
+
+  it("uses a named value, and never asks about the column it implies", () => {
+    const plan = run("only closed ones", [{ families: [hi("filter")], columns: [at("status", 0.75)], values: [] }], undefined, true);
+    expect(plan.status).toBe("ready");
+    expect(plan.operations).toMatchObject([{ type: "filter.add", predicate: { columnId: "status", operator: "eq", value: "closed" } }]);
+  });
+
+  it("never asks about a column a confident provider value already implies", () => {
+    const plan = run("only the open ones", [
+      { families: [hi("filter")], columns: [at("status", 0.7)], values: [{ columnId: "status", valueId: "open", confidence: 0.9 }] },
+    ]);
+    expect(plan.status).toBe("ready");
+  });
+});
+
+describe("literal targets", () => {
+  it("uses the provider's confident pick for a literal", () => {
+    const plan = run("rows over $1m", [
+      { families: [hi("filter")], literalColumns: [{ literalIndex: 0, columnId: "gain", confidence: 0.9 }] },
+    ]);
+    expect(plan.operations).toMatchObject([{ predicate: { columnId: "gain", operator: "gt", value: 1_000_000 } }]);
+  });
+
+  it("offers a middling pick first when no column is otherwise known", () => {
+    const plan = run("rows over $1m", [
+      { families: [hi("filter")], literalColumns: [{ literalIndex: 0, columnId: "gain", confidence: 0.7 }] },
+    ]);
+    expect(plan.clarifications[0]).toMatchObject({
+      prompt: "Which column should be above $1,000,000?",
+      options: [{ id: "gain" }, { id: "value" }],
+    });
+  });
+
+  it("ignores a pick whose kind doesn't fit, and falls back to a confident column", () => {
+    const plan = run("value over $1m", [
+      { families: [hi("filter")], columns: [hi("value")], literalColumns: [{ literalIndex: 0, columnId: "name", confidence: 0.99 }] },
+    ]);
+    expect(plan.operations).toMatchObject([{ predicate: { columnId: "value" } }]);
+  });
+});
+
+describe("unknown terms", () => {
+  it("names the term when the provider found no column and returned none", () => {
+    const plan = run("sort by risk score", [{ families: [hi("sort")] }]);
+    expect(plan.clarifications[0]?.prompt).toBe("There's no column called “risk score”. Which column should be sorted by?");
+  });
+
+  it("does not claim a column is missing while asking 'Did you mean …?'", () => {
+    const plan = run("sort by worth", [{ families: [hi("sort")], columns: [at("value", 0.7)] }]);
+    expect(plan.clarifications.map((q) => q.prompt)).toEqual(["Did you mean Value?", "Which column should be sorted by?"]);
+  });
+});
+
+describe("sort and group levels", () => {
+  it("adds consecutive sorts as levels, in the order they were named", () => {
+    const plan = run("sort by name, then by value, largest first", [
+      { families: [hi("sort")], columns: [hi("name")] },
+      { families: [hi("sort")], columns: [hi("value")] },
+    ]);
+    expect(plan.operations).toEqual([
+      {
+        type: "sort.set",
+        sorts: [
+          { columnId: "name", direction: "asc" },
+          { columnId: "value", direction: "desc" },
+        ],
+      },
+    ]);
+    expect(renderPreview(plan, schema).lines).toEqual(["Sort by Name, ascending; then Value, descending"]);
+  });
+
+  it("nests consecutive groupings, outermost first, and says so in the Preview", () => {
+    const plan = run("group by status, then by name", [
+      { families: [hi("group")], columns: [hi("status")] },
+      { families: [hi("group")], columns: [hi("name")] },
+    ]);
+    expect(plan.operations).toEqual([{ type: "group.set", columnIds: ["status", "name"] }]);
+    expect(renderPreview(plan, schema).lines).toEqual(["Group by Status, then Name"]);
+  });
+
+  it("replaces an earlier level when a part says 'instead'", () => {
+    const plan = run("sort by name; sort by value instead", [
+      { families: [hi("sort")], columns: [hi("name")] },
+      { families: [hi("sort")], columns: [hi("value")] },
+    ]);
+    expect(plan.operations).toEqual([
+      { type: "sort.set", sorts: [{ columnId: "name", direction: "asc" }] },
+      { type: "sort.set", sorts: [{ columnId: "value", direction: "asc" }] },
+    ]);
+  });
+
+  it("starts over after a clear, and never repeats a column", () => {
+    const plan = run("clear the sort; sort by value; then by value", [
+      { families: [hi("sort.clear")] },
+      { families: [hi("sort")], columns: [hi("value")] },
+      { families: [hi("sort")], columns: [hi("value")] },
+    ]);
+    expect(plan.operations).toEqual([
+      { type: "sort.set", sorts: [] },
+      { type: "sort.set", sorts: [{ columnId: "value", direction: "asc" }] },
+    ]);
   });
 });

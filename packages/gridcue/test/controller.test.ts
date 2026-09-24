@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createGridCue } from "../src/core/controller";
 import { GridCueError } from "../src/core/errors";
 import type { AuditEvent } from "../src/core/preview";
-import type { IntentProvider } from "../src/core/resolution";
+import type { IntentProvider, ResolutionRequest } from "../src/core/resolution";
 import { createRowsAdapter } from "../src/core/rows-adapter";
 import { defineSchema } from "../src/core/schema";
 import { createMockProvider } from "../src/mock";
@@ -193,12 +193,35 @@ describe("controller", () => {
     expect(cue.getState().preview?.lines).toEqual(["Sort by Value, ascending"]);
   });
 
-  it("asks for fewer steps when a request has too many clauses", async () => {
+  it("asks for fewer parts when a request has too many clauses", async () => {
     const provider = { resolve: vi.fn() };
     const { cue } = setup(provider);
     await cue.propose(Array.from({ length: 13 }, (_, i) => `sort by value ${i}`).join("; "));
     expect(cue.getState().issues[0]?.code).toBe("INPUT_TOO_COMPLEX");
     expect(provider.resolve).not.toHaveBeenCalled();
+  });
+
+  it("sends Mentions to the provider and uses them over a middling score", async () => {
+    let sent: ResolutionRequest | undefined;
+    const { cue } = setup({
+      resolve: async (request) => {
+        sent = request;
+        return {
+          clauses: [
+            {
+              clauseIndex: 0,
+              families: [{ id: "sort", confidence: 0.95 }],
+              columns: [{ id: "gain", confidence: 0.5 }],
+              values: [],
+              unmatchedTerms: [],
+            },
+          ],
+        };
+      },
+    });
+    await cue.propose("sort by gain");
+    expect(sent?.clauses[0]?.mentions).toEqual([{ columnId: "gain" }]);
+    expect(cue.getState().status).toBe("ready");
   });
 
   it("keeps the view when the provider fails", async () => {
@@ -229,7 +252,7 @@ describe("controller", () => {
     expect(cue.getState().issues[0]?.code).toBe("PROVIDER_FAILED");
   });
 
-  it("asks for fewer steps on a provider's PROVIDER_TOO_COMPLEX without naming GridCue's own limit", async () => {
+  it("asks for fewer parts on a provider's PROVIDER_TOO_COMPLEX without naming GridCue's own limit", async () => {
     const { cue } = setup({
       resolve: async () => {
         throw new GridCueError("PROVIDER_TOO_COMPLEX", "That request is too complex. Try a shorter one.");
@@ -238,7 +261,7 @@ describe("controller", () => {
     await cue.propose("sort by value");
     expect(cue.getState()).toMatchObject({
       status: "error",
-      message: "Try fewer steps at once.",
+      message: "Try fewer parts at once.",
       issues: [{ code: "PROVIDER_TOO_COMPLEX" }],
     });
   });

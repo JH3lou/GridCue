@@ -165,9 +165,14 @@ const mergeBetween = (clause: string, literals: Literal[]): Literal[] => {
   return out;
 };
 
+/** A verb that takes "by", so a following "then by …" part can continue it. */
+const LEVEL_VERB = /\b(sort(?:ed)?|order(?:ed)?|group(?:ed)?)\s+by\b/;
+
 /** Deterministically splits a request into clauses and extracts literals code handles better than a model. */
 export const normalize = (raw: string): NormalizedInput => {
   const text = cleanText(raw);
+  // "group by account type, then by advisor": the second part leaves out its verb and continues the first.
+  let levelVerb: string | undefined;
   const parts = text
     .split(SPLIT)
     .map((p) =>
@@ -176,7 +181,12 @@ export const normalize = (raw: string): NormalizedInput => {
         .replace(/^(?:and|then)\s+/, "")
         .replace(/[,\s]+$/, ""),
     )
-    .filter((p) => p.length > 0);
+    .filter((p) => p.length > 0)
+    .map((p) => {
+      const part = /^by\b/.test(p) && levelVerb ? `${levelVerb} ${p}` : p;
+      levelVerb = part.match(LEVEL_VERB)?.[1];
+      return part;
+    });
   return {
     text,
     clauses: parts.map((part, index) => {
