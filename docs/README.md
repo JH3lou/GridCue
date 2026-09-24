@@ -34,6 +34,7 @@ These explain what the source alone can't: the product boundary, the pipeline, a
 
 - [Build-plan interview](./planning/build-plan-grill.md): open questions and the owner's answers
 - [Bootstrap work order](./planning/bootstrap-work-order.md): the original proposal, kept for history
+- [Handoff, 2026-09-24](./planning/handoff-2026-09-24.md): where the first build stopped, open follow-ups, and next steps
 
 ### Runbooks
 

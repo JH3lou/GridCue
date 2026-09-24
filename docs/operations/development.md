@@ -30,3 +30,5 @@ Put `JEV_API_KEY=…` in a git-ignored `.env` at the example's root, or export i
 ## Network notes
 
 `ui.shadcn.com` is blocked in the Claude Code cloud environment, so `shadcn add` fails there. The shadcn primitives in `registry/` and `examples/vite` are vendored from `shadcn-ui/ui` for that reason. `shadcn build` needs no network.
+
+Node's built-in `fetch` ignores the cloud environment's proxy. Run live Jev commands there as `NODE_USE_ENV_PROXY=1 pnpm eval:live` and `NODE_USE_ENV_PROXY=1 pnpm test:live`, after allowing `api.typesafe.ai` in the environment's network access.
