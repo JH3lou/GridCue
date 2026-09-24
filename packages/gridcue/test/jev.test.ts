@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { defineSchema } from "../src/core/schema";
-import { buildResolutionRequest, emptyViewState, normalize } from "../src/index";
-import { createJevProvider, type JevClient } from "../src/server/jev";
+import { buildResolutionRequest, emptyViewState, isExposed, matchMentions, normalize } from "../src/index";
+import { createJevProvider, DEFAULT_JEV_MODEL, type JevClient } from "../src/server/jev";
 
 const schema = defineSchema([{ id: "value", label: "Market value", kind: "currency" }, { id: "status", kind: "enum" }, { id: "tax_id" }], {
   restricted: ["tax_id"],
@@ -10,24 +10,27 @@ const schema = defineSchema([{ id: "value", label: "Market value", kind: "curren
 const caps = { operations: ["filter.add", "sort.set"], supportsAtomicApply: true, supportsSnapshotRestore: true, observesChanges: true };
 const request = buildResolutionRequest(normalize("open accounts over $1m"), schema, caps, emptyViewState(["value", "status", "tax_id"]));
 
-const fakeClient = (answer: (name: string) => unknown, seen: { questions?: Record<string, unknown>; state?: unknown } = {}): JevClient => ({
+type Seen = { questions?: Record<string, unknown>; state?: unknown; model?: string };
+const fakeClient = (answer: (name: string) => unknown, seen: Seen = {}): JevClient => ({
   async systemOne(req) {
     seen.questions = req.questions;
     seen.state = req.state;
+    if (req.model !== undefined) seen.model = req.model;
     return { answers: Object.fromEntries(Object.keys(req.questions).map((k) => [k, answer(k)])) };
   },
 });
 
 describe("createJevProvider", () => {
   it("asks closed questions and maps answers to candidate IDs", async () => {
-    const seen: { questions?: Record<string, unknown>; state?: unknown } = {};
+    const seen: Seen = {};
     const provider = createJevProvider({
       client: fakeClient((k) => {
         if (k === "c0_f0") return { noul: 0.93 }; // filter
         if (k.endsWith("_col0")) return { noul: 0.91 }; // value
         if (k.includes("_f") || k.includes("_col")) return { noul: 0.02 };
-        if (k === "c0_val1") return { choice: "open", confidence: 0.97, probabilities: {} };
-        return { choice: "none", confidence: 0.9, probabilities: {} };
+        // `confidence` describes the distribution's shape; the value's own probability is what GridCue uses.
+        if (k === "c0_val1") return { choice: "open", confidence: 0.4, probabilities: { none: 0.03, open: 0.97 } };
+        return { choice: "none", confidence: 0.9, probabilities: { none: 0.9 } };
       }, seen),
     });
     const result = await provider.resolve(request);
@@ -55,12 +58,93 @@ describe("createJevProvider", () => {
       client: fakeClient((k) =>
         k === "c0_val1"
           ? undefined
-          : k.includes("_val") || k.endsWith("_dir")
-            ? { choice: "none", confidence: 0.9, probabilities: {} }
+          : k.includes("_val") || k.endsWith("_dir") || k.includes("_lit")
+            ? { choice: "none", probabilities: { none: 0.9 } }
             : { noul: 0.1 },
       ),
     });
     await expect(provider.resolve(request)).rejects.toMatchObject({ code: "PROVIDER_MALFORMED" });
+  });
+
+  it("treats a choice without its probability as malformed", async () => {
+    const provider = createJevProvider({
+      client: fakeClient((k) =>
+        k.includes("_val") || k.endsWith("_dir") || k.includes("_lit") ? { choice: "none", confidence: 0.9 } : { noul: 0.1 },
+      ),
+    });
+    await expect(provider.resolve(request)).rejects.toMatchObject({ code: "PROVIDER_MALFORMED" });
+  });
+
+  it("asks which column each literal applies to, offering only columns that fit", async () => {
+    const seen: Seen = {};
+    const provider = createJevProvider({
+      client: fakeClient(
+        (k) =>
+          k === "c0_lit0"
+            ? { choice: "value", probabilities: { none: 0.08, value: 0.92 } }
+            : k.includes("_val") || k.endsWith("_dir")
+              ? { choice: "none", probabilities: { none: 0.9 } }
+              : { noul: 0.1 },
+        seen,
+      ),
+    });
+    const result = await provider.resolve(request);
+    expect(JSON.stringify(seen.questions?.c0_lit0)).toContain("Market value");
+    expect(JSON.stringify(seen.questions?.c0_lit0)).not.toContain("Status");
+    expect(seen.state).toMatchObject({ clauses: [{ literals: [{ kind: "currency", value: 1_000_000, comparator: "gt" }] }] });
+    expect(result.clauses[0]?.literalColumns).toEqual([{ literalIndex: 0, columnId: "value", confidence: 0.92 }]);
+  });
+
+  it("skips questions about named values, but still asks about named columns", async () => {
+    const text = "only open, sorted by market value";
+    const input = normalize(text);
+    const named = buildResolutionRequest(
+      input,
+      schema,
+      caps,
+      emptyViewState(["value", "status", "tax_id"]),
+      matchMentions(input.clauses, schema.columns.filter(isExposed)),
+    );
+    const seen: Seen = {};
+    const provider = createJevProvider({
+      client: fakeClient(
+        (k) =>
+          k.includes("_val") || k.endsWith("_dir") || k.includes("_lit") ? { choice: "none", probabilities: { none: 0.9 } } : { noul: 0.1 },
+        seen,
+      ),
+    });
+    const result = await provider.resolve(named);
+    expect(Object.keys(seen.questions ?? {})).not.toContain("c0_val1");
+    expect(Object.keys(seen.questions ?? {})).not.toContain("c0_col1");
+    expect(Object.keys(seen.questions ?? {})).toContain("c1_col0");
+    expect(result.clauses[0]?.columns.map((c) => c.id)).toEqual(["value"]);
+  });
+
+  it("pins the model it is tuned against unless the Host picks one", async () => {
+    const answer = (k: string) =>
+      k.includes("_val") || k.endsWith("_dir") || k.includes("_lit") ? { choice: "none", probabilities: { none: 1 } } : { noul: 0 };
+    const pinned: Seen = {};
+    await createJevProvider({ client: fakeClient(answer, pinned) }).resolve(request);
+    expect(pinned.model).toBe(DEFAULT_JEV_MODEL);
+    expect(DEFAULT_JEV_MODEL).toBe("jev-1.13.0");
+    const floating: Seen = {};
+    await createJevProvider({ client: fakeClient(answer, floating), model: "jev-latest" }).resolve(request);
+    expect(floating.model).toBe("jev-latest");
+  });
+
+  it("fits twelve Clauses within the default question budget", async () => {
+    const twelve = buildResolutionRequest(
+      normalize(Array.from({ length: 12 }, (_, i) => `sort by market value ${i}`).join("; ")),
+      schema,
+      caps,
+      emptyViewState(["value", "status", "tax_id"]),
+    );
+    const provider = createJevProvider({
+      client: fakeClient((k) =>
+        k.includes("_val") || k.endsWith("_dir") || k.includes("_lit") ? { choice: "none", probabilities: { none: 1 } } : { noul: 0 },
+      ),
+    });
+    await expect(provider.resolve(twelve)).resolves.toMatchObject({ clauses: { length: 12 } });
   });
 
   it("wraps transport errors", async () => {

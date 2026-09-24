@@ -1,5 +1,12 @@
 import { choice, noul, TypeSafeClient } from "@typesafe-ai/sdk";
-import { type ClauseResolution, GridCueError, type IntentProvider, type Pick, type ResolutionRequest } from "../index";
+import {
+  type ClauseResolution,
+  GridCueError,
+  type IntentProvider,
+  LITERAL_COLUMN_KINDS,
+  type Pick,
+  type ResolutionRequest,
+} from "../index";
 
 /** The slice of the TypeSafe client this provider uses. Tests pass a fake. */
 export interface JevClient {
@@ -11,11 +18,17 @@ export interface JevClient {
 
 export interface JevProviderOptions {
   apiKey?: string;
+  /** Default `jev-1.13.0`, the model GridCue's confidence bands are tuned against. Pass `jev-latest` to float. */
   model?: string;
   client?: JevClient;
-  /** GridCue's own per-request question budget, not an API limit. Default 96. Measure cost and latency with `pnpm eval:live`. */
+  /**
+   * GridCue's own per-request question budget, not an API limit. Default 600, about 24k tokens: under Jev's 64k per
+   * request. Twelve Clauses on a nine-column schema need about 330. Measure cost and latency with `pnpm eval:live`.
+   */
   maxQuestions?: number;
 }
+
+export const DEFAULT_JEV_MODEL = "jev-1.13.0";
 
 const FAMILY_TEXT: Record<string, string> = {
   filter: "narrow the rows to those matching a condition",
@@ -34,7 +47,7 @@ const FAMILY_TEXT: Record<string, string> = {
   "unsupported.export": "export, download, print, or copy data",
 };
 
-type Answer = { noul?: number; choice?: string; confidence?: number };
+type Answer = { noul?: number; choice?: string; probabilities?: Record<string, unknown> };
 
 /** Jev resolves bounded yes/no and choice questions. It never sees rows or restricted columns. */
 export const createJevProvider = (options: JevProviderOptions): IntentProvider => {
@@ -42,7 +55,8 @@ export const createJevProvider = (options: JevProviderOptions): IntentProvider =
   // bodies (the Utterance, column labels, aliases, descriptions). Set it explicitly so a Host's environment
   // can't turn that on by accident. A Host that wants SDK logs can inject its own `client` instead.
   const client: JevClient = options.client ?? (new TypeSafeClient({ apiKey: options.apiKey, logLevel: "off" }) as unknown as JevClient);
-  const maxQuestions = options.maxQuestions ?? 96;
+  const maxQuestions = options.maxQuestions ?? 600;
+  const model = options.model ?? DEFAULT_JEV_MODEL;
   return {
     async resolve(request: ResolutionRequest, signal?: AbortSignal) {
       const { columns, families } = request.candidates;
@@ -51,14 +65,19 @@ export const createJevProvider = (options: JevProviderOptions): IntentProvider =
       request.clauses.forEach((clause, p) => {
         const q = `c${clause.index}`;
         const about = `The request step \`clauses[${p}].text\``;
+        // A named value is final, so its column and value questions are skipped. A named column is still asked about:
+        // its score lets the compiler tell the column from the rows ("biggest accounts first"), ADR 0013.
+        const valued = new Set(clause.mentions?.filter((m) => m.valueId !== undefined).map((m) => m.columnId));
         families.forEach((f, i) => {
           questions[`${q}_f${i}`] = noul(`Does ${about} ask to ${FAMILY_TEXT[f] ?? f}?`);
         });
         columns.forEach((c, i) => {
-          questions[`${q}_col${i}`] = noul(
-            `Does ${about} refer to the grid column \`columns[${i}]\` (“${c.label}”), by its label or an alias?`,
-          );
-          if (c.enumValues?.length) {
+          if (!valued.has(c.id)) {
+            questions[`${q}_col${i}`] = noul(
+              `Does ${about} refer to the grid column \`columns[${i}]\` (“${c.label}”), by its label or an alias?`,
+            );
+          }
+          if (c.enumValues?.length && !valued.has(c.id)) {
             questions[`${q}_val${i}`] = choice(
               `Which value of the column \`columns[${i}]\` (“${c.label}”) does ${about} mention, if any?`,
               {
@@ -78,6 +97,17 @@ export const createJevProvider = (options: JevProviderOptions): IntentProvider =
             );
           }
         });
+        clause.literals.forEach((lit, j) => {
+          const fits = columns.filter((c) => c.families.includes("filter") && LITERAL_COLUMN_KINDS[lit.kind].includes(c.kind));
+          if (fits.length === 0) return;
+          questions[`${q}_lit${j}`] = choice(
+            `Which grid column does the condition \`clauses[${p}].literals[${j}]\` in ${about} apply to?`,
+            {
+              none: "None of these columns",
+              ...Object.fromEntries(fits.map((c) => [c.id, c.label])),
+            },
+          );
+        });
         if (!clause.direction) {
           questions[`${q}_dir`] = choice(`If ${about} sorts rows, which direction does it ask for?`, {
             none: "No direction given",
@@ -93,10 +123,15 @@ export const createJevProvider = (options: JevProviderOptions): IntentProvider =
       try {
         const response = await client.systemOne(
           {
-            ...(options.model ? { model: options.model } : {}),
+            model,
             state: {
               request: request.utterance,
-              clauses: request.clauses.map((c) => ({ text: c.text })),
+              clauses: request.clauses.map((c) => ({
+                text: c.text,
+                ...(c.literals.length > 0
+                  ? { literals: c.literals.map(({ kind, value, upper, comparator }) => ({ kind, value, upper, comparator })) }
+                  : {}),
+              })),
               columns: columns.map(({ id, label, kind, aliases, description }) => ({ id, label, kind, aliases, description })),
             },
             questions,
@@ -117,14 +152,21 @@ export const createJevProvider = (options: JevProviderOptions): IntentProvider =
         if (!a) throw new GridCueError("PROVIDER_MALFORMED", "Jev omitted an answer.");
         if (typeof a.choice !== "string" || !allowed.includes(a.choice))
           throw new GridCueError("PROVIDER_MALFORMED", "Jev returned an unknown choice.");
-        return a.choice === "none" ? undefined : { id: a.choice, confidence: a.confidence ?? 0 };
+        // Jev's `confidence` describes the whole distribution's shape; GridCue's bands are probabilities (ADR 0013).
+        const probability = a.probabilities?.[a.choice];
+        if (typeof probability !== "number" || probability < 0 || probability > 1)
+          throw new GridCueError("PROVIDER_MALFORMED", "Jev omitted a choice probability.");
+        return a.choice === "none" ? undefined : { id: a.choice, confidence: probability };
       };
       return {
         clauses: request.clauses.map((clause): ClauseResolution => {
           const q = `c${clause.index}`;
           const fam = families.map((f, i) => ({ id: f, confidence: yes(`${q}_f${i}`) }));
+          const asked = (i: number) => `${q}_col${i}` in questions;
           const mentions = columns
-            .map((c, i) => ({ c, i, p: yes(`${q}_col${i}`) }))
+            .map((c, i) => ({ c, i }))
+            .filter((m) => asked(m.i))
+            .map((m) => ({ ...m, p: yes(`${q}_col${m.i}`) }))
             .map((m) => ({
               ...m,
               at:
@@ -136,14 +178,19 @@ export const createJevProvider = (options: JevProviderOptions): IntentProvider =
             .sort((a, b) => a.at - b.at || a.i - b.i);
           const values: ClauseResolution["values"] = [];
           columns.forEach((c, i) => {
-            const v = c.enumValues
-              ? pickOf(`${q}_val${i}`, ["none", ...c.enumValues.map((e) => e.id)])
-              : c.kind === "boolean"
-                ? pickOf(`${q}_bool${i}`, ["none", "true", "false"])
-                : undefined;
+            const key = c.enumValues ? `${q}_val${i}` : c.kind === "boolean" ? `${q}_bool${i}` : undefined;
+            const allowed = c.enumValues ? ["none", ...c.enumValues.map((e) => e.id)] : ["none", "true", "false"];
+            const v = key && key in questions ? pickOf(key, allowed) : undefined;
             if (v) values.push({ columnId: c.id, valueId: v.id, confidence: v.confidence });
           });
           const direction = clause.direction ? undefined : pickOf(`${q}_dir`, ["none", "asc", "desc"]);
+          const literalColumns: NonNullable<ClauseResolution["literalColumns"]> = [];
+          clause.literals.forEach((_, j) => {
+            const key = `${q}_lit${j}`;
+            if (!(key in questions)) return;
+            const pick = pickOf(key, ["none", ...columns.map((c) => c.id)]);
+            if (pick) literalColumns.push({ literalIndex: j, columnId: pick.id, confidence: pick.confidence });
+          });
           return {
             clauseIndex: clause.index,
             families: fam,
@@ -151,6 +198,7 @@ export const createJevProvider = (options: JevProviderOptions): IntentProvider =
             values,
             ...(direction ? { direction } : {}),
             unmatchedTerms: [],
+            ...(literalColumns.length > 0 ? { literalColumns } : {}),
           };
         }),
       };
