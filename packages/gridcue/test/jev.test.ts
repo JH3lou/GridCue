@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { defineSchema } from "../src/core/schema";
 import { buildResolutionRequest, emptyViewState, normalize } from "../src/index";
 import { createJevProvider, type JevClient } from "../src/server/jev";
@@ -77,5 +77,26 @@ describe("createJevProvider", () => {
   it("refuses oversized question sets", async () => {
     const provider = createJevProvider({ client: fakeClient(() => ({ noul: 0 })), maxQuestions: 3 });
     await expect(provider.resolve(request)).rejects.toMatchObject({ code: "PROVIDER_TOO_COMPLEX" });
+  });
+
+  it("keeps the TypeSafe SDK's own logging off by default, even when TYPESAFE_LOG_LEVEL asks for debug", async () => {
+    vi.stubEnv("TYPESAFE_LOG_LEVEL", "debug");
+    const debugSpy = vi.spyOn(console, "debug").mockImplementation(() => {});
+    const fetchStub = vi.fn(
+      async () => new Response(JSON.stringify({ answers: {} }), { status: 200, headers: { "content-type": "application/json" } }),
+    );
+    vi.stubGlobal("fetch", fetchStub);
+    try {
+      const provider = createJevProvider({ apiKey: "test-key" });
+      await provider.resolve(request).catch(() => {});
+      expect(fetchStub).toHaveBeenCalled();
+      // At `debug`, the SDK logs full request and response bodies (the Utterance, column labels, aliases,
+      // descriptions). A Host that leaves TYPESAFE_LOG_LEVEL unset should still get no SDK logging by default.
+      expect(debugSpy).not.toHaveBeenCalled();
+    } finally {
+      debugSpy.mockRestore();
+      vi.unstubAllGlobals();
+      vi.unstubAllEnvs();
+    }
   });
 });

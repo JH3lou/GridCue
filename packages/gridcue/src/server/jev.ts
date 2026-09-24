@@ -38,7 +38,10 @@ type Answer = { noul?: number; choice?: string; confidence?: number };
 
 /** Jev resolves bounded yes/no and choice questions. It never sees rows or restricted columns. */
 export const createJevProvider = (options: JevProviderOptions): IntentProvider => {
-  const client: JevClient = options.client ?? (new TypeSafeClient({ apiKey: options.apiKey }) as unknown as JevClient);
+  // `logLevel` otherwise falls back to `TYPESAFE_LOG_LEVEL`; at `debug` the SDK logs full request and response
+  // bodies (the Utterance, column labels, aliases, descriptions). Set it explicitly so a Host's environment
+  // can't turn that on by accident. A Host that wants SDK logs can inject its own `client` instead.
+  const client: JevClient = options.client ?? (new TypeSafeClient({ apiKey: options.apiKey, logLevel: "off" }) as unknown as JevClient);
   const maxQuestions = options.maxQuestions ?? 96;
   return {
     async resolve(request: ResolutionRequest, signal?: AbortSignal) {
