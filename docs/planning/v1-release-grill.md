@@ -67,3 +67,7 @@ Answer by number. A bare "agree" accepts the recommendation.
 (b) I collapse #2 to #4 into one PR.
 
 ➡️ (a). The reviews and live evidence stay attached to each PR, and the history stays readable.
+
+## Round 1 answers (owner, 2026-09-24)
+
+"Agree": Q1 to Q5 accepted as recommended. The owner also asked for the Greptile review comments on PRs #2 to #4 to be reviewed and addressed before merging.
