@@ -1,0 +1,24 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry.json",
+  "name": "gridcue",
+  "homepage": "https://gridcue.dev",
+  "items": [
+    {
+      "name": "command-bar",
+      "type": "registry:block",
+      "title": "GridCue command bar",
+      "description": "A shadcn/ui command bar, preview panel, and clarification prompt for GridCue.",
+      "dependencies": ["gridcue"],
+      "registryDependencies": ["button", "input", "card", "badge"],
+      "files": [
+        { "path": "registry/gridcue/command-bar.tsx", "type": "registry:component", "target": "components/gridcue/command-bar.tsx" },
+        { "path": "registry/gridcue/preview-panel.tsx", "type": "registry:component", "target": "components/gridcue/preview-panel.tsx" },
+        {
+          "path": "registry/gridcue/clarification-prompt.tsx",
+          "type": "registry:component",
+          "target": "components/gridcue/clarification-prompt.tsx"
+        }
+      ]
+    }
+  ]
+}

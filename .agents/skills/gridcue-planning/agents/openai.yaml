@@ -1,0 +1,3 @@
+interface:
+  display_name: "GridCue planning"
+  short_description: "Grill, spec, and plan a GridCue change before coding"

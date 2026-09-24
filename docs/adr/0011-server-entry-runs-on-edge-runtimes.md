@@ -1,0 +1,7 @@
+# `gridcue/server` resolves to the real module on edge runtimes
+
+`packages/gridcue/package.json`'s `exports["./server"]` gains `workerd` and `edge-light` conditions, both pointing at `./dist/server.js`, listed before `browser` (which keeps pointing at the refusing stub) and `default`. `worker` is deliberately not listed: bundlers use it for browser Web Workers, and adding it would resolve `gridcue/server` to the real module — key and all — inside a page's own Web Worker, reopening the leak the stub exists to close.
+
+Cloudflare Workers (wrangler) and Vercel's Edge Runtime are `Request` to `Response` server environments, so the Server Handler belongs there under spec 5.12 ("runs anywhere a standard `Request` to `Response` function runs"), and the owner hosts the Site on Cloudflare (ADR 0006). Without these conditions, wrangler's build — which resolves with `workerd`, `worker`, and `browser` together — fell through to the `browser` key and shipped the browser stub to a Worker, where the real handler was exactly what was needed. `packages/gridcue/scripts/check-server-entry.mjs`, run by `check:package`, now proves both directions with that same combined condition set, since testing `workerd` or `edge-light` alone would pass even if the entry were missing: it would just fall through to the identical `default` target.
+
+Not yet verified: whether `@typesafe-ai/sdk` itself runs under `workerd`. That needs a real Wrangler build, to be checked when the Site gets its own spec.

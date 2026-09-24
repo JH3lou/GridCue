@@ -1,0 +1,52 @@
+:root {
+  color-scheme: light dark;
+}
+body {
+  font-family: system-ui, sans-serif;
+  margin: 0;
+  color: #111827;
+}
+main {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 24px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+.table-scroll {
+  overflow-x: auto;
+  min-width: 0;
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.875rem;
+}
+th,
+td {
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 1px solid #e5e7eb;
+}
+th {
+  font-weight: 600;
+}
+.group-row td {
+  background: #f3f4f6;
+  font-weight: 600;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background: #030712;
+    color: #f9fafb;
+  }
+  th,
+  td {
+    border-bottom: 1px solid #1f2937;
+  }
+  .group-row td {
+    background: #1f2937;
+  }
+}

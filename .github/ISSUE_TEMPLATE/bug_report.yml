@@ -1,0 +1,49 @@
+name: Bug report
+description: Report broken behavior, a wrong view being applied, or a crash.
+title: "[Bug]: "
+labels:
+  - bug
+  - needs-triage
+body:
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues and did not find a duplicate.
+          required: true
+        - label: My report contains no API keys or real client data.
+          required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - gridcue (core)
+        - gridcue React entry
+        - gridcue server entry or Jev provider
+        - gridcue TanStack Table adapter
+        - Component Registry
+        - Site or docs
+        - Examples (Vite, Next.js)
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: utterance
+    attributes:
+      label: Request and view
+      description: What you typed, and the view before and after. Use synthetic data only.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected vs actual
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: GridCue version, framework, grid library, and provider.
