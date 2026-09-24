@@ -7,6 +7,9 @@ import { loadCases, runCase, type Verdict } from "./run";
 
 const live = process.argv.includes("--live");
 const verbose = process.argv.includes("--verbose");
+// Live runs report mismatches without failing, because a live model varies and a service can error. `--strict`
+// fails on any mismatch, for a release check against a known-good run.
+const strict = process.argv.includes("--strict");
 // `--strategy=focused|fan-out` picks the Jev strategy (ADR 0015). `--without=kind,adds` and `--with=values` switch
 // signals off or on top of it, so the value of each question can be measured.
 const flag = (name: string) => process.argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3);
@@ -112,3 +115,4 @@ const chassis = live ? await run(new URL("./cases-chassis.jsonl", import.meta.ur
 // With the Mock Provider every case must match exactly, because its answers are deterministic.
 if (core.unsafe > 0 || (extra?.unsafe ?? 0) > 0 || (fanout?.unsafe ?? 0) > 0 || (chassis?.unsafe ?? 0) > 0 || (!live && core.mismatch > 0))
   process.exit(1);
+if (strict && [core, extra, fanout, chassis].some((counts) => (counts?.mismatch ?? 0) > 0)) process.exit(1);

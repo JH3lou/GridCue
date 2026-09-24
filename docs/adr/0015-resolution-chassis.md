@@ -70,3 +70,24 @@ All of these ask the User; none applies a wrong view.
 
 - The model or the question wording changes. Rerun `pnpm eval:live -- --strategy=focused` and the `--without` ablations.
 - A client's domain shows the declarations missing something.
+
+## Review fixes (Greptile, PRs #2 to #4)
+
+All 13 comments were reproduced against the code and fixed with regression tests (`packages/gridcue/test/review-fixes.test.ts`). Four had proposed a wrong view:
+
+- **Named column before an amount.** "market value over $1M" filtered on the provider's pick of Gain. A column named right before an amount now owns it.
+- **Value and column both named.** "Roth IRA accounts grouped by registration type" silently dropped the grouping. An enum column named on its own is free for another change.
+- **Unassigned column in a combined part.** In "sort by value with gain and name hidden", Name joined both changes. With several changes in one part, an unassigned named column is asked about.
+- **Negated list.** "not at Northgate or Harborline" filtered *to* Harborline. A negation now covers the whole list.
+
+The others:
+- a name several columns share is reported as ambiguous, not missing;
+- "then Northgate" filters instead of grouping;
+- a "rows" reading keeps the column out even when it scored high as a column;
+- choosing "Group by Household" keeps the part's other changes;
+- an exclusion uses an operator the Host allows (`neq`, or `eq` when one value remains), or asks;
+- a request over the question budget falls back to the focused questions before failing;
+- `eval:live --strict` fails on any mismatch;
+- six chassis cases run under the Mock.
+
+**Found by the live runs while verifying:** a sort with a direction in the text ("biggest … first") is never dropped as having nothing to act on. With no clear column, GridCue asks.
