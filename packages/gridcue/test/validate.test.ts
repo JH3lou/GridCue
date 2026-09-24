@@ -86,6 +86,21 @@ describe("validatePlan", () => {
     expect(codes(validatePlan(input, ctx))).toContain(code);
   });
 
+  it("rejects a plan the adapter cannot apply atomically", () => {
+    const nonAtomicCtx = { ...ctx, capabilities: { ...caps, supportsAtomicApply: false } };
+    const multiOp = plan([gt(100), { type: "sort.set", sorts: [{ columnId: "value", direction: "desc" }] }]);
+    expect(codes(validatePlan(multiOp, nonAtomicCtx))).toContain("PLAN_NOT_ATOMIC");
+  });
+
+  it("rejects an operator the column's kind does not allow", () => {
+    const op = {
+      type: "filter.add",
+      combineWith: "and",
+      predicate: { id: "f1", type: "predicate", columnId: "value", operator: "contains", value: "abc" },
+    } as ViewOperation;
+    expect(codes(validatePlan(plan([op]), ctx))).toContain("PLAN_OPERATOR_NOT_ALLOWED");
+  });
+
   it("rejects enum values the host did not approve", () => {
     const op = {
       type: "filter.add",
