@@ -156,6 +156,15 @@ describe("compile", () => {
     expect(no.operations).toEqual([]);
   });
 
+  it("refuses a middling unsupported family instead of asking about it", () => {
+    const plan = run("sort by worth and edit it", [
+      { families: [hi("sort"), { id: "unsupported.data_mutation", confidence: 0.7 }], columns: [hi("value")] },
+    ]);
+    expect(plan.status).toBe("unsupported");
+    expect(plan.clarifications.map((q) => q.id)).not.toContain("c0.family.unsupported.data_mutation");
+    expect(plan.unsupportedSegments).toContainEqual(expect.objectContaining({ category: "data_mutation" }));
+  });
+
   it("leaves a confident family and a confident value exactly as before", () => {
     const plan = run("open ones", [
       { families: [{ id: "filter", confidence: 0.9 }], values: [{ columnId: "status", valueId: "open", confidence: 0.9 }] },

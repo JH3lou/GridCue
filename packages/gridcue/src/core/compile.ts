@@ -129,7 +129,8 @@ export const compile = (c: CompileInput): ViewPlan => {
             families.push(f);
             note(answerKey, f.id, 1, "user");
           }
-        } else if (f.confidence >= bands.ready) {
+        } else if (f.confidence >= bands.ready || (!isView(f.id) && f.confidence >= bands.clarify)) {
+          // An unsupported action is refused, not confirmed: asking "did you want to edit the data?" invites a yes that is refused anyway.
           families.push(f);
           note(`${key}.family`, f.id, f.confidence, "provider");
         } else if (f.confidence >= bands.clarify) {
