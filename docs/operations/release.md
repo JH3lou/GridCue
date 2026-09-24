@@ -12,12 +12,17 @@ Releases are published from GitHub Actions through **npm trusted publishing** (O
    - Environment: leave empty
 
    `packages/gridcue/package.json`'s `repository.url` already matches the repository exactly, which npm requires.
-3. **If npmjs.com offers the trusted-publisher settings only for a package that already exists** (npm's docs don't say either way), publish 0.1.0 once by hand, then add the trusted publisher for every later release:
-   ```bash
-   git checkout v0.1.0 && pnpm install --frozen-lockfile && pnpm check
-   cd packages/gridcue && npm publish --access public
-   ```
-   That one release has no provenance attestation. Every tag after it does.
+3. **If npmjs.com offers trusted-publisher settings only for a package that already exists** (npm's docs don't say either way), do the first release in this order:
+   1. Merge the release PR.
+   2. Publish 0.1.0 by hand from that merge commit on `main`, not from a tag:
+      ```bash
+      git checkout main && git pull && pnpm install --frozen-lockfile && pnpm check
+      cd packages/gridcue && npm publish --access public
+      ```
+   3. Add the trusted publisher (step 2 above).
+   4. Push the `v0.1.0` tag as usual. The workflow runs its checks, sees that 0.1.0 is already on npm, and skips publishing.
+
+   Only 0.1.0 lacks a provenance attestation; every later tag has one.
 
 ## Every release
 
