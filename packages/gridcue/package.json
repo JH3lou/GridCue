@@ -47,7 +47,7 @@
     "build": "tsdown",
     "test": "vitest run",
     "typecheck": "tsc -p .",
-    "check:package": "publint && attw --pack --profile esm-only --exclude-entrypoints styles.css && node --conditions=browser scripts/check-server-entry.mjs --expect=refuse && node --conditions=workerd --conditions=worker --conditions=browser scripts/check-server-entry.mjs --expect=load && node --conditions=edge-light --conditions=browser scripts/check-server-entry.mjs --expect=load"
+    "check:package": "publint && attw --pack --profile esm-only --exclude-entrypoints styles.css && node --conditions=browser scripts/check-server-entry.mjs --expect=refuse && node --conditions=workerd --conditions=worker --conditions=browser scripts/check-server-entry.mjs --expect=load && node --conditions=edge-light --conditions=browser scripts/check-server-entry.mjs --expect=load && node --conditions=worker --conditions=browser scripts/check-server-entry.mjs --expect=refuse"
   },
   "dependencies": {
     "zod": "4.6.5"
