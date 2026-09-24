@@ -1,5 +1,6 @@
-import { findMentions } from "../core/text-match";
-import type { CandidateColumn, ClauseResolution, IntentProvider, LiteralKind, Pick, ResolutionRequest, ResolutionResult } from "../index";
+import { LITERAL_COLUMN_KINDS, matchMentions } from "../core/mentions";
+import { unknownTerm } from "../core/terms";
+import type { ClauseResolution, IntentProvider, LiteralKind, Pick, ResolutionRequest, ResolutionResult } from "../index";
 
 export interface MockProviderOptions {
   /** Which column a bare amount refers to, e.g. `{ currency: "market_value" }` for "accounts over $1 million". */
@@ -16,14 +17,6 @@ const UNSUPPORTED: Array<[RegExp, string]> = [
 ];
 
 const NEGATION = /\b(?:without|no|not|non|excluding)\s+(?:any\s+)?$/;
-const KIND_FIT: Record<LiteralKind, CandidateColumn["kind"][]> = {
-  number: ["number", "currency", "percent"],
-  currency: ["currency", "number"],
-  percent: ["percent"],
-  date: ["date", "datetime"],
-  text: ["string"],
-  unreadable: [],
-};
 
 const pick = (id: string, confidence: number): Pick => ({ id, confidence });
 
@@ -48,13 +41,6 @@ const detectFamilies = (clause: Clause, hasValues: boolean): string[] => {
   return [];
 };
 
-const remainderAfterVerb = (text: string): string =>
-  text
-    .replace(/^.*?\b(?:sort(?:ed)?|order(?:ed)?|group(?:ed)?|hide|show|display|filter)\b(?:\s+(?:by|on))?\s*/, "")
-    .replace(/\b(?:largest|biggest|highest|smallest|lowest|newest|oldest)\b.*$|\b(?:ascending|descending|first|column|columns)\b/g, "")
-    .replace(/\bthe\b/g, "")
-    .trim();
-
 /** A deterministic, rule-based Intent Provider for tests, demos, and keyless development. */
 export const createMockProvider = (options: MockProviderOptions = {}): IntentProvider => ({
   async resolve(request: ResolutionRequest): Promise<ResolutionResult> {
@@ -65,21 +51,17 @@ export const createMockProvider = (options: MockProviderOptions = {}): IntentPro
         const unsupported = UNSUPPORTED.find(([re]) => re.test(clause.text));
         if (unsupported) return { ...empty, families: [pick(unsupported[1], 0.95)] };
 
-        const valueEntries = columns.flatMap((c) =>
-          (c.enumValues ?? []).map((v) => ({ item: { columnId: c.id, valueId: v.id }, names: [v.label, ...(v.aliases ?? [])] })),
-        );
-        const valueHits = findMentions(clause.text, valueEntries);
-        const masked = valueHits.reduce((t, h) => t.slice(0, h.start) + " ".repeat(h.end - h.start) + t.slice(h.end), clause.text);
-        const columnHits = findMentions(
-          masked,
-          columns.map((c) => ({ item: c, names: [c.label, ...(c.aliases ?? [])] })),
-        );
-        const booleanHits = columnHits.filter((h) => h.item.kind === "boolean");
+        // The Mock reads names with core's deterministic matcher, context rules included (ADR 0013).
+        const mentions = matchMentions([clause], columns);
+        const byId = new Map(columns.map((c) => [c.id, c]));
+        const valueHits = mentions.filter((m) => m.valueId !== undefined);
+        const columnHits = mentions.filter((m) => m.valueId === undefined);
+        const booleanHits = columnHits.filter((m) => byId.get(m.columnId)?.kind === "boolean");
         const values = [
-          ...valueHits.map((h) => ({ ...h.item, confidence: 0.95 })),
-          ...booleanHits.map((h) => ({
-            columnId: h.item.id,
-            valueId: NEGATION.test(masked.slice(Math.max(0, h.start - 16), h.start)) ? "false" : "true",
+          ...valueHits.map((m) => ({ columnId: m.columnId, valueId: m.valueId ?? "", confidence: 0.95 })),
+          ...booleanHits.map((m) => ({
+            columnId: m.columnId,
+            valueId: NEGATION.test(clause.text.slice(Math.max(0, m.start - 16), m.start)) ? "false" : "true",
             confidence: 0.9,
           })),
         ];
@@ -87,23 +69,23 @@ export const createMockProvider = (options: MockProviderOptions = {}): IntentPro
         const families = detectFamilies(clause, values.length > 0).filter((f) => request.candidates.families.includes(f));
         if (families.length === 0) return empty;
 
-        const picked: Pick[] = columnHits.map((h) => pick(h.item.id, 0.95));
+        const picked: Pick[] = [...new Set(columnHits.map((m) => m.columnId))].map((id) => pick(id, 0.95));
         if (families.includes("filter")) {
           for (const lit of clause.literals) {
-            const fits = KIND_FIT[lit.kind];
-            const referenced = columnHits.some((h) => fits.includes(h.item.kind));
+            const fits = LITERAL_COLUMN_KINDS[lit.kind];
+            const referenced = columnHits.some((m) => fits.includes(byId.get(m.columnId)?.kind ?? "string"));
             const fallback = options.defaultColumnForKind?.[lit.kind];
             if (!referenced && fallback && !picked.some((p) => p.id === fallback)) picked.push(pick(fallback, 0.9));
           }
         }
         const needsColumns = families.some((f) => ["sort", "group", "columns.hide", "columns.show", "columns.only"].includes(f));
-        const unmatched = needsColumns && picked.length === 0 ? [remainderAfterVerb(clause.text)].filter(Boolean) : [];
+        const term = needsColumns && picked.length === 0 ? unknownTerm(clause.text) : undefined;
         return {
           clauseIndex: clause.index,
           families: families.map((f) => pick(f, 0.95)),
           columns: picked,
           values,
-          unmatchedTerms: unmatched,
+          unmatchedTerms: term ? [term] : [],
         };
       }),
     };
