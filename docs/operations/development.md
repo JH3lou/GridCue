@@ -25,7 +25,7 @@ pnpm install
 
 ## Using your Jev key
 
-Put `JEV_API_KEY=…` in a git-ignored `.env` at the example's root, or export it in your shell. Only server code reads it: the examples' `/api/gridcue` endpoints, the eval CLI, and the live test. `pnpm check:bundles` fails if it ever reaches a browser bundle.
+Put `JEV_API_KEY=…` in the git-ignored `.env.local` at the repo root, or export it in your shell (the shell wins). Both examples, `pnpm eval:live`, and `pnpm test:live` read that one file; `pnpm test` never does. Only server code reads it: the examples' `/api/gridcue` endpoints, the eval CLI, and the live test. `pnpm check:bundles` fails if it ever reaches a browser bundle.
 
 ## Network notes
 

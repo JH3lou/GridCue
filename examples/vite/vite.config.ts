@@ -13,8 +13,11 @@ const gridcue = (env: Record<string, string>): Plugin => {
   return { name: "gridcue-api", configureServer: mount, configurePreviewServer: mount };
 };
 
+// Env files live at the repo root, shared with the Next example, evals, and live tests.
+const repoRoot = fileURLToPath(new URL("../..", import.meta.url));
+
 export default defineConfig(({ mode }) => ({
-  plugins: [react(), tailwindcss(), gridcue(loadEnv(mode, process.cwd(), ""))],
+  plugins: [react(), tailwindcss(), gridcue(loadEnv(mode, repoRoot, ""))],
   resolve: {
     alias: [
       {

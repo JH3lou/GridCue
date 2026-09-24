@@ -119,7 +119,7 @@ pnpm dev:vite    # http://localhost:5173, TanStack Table + shadcn
 pnpm dev:next    # http://localhost:3100, plain table, no Tailwind
 ```
 
-Both use the Mock Provider unless `JEV_API_KEY` is set in a `.env` file. See `.env.example`. Both examples follow your OS light or dark setting.
+Both use the Mock Provider unless `JEV_API_KEY` is set in the repo-root `.env.local`. See `.env.example`. Both examples follow your OS light or dark setting.
 
 ## Repository status
 
