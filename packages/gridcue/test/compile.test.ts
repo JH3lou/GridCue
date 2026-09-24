@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { compile, settleFamilies } from "../src/core/compile";
-import { matchMentions } from "../src/core/mentions";
+import { type Mention, matchMentions } from "../src/core/mentions";
 import { normalize } from "../src/core/normalize";
 import { renderPreview, toAuditEvent } from "../src/core/preview";
 import { emptyViewState } from "../src/core/protocol";
@@ -342,10 +342,10 @@ describe("Mentions", () => {
   });
 
   it("never silently ignores a named value in a part that doesn't filter", () => {
-    const plan = run("group by name for closed ones", [{ families: [hi("group")], columns: [hi("name")] }], undefined, true);
+    const plan = run("group by name, closed ones please", [{ families: [hi("group")], columns: [hi("name")] }], undefined, true);
     expect(plan.status).toBe("needs_clarification");
     expect(plan.clarifications[0]?.prompt).toBe(
-      "“group by name for closed ones” also names Closed. Split it into separate parts, such as “only Closed” and the rest.",
+      "“group by name, closed ones please” also names Closed. Split it into separate parts, such as “only Closed” and the rest.",
     );
   });
 
@@ -554,5 +554,94 @@ describe("fan-out signals", () => {
     const plan = run("show closed", [{ families: [at("columns.show", 0.84)] }], undefined, true);
     expect(plan.status).toBe("ready");
     expect(plan.evidence).toContainEqual({ key: "c0.only-reading", selectedId: "filter", confidence: 1, source: "deterministic" });
+  });
+});
+
+describe("chassis compiler rules (ADR 0015)", () => {
+  const mention = (m: Partial<Mention> & { columnId: string }): Mention => ({ clauseIndex: 0, start: 0, end: 0, ...m });
+  const compileWith = (text: string, clause: Partial<ClauseResolution>, mentions: Mention[], answers?: Record<string, string>) =>
+    compile({
+      input: normalize(text),
+      resolution: { clauses: [{ clauseIndex: 0, families: [], columns: [], values: [], unmatchedTerms: [], ...clause }] },
+      schema: entitySchema,
+      state: emptyViewState(entitySchema.columns.map((c) => c.id)),
+      baseRevision: "r1",
+      channel: "typed",
+      mentions,
+      ...(answers ? { answers } : {}),
+      newId: (p) => `${p}_${++n}`,
+    });
+  const entitySchema = defineSchema(
+    [
+      { id: "name", kind: "string" },
+      { id: "value", kind: "currency" },
+      { id: "status", kind: "enum" },
+    ],
+    {
+      columns: {
+        name: { label: "Household", entity: "household" },
+        status: {
+          enumValues: [
+            { id: "open", label: "Open" },
+            { id: "closed", label: "Closed" },
+            { id: "held", label: "Held" },
+          ],
+        },
+      },
+    },
+  );
+
+  it("filters on a value after the verb when it sits in a prepositional phrase", () => {
+    const plan = run("sort by value for closed ones", [{ families: [hi("sort")], columns: [hi("value")] }], undefined, true);
+    expect(plan.operations.map((o) => o.type)).toEqual(["filter.add", "sort.set"]);
+    expect(plan.evidence).toContainEqual({ key: "c0.preposition", selectedId: "filter", confidence: 1, source: "deterministic" });
+  });
+
+  it("filters on a value after the verb when the provider's per-value answer confirms it", () => {
+    const plan = run(
+      "sort by value, closed ones please",
+      [{ families: [hi("sort")], columns: [hi("value")], values: [{ columnId: "status", valueId: "closed", confidence: 0.9 }] }],
+      undefined,
+      true,
+    );
+    expect(plan.operations.map((o) => o.type)).toEqual(["filter.add", "sort.set"]);
+    expect(plan.evidence).toContainEqual({ key: "c0.values", selectedId: "filter", confidence: 0.9, source: "provider" });
+  });
+
+  it("filters to the other approved values when a value is excluded", () => {
+    const plan = compileWith("excluding closed", { families: [hi("filter")] }, [
+      mention({ columnId: "status", valueId: "closed", negated: true }),
+    ]);
+    expect(plan.operations).toMatchObject([{ predicate: { columnId: "status", operator: "in", value: ["open", "held"] } }]);
+  });
+
+  it("asks when an entity noun means the records, and groups when the User says so", () => {
+    const households = mention({ columnId: "name", ambiguous: true, text: "households", records: true });
+    const asked = compileWith("largest households first", { families: [hi("sort")] }, [households]);
+    expect(asked.clarifications[0]).toMatchObject({
+      id: "c0.reading.name",
+      prompt: "Did you mean households as a whole? GridCue can group by Household.",
+      options: [{ id: "group" }, { id: "column" }],
+    });
+    const grouped = compileWith("largest households first", { families: [hi("sort")] }, [households], { "c0.reading.name": "group" });
+    expect(grouped.operations).toEqual([{ type: "group.set", columnIds: ["name"] }]);
+    const column = compileWith("largest households first", { families: [hi("sort")] }, [households], { "c0.reading.name": "column" });
+    expect(column.operations).toEqual([{ type: "sort.set", sorts: [{ columnId: "name", direction: "desc" }] }]);
+  });
+
+  it("drops an ambiguous noun the provider reads as the rows, and keeps one it reads as the column", () => {
+    const noun = mention({ columnId: "name", ambiguous: true, text: "household" });
+    const rows = compileWith(
+      "show the household",
+      { families: [hi("columns.show")], readings: [{ columnId: "name", reading: "rows", confidence: 0.9 }] },
+      [noun],
+    );
+    expect(rows.evidence).toContainEqual({ key: "dropped:c0.mention", selectedId: "name", confidence: 0.9, source: "provider" });
+    const col = compileWith(
+      "show the household",
+      { families: [hi("columns.show")], readings: [{ columnId: "name", reading: "column", confidence: 0.9 }] },
+      [noun],
+    );
+    expect(col.operations).toEqual([{ type: "columns.show", columnIds: ["name"] }]);
   });
 });

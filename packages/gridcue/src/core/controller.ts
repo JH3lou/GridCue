@@ -166,7 +166,8 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
       }
       const base = adapter.getState();
       const restricted = screenRestricted(input, schema);
-      const mentions = restricted.length === 0 ? matchMentions(input.clauses, schema.columns.filter(isExposed)) : [];
+      const mentions =
+        restricted.length === 0 ? matchMentions(input.clauses, schema.columns.filter(isExposed), { rowNoun: schema.rowNoun }) : [];
       try {
         let resolution: ResolutionResult = { clauses: [] };
         if (restricted.length === 0) {

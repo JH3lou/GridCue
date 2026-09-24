@@ -107,7 +107,14 @@ export const FAN_OUT = {
   adds: 0.7,
   /** A reversal Noul at or above this puts the later-named column outside the earlier one. */
   outer: 0.7,
+  /** A per-value Noul at or above this confirms a named value limits the rows ("sort by gain, just the trusts"). */
+  values: 0.7,
+  /** A reading Choice at or above this decides what an ambiguous row or entity noun means (ADR 0015). */
+  reading: 0.6,
 } as const;
+
+/** A value named inside one of these phrases limits the rows, wherever it sits: "sort by gain for trusts". */
+const PREPOSITION_BEFORE = /\b(?:for|among|at|in|with|from|of|within)\s+(?:(?:the|all|only|just)\s+)?(?:[\p{L}-]+\s+)?$/u;
 
 /**
  * Decides between competing families (ADR 0012). `accepted` are at or above `ready` or confirmed by the User;
@@ -209,13 +216,47 @@ export const compile = (c: CompileInput): ViewPlan => {
       const own = (c.mentions ?? []).filter((m) => m.clauseIndex === clause.index);
       const scored = new Map(res.columns.map((p) => [p.id, p.confidence]));
       const mentionedColumns: string[] = [];
+
+      // An ambiguous row or entity noun ("largest households first") takes the provider's reading, or the User's
+      // answer. "rows" drops the Mention; "records" asks rather than guessing, since GridCue can only group (ADR 0015).
+      const readAsRows = new Set<string>();
+      let groupAnswer: string | undefined;
+      let readingPending = false;
+      for (const m of own.filter((x) => x.ambiguous)) {
+        const col = column(m.columnId);
+        if (!col) continue;
+        const answerKey = `${key}.reading.${col.id}`;
+        const answer = answers[answerKey];
+        if (answer === "group") groupAnswer = col.id;
+        if (answer !== undefined) continue;
+        const reading = m.records
+          ? { columnId: col.id, reading: "records" as const, confidence: 1 }
+          : res.readings?.find((r) => r.columnId === col.id);
+        if (!reading || reading.confidence < FAN_OUT.reading) continue;
+        if (reading.reading === "rows") {
+          readAsRows.add(col.id);
+          evidence.push({ key: `dropped:${key}.mention`, selectedId: col.id, confidence: reading.confidence, source: "provider" });
+        } else if (reading.reading === "records" && col.entity) {
+          clarifications.push({
+            id: answerKey,
+            prompt: `Did you mean ${col.entity}s as a whole? GridCue can group by ${col.label}.`,
+            options: [
+              { id: "group", label: `Group by ${col.label}` },
+              { id: "column", label: `Use the ${col.label} column` },
+            ],
+            required: true,
+          });
+          readingPending = true;
+        }
+      }
+      if (readingPending) continue;
       // The provider's other answers can confirm a named column its column score doubts: "restricted accounts" scored
       // Restricted holdings 0.39 as a column but "true" 0.96 as a value in the same call.
       const supported = (id: string) =>
         res.values.some((v) => v.columnId === id && v.confidence >= bands.ready) ||
         (res.roles ?? []).some((r) => r.columnId === id && r.confidence >= FAN_OUT.role) ||
         (res.literalColumns ?? []).some((l) => l.columnId === id && l.confidence >= bands.ready);
-      for (const id of new Set(own.filter((m) => m.valueId === undefined).map((m) => m.columnId))) {
+      for (const id of new Set(own.filter((m) => m.valueId === undefined && !readAsRows.has(m.columnId)).map((m) => m.columnId))) {
         const score = scored.get(id);
         if (score !== undefined && score < MENTION_FLOOR && !supported(id)) {
           evidence.push({ key: `dropped:${key}.mention`, selectedId: id, confidence: score, source: "provider" });
@@ -223,8 +264,16 @@ export const compile = (c: CompileInput): ViewPlan => {
       }
       const mentionedValues = own.filter((m) => m.valueId !== undefined);
       const valueColumns = new Set(mentionedValues.map((m) => m.columnId));
+      // An excluded value ("non-retirement", "excluding trusts") filters to the column's other approved values.
+      const chosen = mentionedValues.filter((m) => !m.negated);
+      const excluded = mentionedValues.filter((m) => m.negated && !chosen.some((x) => x.columnId === m.columnId));
+      const others = [...new Set(excluded.map((m) => m.columnId))].flatMap((columnId) =>
+        (column(columnId)?.enumValues ?? [])
+          .filter((v) => !excluded.some((m) => m.columnId === columnId && m.valueId === v.id))
+          .map((v) => `${columnId}\u0000${v.id}`),
+      );
       const values = [
-        ...[...new Set(mentionedValues.map((m) => `${m.columnId}\u0000${m.valueId}`))].map((k) => {
+        ...[...new Set([...chosen.map((m) => `${m.columnId}\u0000${m.valueId}`), ...others])].map((k) => {
           const [columnId = "", valueId = ""] = k.split("\u0000");
           return { columnId, valueId, confidence: 1, mentioned: true };
         }),
@@ -345,11 +394,37 @@ export const compile = (c: CompileInput): ViewPlan => {
         accepted.push({ id: "filter", confidence: 1 });
         evidence.push({ key: `${key}.modifier`, selectedId: "filter", confidence: 1, source: "deterministic" });
       }
+      // After the verb, a named value limits the rows when it sits in a prepositional phrase ("for trusts"), or when
+      // the provider's per-value answer says so ("but just the trusts"). Otherwise it is still asked about below.
+      const confirmed = (m: Mention) =>
+        res.values.some((v) => v.columnId === m.columnId && v.valueId === m.valueId && v.confidence >= FAN_OUT.values);
+      const afterVerb = mentionedValues.filter((m) => !accepted.some((f) => f.id === "filter"));
+      if (afterVerb.length > 0 && otherChanges.length > 0) {
+        const byPreposition = afterVerb.every((m) => PREPOSITION_BEFORE.test(clause.text.slice(0, m.start)));
+        if (byPreposition || afterVerb.every(confirmed)) {
+          accepted.push({ id: "filter", confidence: 1 });
+          evidence.push({
+            key: `${key}.${byPreposition ? "preposition" : "values"}`,
+            selectedId: "filter",
+            confidence: byPreposition
+              ? 1
+              : Math.min(...afterVerb.map((m) => res.values.find((v) => v.valueId === m.valueId)?.confidence ?? 0)),
+            source: byPreposition ? "deterministic" : "provider",
+          });
+        }
+      }
       // When nothing the provider suggests has anything to act on and the part names a value, filtering is the only
       // reading left: "show trusts".
       if (namedFilter && ![...accepted, ...middling].some((f) => isView(f.id) && viable(f.id))) {
         accepted.push({ id: "filter", confidence: 1 });
         evidence.push({ key: `${key}.only-reading`, selectedId: "filter", confidence: 1, source: "deterministic" });
+      }
+      // The User chose "Group by Household" for an ambiguous noun: this part groups by that column only.
+      if (groupAnswer) {
+        for (const f of [...accepted])
+          if (isView(f.id) && COLUMN_FAMILIES[f.id as ViewFamily] && f.id !== "filter") accepted.splice(accepted.indexOf(f), 1);
+        accepted.push({ id: "group", confidence: 1 });
+        middling.length = 0;
       }
       const settled = settleFamilies(accepted, middling, viable, { separable, kind: res.kind });
       const families = settled.kept;
@@ -376,10 +451,10 @@ export const compile = (c: CompileInput): ViewPlan => {
         unsupportedSegments.push({ text: clause.text, category: f.id.replace("unsupported.", "") as UnsupportedCategory });
       }
       // Canonical order within a part (Q6): filters first, then sorts, groups, and columns, as VIEW_FAMILIES lists them.
-      const viewFamilies = families
-        .filter((f) => isView(f.id))
-        .map((f) => f.id as ViewFamily)
-        .sort((a, b) => VIEW_FAMILIES.indexOf(a) - VIEW_FAMILIES.indexOf(b));
+      // A family can be added by a rule and promoted by the provider in the same part; it still runs once.
+      const viewFamilies = [...new Set(families.filter((f) => isView(f.id)).map((f) => f.id as ViewFamily))].sort(
+        (a, b) => VIEW_FAMILIES.indexOf(a) - VIEW_FAMILIES.indexOf(b),
+      );
       if (blocked.length > 0) continue;
       if (viewFamilies.length === 0) {
         if (!familyPending) {
