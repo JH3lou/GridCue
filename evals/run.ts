@@ -1,11 +1,21 @@
 import { readFileSync } from "node:fs";
 import { isDeepStrictEqual } from "node:util";
 import { wealthInitialState, wealthSchema } from "@gridcue-internal/wealth-fixtures";
-import { createGridCue, createRowsAdapter, type GridCueController, type IntentProvider, type ViewOperation, type ViewPlan } from "gridcue";
+import {
+  createGridCue,
+  createRowsAdapter,
+  type GridCueController,
+  type IntentProvider,
+  type ViewOperation,
+  type ViewPlan,
+  type ViewState,
+} from "gridcue";
 
 export interface EvalCase {
   id: string;
   utterance: string;
+  /** Starts the grid from this view instead of the default, e.g. already grouped by custodian. */
+  state?: Partial<Pick<ViewState, "groupBy" | "sorts">>;
   expect: {
     status: ViewPlan["status"];
     operations?: unknown[];
@@ -44,7 +54,7 @@ export const judge = (c: EvalCase, plan: ViewPlan | null, status: string): Verdi
 };
 
 export const runCase = async (c: EvalCase, provider: IntentProvider) => {
-  const adapter = createRowsAdapter({ schema: wealthSchema, initialState: wealthInitialState });
+  const adapter = createRowsAdapter({ schema: wealthSchema, initialState: { ...wealthInitialState, ...c.state } });
   const cue: GridCueController = createGridCue({ adapter, provider });
   const plan = await cue.propose(c.utterance);
   const status = cue.getState().status;
