@@ -13,7 +13,14 @@ import {
   type ViewSchema,
   type ViewState,
 } from "./protocol";
-import { type ClauseResolution, COLUMN_FAMILIES, type ResolutionResult, type ViewFamily } from "./resolution";
+import {
+  type ClauseResolution,
+  COLUMN_FAMILIES,
+  type ResolutionResult,
+  UNSUPPORTED_FAMILIES,
+  VIEW_FAMILIES,
+  type ViewFamily,
+} from "./resolution";
 import { isExposed, operatorsFor } from "./schema";
 
 export interface ConfidencePolicy {
@@ -57,6 +64,7 @@ const COLUMN_WORD: Record<string, string> = {
 };
 
 const isView = (f: string): f is ViewFamily => !f.startsWith("unsupported.");
+const KNOWN_FAMILY_IDS: ReadonlySet<string> = new Set([...VIEW_FAMILIES, ...UNSUPPORTED_FAMILIES]);
 
 /** Turns provider picks and parsed literals into a View Plan. Deterministic; never guesses. */
 export const compile = (c: CompileInput): ViewPlan => {
@@ -92,7 +100,7 @@ export const compile = (c: CompileInput): ViewPlan => {
         values: [],
         unmatchedTerms: [],
       };
-      const families = res.families.filter((f) => f.confidence >= bands.clarify);
+      const families = res.families.filter((f) => f.confidence >= bands.clarify && KNOWN_FAMILY_IDS.has(f.id));
       for (const f of families) note(`${key}.family`, f.id, f.confidence, "provider");
 
       const blocked = families.filter((f) => !isView(f.id));

@@ -122,6 +122,15 @@ describe("compile", () => {
     expect(run("make it look better", [{}]).status).toBe("needs_clarification");
   });
 
+  it("drops a provider family id the protocol does not define", () => {
+    const plan = run("do something weird", [{ families: [{ id: "cells.edit", confidence: 0.99 }] }]);
+    expect(plan.status).toBe("needs_clarification");
+    expect(plan.operations).toEqual([]);
+    expect(plan.clarifications[0]?.prompt).toBe(
+      'I\'m not sure what to change for “do something weird”. Try asking to filter, sort, group, or show or hide columns.',
+    );
+  });
+
   it("expands keep-only into show, hide, and order", () => {
     const plan = run("keep only name and value", [{ families: [hi("columns.only")], columns: [hi("name"), hi("value")] }]);
     expect(plan.operations).toEqual([
