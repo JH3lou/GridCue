@@ -32,6 +32,18 @@ _Avoid_: Intent, action type, command
 A column or enum value a Clause names by one of the Host's declared labels or aliases, found by deterministic code before any provider call. A name used for the rows themselves, as in "biggest accounts first", is not a Mention.
 _Avoid_: Match, hit, reference
 
+**Row Noun**:
+What one row of a grid is, such as "account", declared by the Host. In a request it means the rows, not a column.
+_Avoid_: Entity type, record type
+
+**Value Group**:
+A Host-named category over several enum values of one column, such as Retirement = IRA and Roth IRA.
+_Avoid_: Category, bucket, tag
+
+**Strategy**:
+Which questions an Intent Provider asks for each Clause, chosen by the Host. Jev offers "focused" (fewest questions) and "fan-out" (the default).
+_Avoid_: Mode, profile, preset
+
 **Clarification**:
 A single focused question GridCue asks when a request cannot be resolved without a choice only the User can make.
 _Avoid_: Follow-up, disambiguation prompt

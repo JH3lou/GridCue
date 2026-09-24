@@ -94,6 +94,37 @@ Using shadcn/ui? Copy the styled components instead of `GridCueBar`: see `regist
 
 Create the controller once, as above. TanStack's `useTable` returns a new object whenever table state changes, so a `useMemo` keyed on `table` would rebuild the controller.
 
+## Describe your domain, choose a strategy
+
+GridCue is a chassis: your data, grids, and words differ from anyone else's. Three optional schema declarations teach GridCue your domain:
+
+```ts
+defineSchema(columns, {
+  rowNoun: "account", // what one row is: "biggest accounts first" means the rows
+  columns: {
+    household: { entity: "household" }, // "largest households first" means households as whole records, so GridCue asks
+    registration_type: {
+      enumValues: [/* … */],
+      valueGroups: [{ label: "Retirement", values: ["ira", "roth_ira"] }], // "retirement accounts" = IRA or Roth IRA
+    },
+  },
+});
+```
+
+The Jev provider has two strategies, and each individual question can be switched off:
+
+| Strategy | Questions per part (9 columns) | Best for |
+| --- | --- | --- |
+| `"fan-out"` (default) | about 65 | Compound requests: "Roth IRAs grouped by rep", "also group by advisor", "advisor within custodian" |
+| `"focused"` | 27 | Simple, single-change requests, with the fewest tokens |
+
+```ts
+createJevProvider({ apiKey, strategy: "focused" });
+createJevProvider({ apiKey, signals: { values: true } }); // opt in: one yes/no per enum value, for undeclared categories
+```
+
+Measure your own requests with `pnpm eval:live -- --strategy=focused` or `--without=<signal>`.
+
 ## Try it
 
 ```bash

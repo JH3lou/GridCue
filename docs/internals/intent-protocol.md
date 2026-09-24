@@ -338,6 +338,12 @@ The fan-out (ADR 0014) adds four more optional `ClauseResolution` fields:
 
 A provider that omits any of them gets the behaviour from before the fan-out.
 
+The resolution chassis (ADR 0015) adds these optional fields:
+
+- `ViewSchema.rowNoun`, `ColumnDescriptor.entity` and `ColumnDescriptor.valueGroups`, which are also sent in `candidates`;
+- `clauses[].mentions[].ambiguous` and `.text`, for a row or entity noun that grammar couldn't place;
+- `ClauseResolution.readings`: `{ columnId, reading: "column" | "records" | "rows", confidence }[]`.
+
 ## Versioning
 
 - Additive optional fields may remain within protocol `0.1` during pre-release development.
