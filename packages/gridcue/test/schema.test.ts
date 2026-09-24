@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { GridCueError } from "../src/core/errors";
 import { defineSchema, describeProviderPayload, humanize, inferKind, operatorsFor } from "../src/core/schema";
 
 describe("defineSchema", () => {
@@ -27,6 +28,42 @@ describe("defineSchema", () => {
     expect(payload.rows).toBe("never sent");
     expect(payload.columns.map((c) => c.id)).toEqual(["market_value", "advisorName", "opened"]);
     expect(JSON.stringify(payload)).not.toContain("Ada");
+  });
+});
+
+describe("defineSchema validation", () => {
+  const failsWith = (fn: () => unknown, match: string) => {
+    let error: unknown;
+    try {
+      fn();
+    } catch (e) {
+      error = e;
+    }
+    expect(error).toBeInstanceOf(GridCueError);
+    expect((error as GridCueError).code).toBe("INPUT_SCHEMA");
+    expect((error as GridCueError).message).toContain(match);
+  };
+
+  it("rejects a restricted id that names no column", () => {
+    failsWith(() => defineSchema([{ id: "tax_id" }], { restricted: ["ssn"] }), "ssn");
+  });
+
+  it("rejects a columns override id that names no column", () => {
+    failsWith(() => defineSchema([{ id: "tax_id" }], { columns: { ssn: { label: "SSN" } } }), "ssn");
+  });
+
+  it("rejects duplicate column ids", () => {
+    failsWith(() => defineSchema([{ id: "value" }, { id: "value" }]), "value");
+  });
+
+  it("rejects an empty column id", () => {
+    failsWith(() => defineSchema([{ id: "" }]), "columns.0.id");
+  });
+
+  it("still accepts valid schemas", () => {
+    expect(() =>
+      defineSchema([{ id: "market_value", kind: "currency" }, { id: "tax_id" }], { restricted: ["tax_id"], columns: { tax_id: {} } }),
+    ).not.toThrow();
   });
 });
 

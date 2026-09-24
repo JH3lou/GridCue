@@ -1,4 +1,12 @@
-import type { ColumnCapability, ColumnDescriptor, ColumnKind, EnumValue, FilterOperator, ViewSchema } from "./protocol";
+import { GridCueError } from "./errors";
+import {
+  type ColumnCapability,
+  type ColumnDescriptor,
+  type ColumnKind,
+  type EnumValue,
+  type FilterOperator,
+  ViewSchema,
+} from "./protocol";
 
 /** The view operations GridCue can perform on a column by default. */
 export const DEFAULT_CAPABILITIES: ColumnCapability[] = ["filter", "sort", "group", "show", "hide", "reorder"];
@@ -75,7 +83,22 @@ export const inferKind = (values: readonly unknown[]): ColumnKind => {
 export const defineSchema = (columns: readonly ColumnInput[], options: SchemaOptions = {}): ViewSchema => {
   const restricted = new Set(options.restricted ?? []);
   const sample = options.sampleRows ?? [];
-  return {
+  const knownIds = new Set(columns.map((c) => c.id));
+
+  const duplicateIds = [...new Set(columns.map((c) => c.id).filter((id, i, all) => all.indexOf(id) !== i))];
+  if (duplicateIds.length > 0) {
+    throw new GridCueError("INPUT_SCHEMA", `Column ids must be unique. Repeated: ${duplicateIds.join(", ")}.`);
+  }
+  const unknownRestricted = (options.restricted ?? []).filter((id) => !knownIds.has(id));
+  if (unknownRestricted.length > 0) {
+    throw new GridCueError("INPUT_SCHEMA", `restricted names an id that matches no column: ${unknownRestricted.join(", ")}.`);
+  }
+  const unknownOverrides = Object.keys(options.columns ?? {}).filter((id) => !knownIds.has(id));
+  if (unknownOverrides.length > 0) {
+    throw new GridCueError("INPUT_SCHEMA", `columns names an id that matches no column: ${unknownOverrides.join(", ")}.`);
+  }
+
+  const schema: ViewSchema = {
     id: options.id ?? "default",
     version: options.version ?? "1",
     columns: columns.map((input): ColumnDescriptor => {
@@ -96,6 +119,13 @@ export const defineSchema = (columns: readonly ColumnInput[], options: SchemaOpt
       };
     }),
   };
+
+  const parsed = ViewSchema.safeParse(schema);
+  if (!parsed.success) {
+    const detail = parsed.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`).join("; ");
+    throw new GridCueError("INPUT_SCHEMA", `Invalid schema: ${detail}`);
+  }
+  return parsed.data;
 };
 
 export const isExposed = (column: ColumnDescriptor): boolean => column.sensitivity !== "restricted" && column.exposeToProvider !== false;
