@@ -15,7 +15,8 @@
     "test:live": "vitest run --project live",
     "eval": "tsx evals/cli.ts",
     "eval:live": "tsx evals/cli.ts --live",
-    "check": "pnpm lint && pnpm build && pnpm typecheck && pnpm test && pnpm eval"
+    "check:package": "pnpm --filter gridcue check:package",
+    "check": "pnpm lint && pnpm build && pnpm typecheck && pnpm test && pnpm eval && pnpm check:package"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.14",

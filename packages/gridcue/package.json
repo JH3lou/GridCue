@@ -44,7 +44,8 @@
   "scripts": {
     "build": "tsdown",
     "test": "vitest run",
-    "typecheck": "tsc -p ."
+    "typecheck": "tsc -p .",
+    "check:package": "publint && attw --pack --profile esm-only --exclude-entrypoints styles.css && node --conditions=browser scripts/check-server-entry.mjs"
   },
   "dependencies": {
     "zod": "4.6.5"
