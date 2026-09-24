@@ -1,11 +1,13 @@
 import type { GridAdapter } from "./adapter";
 import { type ConfidencePolicy, compile } from "./compile";
 import { GridCueError, type Issue, isGridCueError } from "./errors";
+import { type Mention, matchMentions } from "./mentions";
 import { type NormalizedInput, normalize } from "./normalize";
 import { screenRestricted } from "./policy";
 import { type AuditEvent, type AuditPolicy, type Preview, renderPreview, toAuditEvent } from "./preview";
 import type { VersionedViewState, ViewPlan, ViewSchema } from "./protocol";
 import { buildResolutionRequest, type IntentProvider, ResolutionResult } from "./resolution";
+import { isExposed } from "./schema";
 import { type ApplicableViewPlan, validatePlan } from "./validate";
 
 export type InteractionStatus = "idle" | "resolving" | "ready" | "needs_clarification" | "unsupported" | "applying" | "applied" | "error";
@@ -68,6 +70,7 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
     channel: ViewPlan["source"]["channel"];
     answers: Record<string, string>;
     restricted: ReturnType<typeof screenRestricted>;
+    mentions: Mention[];
   } | null = null;
   let applicable: ApplicableViewPlan | null = null;
   let undoEntry: { before: VersionedViewState; appliedRevision: string; plan: ViewPlan } | null = null;
@@ -94,6 +97,7 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
       channel: session.channel,
       text: state.utterance,
       restricted: session.restricted,
+      mentions: session.mentions,
       answers: session.answers,
       ...(options.confidence ? { confidence: options.confidence } : {}),
       newId: (prefix) => `${prefix}_${++ids}`,
@@ -155,24 +159,25 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
       if (input.clauses.length > MAX_CLAUSES) {
         set({
           status: "error",
-          message: `Try fewer steps at once. GridCue handles up to ${MAX_CLAUSES} in one request.`,
+          message: `Try fewer parts at once. GridCue handles up to ${MAX_CLAUSES} in one request.`,
           issues: [{ code: "INPUT_TOO_COMPLEX", message: "Too many clauses." }],
         });
         return null;
       }
       const base = adapter.getState();
       const restricted = screenRestricted(input, schema);
+      const mentions = restricted.length === 0 ? matchMentions(input.clauses, schema.columns.filter(isExposed)) : [];
       try {
         let resolution: ResolutionResult = { clauses: [] };
         if (restricted.length === 0) {
-          const request = buildResolutionRequest(input, schema, adapter.getCapabilities(), base.state);
+          const request = buildResolutionRequest(input, schema, adapter.getCapabilities(), base.state, mentions);
           const raw = await provider.resolve(request, controller.signal);
           if (controller.signal.aborted) return null;
           const parsed = ResolutionResult.safeParse(raw);
           if (!parsed.success) throw new GridCueError("PROVIDER_MALFORMED", "The provider returned an unexpected response.");
           resolution = parsed.data;
         }
-        session = { input, resolution, base, channel, answers: {}, restricted };
+        session = { input, resolution, base, channel, answers: {}, restricted, mentions };
         return present();
       } catch (error) {
         if (controller.signal.aborted) return null;
@@ -180,7 +185,7 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
         // A provider (local or remote) can find a request too complex on its own terms, with its own limit,
         // so name no number here; the local clause-count check above states GridCue's own.
         const message =
-          code === "PROVIDER_TOO_COMPLEX" ? "Try fewer steps at once." : "Couldn't interpret that request. The view hasn't changed.";
+          code === "PROVIDER_TOO_COMPLEX" ? "Try fewer parts at once." : "Couldn't interpret that request. The view hasn't changed.";
         set({
           status: "error",
           message,
