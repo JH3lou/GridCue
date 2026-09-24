@@ -75,7 +75,7 @@ export function CommandBar({
           </Button>
         )}
         {cue.canUndo && (
-          <Button size="sm" variant="outline" onClick={() => void cue.undo()}>
+          <Button size="sm" variant="outline" className={PRESS} onClick={() => void cue.undo()}>
             Undo
           </Button>
         )}
