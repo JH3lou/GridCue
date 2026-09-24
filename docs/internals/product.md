@@ -145,6 +145,12 @@ The defaults are `ready` 0.85 and `clarify` 0.65. They are unchanged since the f
   - An add-a-level answer appends to the current sort or grouping.
   - With reversal wording, an outer answer decides nesting.
   - A value named before another change's verb is a filter.
+- **Domain declarations** (ADR 0015).
+  - A value group names several values at once.
+  - An excluded value filters to the others.
+  - A value in a prepositional phrase ("for trusts") is a filter.
+  - A text-valued entity ranked by size ("largest households first") means the records, so GridCue offers to group rather than guess.
+  - The Host chooses the Jev strategy ("focused" or "fan-out").
 
 ## Domain examples
 

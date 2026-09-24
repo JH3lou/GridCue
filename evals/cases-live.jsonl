@@ -19,7 +19,7 @@
 {"id":"h3-smallest-accounts","utterance":"Smallest accounts first.","expect":{"status":"ready","operations":[{"type":"sort.set","sorts":[{"columnId":"market_value","direction":"asc"}]}]}}
 {"id":"h3-account-column-hide","utterance":"Hide the account number.","expect":{"status":"ready","operations":[{"type":"columns.hide","columnIds":["account_number"]}]}}
 {"id":"h3-household-name","utterance":"Sort by household name.","expect":{"status":"ready","operations":[{"type":"sort.set","sorts":[{"columnId":"household","direction":"asc"}]}]}}
-{"id":"h3-big-households","utterance":"Largest households first.","expect":{"status":"ready","operations":[{"type":"sort.set","sorts":[{"columnId":"market_value","direction":"desc"}]}]}}
+{"id":"h3-big-households","utterance":"Largest households first.","expect":{"status":"needs_clarification","clarificationPrompt":"Did you mean households as a whole? GridCue can group by Household."}}
 {"id":"h3-accounts-by-custodian","utterance":"Break the accounts down by custodian.","expect":{"status":"ready","operations":[{"type":"group.set","columnIds":["custodian"]}]}}
 {"id":"h3-account-list","utterance":"Show just account, advisor, and gain.","expect":{"status":"ready","operations":[{"type":"columns.show","columnIds":["account_number","advisor_name","unrealized_gain"]},{"type":"columns.hide","columnIds":["household","registration_type","custodian","market_value","concentration","has_restricted_holding"]},{"type":"columns.order","columnIds":["account_number","advisor_name","unrealized_gain"]}]}}
 {"id":"h3-concentrated-accounts","utterance":"Most concentrated accounts first.","expect":{"status":"ready","operations":[{"type":"sort.set","sorts":[{"columnId":"concentration","direction":"desc"}]}]}}
@@ -35,7 +35,7 @@
 {"id":"h3-ira-accounts-show","utterance":"Show IRA accounts.","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"registration_type","operator":"eq","value":"ira"}}]}}
 {"id":"h3-accounts-per-advisor","utterance":"Accounts per advisor.","expect":{"status":"ready","operations":[{"type":"group.set","columnIds":["advisor_name"]}]}}
 {"id":"h4-biggest-balance","utterance":"Biggest balance first.","expect":{"status":"ready","operations":[{"type":"sort.set","sorts":[{"columnId":"market_value","direction":"desc"}]}]}}
-{"id":"h4-top-households","utterance":"Top households first.","expect":{"status":"ready","operations":[{"type":"sort.set","sorts":[{"columnId":"market_value","direction":"desc"}]}]}}
+{"id":"h4-top-households","utterance":"Top households first.","expect":{"status":"needs_clarification","clarificationPrompt":"Did you mean households as a whole? GridCue can group by Household."}}
 {"id":"h4-largest-gain","utterance":"Sort by largest gain.","expect":{"status":"ready","operations":[{"type":"sort.set","sorts":[{"columnId":"unrealized_gain","direction":"desc"}]}]}}
 {"id":"h4-newest-accounts","utterance":"Show the accounts with the most concentration first.","expect":{"status":"ready","operations":[{"type":"sort.set","sorts":[{"columnId":"concentration","direction":"desc"}]}]}}
 {"id":"h4-hide-account","utterance":"Get rid of the account column.","expect":{"status":"ready","operations":[{"type":"columns.hide","columnIds":["account_number"]}]}}

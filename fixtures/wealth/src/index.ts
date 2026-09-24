@@ -36,9 +36,12 @@ export const wealthSchemaOptions: SchemaOptions = {
   id: "wealth-accounts",
   version: "1",
   restricted: ["tax_id"],
+  // The domain in three declarations (ADR 0015): what a row is, which columns name other records, and the Host's categories.
+  rowNoun: "account",
   columns: {
     account_number: { aliases: ["account", "account #", "acct"] },
-    advisor_name: { aliases: ["advisor", "rep", "financial advisor"] },
+    household: { entity: "household" },
+    advisor_name: { aliases: ["advisor", "rep", "financial advisor"], entity: "advisor" },
     registration_type: {
       aliases: ["registration", "account type", "tax status"],
       enumValues: [
@@ -47,6 +50,7 @@ export const wealthSchemaOptions: SchemaOptions = {
         { id: "roth_ira", label: "Roth IRA", aliases: ["roth"] },
         { id: "trust", label: "Trust" },
       ],
+      valueGroups: [{ label: "Retirement", aliases: ["retirement account"], values: ["ira", "roth_ira"] }],
     },
     custodian: {
       enumValues: [
