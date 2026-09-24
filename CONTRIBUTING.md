@@ -7,6 +7,11 @@ GridCue is early stage in development still. The protocol and package boundaries
 - **Bugs** go in [GitHub issues](../../issues). One problem per issue, with steps to reproduce.
 - **Ideas, new adapters, and new providers** start as a [Discussion](../../discussions). Agree on the shape before writing code.
 - **Security problems** follow [SECURITY.md](.github/SECURITY.md). Do not open a public issue.
+- Everyone taking part follows the [Code of Conduct](CODE_OF_CONDUCT.md).
+
+## How decisions are made
+
+The maintainer decides. Decisions that are hard to reverse are recorded as ADRs in `docs/adr/`, and planning happens in the open in `docs/planning/`.
 
 ## What we are most likely to accept
 

@@ -1,8 +1,8 @@
 # GridCue
 
-> Say what you need to see; GridCue safely configures the view.
+> Ask a dense grid a plain question. See the view that answers it.
 
-GridCue is an open-source, headless toolkit for controlling dense data tables with ordinary language. It is built for advisor desktops, trading systems, operations consoles, and other applications where users can already filter, sort, group, aggregate, and manage columns—but must fight the interface to reach the view they have in mind.
+GridCue is an open-source, headless toolkit for controlling dense data tables with ordinary language. It is built for advisor desktops, trading systems, operations consoles, and other applications where users can already filter, sort, group, and manage columns—but must fight the interface to reach the view they have in mind.
 
 ```text
 “Show taxable accounts with more than 10% in one position,
@@ -37,7 +37,7 @@ Jev is the first semantic decision provider. It is a good fit because it maps un
 
 ## Design principles
 
-- **View-only by default.** Filter, sort, group, aggregate, and arrange; never mutate records.
+- **View-only by default.** Filter, sort, group, and arrange columns; never mutate records.
 - **Closed world.** The host declares every available column, operator, and capability.
 - **Model proposes; code decides.** A provider resolves semantic choices. Code validates and executes.
 - **Preview, then apply.** Plans are visible, atomic, and undoable.
@@ -60,10 +60,11 @@ The examples and evals use synthetic wealth-management data and a deterministic 
 
 ## Quick start
 
-Add GridCue to an existing TanStack Table app in three lines:
+**1. Try it with no key.** The Mock Provider runs in the browser: no server, no account. Add GridCue to an existing TanStack Table app:
 
 ```tsx
-import { createGridCue, createRemoteProvider } from "gridcue";
+import { createGridCue } from "gridcue";
+import { createMockProvider } from "gridcue/mock";
 import { GridCueBar } from "gridcue/react";
 import { createTanStackAdapter, gridcueFilterFn, schemaFromTanStack } from "gridcue/tanstack-table";
 import "gridcue/styles.css";
@@ -72,13 +73,15 @@ const table = useTable({ features, columns, data, defaultColumn: { filterFn: gri
 
 const [cue] = useState(() => {
   const schema = schemaFromTanStack(table, { restricted: ["tax_id"] }); // 2
-  return createGridCue({ schema, adapter: createTanStackAdapter({ schema, table }), provider: createRemoteProvider({ endpoint: "/api/gridcue" }) }); // 3
+  return createGridCue({ schema, adapter: createTanStackAdapter({ schema, table }), provider: createMockProvider() }); // 3
 });
 
 <GridCueBar controller={cue} />
 ```
 
-Mount the server side where your API lives. It keeps your provider key off the browser:
+Type "sort by market value, largest first", review the Preview, and apply. The Mock Provider understands requests that use your column names and declared aliases.
+
+**2. Turn on Jev.** Swap the provider for `createRemoteProvider({ endpoint: "/api/gridcue" })` (from `gridcue`), and mount the server side where your API lives. It keeps your provider key off the browser:
 
 ```ts
 import { createGridCueHandler, createJevProvider, toNodeHandler } from "gridcue/server";
@@ -150,6 +153,14 @@ pnpm dev:next    # http://localhost:3100, plain table, no Tailwind
 ```
 
 Both use the Mock Provider unless `JEV_API_KEY` is set in the repo-root `.env.local`. See `.env.example`. Both examples follow your OS light or dark setting.
+
+## Roadmap
+
+These are plans, not promises; each lands through a spec and an ADR (see `docs/planning/product-brief.md`).
+
+- **0.2: first success in minutes, many grids per app.** A `pnpm create gridcue` starter, routing a request to the right grid on a multi-grid screen, and a provider contract suite with a reference non-Jev provider in `examples/`.
+- **0.3: insight views.** Group subtotals as view state (computed by the grid, never sent to a provider), an AG Grid Community adapter, and a second demo dataset with its own evals.
+- **0.4: reach.** Localised Preview strings, and other framework bindings if there is demand.
 
 ## Repository status
 

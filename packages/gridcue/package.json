@@ -1,7 +1,21 @@
 {
   "name": "gridcue",
   "version": "0.1.0",
-  "description": "Say what you need to see; GridCue safely configures the grid view.",
+  "description": "Ask data grids in plain language: validated, previewable, undoable filter, sort, group, and column changes. Headless core, React, TanStack Table, Jev provider.",
+  "keywords": [
+    "data-grid",
+    "datagrid",
+    "table",
+    "natural-language",
+    "tanstack-table",
+    "react",
+    "shadcn",
+    "ai",
+    "llm",
+    "jev",
+    "filter",
+    "command-bar"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
