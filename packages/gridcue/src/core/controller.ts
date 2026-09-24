@@ -1,6 +1,6 @@
 import type { GridAdapter } from "./adapter";
 import { type ConfidencePolicy, compile } from "./compile";
-import { type Issue, isGridCueError } from "./errors";
+import { GridCueError, type Issue, isGridCueError } from "./errors";
 import { type NormalizedInput, normalize } from "./normalize";
 import { screenRestricted } from "./policy";
 import { type AuditEvent, type AuditPolicy, type Preview, renderPreview, toAuditEvent } from "./preview";
@@ -169,18 +169,18 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
           const raw = await provider.resolve(request, controller.signal);
           if (controller.signal.aborted) return null;
           const parsed = ResolutionResult.safeParse(raw);
-          if (!parsed.success) throw Object.assign(new Error("malformed"), { code: "PROVIDER_MALFORMED" });
+          if (!parsed.success) throw new GridCueError("PROVIDER_MALFORMED", "The provider returned an unexpected response.");
           resolution = parsed.data;
         }
         session = { input, resolution, base, channel, answers: {}, restricted };
         return present();
       } catch (error) {
         if (controller.signal.aborted) return null;
-        const code = isGridCueError(error) ? error.code : ((error as { code?: string }).code ?? "PROVIDER_FAILED");
+        const code = isGridCueError(error) ? error.code : "PROVIDER_FAILED";
         set({
           status: "error",
           message: "Couldn't interpret that request. The view hasn't changed.",
-          issues: [{ code: code as Issue["code"], message: "Provider failed." }],
+          issues: [{ code, message: "Provider failed." }],
         });
         return null;
       } finally {

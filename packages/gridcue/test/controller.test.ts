@@ -147,4 +147,14 @@ describe("controller", () => {
     await cue.propose("sort by value");
     expect(cue.getState().issues[0]?.code).toBe("PROVIDER_MALFORMED");
   });
+
+  it("reports foreign provider error codes as PROVIDER_FAILED", async () => {
+    const { cue } = setup({
+      resolve: async () => {
+        throw Object.assign(new Error("socket hang up"), { code: "ECONNRESET" });
+      },
+    });
+    await cue.propose("sort by value");
+    expect(cue.getState().issues[0]?.code).toBe("PROVIDER_FAILED");
+  });
 });
