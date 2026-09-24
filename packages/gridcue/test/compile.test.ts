@@ -157,4 +157,11 @@ describe("toAuditEvent", () => {
     expect(event.operationTypes).toEqual(["filter.add"]);
     expect(toAuditEvent(plan, "applied", { includeText: true }).text).toBe("over $1m in value");
   });
+
+  it("bands confidence against the Host's own ConfidencePolicy, not the default", () => {
+    const base = run("over $1m in value", [{ families: [hi("filter")], columns: [hi("value")] }]);
+    const plan = { ...base, confidence: 0.92 };
+    expect(toAuditEvent(plan, "applied").confidenceBand).toBe("high");
+    expect(toAuditEvent(plan, "applied", {}, {}, { ready: 0.95, clarify: 0.9 }).confidenceBand).toBe("medium");
+  });
 });

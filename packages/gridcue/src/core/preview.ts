@@ -1,3 +1,4 @@
+import { type ConfidencePolicy, DEFAULT_CONFIDENCE } from "./compile";
 import type { ColumnDescriptor, FilterPredicate, Scalar, ViewOperation, ViewPlan, ViewSchema, ViewState } from "./protocol";
 
 const OPERATOR_TEXT: Record<FilterPredicate["operator"], string> = {
@@ -139,6 +140,7 @@ export const toAuditEvent = (
   outcome: AuditOutcome,
   policy: AuditPolicy = {},
   extra: { newRevision?: string; errorCode?: string } = {},
+  bands: ConfidencePolicy = DEFAULT_CONFIDENCE,
 ): AuditEvent => {
   const c = plan.confidence;
   return {
@@ -148,7 +150,7 @@ export const toAuditEvent = (
     planId: plan.id,
     status: plan.status,
     operationTypes: plan.operations.map((o) => o.type),
-    confidenceBand: c === undefined ? "none" : c >= 0.85 ? "high" : c >= 0.65 ? "medium" : "low",
+    confidenceBand: c === undefined ? "none" : c >= bands.ready ? "high" : c >= bands.clarify ? "medium" : "low",
     baseRevision: plan.baseRevision,
     ...extra,
     ...(policy.includeText && plan.source.text ? { text: plan.source.text } : {}),

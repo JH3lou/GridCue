@@ -79,7 +79,7 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
     for (const l of listeners) l();
   };
   const audit = (plan: ViewPlan, outcome: Parameters<typeof toAuditEvent>[1], extra?: Parameters<typeof toAuditEvent>[3]) =>
-    options.audit?.onEvent(toAuditEvent(plan, outcome, options.audit.policy, extra));
+    options.audit?.onEvent(toAuditEvent(plan, outcome, options.audit.policy, extra, options.confidence));
 
   const unsubscribeAdapter = adapter.subscribe(() => set({}));
 
