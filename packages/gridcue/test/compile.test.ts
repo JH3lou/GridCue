@@ -135,7 +135,7 @@ describe("compile", () => {
     expect(plan.status).toBe("needs_clarification");
     expect(plan.operations).toEqual([]);
     expect(plan.clarifications[0]?.prompt).toBe(
-      'I\'m not sure what to change for “do something weird”. Try asking to filter, sort, group, or show or hide columns.',
+      "I'm not sure what to change for “do something weird”. Try asking to filter, sort, group, or show or hide columns.",
     );
   });
 

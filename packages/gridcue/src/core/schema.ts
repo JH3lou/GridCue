@@ -1,12 +1,5 @@
 import { GridCueError } from "./errors";
-import {
-  type ColumnCapability,
-  type ColumnDescriptor,
-  type ColumnKind,
-  type EnumValue,
-  type FilterOperator,
-  ViewSchema,
-} from "./protocol";
+import { type ColumnCapability, type ColumnDescriptor, type ColumnKind, type EnumValue, type FilterOperator, ViewSchema } from "./protocol";
 
 /** The view operations GridCue can perform on a column by default. */
 export const DEFAULT_CAPABILITIES: ColumnCapability[] = ["filter", "sort", "group", "show", "hide", "reorder"];
