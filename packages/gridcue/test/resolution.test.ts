@@ -56,6 +56,17 @@ describe("screenRestricted", () => {
     expect(screenRestricted(normalize("sort by tax id"), schema)).toHaveLength(1);
     expect(screenRestricted(normalize("sort by market value"), schema)).toEqual([]);
   });
+
+  it("finds restricted labels through punctuation variants", () => {
+    expect(screenRestricted(normalize("show tax-id"), schema)).toEqual([{ clauseIndex: 0, columnId: "tax_id" }]);
+    expect(screenRestricted(normalize("show tax_id"), schema)).toEqual([{ clauseIndex: 0, columnId: "tax_id" }]);
+    expect(screenRestricted(normalize("show taxid"), schema)).toEqual([{ clauseIndex: 0, columnId: "tax_id" }]);
+    expect(screenRestricted(normalize("show Tax  ID"), schema)).toEqual([{ clauseIndex: 0, columnId: "tax_id" }]);
+  });
+
+  it("keeps whole-word boundaries so a longer word is not a false match", () => {
+    expect(screenRestricted(normalize("show taxidermy"), schema)).toEqual([]);
+  });
 });
 
 describe("findMentions", () => {
