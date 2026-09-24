@@ -213,7 +213,18 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
         set({ status: "error", message: "The view changed since this preview. Preview the request again.", issues: recheck.issues });
         return false;
       }
-      const result = await adapter.apply(recheck.plan);
+      let result: Awaited<ReturnType<typeof adapter.apply>>;
+      try {
+        result = await adapter.apply(recheck.plan);
+      } catch {
+        audit(plan, "failed", { errorCode: "ADAPTER_FAILED" });
+        set({
+          status: "error",
+          message: "The grid couldn't apply that change.",
+          issues: [{ code: "ADAPTER_FAILED", message: "The grid couldn't apply that change." }],
+        });
+        return false;
+      }
       if (!result.ok) {
         audit(plan, "failed", { errorCode: result.code });
         set({
@@ -251,7 +262,18 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
         });
         return false;
       }
-      const result = await adapter.restore(entry.before);
+      let result: Awaited<ReturnType<typeof adapter.restore>>;
+      try {
+        result = await adapter.restore(entry.before);
+      } catch {
+        undoEntry = null;
+        set({
+          status: "error",
+          message: "The grid couldn't undo that change.",
+          issues: [{ code: "ADAPTER_FAILED", message: "The grid couldn't undo that change." }],
+        });
+        return false;
+      }
       undoEntry = null;
       if (!result.ok) {
         set({ status: "error", message: "Couldn't undo that change.", issues: [{ code: result.code, message: result.message }] });

@@ -131,6 +131,33 @@ describe("controller", () => {
     expect(undone?.planId).toBe(appliedPlanId);
   });
 
+  it("ends in error with ADAPTER_FAILED and lets the bar propose again when apply throws", async () => {
+    const { adapter, cue, events } = setup();
+    await cue.propose("sort by value");
+    vi.spyOn(adapter, "apply").mockRejectedValueOnce(new Error("secret internal detail"));
+    expect(await cue.apply()).toBe(false);
+    expect(cue.getState().status).toBe("error");
+    expect(cue.getState().issues[0]?.code).toBe("ADAPTER_FAILED");
+    expect(cue.getState().message).not.toContain("secret internal detail");
+    expect(cue.getState().issues[0]?.message).not.toContain("secret internal detail");
+    expect(events.at(-1)?.outcome).toBe("failed");
+    vi.restoreAllMocks();
+    await cue.propose("sort by name");
+    expect(cue.getState().status).toBe("ready");
+  });
+
+  it("ends undo in error with ADAPTER_FAILED when restore throws", async () => {
+    const { adapter, cue } = setup();
+    await cue.propose("sort by value");
+    expect(await cue.apply()).toBe(true);
+    vi.spyOn(adapter, "restore").mockRejectedValueOnce(new Error("secret internal detail"));
+    expect(await cue.undo()).toBe(false);
+    expect(cue.getState().status).toBe("error");
+    expect(cue.getState().issues[0]?.code).toBe("ADAPTER_FAILED");
+    expect(cue.getState().message).not.toContain("secret internal detail");
+    expect(cue.getState().issues[0]?.message).not.toContain("secret internal detail");
+  });
+
   it("never applies a mixed request", async () => {
     const { cue } = setup();
     await cue.propose("sort by value, then sell everything");
