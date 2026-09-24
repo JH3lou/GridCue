@@ -1,0 +1,66 @@
+{"set":"dev","utterance":"Show accounts over $1 million.","mentions":[]}
+{"set":"dev","utterance":"Only taxable accounts with concentration above 10%.","mentions":["concentration","registration_type=taxable"]}
+{"set":"dev","utterance":"Group by advisor and sort market value largest first.","mentions":["advisor_name","market_value"]}
+{"set":"dev","utterance":"Hide custodian and account number.","mentions":["account_number","custodian"]}
+{"set":"dev","utterance":"Keep only account, household, market value, and unrealized gain.","mentions":["account_number","household","market_value","unrealized_gain"]}
+{"set":"dev","utterance":"Clear the filters and sorting.","mentions":[]}
+{"set":"dev","utterance":"Only Roth accounts, grouped by rep.","mentions":["advisor_name","registration_type=roth_ira"]}
+{"set":"dev","utterance":"Sort by risk score.","mentions":[]}
+{"set":"dev","utterance":"Market value between $250k and $2 million, sort by unrealized gain.","mentions":["market_value","unrealized_gain"]}
+{"set":"dev","utterance":"Hide account numbers.","mentions":["account_number"]}
+{"set":"dev","utterance":"Sort by unrealized gains, biggest first.","mentions":["unrealized_gain"]}
+{"set":"dev","utterance":"Only IRAs.","mentions":["registration_type=ira"]}
+{"set":"dev","utterance":"Just the Roth IRAs and trusts.","mentions":["registration_type=roth_ira","registration_type=trust"]}
+{"set":"dev","utterance":"Group by custodians.","mentions":["custodian"]}
+{"set":"dev","utterance":"Group accounts by advisor.","mentions":["advisor_name"]}
+{"set":"dev","utterance":"Sort accounts by market value.","mentions":["market_value"]}
+{"set":"dev","utterance":"Group by rep.","mentions":["advisor_name"]}
+{"set":"dev","utterance":"Show only brokerage accounts at Northgate.","mentions":["custodian=northgate","registration_type=taxable"]}
+{"set":"dev","utterance":"Hide the balances.","mentions":["market_value"]}
+{"set":"dev","utterance":"Filter to trusts with restricted holdings.","mentions":["has_restricted_holding","registration_type=trust"]}
+{"set":"dev","utterance":"Show accounts without restricted holdings.","mentions":["has_restricted_holding"]}
+{"set":"dev","utterance":"Sort by acct.","mentions":["account_number"]}
+{"set":"dev","utterance":"Accounts with concentration over 20%, sorted by concentration.","mentions":["concentration"]}
+{"set":"dev","utterance":"Group by registration, then by custodian.","mentions":["custodian","registration_type"]}
+{"set":"dev","utterance":"Only accounts with values above $2M.","mentions":["market_value"]}
+{"set":"dev","utterance":"Sort by value, descending.","mentions":["market_value"]}
+{"set":"dev","utterance":"Hide concentration and gains.","mentions":["concentration","unrealized_gain"]}
+{"set":"dev","utterance":"Keep only the account column and the advisor column.","mentions":["account_number","advisor_name"]}
+{"set":"dev","utterance":"Show Summit Trust accounts.","mentions":["custodian=summit_trust"]}
+{"set":"dev","utterance":"Only trust accounts.","mentions":["registration_type=trust"]}
+{"set":"dev","utterance":"Remove the account type grouping.","mentions":["registration_type"]}
+{"set":"dev","utterance":"Show IRA and Roth accounts over $500k.","mentions":["registration_type=ira","registration_type=roth_ira"]}
+{"set":"dev","utterance":"Sort households by assets.","mentions":["market_value"]}
+{"set":"dev","utterance":"Group by households.","mentions":["household"]}
+{"set":"dev","utterance":"Which advisors have the most restricted accounts? Group by advisor.","mentions":["advisor_name","has_restricted_holding"]}
+{"set":"dev","utterance":"Show the reps' largest positions.","mentions":["advisor_name","concentration"]}
+{"set":"held-out","utterance":"Show balances over $1M.","mentions":["market_value"]}
+{"set":"held-out","utterance":"Sort accounts by balance.","mentions":["market_value"]}
+{"set":"held-out","utterance":"List households with gains above $50k.","mentions":["unrealized_gain"]}
+{"set":"held-out","utterance":"Show only the account and balance columns.","mentions":["account_number","market_value"]}
+{"set":"held-out","utterance":"Filter out trusts.","mentions":["registration_type=trust"]}
+{"set":"held-out","utterance":"Group trusts by custodian.","mentions":["custodian","registration_type=trust"]}
+{"set":"held-out","utterance":"Order by gains descending.","mentions":["unrealized_gain"]}
+{"set":"held-out","utterance":"Sort by account, then by value.","mentions":["account_number","market_value"]}
+{"set":"held-out","utterance":"Hide gains.","mentions":["unrealized_gain"]}
+{"set":"held-out","utterance":"Accounts at Harborline sorted by balance.","mentions":["custodian=harborline","market_value"]}
+{"set":"held-out","utterance":"Only show accounts where concentration is above 25%.","mentions":["concentration"]}
+{"set":"held-out","utterance":"Group by account type.","mentions":["registration_type"]}
+{"set":"held-out","utterance":"Show accounts by household.","mentions":["household"]}
+{"set":"held-out","utterance":"Households over $10M.","mentions":[]}
+{"set":"held-out","utterance":"Show accounts whose largest position exceeds 30%.","mentions":["concentration"]}
+{"set":"held-out","utterance":"Hide the account column.","mentions":["account_number"]}
+{"set":"held-out","utterance":"Sort balances largest first.","mentions":["market_value"]}
+{"set":"held-out","utterance":"Taxable accounts only.","mentions":["registration_type=taxable"]}
+{"set":"held-out","utterance":"Group by advisors.","mentions":["advisor_name"]}
+{"set":"held-out","utterance":"Hide the custodians and reps.","mentions":["advisor_name","custodian"]}
+{"set":"held-out","utterance":"Show IRAs at Northgate.","mentions":["custodian=northgate","registration_type=ira"]}
+{"set":"held-out","utterance":"Accounts with restricted holdings, grouped by advisor.","mentions":["advisor_name","has_restricted_holding"]}
+{"set":"held-out","utterance":"Sort the trusts by market value.","mentions":["market_value","registration_type=trust"]}
+{"set":"held-out","utterance":"Show brokerage accounts over $250k.","mentions":["registration_type=taxable"]}
+{"set":"held-out","utterance":"Keep only accounts, balances, and reps.","mentions":["account_number","advisor_name","market_value"]}
+{"set":"held-out","utterance":"Group households by rep.","mentions":["advisor_name"]}
+{"set":"held-out","utterance":"Roth IRAs with unrealized gains over $100k.","mentions":["registration_type=roth_ira","unrealized_gain"]}
+{"set":"held-out","utterance":"Show assets under $500k.","mentions":["market_value"]}
+{"set":"held-out","utterance":"Sort by registration type, then by custodian.","mentions":["custodian","registration_type"]}
+{"set":"held-out","utterance":"Hide account numbers and households.","mentions":["account_number","household"]}
