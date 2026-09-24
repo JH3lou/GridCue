@@ -1,4 +1,4 @@
-import type { Issue } from "./errors";
+import { GridCueError, type Issue } from "./errors";
 import {
   type ColumnCapability,
   type ColumnDescriptor,
@@ -26,7 +26,7 @@ export const isApplicable = (plan: unknown): plan is ApplicableViewPlan =>
 /** The view a validated plan produces, computed once by `validatePlan`. */
 export const resultingState = (plan: ApplicableViewPlan): ViewState => {
   const state = applicable.get(plan);
-  if (!state) throw new Error("Plan was not validated.");
+  if (!state) throw new GridCueError("ADAPTER_NOT_APPLICABLE", "Plan was not validated.");
   return structuredClone(state);
 };
 

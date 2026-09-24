@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { GridCueError } from "../src/core/errors";
 import { matchesFilter } from "../src/core/evaluate";
 import { emptyViewState, type ViewOperation, type ViewPlan } from "../src/core/protocol";
 import { applyOperations } from "../src/core/reduce";
 import { defineSchema } from "../src/core/schema";
-import { isApplicable, validatePlan } from "../src/core/validate";
+import { type ApplicableViewPlan, isApplicable, resultingState, validatePlan } from "../src/core/validate";
 
 const schema = defineSchema([{ id: "name" }, { id: "value", kind: "currency" }, { id: "status", kind: "enum" }, { id: "secret" }], {
   restricted: ["secret"],
@@ -51,6 +52,19 @@ describe("validatePlan", () => {
 
   it("cannot be fooled by a hand-made object", () => {
     expect(isApplicable(plan([]))).toBe(false);
+  });
+
+  it("refuses to compute resultingState for a plan that was not validated", () => {
+    const unvalidated = plan([]) as unknown as ApplicableViewPlan;
+    let error: unknown;
+    try {
+      resultingState(unvalidated);
+    } catch (e) {
+      error = e;
+    }
+    expect(error).toBeInstanceOf(GridCueError);
+    expect((error as GridCueError).code).toBe("ADAPTER_NOT_APPLICABLE");
+    expect((error as GridCueError).message).toBe("Plan was not validated.");
   });
 
   it.each([
