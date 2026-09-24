@@ -30,7 +30,7 @@ export const createRowsAdapter = (options: RowsAdapterOptions): RowsAdapter => {
   return {
     getSchema: () => options.schema,
     getCapabilities: () => ({
-      operations: MVP_OPERATIONS,
+      operations: [...MVP_OPERATIONS],
       maxSorts: options.maxSorts ?? 3,
       maxGroups: options.maxGroups ?? 2,
       supportsAtomicApply: true,

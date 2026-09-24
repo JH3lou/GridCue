@@ -106,5 +106,11 @@ export const runAdapterContract = (name: string, make: () => ContractHarness) =>
         expect(h.adapter.getCapabilities().operations).not.toContain(op);
       }
     });
+
+    it("hands out capabilities the caller cannot use to corrupt the adapter", () => {
+      const { adapter } = make();
+      adapter.getCapabilities().operations.push("cells.edit");
+      expect(adapter.getCapabilities().operations).not.toContain("cells.edit");
+    });
   });
 };

@@ -18,7 +18,7 @@ export interface GridAdapter {
 }
 
 /** The MVP operations every first-release adapter supports. */
-export const MVP_OPERATIONS = [
+export const MVP_OPERATIONS: readonly string[] = [
   "filter.add",
   "filter.clear",
   "sort.set",
