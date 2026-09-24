@@ -31,6 +31,62 @@ describe("createGridCueHandler", () => {
     expect((await call()).status).toBe(status);
   });
 
+  it("stops reading the body stream once it exceeds maxBodyBytes, without buffering it all first", async () => {
+    let pulled = 0;
+    const chunk = new Uint8Array(1024).fill(120);
+    const stream = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        if (pulled >= 100) {
+          controller.close();
+          return;
+        }
+        pulled++;
+        controller.enqueue(chunk);
+      },
+    });
+    const limited = createGridCueHandler({ provider: createMockProvider(), maxBodyBytes: 4096 });
+    const res = await limited(
+      new Request("http://x", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: stream,
+        duplex: "half",
+      } as RequestInit),
+    );
+    expect(res.status).toBe(413);
+    expect((await res.json()).error.code).toBe("INPUT_TOO_LARGE");
+    expect(pulled).toBeLessThan(10);
+  });
+
+  it("rejects a Content-Length over the limit without reading the body", async () => {
+    let pulled = 0;
+    const chunk = new Uint8Array(1024).fill(120);
+    const stream = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        if (pulled >= 100) {
+          controller.close();
+          return;
+        }
+        pulled++;
+        controller.enqueue(chunk);
+      },
+    });
+    const limited = createGridCueHandler({ provider: createMockProvider(), maxBodyBytes: 4096 });
+    const res = await limited(
+      new Request("http://x", {
+        method: "POST",
+        headers: { "content-type": "application/json", "content-length": "999999" },
+        body: stream,
+        duplex: "half",
+      } as RequestInit),
+    );
+    expect(res.status).toBe(413);
+    expect((await res.json()).error.code).toBe("INPUT_TOO_LARGE");
+    // The runtime's fetch implementation pulls the stream once on its own when the Request is
+    // constructed; the handler's Content-Length shortcut must not pull it any further than that.
+    expect(pulled).toBeLessThan(10);
+  });
+
   it("hides provider errors behind a stable code", async () => {
     const failing = createGridCueHandler({
       provider: {
