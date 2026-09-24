@@ -6,6 +6,7 @@ export default defineConfig({
     mock: "src/mock/index.ts",
     server: "src/server/index.ts",
     "server-browser": "src/server/browser.ts",
+    "tanstack-table": "src/tanstack/index.ts",
   },
   format: "esm",
   platform: "neutral",

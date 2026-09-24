@@ -27,6 +27,10 @@
       "browser": "./dist/server-browser.js",
       "default": "./dist/server.js"
     },
+    "./tanstack-table": {
+      "types": "./dist/tanstack-table.d.ts",
+      "default": "./dist/tanstack-table.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [
