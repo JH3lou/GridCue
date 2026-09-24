@@ -230,3 +230,9 @@ Within the independence rule: the Site names TypeSafe's Jev as the model it is b
 This replaces the earlier "framework for Jev integration" framing as the lead message. The Site leads with the User's benefit: plain-language questions answered from complicated data, dense grids and tables. GridCue as the open-source way to do this with Jev comes second.
 
 The copy stays accurate to the product: GridCue answers a question by changing the view (filters, sorts, groups and columns). It does not compute new data.
+
+## Owner direction: build (2026-09-24)
+
+> "build the site, so i can review locally. if it helps you can create a few mockups in a shared session to review with me"
+
+Recorded as approval of the Site spec, including the design pass (CardSwap replaced by the live product; ScrollStack made CSS-only). The owner reviews the running Site locally instead of a written plan, and the build itself is the proof for the spec's unverified items: typeset alongside Fumadocs' prose, and static prerendering with search.
