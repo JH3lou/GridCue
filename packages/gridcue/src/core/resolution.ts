@@ -84,6 +84,7 @@ export const ResolutionRequest = z.object({
         text: z.string(),
         literals: z.array(LiteralSchema),
         direction: z.enum(["asc", "desc"]).optional(),
+        continues: z.enum(["sort", "group"]).optional(),
         /** Columns and enum values core already matched by a Host-declared name. A provider may skip asking about them. */
         mentions: z
           .array(

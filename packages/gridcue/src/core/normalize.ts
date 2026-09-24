@@ -17,6 +17,11 @@ export interface Clause {
   text: string;
   literals: Literal[];
   direction?: "asc" | "desc";
+  /**
+   * Set when a verb-less part ("then advisor", "then by advisor") took the sort or group verb of the part before
+   * it. The compiler uses it to read a value there ("then Northgate") as a filter, not a level.
+   */
+  continues?: "sort" | "group";
 }
 
 export interface NormalizedInput {
@@ -187,15 +192,23 @@ export const normalize = (raw: string): NormalizedInput => {
     .map((p) => {
       // "then by advisor", or a bare "then advisor" of at most three words, continues the sort or grouping before it.
       const bare = !/^by\b/.test(p) && NO_VERB.test(p) && p.split(" ").length <= 3;
-      const part = levelVerb && /^by\b/.test(p) ? `${levelVerb} ${p}` : levelVerb && bare ? `${levelVerb} by ${p}` : p;
+      const verb = levelVerb && (/^by\b/.test(p) || bare) ? levelVerb : undefined;
+      const part = verb ? (/^by\b/.test(p) ? `${verb} ${p}` : `${verb} by ${p}`) : p;
       levelVerb = part.match(LEVEL_VERB)?.[1];
-      return part;
+      const continues: Clause["continues"] = verb ? (/^group/.test(verb) ? "group" : "sort") : undefined;
+      return { part, continues };
     });
   return {
     text,
-    clauses: parts.map((part, index) => {
+    clauses: parts.map(({ part, continues }, index) => {
       const direction = DESC.test(part) ? "desc" : ASC.test(part) ? "asc" : undefined;
-      return { index, text: part, literals: extractLiterals(part), ...(direction ? { direction } : {}) };
+      return {
+        index,
+        text: part,
+        literals: extractLiterals(part),
+        ...(direction ? { direction } : {}),
+        ...(continues ? { continues } : {}),
+      };
     }),
   };
 };

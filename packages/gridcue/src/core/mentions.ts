@@ -104,6 +104,8 @@ const placement = (
 const singular = (words: string) => nameKey(words).replace(/(?:es|s)$/, "");
 /** A value named after one of these is excluded, not chosen: "non-retirement", "excluding trusts". Left to the provider. */
 const NEGATED_BEFORE = /\b(?:non|not|no|excluding|except|without)(?:\s+(?:at|in|from|with))?[\s-]*$/;
+/** What joins the values of one list: "Northgate or Harborline", "trusts, IRAs, and Roths". */
+const LIST_JOIN = /^\s*(?:,\s*)?(?:(?:or|and|nor)\s+)?(?:(?:at|in|from)\s+)?$/;
 
 /**
  * Finds the columns and enum values each Clause names by a Host-declared label or alias. Deterministic,
@@ -138,9 +140,17 @@ export const matchMentions = (
     const masked = values.reduce((t, h) => t.slice(0, h.start) + " ".repeat(h.end - h.start) + t.slice(h.end), clause.text);
     const cols = findMentions(masked, columnEntries);
     const all: TextMatch<unknown>[] = [...values, ...cols];
+    // A negation covers a list of values of the same column: "not at Northgate or Harborline".
+    const negatedHits = new Set<TextMatch<unknown>>();
+    values.forEach((h, i) => {
+      const prev = values[i - 1];
+      const listed =
+        !!prev && negatedHits.has(prev) && prev.item.columnId === h.item.columnId && LIST_JOIN.test(clause.text.slice(prev.end, h.start));
+      if (listed || NEGATED_BEFORE.test(clause.text.slice(0, h.start))) negatedHits.add(h);
+    });
     return [
       ...values.flatMap((h) => {
-        const negated = NEGATED_BEFORE.test(clause.text.slice(0, h.start));
+        const negated = negatedHits.has(h);
         return h.item.valueIds.map((valueId) => ({
           clauseIndex: clause.index,
           columnId: h.item.columnId,

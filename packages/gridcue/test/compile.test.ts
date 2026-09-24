@@ -623,8 +623,17 @@ describe("chassis compiler rules (ADR 0015)", () => {
       prompt: "Did you mean households as a whole? GridCue can group by Household.",
       options: [{ id: "group" }, { id: "column" }],
     });
+    // Grouping keeps the requested sort, whose column is then asked for: "largest" still needs a measure.
     const grouped = compileWith("largest households first", { families: [hi("sort")] }, [households], { "c0.reading.name": "group" });
-    expect(grouped.operations).toEqual([{ type: "group.set", columnIds: ["name"] }]);
+    expect(grouped.clarifications.map((q) => q.prompt)).toEqual(["Which column should be sorted by?"]);
+    const ranked = compileWith("largest households first", { families: [hi("sort")] }, [households], {
+      "c0.reading.name": "group",
+      "c0.sort.column": "value",
+    });
+    expect(ranked.operations).toEqual([
+      { type: "sort.set", sorts: [{ columnId: "value", direction: "desc" }] },
+      { type: "group.set", columnIds: ["name"] },
+    ]);
     const column = compileWith("largest households first", { families: [hi("sort")] }, [households], { "c0.reading.name": "column" });
     expect(column.operations).toEqual([{ type: "sort.set", sorts: [{ columnId: "name", direction: "desc" }] }]);
   });

@@ -113,6 +113,9 @@ export const FAN_OUT = {
   reading: 0.6,
 } as const;
 
+/** Between a column's name and its amount: "market value over $1m", "gain is above". */
+const ADJACENT_COMPARISON =
+  /^\s*(?:(?:is|are|of)\s+)?(?:over|under|above|below|more than|less than|greater than|fewer than|at least|at most|up to|between|exceed(?:s|ing)?|>|<|=)?\s*$/;
 /** A value named inside one of these phrases limits the rows, wherever it sits: "sort by gain for trusts". */
 const PREPOSITION_BEFORE = /\b(?:for|among|at|in|with|from|of|within)\s+(?:(?:the|all|only|just)\s+)?(?:[\p{L}-]+\s+)?$/u;
 
@@ -191,6 +194,9 @@ export const compile = (c: CompileInput): ViewPlan => {
     if (current.type === "group.set" && current.columnIds.length > 0) return current;
     return undefined;
   };
+  const nameKey = (s: string) => (s.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []).join(" ");
+  const columnsNamed = (term: string) =>
+    c.schema.columns.filter((col) => isExposed(col) && [col.label, ...(col.aliases ?? [])].some((n) => nameKey(n) === nameKey(term)));
   const note = (key: string, selectedId: string, confidence: number, source: DecisionEvidence["source"]) => {
     evidence.push({ key, selectedId, confidence, source });
     confidences.push(confidence);
@@ -300,11 +306,16 @@ export const compile = (c: CompileInput): ViewPlan => {
           ...res.columns.filter((p) => p.confidence >= bands.ready).map((p) => p.id),
           ...(res.roles ?? []).filter((r) => r.confidence >= FAN_OUT.role && column(r.columnId)).map((r) => r.columnId),
         ]),
-      ];
+      ].filter((id) => !readAsRows.has(id));
       // Filter arguments: columns with a named or confident value, and the column each amount applies to (the
       // provider's confident pick, else any candidate whose kind can hold it).
+      // An enum column named on its own as well as by one of its values ("roth ira accounts grouped by registration
+      // type") is free for another change too; a yes/no column named by its value word is not (review fix).
+      const namedTwice = new Set(
+        mentionedColumns.filter((id) => column(id)?.kind !== "boolean" && mentionedValues.some((m) => m.columnId === id)),
+      );
       const valueArgs = new Set([
-        ...values.filter((v) => v.mentioned || v.confidence >= bands.ready).map((v) => v.columnId),
+        ...values.filter((v) => (v.mentioned || v.confidence >= bands.ready) && !namedTwice.has(v.columnId)).map((v) => v.columnId),
         ...clause.literals.flatMap((lit, j) => {
           const pick = res.literalColumns?.find((l) => l.literalIndex === j && l.confidence >= bands.ready);
           if (pick) return [pick.columnId];
@@ -314,6 +325,7 @@ export const compile = (c: CompileInput): ViewPlan => {
       const levels = new Set((res.outer ?? []).filter((o) => o.confidence >= FAN_OUT.outer).flatMap((o) => [o.outerId, o.innerId]));
       const roleFamily = (f: string) => (f === "columns.only" ? "columns.show" : f);
       const hasRole = (id: string, f: string) =>
+        (f === "group" && id === groupAnswer) ||
         (res.roles ?? []).some((r) => r.columnId === id && r.family === roleFamily(f) && r.confidence >= FAN_OUT.role) ||
         ((f === "sort" || f === "group") && levels.has(id));
       const boundTo = (f: string): string[] | undefined => {
@@ -339,6 +351,8 @@ export const compile = (c: CompileInput): ViewPlan => {
             continue;
           }
           const ids = columnsFor(f.id);
+          // A directed sort with no column yet stands apart: it asks for its column instead of forcing a split.
+          if (!ids && f.id === "sort" && clause.direction) continue;
           if (!ids || ids.some((id) => claimed.has(id))) return false;
           for (const id of ids) claimed.add(id);
         }
@@ -346,8 +360,12 @@ export const compile = (c: CompileInput): ViewPlan => {
       };
       const viable = (f: string) => {
         if (f === "filter") return hasFilterArgs;
+        // A sort with a direction in the text ("biggest … first") was clearly asked for: with no clear column,
+        // GridCue asks which one rather than dropping it beside another change (live finding).
+        if (f === "sort" && clause.direction) return true;
         if (!isView(f) || !COLUMN_FAMILIES[f]) return true;
-        if (!res.roles) return hasColumns;
+        // A column the User chose to group by leaves nothing for another change unless something else is named.
+        if (!res.roles) return hasColumns && (f === "group" || !groupAnswer || candidates.some((id) => id !== groupAnswer));
         return !!boundTo(f) || freeFor(f).length > 0 || (candidates.length === 0 && hasColumns);
       };
 
@@ -420,11 +438,17 @@ export const compile = (c: CompileInput): ViewPlan => {
         evidence.push({ key: `${key}.only-reading`, selectedId: "filter", confidence: 1, source: "deterministic" });
       }
       // The User chose "Group by Household" for an ambiguous noun: this part groups by that column only.
-      if (groupAnswer) {
-        for (const f of [...accepted])
-          if (isView(f.id) && COLUMN_FAMILIES[f.id as ViewFamily] && f.id !== "filter") accepted.splice(accepted.indexOf(f), 1);
+      // The User chose "Group by Household": that column is grouped, and the part's other changes stay (review fix).
+      if (groupAnswer && !accepted.some((f) => f.id === "group")) {
         accepted.push({ id: "group", confidence: 1 });
         middling.length = 0;
+      }
+      // A value that continues a sort or grouping ("group by custodian, then northgate") is a filter, not a level.
+      if (clause.continues && mentionedValues.length > 0 && mentionedColumns.length === 0) {
+        for (const f of [...accepted]) if (f.id !== "filter" && isView(f.id)) accepted.splice(accepted.indexOf(f), 1);
+        middling.length = 0;
+        if (!accepted.some((f) => f.id === "filter")) accepted.push({ id: "filter", confidence: 1 });
+        evidence.push({ key: `${key}.continued-value`, selectedId: "filter", confidence: 1, source: "deterministic" });
       }
       const settled = settleFamilies(accepted, middling, viable, { separable, kind: res.kind });
       const families = settled.kept;
@@ -475,6 +499,19 @@ export const compile = (c: CompileInput): ViewPlan => {
         });
         continue;
       }
+      // With several column changes in one part, a named column bound to none of them is never guessed into one
+      // (review fix): "sort by value with gain and name hidden" asks about Name.
+      const changes = viewFamilies.filter((f) => f !== "filter" && COLUMN_FAMILIES[f]);
+      const unassigned =
+        changes.length > 1 ? mentionedColumns.filter((id) => !valueArgs.has(id) && !roleFamilies.some((g) => hasRole(id, g))) : [];
+      if (unassigned.length > 0) {
+        clarifications.push({
+          id: `${key}.family`,
+          prompt: `“${clause.text}” also mentions ${column(unassigned[0] ?? "")?.label ?? "a column"}. Say which change it belongs to, or split it into separate parts.`,
+          required: true,
+        });
+        continue;
+      }
       // A value the User named is never silently ignored: "roth iras grouped by rep" names Roth IRA but only groups.
       // A named yes/no column with a confident value counts too: "restricted accounts grouped by advisor".
       const namedBooleans = values
@@ -503,7 +540,8 @@ export const compile = (c: CompileInput): ViewPlan => {
       for (const p of res.columns) {
         const answerKey = `${key}.column.${p.id}`;
         const col = column(p.id);
-        if (!col || mentionedColumns.includes(p.id)) continue;
+        // A column the provider read as the rows stays out, whatever its column score (review fix).
+        if (!col || mentionedColumns.includes(p.id) || readAsRows.has(p.id)) continue;
         if (answers[answerKey] !== undefined) {
           if (answers[answerKey] === p.id) {
             picked.push(col);
@@ -577,8 +615,20 @@ export const compile = (c: CompileInput): ViewPlan => {
             }
           }
           for (const [id, ids] of byColumn) {
+            const ops = operatorsFor(column(id) ?? ({ kind: "enum" } as ColumnDescriptor));
+            const out = excluded.filter((m) => m.columnId === id).map((m) => m.valueId ?? "");
             if (ids.length === 1) pred(id, "eq", ids[0]);
-            else pred(id, "in", ids);
+            else if (ops.includes("in")) pred(id, "in", ids);
+            // An exclusion the Host's operators can't express as "in" may still be one "not equal" (review fix).
+            else if (out.length === 1 && ops.includes("neq")) pred(id, "neq", out[0]);
+            else {
+              clarifications.push({
+                id: `${key}.value.${id}`,
+                prompt: `GridCue can filter ${column(id)?.label ?? id} to one value at a time here. Which one?`,
+                options: ids.map((v) => ({ id: v, label: column(id)?.enumValues?.find((e) => e.id === v)?.label ?? v })),
+                required: true,
+              });
+            }
           }
           const used = new Set<string>();
           clause.literals.forEach((lit, j) => {
@@ -598,7 +648,17 @@ export const compile = (c: CompileInput): ViewPlan => {
             const pickCol = pick && column(pick.columnId);
             const pickFits = pickCol && fits.includes(pickCol.kind) && pickCol.capabilities.includes("filter") && !used.has(pickCol.id);
             const provided = pickFits && pick.confidence >= bands.ready ? pickCol : undefined;
-            const target = answered ?? provided ?? picked.find((col) => fits.includes(col.kind) && !used.has(col.id));
+            // A column named right before the amount ("market value over $1m") owns it, over the provider's pick.
+            const adjacent = own.find(
+              (m) =>
+                m.valueId === undefined &&
+                m.end <= lit.at &&
+                ADJACENT_COMPARISON.test(clause.text.slice(m.end, lit.at)) &&
+                mentionedColumns.includes(m.columnId),
+            );
+            const namedCol = adjacent && column(adjacent.columnId);
+            const named = namedCol && fits.includes(namedCol.kind) && !used.has(namedCol.id) ? namedCol : undefined;
+            const target = answered ?? named ?? provided ?? picked.find((col) => fits.includes(col.kind) && !used.has(col.id));
             const operator = lit.kind === "text" ? "contains" : (lit.comparator ?? "eq");
             if (!target || !operatorsFor(target).includes(operator)) {
               const options = optionsFor(fits, "filter");
@@ -633,7 +693,7 @@ export const compile = (c: CompileInput): ViewPlan => {
           // and never a filter argument unless its role says so.
           const bound = new Set(boundTo(family) ?? []);
           const free = new Set(freeFor(family));
-          const pool = picked.filter((col) => bound.has(col.id) || free.has(col.id));
+          const pool = picked.filter((col) => bound.has(col.id) || (changes.length < 2 && free.has(col.id)));
           const cols = (answered ? [answered] : pool).filter((col) =>
             COLUMN_FAMILIES[family]?.every((cap) => col.capabilities.includes(cap)),
           );
@@ -643,12 +703,17 @@ export const compile = (c: CompileInput): ViewPlan => {
             // Clause named nothing it recognised: it never calls a Host-declared name unknown.
             const pending = clarifications.some((q) => q.id.startsWith(`${key}.column.`));
             const unknown = res.unmatchedTerms[0] ?? (pending || own.length > 0 ? undefined : unknownTerm(clause.text));
+            // A name several columns share was left to the provider; it is ambiguous, not missing (review fix).
+            const sharing = unknown ? columnsNamed(unknown).filter((col) => col.capabilities.includes(capability as never)) : [];
             clarifications.push({
               id: answerKey,
-              prompt: unknown
-                ? `There's no column called “${unknown}”. Which column should be ${COLUMN_WORD[family]}?`
-                : `Which column should be ${COLUMN_WORD[family]}?`,
-              options: optionsFor(null, capability),
+              prompt:
+                sharing.length > 1
+                  ? `“${unknown}” could mean ${sharing.map((col) => col.label).join(" or ")}. Which column should be ${COLUMN_WORD[family]}?`
+                  : unknown
+                    ? `There's no column called “${unknown}”. Which column should be ${COLUMN_WORD[family]}?`
+                    : `Which column should be ${COLUMN_WORD[family]}?`,
+              options: sharing.length > 1 ? sharing.map((col) => ({ id: col.id, label: col.label })) : optionsFor(null, capability),
               required: true,
             });
             continue;
