@@ -183,3 +183,19 @@ Answer by number. A bare "agree" accepts the recommendation.
 Do you still own `gridque.dev`? If so, it should redirect to `gridcue.dev`.
 
 ➡️ Redirect it if you own it; it catches the misspelling.
+
+## Owner direction (2026-09-24)
+
+> "Keep implementation free. Why do I need my Jev key on a hosted site?"
+
+Recorded as follows:
+
+- **Everything is free.** No paid plans, and no services that require payment details, such as Zero Trust.
+- **No Jev key on any hosted site.**
+  - `internal.gridcue.dev` is **dropped**, which supersedes build-plan grill Q20 and Q27.
+  - Live Jev runs only locally, with `.env.local`.
+  - The Site's strategy comparison uses results recorded from local live runs, labelled with their date.
+- **This changes the recommendations for Q1 and Q8.**
+  - **Q1:** the Site is entirely static. React Router prerenders every page, and Cloudflare Workers static assets serves them, which is free with unlimited requests. There is no Worker code, no secret and no server; ADR 0002 stands.
+  - **Q8:** removed.
+  - **ADR 0011's open item**, whether `@typesafe-ai/sdk` runs under workerd, is checked locally with `wrangler dev` in the plan, as a docs-recipe check for Hosts. It is not a deploy.
