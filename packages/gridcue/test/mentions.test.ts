@@ -132,3 +132,62 @@ describe("matchMentions superlatives", () => {
     expect(found("sort by the largest cost")).toEqual([]);
   });
 });
+
+describe("chassis declarations in Mentions (ADR 0015)", () => {
+  const domain = defineSchema(
+    [
+      { id: "number", label: "Item number", kind: "string" },
+      { id: "owner", label: "Owner", kind: "string" },
+      { id: "state", label: "State", kind: "enum" },
+      { id: "price", label: "Price", kind: "currency" },
+    ],
+    {
+      rowNoun: "item",
+      columns: {
+        number: { aliases: ["item"] },
+        owner: { aliases: ["seller"], entity: "owner" },
+        state: {
+          enumValues: [
+            { id: "open", label: "Open" },
+            { id: "held", label: "Held" },
+            { id: "sold", label: "Sold" },
+          ],
+          valueGroups: [{ label: "Active", values: ["open", "held"] }],
+        },
+      },
+    },
+  );
+  const cols = domain.columns.filter(isExposed);
+  const match = (text: string) => matchMentions(normalize(text).clauses, cols, { rowNoun: domain.rowNoun });
+
+  it("expands a value group into one Mention per value", () => {
+    expect(match("only active ones").map((m) => m.valueId)).toEqual(["open", "held"]);
+  });
+
+  it("marks an excluded value as negated", () => {
+    expect(match("non-active items").map((m) => [m.valueId, m.negated])).toEqual([
+      ["open", true],
+      ["held", true],
+    ]);
+    expect(match("everything except sold")[0]).toMatchObject({ valueId: "sold", negated: true });
+  });
+
+  it("flags a row noun grammar can't place, and never one in a column slot", () => {
+    expect(match("show the item")[0]).toMatchObject({ columnId: "number", ambiguous: true, text: "item" });
+    expect(match("sort by item")[0]).not.toHaveProperty("ambiguous");
+  });
+
+  it("reads a text-valued entity ranked by size as the records, by any of its names", () => {
+    expect(match("largest owners first")[0]).toMatchObject({ columnId: "owner", ambiguous: true, records: true });
+    expect(match("top sellers first")[0]).toMatchObject({ columnId: "owner", records: true });
+    expect(match("largest items first")).toEqual([]);
+  });
+
+  it("rejects a value group that names a value the column doesn't have", () => {
+    expect(() =>
+      defineSchema([{ id: "state", kind: "enum" }], {
+        columns: { state: { enumValues: [{ id: "open", label: "Open" }], valueGroups: [{ label: "Active", values: ["open", "gone"] }] } },
+      }),
+    ).toThrow(/valueGroups on state name values that are not in its enumValues: gone/);
+  });
+});
