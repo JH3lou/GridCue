@@ -107,3 +107,21 @@ Answer by number. A bare "agree" accepts the recommendation.
 ### Found while writing the spec
 
 **Q4's Jev check and Q5's per-value Nouls are the same question.** "Does the part mean rows whose Registration type is Trust?" both limits the rows and allows several values. The spec therefore asks it once per enum value, and uses the answer for both jobs.
+
+## Verification findings (2026-09-24)
+
+The full account is in ADR 0015 and in the plan's "Decisions made while verifying".
+
+- **Before any chassis code existed,** the spec's 23 cases gave 10 exact, 2 wrong views and 1 unsafe.
+- **Jev's reading question answered "column"** (0.78 to 0.92) for "Largest households first". A column-kind rule decides that case instead: a text-valued entity ranked by size means the records.
+- **The per-value Nouls decided 1 case,** below their bar of 3. They became opt-in rather than being removed.
+- **Label change.** Two older live-only labels were changed to the records question, on the owner's direction. They had expected a sort by Market value.
+- **Final fan-out results, two runs:**
+  - 0 wrong views, 0 unsafe, and no regressions;
+  - chassis 36 of 39;
+  - live-only 55 of 56.
+
+## Status
+
+- **Spec:** approved 2026-09-24.
+- **Plan:** written, waiting for the owner's approval, at `docs/superpowers/plans/2026-09-24-resolution-chassis.md`.
