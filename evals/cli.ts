@@ -2,18 +2,23 @@ import { wealthMockOptions } from "@gridcue-internal/wealth-fixtures";
 import { TypeSafeClient } from "@typesafe-ai/sdk";
 import type { IntentProvider, ResolutionRequest, ResolutionResult } from "gridcue";
 import { createMockProvider } from "gridcue/mock";
-import { createJevProvider, type JevClient } from "gridcue/server";
+import { createJevProvider, JEV_SIGNALS, type JevClient, type JevSignal, type JevStrategy } from "gridcue/server";
 import { loadCases, runCase, type Verdict } from "./run";
 
 const live = process.argv.includes("--live");
 const verbose = process.argv.includes("--verbose");
-// `--without=kind,adds` drops those fan-out answers before the compiler sees them, to measure what each is worth.
-const without = new Set(
-  (process.argv.find((a) => a.startsWith("--without="))?.slice("--without=".length) ?? "").split(",").filter(Boolean),
-);
-const SIGNALS = ["roles", "kind", "adds", "outer"] as const;
-for (const s of without)
-  if (!(SIGNALS as readonly string[]).includes(s)) throw new Error(`Unknown signal "${s}". Use ${SIGNALS.join(", ")}.`);
+// `--strategy=focused|fan-out` picks the Jev strategy (ADR 0015). `--without=kind,adds` and `--with=values` switch
+// signals off or on top of it, so the value of each question can be measured.
+const flag = (name: string) => process.argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3);
+const strategy = (flag("strategy") ?? "fan-out") as JevStrategy;
+const listed = (name: string) => (flag(name) ?? "").split(",").filter(Boolean) as JevSignal[];
+const signals: Partial<Record<JevSignal, boolean>> = {
+  ...Object.fromEntries(listed("with").map((s) => [s, true])),
+  ...Object.fromEntries(listed("without").map((s) => [s, false])),
+};
+for (const s of Object.keys(signals))
+  if (!(JEV_SIGNALS as readonly string[]).includes(s)) throw new Error(`Unknown signal "${s}". Use ${JEV_SIGNALS.join(", ")}.`);
+const setup = [live ? strategy : "", ...Object.entries(signals).map(([s, v]) => `${v ? "+" : "-"}${s}`)].filter(Boolean).join(" ");
 if (live && !process.env.JEV_API_KEY) {
   console.log("Skipping live evals: JEV_API_KEY is not set.");
   process.exit(0);
@@ -32,16 +37,13 @@ const client: JevClient | undefined = live
       } satisfies JevClient;
     })()
   : undefined;
-const base: IntentProvider = live ? createJevProvider({ client }) : createMockProvider(wealthMockOptions);
+const base: IntentProvider = live ? createJevProvider({ client, strategy, signals }) : createMockProvider(wealthMockOptions);
 
 // Records what the provider saw and said, for --verbose.
 let seen: { request?: ResolutionRequest; result?: ResolutionResult } = {};
 const provider: IntentProvider = {
   async resolve(request, signal) {
-    const raw = await base.resolve(request, signal);
-    const result = {
-      clauses: raw.clauses.map((c) => Object.fromEntries(Object.entries(c).filter(([k]) => !without.has(k))) as typeof c),
-    };
+    const result = await base.resolve(request, signal);
     seen = { request, result };
     return result;
   },
@@ -67,6 +69,7 @@ const describe = (ms: number) => {
       c.kind ? `kind ${c.kind.id} ${c.kind.confidence.toFixed(2)}` : "",
       c.adds !== undefined ? `adds ${c.adds.toFixed(2)}` : "",
       c.outer?.length ? `outer [${c.outer.map((o) => `${o.outerId}>${o.innerId} ${o.confidence.toFixed(2)}`).join(", ")}]` : "",
+      c.readings?.length ? `readings [${c.readings.map((r) => `${r.columnId}:${r.reading} ${r.confidence.toFixed(2)}`).join(", ")}]` : "",
     ].filter(Boolean);
     if (fan.length > 0) lines.push(`      ${fan.join("  ")}`);
     if (c.literalColumns?.length) {
@@ -94,7 +97,7 @@ const run = async (file: URL, label: string) => {
       console.log(`${verdict.toUpperCase()}: ${c.id}`);
     }
   }
-  console.log(`GridCue evals: ${label} (${live ? "Jev" : "Mock Provider"}${without.size ? `, without ${[...without].join(", ")}` : ""})`);
+  console.log(`GridCue evals: ${label} (${live ? "Jev" : "Mock Provider"}${setup ? `, ${setup}` : ""})`);
   console.table(counts);
   return counts;
 };
@@ -103,7 +106,9 @@ const core = await run(new URL("./cases.jsonl", import.meta.url), "cases.jsonl")
 // Live-only cases need common sense the Mock doesn't have. They are findings, with no pass bar, except that none may be unsafe.
 const extra = live ? await run(new URL("./cases-live.jsonl", import.meta.url), "cases-live.jsonl") : undefined;
 const fanout = live ? await run(new URL("./cases-fanout.jsonl", import.meta.url), "cases-fanout.jsonl") : undefined;
+const chassis = live ? await run(new URL("./cases-chassis.jsonl", import.meta.url), "cases-chassis.jsonl") : undefined;
 
 // Applying a view the user did not ask for is release-blocking with any provider.
 // With the Mock Provider every case must match exactly, because its answers are deterministic.
-if (core.unsafe > 0 || (extra?.unsafe ?? 0) > 0 || (fanout?.unsafe ?? 0) > 0 || (!live && core.mismatch > 0)) process.exit(1);
+if (core.unsafe > 0 || (extra?.unsafe ?? 0) > 0 || (fanout?.unsafe ?? 0) > 0 || (chassis?.unsafe ?? 0) > 0 || (!live && core.mismatch > 0))
+  process.exit(1);
