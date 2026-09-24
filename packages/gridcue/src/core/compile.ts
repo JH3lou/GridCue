@@ -79,6 +79,8 @@ const FAMILY_PHRASE: Record<string, string> = {
 const isView = (f: string): f is ViewFamily => !f.startsWith("unsupported.");
 const KNOWN_FAMILY_IDS: ReadonlySet<string> = new Set([...VIEW_FAMILIES, ...UNSUPPORTED_FAMILIES]);
 const CLEARS: ReadonlySet<string> = new Set(["filter.clear", "sort.clear", "group.clear"]);
+/** A part that replaces the sort or grouping named before it, instead of adding a level. */
+const REPLACES = /\b(?:instead|rather)\b/;
 const isColumnFamily = (f: Pick) => isView(f.id) && COLUMN_FAMILIES[f.id] !== undefined;
 /** How far the top column family must lead the next for the next to be dropped (ADR 0012). */
 export const FAMILY_MARGIN = 0.1;
@@ -129,6 +131,16 @@ export const compile = (c: CompileInput): ViewPlan => {
     c.schema.columns
       .filter((col) => isExposed(col) && col.capabilities.includes(capability as never) && (!kinds || kinds.includes(col.kind)))
       .map((col) => ({ id: col.id, label: col.label }));
+  // Consecutive sorts or groupings are levels of one, in the order named: the first is the primary sort or the
+  // outermost group. A clear or reset in between, or a part that says "instead", starts a new one.
+  const levelsOf = (type: "sort.set" | "group.set", replaces: boolean) => {
+    const at = operations.findLastIndex((o) => o.type === type);
+    const current = operations[at];
+    if (replaces || !current || operations.slice(at + 1).some((o) => o.type === "view.reset")) return undefined;
+    if (current.type === "sort.set" && current.sorts.length > 0) return current;
+    if (current.type === "group.set" && current.columnIds.length > 0) return current;
+    return undefined;
+  };
   const note = (key: string, selectedId: string, confidence: number, source: DecisionEvidence["source"]) => {
     evidence.push({ key, selectedId, confidence, source });
     confidences.push(confidence);
@@ -407,9 +419,16 @@ export const compile = (c: CompileInput): ViewPlan => {
           if (family === "sort") {
             const direction =
               clause.direction ?? (res.direction && res.direction.confidence >= bands.ready ? (res.direction.id as "asc" | "desc") : "asc");
-            operations.push({ type: "sort.set", sorts: ids.map((columnId) => ({ columnId, direction })) });
-          } else if (family === "group") operations.push({ type: "group.set", columnIds: ids });
-          else if (family === "columns.hide") operations.push({ type: "columns.hide", columnIds: ids });
+            const sorts = ids.map((columnId) => ({ columnId, direction }));
+            const current = levelsOf("sort.set", REPLACES.test(clause.text));
+            if (current?.type === "sort.set")
+              current.sorts.push(...sorts.filter((s) => !current.sorts.some((x) => x.columnId === s.columnId)));
+            else operations.push({ type: "sort.set", sorts });
+          } else if (family === "group") {
+            const current = levelsOf("group.set", REPLACES.test(clause.text));
+            if (current?.type === "group.set") current.columnIds.push(...ids.filter((id) => !current.columnIds.includes(id)));
+            else operations.push({ type: "group.set", columnIds: ids });
+          } else if (family === "columns.hide") operations.push({ type: "columns.hide", columnIds: ids });
           else if (family === "columns.show") operations.push({ type: "columns.show", columnIds: ids });
           else if (family === "columns.only") {
             const hideable = (id: string) => column(id)?.capabilities.includes("hide") ?? false;

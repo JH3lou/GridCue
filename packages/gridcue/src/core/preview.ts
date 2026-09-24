@@ -58,7 +58,8 @@ const describe = (op: ViewOperation, schema: ViewSchema): string => {
         ? "Clear sorting"
         : `Sort by ${op.sorts.map((s) => `${label(s.columnId)}, ${s.direction === "desc" ? "descending" : "ascending"}`).join("; then ")}`;
     case "group.set":
-      return op.columnIds.length === 0 ? "Clear grouping" : `Group by ${list(op.columnIds.map(label))}`;
+      // Nested levels, outermost first.
+      return op.columnIds.length === 0 ? "Clear grouping" : `Group by ${op.columnIds.map(label).join(", then ")}`;
     case "columns.show":
       return `Show ${list(op.columnIds.map(label))}`;
     case "columns.hide":

@@ -150,3 +150,12 @@ Answer by number. A bare "agree" accepts the recommendation.
 (b) One spec for everything.
 
 ➡️ (a). Each lands on measured evidence, and the public API change (Q2) stays separate from the internal question design.
+
+## Round 1 answers (owner, 2026-09-24)
+
+| Q | Answer | Recorded as |
+| --- | --- | --- |
+| Q1 Hierarchy bug | "agree" | Fixed on `claude/resolution-quality` before its PR. |
+| Q2 Which grid | "for the demo we currently have in place, we will always be on the right grid, but this is not the reality of the use case. immagine an advisor desktop with many different views (client, household, account, positions…) redirect capability to correct grid." | Target routing across entity grids in a Host app, with a redirect to the right grid. Its own spec, after the fan-out spec. **Open for that spec:** today "navigate somewhere else" is an unsupported family, so redirecting means the Host navigates through a callback it owns, and GridCue picks the grid. |
+| Q3–Q8 | Not answered yet | To confirm when the fan-out spec starts. |
+| Q9 Sequencing | "I'll follow your guidance in order and segmentation of work." | (a): PR resolution quality with the Q1 fix, then the fan-out spec (Q3 to Q8), then the grid-routing spec (Q2). |

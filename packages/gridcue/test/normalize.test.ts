@@ -18,6 +18,17 @@ describe("normalize: clauses", () => {
     ]);
   });
 
+  it("gives an elliptical 'then by' part the verb of the part before it", () => {
+    expect(clauses("Group by account type, then by advisor.")).toEqual(["group by account type", "group by advisor"]);
+    expect(clauses("Sort by advisor, then by market value, then by gain")).toEqual([
+      "sort by advisor",
+      "sort by market value",
+      "sort by gain",
+    ]);
+    expect(clauses("Grouped by rep, then by custodian")).toEqual(["grouped by rep", "grouped by custodian"]);
+    expect(clauses("Show trusts, then by advisor")).toEqual(["show trusts", "by advisor"]);
+  });
+
   it("keeps lists of columns together", () => {
     expect(clauses("Hide custodian and account number.")).toEqual(["hide custodian and account number"]);
     expect(clauses("Clear the filters and sorting")).toEqual(["clear the filters and sorting"]);

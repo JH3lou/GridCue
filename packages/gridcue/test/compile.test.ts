@@ -380,3 +380,54 @@ describe("unknown terms", () => {
     expect(plan.clarifications.map((q) => q.prompt)).toEqual(["Did you mean Value?", "Which column should be sorted by?"]);
   });
 });
+
+describe("sort and group levels", () => {
+  it("adds consecutive sorts as levels, in the order they were named", () => {
+    const plan = run("sort by name, then by value, largest first", [
+      { families: [hi("sort")], columns: [hi("name")] },
+      { families: [hi("sort")], columns: [hi("value")] },
+    ]);
+    expect(plan.operations).toEqual([
+      {
+        type: "sort.set",
+        sorts: [
+          { columnId: "name", direction: "asc" },
+          { columnId: "value", direction: "desc" },
+        ],
+      },
+    ]);
+    expect(renderPreview(plan, schema).lines).toEqual(["Sort by Name, ascending; then Value, descending"]);
+  });
+
+  it("nests consecutive groupings, outermost first, and says so in the Preview", () => {
+    const plan = run("group by status, then by name", [
+      { families: [hi("group")], columns: [hi("status")] },
+      { families: [hi("group")], columns: [hi("name")] },
+    ]);
+    expect(plan.operations).toEqual([{ type: "group.set", columnIds: ["status", "name"] }]);
+    expect(renderPreview(plan, schema).lines).toEqual(["Group by Status, then Name"]);
+  });
+
+  it("replaces an earlier level when a part says 'instead'", () => {
+    const plan = run("sort by name; sort by value instead", [
+      { families: [hi("sort")], columns: [hi("name")] },
+      { families: [hi("sort")], columns: [hi("value")] },
+    ]);
+    expect(plan.operations).toEqual([
+      { type: "sort.set", sorts: [{ columnId: "name", direction: "asc" }] },
+      { type: "sort.set", sorts: [{ columnId: "value", direction: "asc" }] },
+    ]);
+  });
+
+  it("starts over after a clear, and never repeats a column", () => {
+    const plan = run("clear the sort; sort by value; then by value", [
+      { families: [hi("sort.clear")] },
+      { families: [hi("sort")], columns: [hi("value")] },
+      { families: [hi("sort")], columns: [hi("value")] },
+    ]);
+    expect(plan.operations).toEqual([
+      { type: "sort.set", sorts: [] },
+      { type: "sort.set", sorts: [{ columnId: "value", direction: "asc" }] },
+    ]);
+  });
+});
