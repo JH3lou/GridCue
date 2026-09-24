@@ -11,3 +11,5 @@ coverage/
 *.log
 .next/
 next-env.d.ts
+examples/next/AGENTS.md
+examples/next/CLAUDE.md

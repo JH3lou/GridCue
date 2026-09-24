@@ -9,6 +9,7 @@
   "scripts": {
     "build": "pnpm --filter gridcue build",
     "dev:vite": "pnpm build && pnpm --filter @gridcue-internal/example-vite dev",
+    "dev:next": "pnpm build && pnpm --filter @gridcue-internal/example-next dev",
     "lint": "biome check . && oxlint",
     "format": "biome check --write .",
     "typecheck": "pnpm -r --if-present typecheck",
