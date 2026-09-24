@@ -48,6 +48,12 @@ export const ColumnDescriptor = z.object({
   sensitivity: Sensitivity,
   exposeToProvider: z.boolean().optional(),
   enumValues: z.array(EnumValue).optional(),
+  /** The other record this column names, such as "household", so "largest households first" can be read either way. */
+  entity: z.string().min(1).optional(),
+  /** Host-named categories over this column's enum values, such as Retirement = IRA and Roth IRA. */
+  valueGroups: z
+    .array(z.object({ label: z.string().min(1), aliases: z.array(z.string()).optional(), values: z.array(z.string()).min(1) }))
+    .optional(),
 });
 export type ColumnDescriptor = z.infer<typeof ColumnDescriptor>;
 
@@ -55,6 +61,8 @@ export const ViewSchema = z.object({
   id: z.string().min(1),
   version: z.string().min(1),
   columns: z.array(ColumnDescriptor),
+  /** What one row is, such as "account". Its name in a request means the rows, not a column. */
+  rowNoun: z.string().min(1).optional(),
 });
 export type ViewSchema = z.infer<typeof ViewSchema>;
 

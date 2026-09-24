@@ -35,6 +35,10 @@ export interface ColumnOverride {
   capabilities?: ColumnCapability[];
   allowedOperators?: FilterOperator[];
   enumValues?: EnumValue[];
+  /** The other record this column names, such as "household" (ADR 0015). */
+  entity?: string;
+  /** Categories over this column's enum values, such as `{ label: "Retirement", values: ["ira", "roth_ira"] }`. */
+  valueGroups?: Array<{ label: string; aliases?: string[]; values: string[] }>;
 }
 
 export interface SchemaOptions {
@@ -44,6 +48,8 @@ export interface SchemaOptions {
   columns?: Record<string, ColumnOverride>;
   /** Column IDs GridCue must never expose to a provider or act on. */
   restricted?: string[];
+  /** What one row is, such as "account" (ADR 0015). */
+  rowNoun?: string;
   /** Rows used only to infer missing kinds. They never leave the caller. */
   sampleRows?: ReadonlyArray<Record<string, unknown>>;
 }
@@ -91,9 +97,18 @@ export const defineSchema = (columns: readonly ColumnInput[], options: SchemaOpt
     throw new GridCueError("INPUT_SCHEMA", `columns names an id that matches no column: ${unknownOverrides.join(", ")}.`);
   }
 
+  for (const [id, override] of Object.entries(options.columns ?? {})) {
+    const known = new Set((override.enumValues ?? []).map((v) => v.id));
+    const stray = (override.valueGroups ?? []).flatMap((g) => g.values).filter((v) => !known.has(v));
+    if (stray.length > 0) {
+      throw new GridCueError("INPUT_SCHEMA", `valueGroups on ${id} name values that are not in its enumValues: ${stray.join(", ")}.`);
+    }
+  }
+
   const schema: ViewSchema = {
     id: options.id ?? "default",
     version: options.version ?? "1",
+    ...(options.rowNoun ? { rowNoun: options.rowNoun } : {}),
     columns: columns.map((input): ColumnDescriptor => {
       const override = options.columns?.[input.id] ?? {};
       const kind = override.kind ?? input.kind ?? (override.enumValues ? "enum" : inferKind(sample.map((row) => row[input.id])));
@@ -109,6 +124,8 @@ export const defineSchema = (columns: readonly ColumnInput[], options: SchemaOpt
         sensitivity: isRestricted ? "restricted" : "internal",
         exposeToProvider: !isRestricted,
         ...(override.enumValues ? { enumValues: override.enumValues } : {}),
+        ...(override.entity ? { entity: override.entity } : {}),
+        ...(override.valueGroups ? { valueGroups: override.valueGroups } : {}),
       };
     }),
   };
@@ -130,10 +147,15 @@ export interface ProviderPayloadColumn {
   aliases?: string[];
   description?: string;
   enumValues?: EnumValue[];
+  entity?: string;
+  valueGroups?: Array<{ label: string; aliases?: string[]; values: string[] }>;
 }
 
 /** Exactly what an Intent Provider may receive about this schema. Rows are never included. */
-export const describeProviderPayload = (schema: ViewSchema): { columns: ProviderPayloadColumn[]; rows: "never sent" } => ({
+export const describeProviderPayload = (
+  schema: ViewSchema,
+): { columns: ProviderPayloadColumn[]; rowNoun?: string; rows: "never sent" } => ({
+  ...(schema.rowNoun ? { rowNoun: schema.rowNoun } : {}),
   columns: schema.columns.filter(isExposed).map((c) => ({
     id: c.id,
     label: c.label,
@@ -141,6 +163,8 @@ export const describeProviderPayload = (schema: ViewSchema): { columns: Provider
     ...(c.aliases ? { aliases: c.aliases } : {}),
     ...(c.description ? { description: c.description } : {}),
     ...(c.enumValues ? { enumValues: c.enumValues } : {}),
+    ...(c.entity ? { entity: c.entity } : {}),
+    ...(c.valueGroups ? { valueGroups: c.valueGroups } : {}),
   })),
   rows: "never sent",
 });

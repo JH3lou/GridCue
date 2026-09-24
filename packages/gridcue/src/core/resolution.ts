@@ -61,6 +61,8 @@ export const CandidateColumn = z.object({
   families: z.array(z.string()),
   operators: z.array(FilterOperator),
   enumValues: z.array(EnumValue).optional(),
+  entity: z.string().optional(),
+  valueGroups: z.array(z.object({ label: z.string(), aliases: z.array(z.string()).optional(), values: z.array(z.string()) })).optional(),
 });
 export type CandidateColumn = z.infer<typeof CandidateColumn>;
 
@@ -83,11 +85,22 @@ export const ResolutionRequest = z.object({
         literals: z.array(LiteralSchema),
         direction: z.enum(["asc", "desc"]).optional(),
         /** Columns and enum values core already matched by a Host-declared name. A provider may skip asking about them. */
-        mentions: z.array(z.object({ columnId: z.string(), valueId: z.string().optional() })).optional(),
+        mentions: z
+          .array(
+            z.object({
+              columnId: z.string(),
+              valueId: z.string().optional(),
+              /** A row or entity noun ("households") that could mean the column or the records (ADR 0015). */
+              ambiguous: z.literal(true).optional(),
+              /** The words as written, for the provider's reading question. */
+              text: z.string().optional(),
+            }),
+          )
+          .optional(),
       }),
     )
     .max(12),
-  candidates: z.object({ families: z.array(z.string()), columns: z.array(CandidateColumn) }),
+  candidates: z.object({ families: z.array(z.string()), columns: z.array(CandidateColumn), rowNoun: z.string().optional() }),
   view: z.object({
     visibleColumnIds: z.array(z.string()),
     sorts: z.array(SortSpec),
@@ -118,6 +131,10 @@ export const ClauseResolution = z.object({
   adds: z.number().min(0).max(1).optional(),
   /** For reversal wording ("advisor within custodian"): is `outerId` the outer grouping or primary sort? Optional. */
   outer: z.array(z.object({ outerId: z.string(), innerId: z.string(), confidence: z.number().min(0).max(1) })).optional(),
+  /** What an ambiguous row or entity noun refers to (ADR 0015). Optional. */
+  readings: z
+    .array(z.object({ columnId: z.string(), reading: z.enum(["column", "records", "rows"]), confidence: z.number().min(0).max(1) }))
+    .optional(),
   /** The column each literal applies to, by its index in the Clause's `literals`. Optional. */
   literalColumns: z
     .array(z.object({ literalIndex: z.number().int().nonnegative(), columnId: z.string(), confidence: z.number().min(0).max(1) }))
@@ -146,9 +163,11 @@ export const buildCandidates = (schema: ViewSchema, capabilities: ViewCapabiliti
       families: families.filter((f) => COLUMN_FAMILIES[f]?.every((cap) => c.capabilities.includes(cap))),
       operators: operatorsFor(c),
       ...(c.enumValues ? { enumValues: c.enumValues } : {}),
+      ...(c.entity ? { entity: c.entity } : {}),
+      ...(c.valueGroups ? { valueGroups: c.valueGroups } : {}),
     }),
   );
-  return { families: [...families, ...UNSUPPORTED_FAMILIES], columns };
+  return { families: [...families, ...UNSUPPORTED_FAMILIES], columns, ...(schema.rowNoun ? { rowNoun: schema.rowNoun } : {}) };
 };
 
 export const buildResolutionRequest = (
@@ -163,7 +182,9 @@ export const buildResolutionRequest = (
   clauses: input.clauses.map((clause) => {
     const own = mentions
       .filter((m) => m.clauseIndex === clause.index)
-      .map(({ columnId, valueId }) => (valueId === undefined ? { columnId } : { columnId, valueId }));
+      .map(({ columnId, valueId, ambiguous, text }) =>
+        valueId !== undefined ? { columnId, valueId } : ambiguous ? { columnId, ambiguous, ...(text ? { text } : {}) } : { columnId },
+      );
     return own.length > 0 ? { ...clause, mentions: own } : clause;
   }),
   candidates: buildCandidates(schema, capabilities),
