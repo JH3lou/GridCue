@@ -52,7 +52,7 @@ The most likely defect is a change that works where you tested it and nowhere el
 
 - Prove the smallest thing first: the tests you touched, then lint and typecheck for the package you changed.
 - After making changes, run `pnpm lint` and fix all errors. It runs Biome, then Oxlint with the `@shadcn/lint` plugin on the Tailwind surfaces (`registry/` and `examples/vite/`). No shadcn rules are enabled yet. The owner chooses them and adds them to the override's `rules` in `.oxlintrc.json`; see the rule list at https://github.com/shadcn-ui/lint/blob/main/README.md#rules.
-- The merge gate is `pnpm check` once the workspace exists: format, lint, typecheck, unit and contract tests, and build. CI runs it on every PR.
+- The merge gate is `pnpm check`: lint and format check, build, typecheck, tests, evals, registry build, package checks, and the browser bundle leak check. CI runs it on every PR.
 - Every grid adapter passes the shared adapter contract suite.
 - Provider tests use a mocked transport. Live Jev tests need an explicit command and `JEV_API_KEY`, and skip cleanly without it.
 - Evals use synthetic data only and cover ambiguity, unsupported actions, hidden fields, aliases, compound requests, and adversarial text.
