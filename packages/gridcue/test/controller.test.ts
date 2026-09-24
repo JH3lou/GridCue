@@ -88,6 +88,24 @@ describe("controller", () => {
     expect(await cue.apply()).toBe(true);
   });
 
+  it("rejects an answer whose option was never offered", async () => {
+    const { cue } = setup(createMockProvider());
+    await cue.propose("over $1m");
+    const before = cue.getState();
+    expect(cue.answer("c0.literal0.column", "concentration")).toBeNull();
+    expect(cue.getState()).toBe(before);
+    expect(cue.getState().status).toBe("needs_clarification");
+  });
+
+  it("rejects an answer to a clarification id that was never offered", async () => {
+    const { cue } = setup(createMockProvider());
+    await cue.propose("over $1m");
+    const before = cue.getState();
+    expect(cue.answer("not-a-real-clarification-id", "gain")).toBeNull();
+    expect(cue.getState()).toBe(before);
+    expect(cue.getState().status).toBe("needs_clarification");
+  });
+
   it("undoes the plan that was applied, not a later proposal", async () => {
     const { cue, events } = setup();
     await cue.propose("sort by value");

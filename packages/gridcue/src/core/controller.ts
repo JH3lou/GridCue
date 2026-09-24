@@ -189,7 +189,10 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
     },
 
     answer(clarificationId, optionId) {
-      if (!session || state.status !== "needs_clarification") return null;
+      if (!session || state.status !== "needs_clarification" || !state.plan) return null;
+      const clarification = state.plan.clarifications.find((c) => c.id === clarificationId);
+      if (!clarification) return null;
+      if (clarification.options && !clarification.options.some((o) => o.id === optionId)) return null;
       session.answers[clarificationId] = optionId;
       return present();
     },
