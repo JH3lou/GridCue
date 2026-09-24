@@ -33,3 +33,7 @@ These explain what the source alone can't: the product boundary, the pipeline, a
 
 - [Build-plan interview](./planning/build-plan-grill.md): open questions and the owner's answers
 - [Bootstrap work order](./planning/bootstrap-work-order.md): the original proposal, kept for history
+
+### Runbooks
+
+- [Local development](./operations/development.md)

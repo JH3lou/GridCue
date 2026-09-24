@@ -4,14 +4,9 @@ GridCue lets a user say what they want to see in a dense data grid, in plain lan
 
 The first provider is TypeSafe AI's Jev. Jev picks among closed, typed choices. Deterministic code owns parsing, validation, policy, preview, apply, and undo.
 
-## Planning status
+## Status
 
-The build plan is still being settled. Nothing is scaffolded yet.
-
-- Open decisions and their history: `docs/planning/build-plan-grill.md`.
-- Decisions already made: `docs/adr/`.
-- The bootstrap agent's original work order is `docs/planning/bootstrap-work-order.md`. It is a proposal, not an approved plan.
-- Do not scaffold or write product code until the owner approves a spec in `docs/superpowers/specs/` and a plan in `docs/superpowers/plans/`.
+The first package build is implemented from `docs/superpowers/specs/2026-09-23-gridcue-package-design.md` and `docs/superpowers/plans/2026-09-23-gridcue-package.md`. The Site is next and gets its own spec and plan. Local commands are in `docs/operations/development.md`.
 
 ## What we never compromise on
 
@@ -85,9 +80,7 @@ The most likely defect is a change that works where you tested it and nowhere el
 - Approved specs and plans are committed to `docs/superpowers/` as the owner's approval record.
 - Keep scratch notes, research dumps, and temporary files outside the repository.
 
-## Where code will live
-
-This is the planned layout. It becomes true as the approved plan is built.
+## Where code lives
 
 - `packages/gridcue`: the one published package. Its root entry holds the protocol, schemas, compiler, validation, policy, diff, preview text, audit redaction, and the provider and adapter interfaces. Subpath entries: `gridcue/react` for hooks and the built-in `<GridCueBar />`, `gridcue/server` for the Server Handler and Jev provider, `gridcue/mock` for the Mock Provider, and `gridcue/tanstack-table` for the TanStack Table adapter.
 - `registry/`: source for the shadcn Component Registry.

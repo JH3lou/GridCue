@@ -75,9 +75,53 @@ Jev is the first semantic decision provider. It is a good fit because it maps un
 
 The demo will use synthetic wealth-management data and a deterministic mock provider, so contributors need no external account or API key.
 
+## Quick start
+
+Add GridCue to an existing TanStack Table app in three lines:
+
+```tsx
+import { createGridCue, createRemoteProvider } from "gridcue";
+import { GridCueBar } from "gridcue/react";
+import { createTanStackAdapter, gridcueFilterFn, schemaFromTanStack } from "gridcue/tanstack-table";
+import "gridcue/styles.css";
+
+const table = useTable({ features, columns, data, defaultColumn: { filterFn: gridcueFilterFn } }); // 1
+
+const [cue] = useState(() => {
+  const schema = schemaFromTanStack(table, { restricted: ["tax_id"] }); // 2
+  return createGridCue({ schema, adapter: createTanStackAdapter({ schema, table }), provider: createRemoteProvider({ endpoint: "/api/gridcue" }) }); // 3
+});
+
+<GridCueBar controller={cue} />
+```
+
+Mount the server side where your API lives. It keeps your provider key off the browser:
+
+```ts
+// Next.js: app/api/gridcue/route.ts
+export const POST = createGridCueHandler({ provider: createJevProvider({ apiKey: process.env.JEV_API_KEY }) });
+
+// Express or plain Node
+app.post("/api/gridcue", toNodeHandler(createGridCueHandler({ provider })));
+```
+
+Using shadcn/ui? Copy the styled components instead of `GridCueBar`: see `registry/`. Keeping rows in memory instead of TanStack? Use `createRowsAdapter` and `applyView`, as `examples/next` does.
+
+Create the controller once, as above. TanStack's `useTable` returns a new object whenever table state changes, so a `useMemo` keyed on `table` would rebuild the controller.
+
+## Try it
+
+```bash
+pnpm install
+pnpm dev:vite    # http://localhost:5173, TanStack Table + shadcn
+pnpm dev:next    # http://localhost:3100, plain table, no Tailwind
+```
+
+Both use the Mock Provider unless `JEV_API_KEY` is set in a `.env` file. See `.env.example`. Both examples follow your OS light or dark setting.
+
 ## Repository status
 
-The build plan is being settled and nothing is scaffolded yet. Read [AGENTS.md](AGENTS.md) first, then [docs/README.md](docs/README.md) for the design documents, decisions, and open planning questions.
+The first package build is implemented. See `docs/operations/development.md` for commands, and `AGENTS.md` before contributing.
 
 ## Independence
 
