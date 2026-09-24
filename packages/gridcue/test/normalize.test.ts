@@ -29,6 +29,13 @@ describe("normalize: clauses", () => {
     expect(clauses("Show trusts, then by advisor")).toEqual(["show trusts", "by advisor"]);
   });
 
+  it("continues a sort or grouping with a short part that has no verb", () => {
+    expect(clauses("Group by custodian, then advisor.")).toEqual(["group by custodian", "group by advisor"]);
+    expect(clauses("Sort by advisor, then gain")).toEqual(["sort by advisor", "sort by gain"]);
+    expect(clauses("Show trusts, then advisor")).toEqual(["show trusts", "advisor"]);
+    expect(clauses("Sort by value. Northgate only.")).toEqual(["sort by value", "northgate only"]);
+  });
+
   it("keeps lists of columns together", () => {
     expect(clauses("Hide custodian and account number.")).toEqual(["hide custodian and account number"]);
     expect(clauses("Clear the filters and sorting")).toEqual(["clear the filters and sorting"]);
