@@ -1,5 +1,12 @@
 export { type ApplyResult, type GridAdapter, MVP_OPERATIONS } from "./core/adapter";
 export { type CompileInput, type ConfidencePolicy, compile, DEFAULT_CONFIDENCE } from "./core/compile";
+export {
+  type ControllerState,
+  createGridCue,
+  type GridCueController,
+  type GridCueOptions,
+  type InteractionStatus,
+} from "./core/controller";
 export * from "./core/errors";
 export { matchesFilter, matchesPredicate } from "./core/evaluate";
 export { type Clause, type Comparator, type Literal, type LiteralKind, type NormalizedInput, normalize } from "./core/normalize";

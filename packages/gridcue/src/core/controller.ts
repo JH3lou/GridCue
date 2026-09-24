@@ -1,0 +1,268 @@
+import type { GridAdapter } from "./adapter";
+import { type ConfidencePolicy, compile } from "./compile";
+import { type Issue, isGridCueError } from "./errors";
+import { type NormalizedInput, normalize } from "./normalize";
+import { screenRestricted } from "./policy";
+import { type AuditEvent, type AuditPolicy, type Preview, renderPreview, toAuditEvent } from "./preview";
+import type { VersionedViewState, ViewPlan, ViewSchema } from "./protocol";
+import { buildResolutionRequest, type IntentProvider, ResolutionResult } from "./resolution";
+import { type ApplicableViewPlan, validatePlan } from "./validate";
+
+export type InteractionStatus = "idle" | "resolving" | "ready" | "needs_clarification" | "unsupported" | "applying" | "applied" | "error";
+
+export interface ControllerState {
+  status: InteractionStatus;
+  utterance: string;
+  plan: ViewPlan | null;
+  preview: Preview | null;
+  /** A short, user-facing message for the current status. */
+  message: string | null;
+  issues: Issue[];
+  canUndo: boolean;
+}
+
+export interface GridCueOptions {
+  adapter: GridAdapter;
+  provider: IntentProvider;
+  /** Defaults to the adapter's schema. */
+  schema?: ViewSchema;
+  confidence?: ConfidencePolicy;
+  audit?: { onEvent: (event: AuditEvent) => void; policy?: AuditPolicy };
+  maxUtteranceLength?: number;
+}
+
+export interface GridCueController {
+  getState(): ControllerState;
+  subscribe(listener: () => void): () => void;
+  propose(text: string, options?: { channel?: ViewPlan["source"]["channel"] }): Promise<ViewPlan | null>;
+  answer(clarificationId: string, optionId: string): ViewPlan | null;
+  apply(): Promise<boolean>;
+  cancel(): void;
+  undo(): Promise<boolean>;
+  dispose(): void;
+}
+
+/** Matches the largest request the resolution protocol accepts. */
+const MAX_CLAUSES = 12;
+
+const IDLE: ControllerState = { status: "idle", utterance: "", plan: null, preview: null, message: null, issues: [], canUndo: false };
+
+const unsupportedMessage = (plan: ViewPlan): string => {
+  const segment = plan.unsupportedSegments[0];
+  if (!segment) return "That request can't be applied.";
+  if (segment.category === "restricted_column") return "That request mentions a restricted column, so GridCue can't use it.";
+  return `GridCue only changes how the table looks, so it can't do “${segment.text ?? "that"}”. Remove that part to continue.`;
+};
+
+/** The one object a Host creates to wire a grid to GridCue. */
+export const createGridCue = (options: GridCueOptions): GridCueController => {
+  const { adapter, provider } = options;
+  const schema = options.schema ?? adapter.getSchema();
+  const maxLength = options.maxUtteranceLength ?? 500;
+  let state: ControllerState = IDLE;
+  let inflight: AbortController | null = null;
+  let session: {
+    input: NormalizedInput;
+    resolution: ResolutionResult;
+    base: VersionedViewState;
+    channel: ViewPlan["source"]["channel"];
+    answers: Record<string, string>;
+    restricted: ReturnType<typeof screenRestricted>;
+  } | null = null;
+  let applicable: ApplicableViewPlan | null = null;
+  let undoEntry: { before: VersionedViewState; appliedRevision: string } | null = null;
+  let ids = 0;
+  const listeners = new Set<() => void>();
+
+  const set = (next: Partial<ControllerState>) => {
+    state = { ...state, ...next, canUndo: undoEntry !== null && adapter.getState().revision === undoEntry.appliedRevision };
+    for (const l of listeners) l();
+  };
+  const audit = (plan: ViewPlan, outcome: Parameters<typeof toAuditEvent>[1], extra?: Parameters<typeof toAuditEvent>[3]) =>
+    options.audit?.onEvent(toAuditEvent(plan, outcome, options.audit.policy, extra));
+
+  const unsubscribeAdapter = adapter.subscribe(() => set({}));
+
+  const present = (): ViewPlan => {
+    if (!session) throw new Error("No active request.");
+    const plan = compile({
+      input: session.input,
+      resolution: session.resolution,
+      schema,
+      state: session.base.state,
+      baseRevision: session.base.revision,
+      channel: session.channel,
+      text: state.utterance,
+      restricted: session.restricted,
+      answers: session.answers,
+      ...(options.confidence ? { confidence: options.confidence } : {}),
+      newId: (prefix) => `${prefix}_${++ids}`,
+    });
+    applicable = null;
+    const preview = plan.operations.length > 0 ? renderPreview(plan, schema) : null;
+    if (plan.status === "ready") {
+      const result = validatePlan(plan, {
+        schema,
+        capabilities: adapter.getCapabilities(),
+        current: session.base,
+        defaultState: adapter.getDefaultState(),
+      });
+      if (result.ok) {
+        applicable = result.plan;
+        set({ status: "ready", plan, preview, message: null, issues: [] });
+      } else {
+        set({
+          status: "unsupported",
+          plan,
+          preview,
+          message: result.issues[0]?.message ?? "That change isn't allowed here.",
+          issues: result.issues,
+        });
+      }
+    } else if (plan.status === "needs_clarification") {
+      set({ status: "needs_clarification", plan, preview: null, message: plan.clarifications[0]?.prompt ?? null, issues: [] });
+    } else {
+      set({ status: "unsupported", plan, preview, message: unsupportedMessage(plan), issues: [] });
+    }
+    return plan;
+  };
+
+  return {
+    getState: () => state,
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+
+    async propose(text, { channel = "typed" } = {}) {
+      const utterance = text.trim();
+      if (!utterance) return null;
+      inflight?.abort();
+      if (utterance.length > maxLength) {
+        set({
+          ...IDLE,
+          status: "error",
+          utterance,
+          message: `Keep requests under ${maxLength} characters.`,
+          issues: [{ code: "INPUT_TOO_LONG", message: "Request too long." }],
+        });
+        return null;
+      }
+      const controller = new AbortController();
+      inflight = controller;
+      set({ ...IDLE, status: "resolving", utterance });
+      const input = normalize(utterance);
+      if (input.clauses.length > MAX_CLAUSES) {
+        set({
+          status: "error",
+          message: `Try fewer steps at once. GridCue handles up to ${MAX_CLAUSES} in one request.`,
+          issues: [{ code: "INPUT_TOO_COMPLEX", message: "Too many clauses." }],
+        });
+        return null;
+      }
+      const base = adapter.getState();
+      const restricted = screenRestricted(input, schema);
+      try {
+        let resolution: ResolutionResult = { clauses: [] };
+        if (restricted.length === 0) {
+          const request = buildResolutionRequest(input, schema, adapter.getCapabilities(), base.state);
+          const raw = await provider.resolve(request, controller.signal);
+          if (controller.signal.aborted) return null;
+          const parsed = ResolutionResult.safeParse(raw);
+          if (!parsed.success) throw Object.assign(new Error("malformed"), { code: "PROVIDER_MALFORMED" });
+          resolution = parsed.data;
+        }
+        session = { input, resolution, base, channel, answers: {}, restricted };
+        return present();
+      } catch (error) {
+        if (controller.signal.aborted) return null;
+        const code = isGridCueError(error) ? error.code : ((error as { code?: string }).code ?? "PROVIDER_FAILED");
+        set({
+          status: "error",
+          message: "Couldn't interpret that request. The view hasn't changed.",
+          issues: [{ code: code as Issue["code"], message: "Provider failed." }],
+        });
+        return null;
+      } finally {
+        if (inflight === controller) inflight = null;
+      }
+    },
+
+    answer(clarificationId, optionId) {
+      if (!session || state.status !== "needs_clarification") return null;
+      session.answers[clarificationId] = optionId;
+      return present();
+    },
+
+    async apply() {
+      const plan = applicable;
+      if (state.status !== "ready" || !plan) return false;
+      set({ status: "applying" });
+      const before = adapter.getState();
+      const recheck = validatePlan(plan, {
+        schema,
+        capabilities: adapter.getCapabilities(),
+        current: before,
+        defaultState: adapter.getDefaultState(),
+      });
+      if (!recheck.ok) {
+        audit(plan, "rejected", { errorCode: recheck.issues[0]?.code ?? "PLAN_INVALID" });
+        set({ status: "error", message: "The view changed since this preview. Preview the request again.", issues: recheck.issues });
+        return false;
+      }
+      const result = await adapter.apply(recheck.plan);
+      if (!result.ok) {
+        audit(plan, "failed", { errorCode: result.code });
+        set({
+          status: "error",
+          message: "The grid couldn't apply that change. Nothing was changed.",
+          issues: [{ code: result.code, message: result.message }],
+        });
+        return false;
+      }
+      undoEntry = { before, appliedRevision: result.state.revision };
+      applicable = null;
+      audit(plan, "applied", { newRevision: result.state.revision });
+      set({ status: "applied", message: "View updated." });
+      return true;
+    },
+
+    cancel() {
+      inflight?.abort();
+      inflight = null;
+      if (state.plan && state.status !== "applied") audit(state.plan, "cancelled");
+      applicable = null;
+      session = null;
+      set({ ...IDLE, utterance: state.utterance });
+    },
+
+    async undo() {
+      const entry = undoEntry;
+      if (!entry) return false;
+      if (adapter.getState().revision !== entry.appliedRevision) {
+        undoEntry = null;
+        set({
+          status: "error",
+          message: "The view changed after that update, so undo would erase newer changes.",
+          issues: [{ code: "PLAN_STALE_REVISION", message: "Stale undo." }],
+        });
+        return false;
+      }
+      const result = await adapter.restore(entry.before);
+      undoEntry = null;
+      if (!result.ok) {
+        set({ status: "error", message: "Couldn't undo that change.", issues: [{ code: result.code, message: result.message }] });
+        return false;
+      }
+      if (state.plan) audit(state.plan, "undone", { newRevision: result.state.revision });
+      set({ ...IDLE, utterance: state.utterance, message: "Change undone." });
+      return true;
+    },
+
+    dispose() {
+      inflight?.abort();
+      unsubscribeAdapter();
+      listeners.clear();
+    },
+  };
+};
