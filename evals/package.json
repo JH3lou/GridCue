@@ -1,0 +1,19 @@
+{
+  "name": "@gridcue-internal/evals",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "gridcue": "workspace:*",
+    "@gridcue-internal/wealth-fixtures": "workspace:*",
+    "@typesafe-ai/sdk": "0.6.0"
+  },
+  "devDependencies": {
+    "vitest": "5.0.1",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2",
+    "@types/node": "26.6.2"
+  },
+  "scripts": {
+    "typecheck": "tsc -p ."
+  }
+}

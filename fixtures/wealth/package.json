@@ -1,0 +1,18 @@
+{
+  "name": "@gridcue-internal/wealth-fixtures",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "gridcue": "workspace:*"
+  },
+  "scripts": {
+    "typecheck": "tsc -p ."
+  },
+  "devDependencies": {
+    "typescript": "7.0.2"
+  }
+}

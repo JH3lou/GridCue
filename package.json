@@ -13,7 +13,9 @@
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "vitest run",
     "test:live": "vitest run --project live",
-    "check": "pnpm lint && pnpm build && pnpm typecheck && pnpm test"
+    "eval": "tsx evals/cli.ts",
+    "eval:live": "tsx evals/cli.ts --live",
+    "check": "pnpm lint && pnpm build && pnpm typecheck && pnpm test && pnpm eval"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.14",
