@@ -255,4 +255,5 @@ Remaining live misses all ask instead of applying. The handoff lists them as fin
 
 ## Status
 
-- **Plan:** written, waiting for the owner's approval, at `docs/superpowers/plans/2026-09-24-resolution-quality.md`.
+- **Plan:** approved by the owner on 2026-09-24 and executed on `claude/resolution-quality`. `pnpm check` passes (325 tests). Two verbose live runs gave 0 unsafe and 0 wrong views, and all 15 original cases were correct. `pnpm test:live` passes.
+- **Next (owner's question):** a speculative fan-out, following the TypeSafe smart-home demo, for the remaining live misses.
