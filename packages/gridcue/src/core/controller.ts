@@ -89,6 +89,7 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
   type UndoEntry = { before: VersionedViewState; appliedRevision: string; plan: ViewPlan };
   const undoStack: UndoEntry[] = [];
   const MAX_UNDO = 20;
+  let undoing: Promise<boolean> | null = null;
   let ids = 0;
   const listeners = new Set<() => void>();
 
@@ -152,6 +153,57 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
       set({ status: "unsupported", plan, preview, message: unsupportedMessage(plan), issues: [] });
     }
     return plan;
+  };
+
+  const undoOnce = async (): Promise<boolean> => {
+    const entry = undoStack.at(-1);
+    if (!entry) return false;
+    let current: VersionedViewState;
+    try {
+      current = adapter.getState();
+    } catch {
+      set({
+        status: "error",
+        message: "The grid couldn't undo that change.",
+        issues: [{ code: "ADAPTER_FAILED", message: "The grid couldn't undo that change." }],
+      });
+      return false;
+    }
+    if (current.revision !== entry.appliedRevision) {
+      undoStack.length = 0;
+      set({
+        status: "error",
+        message: "The view changed after that update, so undo would erase newer changes.",
+        issues: [{ code: "PLAN_STALE_REVISION", message: "Stale undo." }],
+      });
+      return false;
+    }
+    let result: Awaited<ReturnType<typeof adapter.restore>>;
+    try {
+      result = await adapter.restore(entry.before);
+    } catch {
+      undoStack.length = 0;
+      set({
+        status: "error",
+        message: "The grid couldn't undo that change.",
+        issues: [{ code: "ADAPTER_FAILED", message: "The grid couldn't undo that change." }],
+      });
+      return false;
+    }
+    undoStack.pop();
+    if (!result.ok) {
+      undoStack.length = 0;
+      set({ status: "error", message: "Couldn't undo that change.", issues: [{ code: result.code, message: result.message }] });
+      return false;
+    }
+    // The earlier entry stays undoable only if nothing changed the grid between the two applies: then the view
+    // just restored is exactly what that earlier plan produced, now under a new revision.
+    const earlier = undoStack.at(-1);
+    if (earlier && earlier.appliedRevision === entry.before.revision) earlier.appliedRevision = result.state.revision;
+    else undoStack.length = 0;
+    audit(entry.plan, "undone", { newRevision: result.state.revision });
+    set({ ...IDLE, utterance: state.utterance, message: "Change undone." });
+    return true;
   };
 
   return {
@@ -342,55 +394,13 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
       set({ ...IDLE, utterance: state.utterance });
     },
 
-    async undo() {
-      const entry = undoStack.at(-1);
-      if (!entry) return false;
-      let current: VersionedViewState;
-      try {
-        current = adapter.getState();
-      } catch {
-        set({
-          status: "error",
-          message: "The grid couldn't undo that change.",
-          issues: [{ code: "ADAPTER_FAILED", message: "The grid couldn't undo that change." }],
-        });
-        return false;
-      }
-      if (current.revision !== entry.appliedRevision) {
-        undoStack.length = 0;
-        set({
-          status: "error",
-          message: "The view changed after that update, so undo would erase newer changes.",
-          issues: [{ code: "PLAN_STALE_REVISION", message: "Stale undo." }],
-        });
-        return false;
-      }
-      let result: Awaited<ReturnType<typeof adapter.restore>>;
-      try {
-        result = await adapter.restore(entry.before);
-      } catch {
-        undoStack.length = 0;
-        set({
-          status: "error",
-          message: "The grid couldn't undo that change.",
-          issues: [{ code: "ADAPTER_FAILED", message: "The grid couldn't undo that change." }],
-        });
-        return false;
-      }
-      undoStack.pop();
-      if (!result.ok) {
-        undoStack.length = 0;
-        set({ status: "error", message: "Couldn't undo that change.", issues: [{ code: result.code, message: result.message }] });
-        return false;
-      }
-      // The earlier entry stays undoable only if nothing changed the grid between the two applies: then the view
-      // just restored is exactly what that earlier plan produced, now under a new revision.
-      const earlier = undoStack.at(-1);
-      if (earlier && earlier.appliedRevision === entry.before.revision) earlier.appliedRevision = result.state.revision;
-      else undoStack.length = 0;
-      audit(entry.plan, "undone", { newRevision: result.state.revision });
-      set({ ...IDLE, utterance: state.utterance, message: "Change undone." });
-      return true;
+    undo() {
+      // A second press while an undo is running gets the same result. Starting another would read the first
+      // one's restore as a newer change and drop the rest of the history (review fix).
+      undoing ??= undoOnce().finally(() => {
+        undoing = null;
+      });
+      return undoing;
     },
 
     dispose() {
