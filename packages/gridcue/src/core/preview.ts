@@ -57,9 +57,11 @@ const describe = (op: ViewOperation, schema: ViewSchema, current?: Pick<ViewStat
     }
     case "filter.clear": {
       // Name what goes, so a new filter never silently drops an old one (user feedback on the live demo).
-      const removed = predicatesOf(current?.filters).map((predicate) =>
-        describe({ type: "filter.add", predicate, combineWith: "and" }, schema).replace(/^Filter /, ""),
-      );
+      const removed = predicatesOf(current?.filters).map((predicate) => {
+        const c = col(predicate.columnId);
+        if (c?.kind === "boolean" && predicate.operator === "eq") return `${c.label} is ${formatValue(predicate.value as Scalar, c)}`;
+        return describe({ type: "filter.add", predicate, combineWith: "and" }, schema).replace(/^Filter /, "");
+      });
       if (removed.length === 0) return "Clear all filters";
       return `Remove the ${removed.length === 1 ? "filter" : "filters"} ${removed.join("; ")}`;
     }
