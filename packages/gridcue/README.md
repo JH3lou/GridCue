@@ -11,7 +11,7 @@ GridCue lets people use natural language to get the insight they need from compl
 
 - **View-only.** It never edits data.
 - **Preview before apply.** Ambiguity becomes a question, not a guess.
-- **Rows never leave your app.** Only column names and values you approve go to the model, and the model only picks among closed choices; code builds the plan.
+- **Rows never leave your app.** The model gets the request text, the values read from it, and the columns and values you expose. It only picks among closed choices; code builds the plan.
 - **Headless and grid-agnostic.** A framework-free core, React bindings, TanStack Table and in-memory adapters, and a plain-CSS command bar.
 
 ## Try it with no key
