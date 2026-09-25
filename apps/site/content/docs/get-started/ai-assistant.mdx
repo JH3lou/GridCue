@@ -1,0 +1,47 @@
+---
+title: Set up with an AI assistant
+description: Install GridCue's agent skill, and your coding assistant sets GridCue up the safe way, step by step.
+---
+
+GridCue ships an **agent skill**: instructions a coding assistant loads when you ask it to add GridCue. It walks the assistant through setup in order and checks each step. It also keeps it to the rules that matter, such as keeping your Jev key off the browser. It reads these docs for every API detail, so it stays current.
+
+## Install
+
+For Claude Code, Cursor, Codex, GitHub Copilot, and other assistants the [skills CLI](https://github.com/vercel-labs/skills) supports:
+
+```bash
+npx skills add JH3lou/GridCue --skill gridcue
+```
+
+Or as a Claude Code plugin:
+
+```bash
+claude plugin marketplace add JH3lou/GridCue
+claude plugin install gridcue@gridcue
+```
+
+## Then ask
+
+In your app's folder, try:
+
+> Add GridCue to this app's accounts table.
+
+The assistant works through these steps, and checks each one before the next:
+
+1. Reads your stack: Vite or Next.js, and TanStack Table v9 or plain rows.
+2. Installs `gridcue`, wires the keyless [Mock Provider](/docs/get-started/quick-start), and confirms a request previews.
+3. Picks the command bar that fits your app: the plain-CSS `GridCueBar`, or the [shadcn command bar](/docs/components/command-bar).
+4. [Describes your domain](/docs/get-started/describe-your-domain) from your real columns, and tests three requests in your own words.
+5. [Turns on Jev](/docs/get-started/turn-on-jev) behind your own endpoint, if you want it, and checks no key reaches the browser.
+6. Offers to write [evals](/docs/guides/evals) on your schema.
+
+## What it won't do
+
+- Put a provider key in client code, or in a `VITE_` or `NEXT_PUBLIC_` variable.
+- Send your rows to a model, or skip marking sensitive columns `restricted`.
+- Bypass preview, apply, or undo, or have a model write grid state directly.
+- Wire GridCue to change data: it only changes the view.
+
+It stops and asks you before adding a server your app doesn't have, and when a column might be sensitive.
+
+The skill's source is in [`skills/gridcue`](https://github.com/JH3lou/GridCue/tree/main/skills/gridcue).

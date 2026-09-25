@@ -23,7 +23,8 @@
     "registry:build": "pnpm --filter @gridcue-internal/registry build",
     "check:package": "pnpm --filter gridcue check:package",
     "check:bundles": "pnpm build && JEV_API_KEY=gridcue-bundle-canary pnpm --filter \"./examples/*\" build && JEV_API_KEY=gridcue-bundle-canary pnpm --filter @gridcue-internal/site build && node scripts/check-bundles.mjs",
-    "check": "pnpm lint && pnpm build && pnpm typecheck && pnpm test && pnpm eval && pnpm registry:build && pnpm check:package && pnpm check:bundles"
+    "check": "pnpm lint && pnpm build && pnpm typecheck && pnpm test && pnpm eval && pnpm registry:build && pnpm check:package && pnpm check:skills && pnpm check:bundles",
+    "check:skills": "node scripts/check-skills.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.14",
