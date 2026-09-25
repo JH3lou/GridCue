@@ -1,18 +1,44 @@
-import type { IncomingMessage, ServerResponse } from "node:http";
 import type { GridCueHandler } from "./handler";
 
-type NodeRequest = IncomingMessage & { body?: unknown; originalUrl?: string };
+// Structural types for Node's `IncomingMessage` and `ServerResponse`, so the published types don't need
+// `@types/node`: a Workers-only project that never calls this still typechecks (pre-launch fix).
+interface NodeRequest extends AsyncIterable<Uint8Array | string> {
+  method?: string | undefined;
+  url?: string | undefined;
+  headers: Record<string, string | string[] | undefined>;
+  body?: unknown;
+  originalUrl?: string;
+}
+interface NodeResponse {
+  readonly writableEnded: boolean;
+  on(event: "close", listener: () => void): unknown;
+  writeHead(status: number, headers: Record<string, string>): NodeResponse;
+  end(body?: string): unknown;
+}
 
 const readBody = async (req: NodeRequest, limit: number): Promise<string> => {
-  if (req.body !== undefined) return typeof req.body === "string" ? req.body : JSON.stringify(req.body);
-  const chunks: Buffer[] = [];
+  const tooLarge = () => Object.assign(new Error("too large"), { status: 413 });
+  // A body a framework already parsed is held to the same limit once serialized again.
+  if (req.body !== undefined) {
+    const text = typeof req.body === "string" ? req.body : JSON.stringify(req.body);
+    if (new TextEncoder().encode(text).length > limit) throw tooLarge();
+    return text;
+  }
+  const chunks: Uint8Array[] = [];
   let size = 0;
   for await (const chunk of req) {
-    size += (chunk as Buffer).length;
-    if (size > limit) throw Object.assign(new Error("too large"), { status: 413 });
-    chunks.push(chunk as Buffer);
+    const bytes = typeof chunk === "string" ? new TextEncoder().encode(chunk) : chunk;
+    size += bytes.length;
+    if (size > limit) throw tooLarge();
+    chunks.push(bytes);
   }
-  return Buffer.concat(chunks).toString("utf8");
+  const all = new Uint8Array(size);
+  let at = 0;
+  for (const bytes of chunks) {
+    all.set(bytes, at);
+    at += bytes.length;
+  }
+  return new TextDecoder().decode(all);
 };
 
 /**
@@ -21,7 +47,7 @@ const readBody = async (req: NodeRequest, limit: number): Promise<string> => {
  */
 export const toNodeHandler =
   (handler: GridCueHandler, { maxBodyBytes = 32_768 } = {}) =>
-  async (req: NodeRequest, res: ServerResponse): Promise<void> => {
+  async (req: NodeRequest, res: NodeResponse): Promise<void> => {
     const controller = new AbortController();
     res.on("close", () => {
       if (!res.writableEnded) controller.abort();
@@ -31,7 +57,7 @@ export const toNodeHandler =
       body = req.method === "GET" || req.method === "HEAD" ? undefined : await readBody(req, maxBodyBytes);
     } catch {
       res
-        .writeHead(413, { "content-type": "application/json" })
+        .writeHead(413, { "content-type": "application/json", "cache-control": "no-store" })
         .end(JSON.stringify({ error: { code: "INPUT_TOO_LARGE", message: "Request too large." } }));
       return;
     }

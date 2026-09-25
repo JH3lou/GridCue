@@ -64,8 +64,10 @@ export const createGridCueHandler =
     const parsed = ResolutionRequest.safeParse(data);
     if (!parsed.success) return fail(400, "INPUT_INVALID", "Invalid resolution request.");
     try {
-      const result = ResolutionResult.parse(await provider.resolve(parsed.data, request.signal));
-      return json(200, result);
+      // A result that doesn't match the protocol is reported as malformed, as the Controller and Remote provider do.
+      const result = ResolutionResult.safeParse(await provider.resolve(parsed.data, request.signal));
+      if (!result.success) return fail(502, "PROVIDER_MALFORMED", "The intent provider returned a malformed result.");
+      return json(200, result.data);
     } catch (error) {
       const code = isGridCueError(error) && error.code.startsWith("PROVIDER_") ? error.code : "PROVIDER_FAILED";
       return fail(502, code, "The intent provider failed.");

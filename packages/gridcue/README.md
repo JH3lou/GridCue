@@ -11,32 +11,70 @@ GridCue lets people use natural language to get the insight they need from compl
 
 - **View-only.** It never edits data.
 - **Preview before apply.** Ambiguity becomes a question, not a guess.
-- **Rows never leave your app.** Only column names and values you approve go to the model, and the model only picks among closed choices; code builds the plan.
+- **Rows never leave your app.** The model gets the request text, the values read from it, and the columns and values you expose. It only picks among closed choices; code builds the plan.
 - **Headless and grid-agnostic.** A framework-free core, React bindings, TanStack Table and in-memory adapters, and a plain-CSS command bar.
 
 ## Try it with no key
 
+With TanStack Table v9 and React 19:
+
 ```bash
-npm i gridcue
+npm i gridcue @tanstack/react-table
 ```
 
 ```tsx
+import {
+  type ColumnDef, type RowData, columnFilteringFeature, columnGroupingFeature, columnOrderingFeature, columnVisibilityFeature,
+  createFilteredRowModel, createGroupedRowModel, createSortedRowModel, rowSortingFeature, tableFeatures, useTable,
+} from "@tanstack/react-table";
 import { createGridCue } from "gridcue";
 import { createMockProvider } from "gridcue/mock";
 import { GridCueBar } from "gridcue/react";
 import { createTanStackAdapter, gridcueFilterFn, schemaFromTanStack } from "gridcue/tanstack-table";
+import { useState } from "react";
 import "gridcue/styles.css";
 
-const table = useTable({ features, columns, data, defaultColumn: { filterFn: gridcueFilterFn } });
-const [cue] = useState(() => {
-  const schema = schemaFromTanStack(table);
-  return createGridCue({ schema, adapter: createTanStackAdapter({ schema, table }), provider: createMockProvider() });
+const features = tableFeatures({
+  columnFilteringFeature, rowSortingFeature, columnGroupingFeature, columnVisibilityFeature, columnOrderingFeature,
+  filteredRowModel: createFilteredRowModel(),
+  sortedRowModel: createSortedRowModel(),
+  groupedRowModel: createGroupedRowModel(),
 });
 
-<GridCueBar controller={cue} />
+export function Grid<Row extends RowData>({ columns, data }: { columns: ColumnDef<typeof features, Row>[]; data: Row[] }) {
+  const table = useTable({ features, columns, data, defaultColumn: { filterFn: gridcueFilterFn } });
+  // Create the controller once: useTable returns a new object whenever the table's state changes.
+  const [cue] = useState(() => {
+    const schema = schemaFromTanStack(table);
+    return createGridCue({ schema, adapter: createTanStackAdapter({ schema, table }), provider: createMockProvider() });
+  });
+  return (
+    <>
+      <GridCueBar controller={cue} />
+      {/* render the table as you already do */}
+    </>
+  );
+}
 ```
 
-The Mock Provider runs in the browser with no server or account. For production, use the Jev provider behind your own endpoint with `gridcue/server`. It keeps your key off the browser; put the endpoint behind your app's auth and rate limits.
+The Mock Provider runs in the browser, with no server and no account. Not using TanStack Table? The Rows Adapter in `gridcue` works over any array.
+
+## Turn on Jev
+
+Jev runs behind an endpoint you control, so your key never reaches the browser:
+
+```bash
+npm i @typesafe-ai/sdk
+```
+
+```ts
+// A server route, such as app/api/gridcue/route.ts in Next.js
+import { createGridCueHandler, createJevProvider } from "gridcue/server";
+
+export const POST = createGridCueHandler({ provider: createJevProvider({ apiKey: process.env.JEV_API_KEY }) });
+```
+
+In the browser, swap `createMockProvider()` for `createRemoteProvider({ endpoint: "/api/gridcue" })` from `gridcue`. Put the endpoint behind your app's auth and rate limits.
 
 ## Entries
 
@@ -48,6 +86,6 @@ The Mock Provider runs in the browser with no server or account. For production,
 | `gridcue/server` | The Server Handler, Node helper, and Jev provider (server only) |
 | `gridcue/mock` | The keyless Mock Provider |
 
-Full documentation, examples, and the shadcn components are in the [GitHub repository](https://github.com/JH3lou/GridCue).
+Docs, a live demo, and the shadcn components: [gridcue.dev](https://gridcue.dev). Source: [GitHub](https://github.com/JH3lou/GridCue).
 
 GridCue is an independent open-source project, not affiliated with or endorsed by TypeSafe. MIT licensed.

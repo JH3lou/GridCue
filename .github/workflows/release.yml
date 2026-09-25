@@ -28,12 +28,22 @@ jobs:
         run: test "v$(node -p "require('./packages/gridcue/package.json').version")" = "$GITHUB_REF_NAME"
       - run: pnpm check
       # A version already on npm (for example, a first release published by hand; see release.md) is not
-      # published again, so the tag can always be pushed afterwards.
+      # published again, so the tag can always be pushed afterwards. Only a 404 means "not published": any other
+      # lookup failure is retried, then fails the run rather than publishing blind.
       - name: Check whether this version is already on npm
         id: published
         run: |
           VERSION="$(node -p "require('./packages/gridcue/package.json').version")"
-          if npm view "gridcue@${VERSION}" version >/dev/null 2>&1; then echo "exists=true" >> "$GITHUB_OUTPUT"; fi
+          for attempt in 1 2 3; do
+            if OUT="$(npm view "gridcue@${VERSION}" version 2>&1)"; then
+              if [ -n "$OUT" ]; then echo "exists=true" >> "$GITHUB_OUTPUT"; else echo "exists=false" >> "$GITHUB_OUTPUT"; fi
+              exit 0
+            fi
+            if echo "$OUT" | grep -q "E404"; then echo "exists=false" >> "$GITHUB_OUTPUT"; exit 0; fi
+            echo "npm view failed (attempt ${attempt}): ${OUT}"
+            sleep 10
+          done
+          exit 1
       - run: npm publish --access public
-        if: steps.published.outputs.exists != 'true'
+        if: steps.published.outputs.exists == 'false'
         working-directory: packages/gridcue
