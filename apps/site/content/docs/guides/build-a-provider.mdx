@@ -1,0 +1,140 @@
+---
+title: Build a provider
+description: Implement the IntentProvider interface to resolve requests with your own model or rules.
+---
+
+An **Intent Provider** answers closed questions about a request: which kind of change each part asks for, which columns and values it means, and how sure it is. It never writes View Operations. GridCue's compiler turns the answers into a View Plan, and validation checks that plan against the View Schema before the Preview and again before apply.
+
+Jev and the Mock Provider are the two built-in providers. You can write your own for another model, a rules engine, or a test double.
+
+## The interface
+
+```ts
+import type { IntentProvider, ResolutionRequest, ResolutionResult } from "gridcue";
+
+interface IntentProvider {
+  resolve(request: ResolutionRequest, signal?: AbortSignal): Promise<ResolutionResult>;
+}
+```
+
+`ResolutionRequest`, `ResolutionResult`, and `ClauseResolution` are exported from `gridcue` both as types and as Zod schemas.
+
+## What the provider receives
+
+A `ResolutionRequest` holds only the request text, approved schema metadata, and the current view. It never holds rows, and restricted columns are left out.
+
+| Field | What it holds |
+| --- | --- |
+| `protocolVersion` | `"0.1"` |
+| `utterance` | The User's request, up to 2,000 characters |
+| `clauses` | Up to 12 parts, split by deterministic code. Each has `index`, `text`, and `literals` (amounts, percentages, dates, and text GridCue parsed), plus optional `direction`, `continues`, and `mentions` |
+| `clauses[].mentions` | Columns and enum values already matched by a Host-declared name. A named value is final. `ambiguous: true` marks a row or entity noun ("households") that could mean the column or the records |
+| `candidates.families` | The change types this grid supports, such as `"filter"`, `"sort"`, `"group"`, `"columns.hide"`, `"view.reset"`, plus the four unsupported ones, such as `"unsupported.data_mutation"` |
+| `candidates.columns` | Each exposed column: `id`, `label`, `kind`, `aliases`, `description`, the `families` it allows, its `operators`, `enumValues`, `entity`, and `valueGroups` |
+| `candidates.rowNoun` | What one row is, when the Host declared it |
+| `view` | The current `visibleColumnIds`, `sorts`, `groupBy`, and whether any filter is set |
+
+## What the provider returns
+
+A `ResolutionResult` is `{ clauses: ClauseResolution[] }`, one entry per part, matched by `clauseIndex`. A part with no entry is treated as having no answers, so GridCue proposes no change for it.
+
+Every `confidence` is a probability from 0 to 1. A `Pick` is `{ id, confidence }`.
+
+**Required fields:**
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `clauseIndex` | `number` | The part's `index` |
+| `families` | `Pick[]` | Scores for the change types in `candidates.families` |
+| `columns` | `Pick[]` | Columns the part refers to, in the order they are mentioned |
+| `values` | `{ columnId, valueId, confidence }[]` | Approved enum value IDs, or `"true"` / `"false"` for boolean columns |
+| `unmatchedTerms` | `string[]` | Phrases that look like column names but match no candidate. GridCue quotes the first one in a Clarification ("There's no column called …") and never guesses at it |
+
+**Optional fields.** Leave out what your provider can't answer. The compiler treats a missing field as "no signal".
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `direction` | `Pick` | `"asc"` or `"desc"` |
+| `roles` | `{ columnId, family, confidence }[]` | Does the part ask for this change to this column? Lets one part carry several changes |
+| `kind` | `Pick` | The change type the part mainly asks for |
+| `adds` | `number` | Probability that a sort or grouping adds a level rather than replacing the current one |
+| `outer` | `{ outerId, innerId, confidence }[]` | For "A within B" wording: is `outerId` the outer grouping or primary sort? |
+| `readings` | `{ columnId, reading, confidence }[]` | For an ambiguous noun: `"column"`, `"records"`, or `"rows"` |
+| `literalColumns` | `{ literalIndex, columnId, confidence }[]` | Which column each literal applies to, by its index in the part's `literals` |
+
+## Rules for a good provider
+
+**Choose only from the candidates.** Every ID you return must come from `candidates`. An ID that isn't there never becomes an operation: the compiler looks columns up in the schema, and validation rejects anything outside it. Still, a provider that invents IDs only produces Clarifications and abstentions.
+
+**Return real probabilities.** GridCue uses a decision as-is at 0.85 or above, asks between 0.65 and 0.85, and discards it below 0.65 (the defaults). A provider that answers 0.99 for everything turns off Clarifications. A provider that never goes above 0.85 asks about everything. If your model gives scores rather than probabilities, calibrate them on labelled cases first.
+
+**Score the unsupported families.** When a part asks to edit data, trade, navigate, or export, score the matching `unsupported.*` family high. GridCue then refuses that part instead of looking for a view change in it.
+
+**Honour the signal.** Pass `signal` to your network calls. GridCue aborts it when the User sends a newer request or the time limit passes (8 seconds by default).
+
+**Fail with a stable code.** Throw a `GridCueError` with a `PROVIDER_` code, such as `PROVIDER_FAILED` or `PROVIDER_TOO_COMPLEX`. The Controller shows the User a safe message and the view stays as it was. A result that doesn't match the `ResolutionResult` schema fails as `PROVIDER_MALFORMED`.
+
+## A small example
+
+This provider only understands "reset" and "clear filters". Anything else gets no answers, so GridCue tells the User it isn't sure what to change, and the view stays as it is.
+
+```ts
+import type { ClauseResolution, IntentProvider } from "gridcue";
+
+export const createResetProvider = (): IntentProvider => ({
+  async resolve(request) {
+    return {
+      clauses: request.clauses.map((clause): ClauseResolution => {
+        const families =
+          /\bclear\b.*\bfilters?\b/.test(clause.text) && request.candidates.families.includes("filter.clear")
+            ? [{ id: "filter.clear", confidence: 0.95 }]
+            : /\breset\b/.test(clause.text) && request.candidates.families.includes("view.reset")
+              ? [{ id: "view.reset", confidence: 0.95 }]
+              : [];
+        return { clauseIndex: clause.index, families, columns: [], values: [], unmatchedTerms: [] };
+      }),
+    };
+  },
+});
+```
+
+For a model-backed provider, the shape is the same: build closed questions from `candidates`, ask your model, and map its answers back to `Pick`s. Read `src/mock/index.ts` in the GridCue repo for a complete rule-based provider, and `src/server/jev.ts` for one that asks a model every question in a single call.
+
+## Use it in the browser or on the server
+
+A provider with no secrets can run in the browser:
+
+```ts
+const cue = createGridCue({ schema, adapter, provider: createResetProvider() });
+```
+
+A provider that holds a key belongs on the server, behind the Server Handler:
+
+```ts
+// Server
+import { createGridCueHandler } from "gridcue/server";
+export const POST = createGridCueHandler({ provider: createMyProvider({ apiKey: process.env.MY_KEY }) });
+
+// Browser
+import { createRemoteProvider } from "gridcue";
+const provider = createRemoteProvider({ endpoint: "/api/gridcue" });
+```
+
+The handler validates both the request and your provider's result, and returns the result to `createRemoteProvider`. Your provider's error codes that start with `PROVIDER_` reach the browser. Its error messages do not.
+
+## Test it
+
+Run your provider through a real Controller and the Rows Adapter, so you test what the User would see:
+
+```ts
+import { createGridCue, createRowsAdapter } from "gridcue";
+
+const adapter = createRowsAdapter({ schema });
+const cue = createGridCue({ adapter, provider: createResetProvider() });
+const plan = await cue.propose("reset the view");
+// cue.getState().status is "ready"; plan.operations is [{ type: "view.reset" }]
+```
+
+Then label a set of real requests and score them the way GridCue's evals do. See [Running evals](/docs/guides/evals).
+
+A shared provider contract suite, with a reference non-Jev provider in the examples, is planned for 0.2. It does not exist yet.

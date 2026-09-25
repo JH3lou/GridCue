@@ -1,0 +1,306 @@
+{
+  "recordedAt": "2026-09-24",
+  "model": "jev-1.13.0",
+  "requests": [
+    {
+      "utterance": "Roth IRAs grouped by rep",
+      "runs": [
+        {
+          "strategy": "focused",
+          "status": "ready",
+          "preview": ["Filter Registration type to Roth IRA", "Group by Advisor"],
+          "questions": 25,
+          "latencyMs": 561
+        },
+        {
+          "strategy": "fan-out",
+          "status": "ready",
+          "preview": ["Filter Registration type to Roth IRA", "Group by Advisor"],
+          "questions": 59,
+          "latencyMs": 352
+        },
+        {
+          "strategy": "mock",
+          "status": "ready",
+          "preview": ["Filter Registration type to Roth IRA", "Group by Advisor"]
+        }
+      ]
+    },
+    {
+      "utterance": "Taxable accounts over $1M, sort by concentration, highest first",
+      "runs": [
+        {
+          "strategy": "focused",
+          "status": "ready",
+          "preview": ["Filter Registration type to Taxable", "Filter Market value above $1,000,000", "Sort by Concentration, descending"],
+          "questions": 52,
+          "latencyMs": 146
+        },
+        {
+          "strategy": "fan-out",
+          "status": "ready",
+          "preview": ["Filter Registration type to Taxable", "Filter Market value above $1,000,000", "Sort by Concentration, descending"],
+          "questions": 124,
+          "latencyMs": 164
+        },
+        {
+          "strategy": "mock",
+          "status": "ready",
+          "preview": ["Filter Registration type to Taxable", "Filter Market value above $1,000,000", "Sort by Concentration, descending"]
+        }
+      ]
+    },
+    {
+      "utterance": "Show me the retirement accounts",
+      "runs": [
+        {
+          "strategy": "focused",
+          "status": "ready",
+          "preview": ["Filter Registration type to any of IRA and Roth IRA"],
+          "questions": 25,
+          "latencyMs": 132
+        },
+        {
+          "strategy": "fan-out",
+          "status": "ready",
+          "preview": ["Filter Registration type to any of IRA and Roth IRA"],
+          "questions": 59,
+          "latencyMs": 126
+        },
+        {
+          "strategy": "mock",
+          "status": "ready",
+          "preview": ["Filter Registration type to any of IRA and Roth IRA"]
+        }
+      ]
+    },
+    {
+      "utterance": "Biggest accounts first",
+      "runs": [
+        {
+          "strategy": "focused",
+          "status": "needs_clarification",
+          "preview": [],
+          "message": "Which column should be sorted by?",
+          "questions": 26,
+          "latencyMs": 141
+        },
+        {
+          "strategy": "fan-out",
+          "status": "ready",
+          "preview": ["Sort by Market value, descending"],
+          "questions": 64,
+          "latencyMs": 242
+        },
+        {
+          "strategy": "mock",
+          "status": "needs_clarification",
+          "preview": [],
+          "message": "Which column should be sorted by?"
+        }
+      ]
+    },
+    {
+      "utterance": "Group by custodian, then by advisor",
+      "runs": [
+        {
+          "strategy": "focused",
+          "status": "ready",
+          "preview": ["Group by Custodian, then Advisor"],
+          "questions": 54,
+          "latencyMs": 180
+        },
+        {
+          "strategy": "fan-out",
+          "status": "ready",
+          "preview": ["Group by Custodian, then Advisor"],
+          "questions": 130,
+          "latencyMs": 166
+        },
+        {
+          "strategy": "mock",
+          "status": "ready",
+          "preview": ["Group by Custodian, then Advisor"]
+        }
+      ]
+    },
+    {
+      "utterance": "Also sort by market value",
+      "runs": [
+        {
+          "strategy": "focused",
+          "status": "ready",
+          "preview": ["Sort by Market value, ascending"],
+          "questions": 27,
+          "latencyMs": 113
+        },
+        {
+          "strategy": "fan-out",
+          "status": "ready",
+          "preview": ["Sort by Market value, ascending"],
+          "questions": 65,
+          "latencyMs": 127
+        },
+        {
+          "strategy": "mock",
+          "status": "ready",
+          "preview": ["Sort by Market value, ascending"]
+        }
+      ]
+    },
+    {
+      "utterance": "Accounts excluding trusts, largest first",
+      "runs": [
+        {
+          "strategy": "focused",
+          "status": "needs_clarification",
+          "preview": [],
+          "message": "Which column should be sorted by?",
+          "questions": 24,
+          "latencyMs": 164
+        },
+        {
+          "strategy": "fan-out",
+          "status": "ready",
+          "preview": ["Filter Registration type to any of Taxable, IRA and Roth IRA", "Sort by Market value, descending"],
+          "questions": 59,
+          "latencyMs": 161
+        },
+        {
+          "strategy": "mock",
+          "status": "ready",
+          "preview": ["Filter Registration type to any of Taxable, IRA and Roth IRA"]
+        }
+      ]
+    },
+    {
+      "utterance": "Sort by gains for trusts",
+      "runs": [
+        {
+          "strategy": "focused",
+          "status": "ready",
+          "preview": ["Filter Registration type to Trust", "Sort by Unrealized gain, ascending"],
+          "questions": 25,
+          "latencyMs": 144
+        },
+        {
+          "strategy": "fan-out",
+          "status": "ready",
+          "preview": ["Filter Registration type to Trust", "Sort by Unrealized gain, ascending"],
+          "questions": 59,
+          "latencyMs": 153
+        },
+        {
+          "strategy": "mock",
+          "status": "ready",
+          "preview": ["Filter Registration type to Trust", "Sort by Unrealized gain, ascending"]
+        }
+      ]
+    },
+    {
+      "utterance": "Hide custodian and account number",
+      "runs": [
+        {
+          "strategy": "focused",
+          "status": "ready",
+          "preview": ["Hide Custodian and Account number"],
+          "questions": 27,
+          "latencyMs": 130
+        },
+        {
+          "strategy": "fan-out",
+          "status": "ready",
+          "preview": ["Hide Custodian and Account number"],
+          "questions": 65,
+          "latencyMs": 135
+        },
+        {
+          "strategy": "mock",
+          "status": "ready",
+          "preview": ["Hide Custodian and Account number"]
+        }
+      ]
+    },
+    {
+      "utterance": "Largest households first",
+      "runs": [
+        {
+          "strategy": "focused",
+          "status": "needs_clarification",
+          "preview": [],
+          "message": "Did you mean households as a whole? GridCue can group by Household.",
+          "questions": 26,
+          "latencyMs": 120
+        },
+        {
+          "strategy": "fan-out",
+          "status": "needs_clarification",
+          "preview": [],
+          "message": "Did you mean households as a whole? GridCue can group by Household.",
+          "questions": 65,
+          "latencyMs": 180
+        },
+        {
+          "strategy": "mock",
+          "status": "needs_clarification",
+          "preview": [],
+          "message": "Did you mean households as a whole? GridCue can group by Household."
+        }
+      ]
+    },
+    {
+      "utterance": "Sell anything over 10%",
+      "runs": [
+        {
+          "strategy": "focused",
+          "status": "unsupported",
+          "preview": [],
+          "message": "GridCue only changes how the table looks, so it can't do “sell anything over 10%”. Remove that part to continue.",
+          "questions": 28,
+          "latencyMs": 131
+        },
+        {
+          "strategy": "fan-out",
+          "status": "unsupported",
+          "preview": [],
+          "message": "GridCue only changes how the table looks, so it can't do “sell anything over 10%”. Remove that part to continue.",
+          "questions": 66,
+          "latencyMs": 142
+        },
+        {
+          "strategy": "mock",
+          "status": "unsupported",
+          "preview": [],
+          "message": "GridCue only changes how the table looks, so it can't do “sell anything over 10%”. Remove that part to continue."
+        }
+      ]
+    },
+    {
+      "utterance": "What's the total market value?",
+      "runs": [
+        {
+          "strategy": "focused",
+          "status": "needs_clarification",
+          "preview": [],
+          "message": "I'm not sure what to change for “what's the total market value”. Try asking to filter, sort, group, or show or hide columns.",
+          "questions": 27,
+          "latencyMs": 139
+        },
+        {
+          "strategy": "fan-out",
+          "status": "needs_clarification",
+          "preview": [],
+          "message": "I'm not sure what to change for “what's the total market value”. Try asking to filter, sort, group, or show or hide columns.",
+          "questions": 65,
+          "latencyMs": 123
+        },
+        {
+          "strategy": "mock",
+          "status": "needs_clarification",
+          "preview": [],
+          "message": "I'm not sure what to change for “what's the total market value”. Try asking to filter, sort, group, or show or hide columns."
+        }
+      ]
+    }
+  ]
+}

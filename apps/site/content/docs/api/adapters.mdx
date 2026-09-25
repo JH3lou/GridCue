@@ -1,0 +1,252 @@
+---
+title: Adapters
+description: The GridAdapter interface, the Rows Adapter with applyView, and the TanStack Table adapter.
+---
+
+A Grid Adapter translates GridCue's View State to one grid library. It holds no language logic: it reports the grid's current view, applies a validated View Plan all at once, restores a snapshot for undo, and tells GridCue when the view changes. GridCue ships two adapters: the Rows Adapter for rows you keep in memory, and the TanStack Table adapter.
+
+## GridAdapter
+
+```ts
+import type { GridAdapter } from "gridcue";
+
+interface GridAdapter {
+  getSchema(): ViewSchema;
+  getCapabilities(): ViewCapabilities;
+  getState(): VersionedViewState;
+  getDefaultState(): ViewState;
+  apply(plan: ApplicableViewPlan): Promise<ApplyResult>;
+  restore(snapshot: VersionedViewState): Promise<ApplyResult>;
+  subscribe(listener: (state: VersionedViewState) => void): () => void;
+}
+
+type ApplyResult =
+  | { ok: true; state: VersionedViewState }
+  | { ok: false; code: `ADAPTER_${string}`; message: string };
+```
+
+| Method | Description |
+| --- | --- |
+| `getSchema()` | The `ViewSchema` for this grid. The Controller uses it unless the Host passes its own `schema`. |
+| `getCapabilities()` | Which operations and limits this grid supports. See [ViewCapabilities](#viewcapabilities). |
+| `getState()` | The current view and its revision. The revision must change whenever the view changes. |
+| `getDefaultState()` | The view `view.reset` returns to. |
+| `apply(plan)` | Applies every operation or none. Rejects plans that did not come from `validatePlan`. |
+| `restore(snapshot)` | Puts a saved view back. Used by undo, and to recover when `apply` throws part-way. |
+| `subscribe(listener)` | Fires on every view change, including the User's own clicks. Returns an unsubscribe function. |
+
+An adapter should check `isApplicable(plan)` before applying and return `ADAPTER_NOT_APPLICABLE` when it is false, and should refuse a plan whose `baseRevision` is not the current revision. `resultingState(plan)` gives the view a validated plan produces, so the adapter only has to write that state to its grid.
+
+```ts
+import { isApplicable, resultingState } from "gridcue";
+
+async apply(plan) {
+  if (!isApplicable(plan)) return { ok: false, code: "ADAPTER_NOT_APPLICABLE", message: "Only validated plans can be applied." };
+  if (plan.baseRevision !== current.revision) return { ok: false, code: "ADAPTER_STALE_REVISION", message: "The view changed first." };
+  return { ok: true, state: write(resultingState(plan)) };
+}
+```
+
+To write your own, see [Build an adapter](/docs/guides/build-an-adapter).
+
+## ViewCapabilities
+
+```ts
+interface ViewCapabilities {
+  operations: string[];
+  maxSorts?: number;
+  maxGroups?: number;
+  supportsAtomicApply: boolean;
+  supportsSnapshotRestore: boolean;
+  observesChanges: boolean;
+}
+```
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `operations` | `string[]` | The View Operation types this grid can apply. A plan with any other type fails validation with `PLAN_OPERATION_UNSUPPORTED`, and the provider is never offered families that need it. |
+| `maxSorts` | `number` | Most sort levels allowed. More gives `PLAN_CARDINALITY`. |
+| `maxGroups` | `number` | Most group levels allowed. More gives `PLAN_CARDINALITY`. |
+| `supportsAtomicApply` | `boolean` | Whether `apply` changes everything or nothing. When `false`, every plan fails validation with `PLAN_NOT_ATOMIC`. |
+| `supportsSnapshotRestore` | `boolean` | Whether `restore` can put a saved view back. |
+| `observesChanges` | `boolean` | `true` when the adapter reports manual view changes through `subscribe`. |
+
+## MVP_OPERATIONS
+
+```ts
+import { MVP_OPERATIONS } from "gridcue";
+
+const MVP_OPERATIONS: readonly string[] = [
+  "filter.add",
+  "filter.clear",
+  "sort.set",
+  "group.set",
+  "columns.show",
+  "columns.hide",
+  "columns.order",
+  "view.reset",
+];
+```
+
+The operations every first-release adapter supports. Both built-in adapters report exactly this list. The protocol also defines `columns.pin`, `aggregation.set` and `density.set`, but they are not in `MVP_OPERATIONS`, no request family produces them today, and validation would reject them against these adapters with `PLAN_OPERATION_UNSUPPORTED`. GridCue changes the view only; `aggregation.set` exists in the protocol but is not part of the first release.
+
+## createRowsAdapter
+
+```ts
+import { createRowsAdapter } from "gridcue";
+
+function createRowsAdapter(options: RowsAdapterOptions): RowsAdapter;
+
+interface RowsAdapterOptions {
+  schema: ViewSchema;
+  initialState?: ViewState;
+  maxSorts?: number;
+  maxGroups?: number;
+}
+```
+
+A Grid Adapter for Hosts that keep rows in memory. It holds the View State itself; pair it with `applyView` to get the rows to render in any table.
+
+| Name | Type | Default | Description |
+| --- | --- | --- | --- |
+| `schema` | `ViewSchema` | required | The schema for these rows. |
+| `initialState` | `ViewState` | every schema column visible, in schema order, with no filters, sorts or groups | The starting view. It is also the view `view.reset` returns to. |
+| `maxSorts` | `number` | `3` | Most sort levels allowed. |
+| `maxGroups` | `number` | `2` | Most group levels allowed. |
+
+It reports `MVP_OPERATIONS`, atomic apply, snapshot restore and `observesChanges: true`. Revisions look like `rows:0`, `rows:1`, and so on.
+
+### RowsAdapter
+
+```ts
+interface RowsAdapter extends GridAdapter {
+  setState(update: (state: ViewState) => ViewState): VersionedViewState;
+}
+```
+
+`setState` is for the Host's own controls, such as clicking a column header. It receives a copy of the current View State, commits what you return, bumps the revision and notifies subscribers.
+
+```tsx
+const [{ adapter, cue }] = useState(() => {
+  const adapter = createRowsAdapter({ schema, initialState });
+  return { adapter, cue: createGridCue({ adapter, provider }) };
+});
+const { state } = useSyncExternalStore(adapter.subscribe, adapter.getState, adapter.getState);
+const view = applyView(rows, state, schema);
+
+// A header click
+adapter.setState((s) => ({ ...s, sorts: [{ columnId: "market_value", direction: "desc" }] }));
+```
+
+## applyView
+
+```ts
+import { applyView } from "gridcue";
+
+function applyView<Row extends object>(rows: readonly Row[], state: ViewState, schema: ViewSchema): ViewResult<Row>;
+
+interface ViewResult<Row> {
+  /** Visible column IDs, in display order. */
+  columns: string[];
+  /** Filtered and sorted rows. */
+  rows: Row[];
+  /** Present when the view is grouped: one entry per distinct key, in first-seen order. */
+  groups?: Array<{ key: Record<string, Scalar>; rows: Row[] }>;
+}
+```
+
+Applies a View State to in-memory rows. It is pure: it never changes `rows`, and the Host renders the result with any table.
+
+- **Filters** use each column's kind. Text comparisons on `string` columns ignore case; `contains` and `startsWith` always do. `gt`, `lt`, `between` and the like never match an empty cell.
+- **Sorts** apply level by level. Empty cells sort after other values in ascending order and before them in descending order.
+- **Columns** are the visible column IDs in `columnOrder`.
+- **Groups** are present only when `groupBy` has columns. Each group holds its rows in sorted order.
+
+It does not paginate.
+
+## createTanStackAdapter
+
+```ts
+import { createTanStackAdapter } from "gridcue/tanstack-table";
+
+function createTanStackAdapter(options: TanStackAdapterOptions): GridAdapter;
+
+interface TanStackAdapterOptions {
+  schema: ViewSchema;
+  table: TanStackTableLike;
+  maxSorts?: number;
+  maxGroups?: number;
+}
+```
+
+A Grid Adapter over a TanStack Table v9 instance. The Host keeps owning the table and its state; GridCue writes to it through the table's own setters in one batch.
+
+| Name | Type | Default | Description |
+| --- | --- | --- | --- |
+| `schema` | `ViewSchema` | required | The schema, usually from `schemaFromTanStack`. |
+| `table` | `TanStackTableLike` | required | A table from `useTable` or `constructTable` with the filtering, sorting, grouping, visibility and ordering features. |
+| `maxSorts` | `number` | `3` | Most sort levels allowed. |
+| `maxGroups` | `number` | `2` | Most group levels allowed. |
+
+Behavior to know:
+
+- It reports `MVP_OPERATIONS`, atomic apply, snapshot restore and `observesChanges: true`.
+- The default view, which `view.reset` returns to, is the table's view when the adapter is created.
+- The revision (`tanstack:0`, `tanstack:1`, ...) changes only when the View State changes. Pagination, row selection, expanded rows and column sizing don't count.
+- TanStack column filters combine with AND only. A plan that needs OR, or a nested filter group, fails with `ADAPTER_UNSUPPORTED_FILTER` and nothing changes.
+- A column can hold a Host filter and a GridCue filter at once. GridCue stores its predicates in the column's filter value and keeps the Host's value alongside, so neither replaces the other.
+
+```tsx
+import { createGridCue } from "gridcue";
+import { createTanStackAdapter, gridcueFilterFn, schemaFromTanStack } from "gridcue/tanstack-table";
+
+const table = useTable({ features, columns, data, defaultColumn: { filterFn: gridcueFilterFn } });
+const [cue] = useState(() => {
+  const schema = schemaFromTanStack(table);
+  return createGridCue({ schema, adapter: createTanStackAdapter({ schema, table }), provider });
+});
+```
+
+## gridcueFilterFn
+
+```ts
+import { gridcueFilterFn } from "gridcue/tanstack-table";
+
+function gridcueFilterFn(row: { getValue(columnId: string): unknown }, columnId: string, value: unknown): boolean;
+```
+
+A TanStack filter function that evaluates GridCue's predicates exactly as the Rows Adapter does. Register it once with `defaultColumn: { filterFn: gridcueFilterFn }`. It passes every row for a filter value that is not GridCue's, and it does not evaluate a Host filter value stored alongside GridCue's. For a column that needs its own filter honored too, use `withGridCueFilter`.
+
+## withGridCueFilter
+
+```ts
+import { withGridCueFilter } from "gridcue/tanstack-table";
+
+function withGridCueFilter(fallback: FilterFn): FilterFn;
+```
+
+Wraps a column's own filter function so it keeps working alongside GridCue filters. When the column holds a GridCue filter, a row must pass GridCue's predicates and, if a Host value is stored too, the wrapped function. Otherwise the wrapped function runs as usual.
+
+```ts
+const columns = [
+  { accessorKey: "advisor", filterFn: withGridCueFilter(myAdvisorFilter) },
+];
+```
+
+## TanStackTableLike
+
+```ts
+interface TanStackTableLike {
+  store: { state: TanStackState; subscribe(listener: () => void): { unsubscribe(): void } | (() => void) };
+  _reactivity: { batch(fn: () => void): void };
+  setColumnFilters(filters: Array<{ id: string; value: unknown }>): void;
+  setSorting(sorting: Array<{ id: string; desc: boolean }>): void;
+  setGrouping(grouping: string[]): void;
+  setColumnVisibility(visibility: Record<string, boolean>): void;
+  setColumnOrder(order: string[]): void;
+  getAllLeafColumns(): Array<{ id: string; columnDef: { header?: unknown } }>;
+  getCoreRowModel(): { rows: Array<{ getValue(columnId: string): unknown }> };
+}
+```
+
+The parts of a TanStack Table v9 instance GridCue uses. Any table from `useTable` or `constructTable` with the filtering, sorting, grouping, visibility and ordering features fits.

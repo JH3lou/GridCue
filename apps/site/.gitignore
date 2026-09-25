@@ -1,0 +1,5 @@
+.react-router/
+.source/
+# Copied from registry/dist by scripts/copy-registry.mjs at build time.
+public/r/
+.wrangler/

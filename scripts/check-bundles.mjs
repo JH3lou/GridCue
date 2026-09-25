@@ -6,6 +6,8 @@ const FORBIDDEN = ["gridcue-bundle-canary", "api.typesafe.ai", "TypeSafeClient"]
 const ASSETS = /\.(js|mjs|html|css|json|map)$/;
 const ROOTS = [
   { dir: "examples/vite/dist", files: ASSETS },
+  // The Site is static and has no key at all (ADR 0006). Its docs quote server code, so only the canary is forbidden there.
+  { dir: "apps/site/build/client", files: ASSETS, forbidden: ["gridcue-bundle-canary"] },
   { dir: "examples/next/.next/static", files: ASSETS },
   // Pages Next prerenders are served to browsers as-is. Route handlers' server code here is not.
   { dir: "examples/next/.next/server/app", files: /\.(html|rsc)$/ },
@@ -23,8 +25,10 @@ const walk = (dir) =>
     return statSync(path).isDirectory() ? walk(path) : [path];
   });
 
-const leaks = ROOTS.flatMap(({ dir, files }) => walk(dir).filter((file) => files.test(file))).flatMap((file) =>
-  FORBIDDEN.filter((s) => readFileSync(file, "utf8").includes(s)).map((s) => `${file}: ${s}`),
+const leaks = ROOTS.flatMap(({ dir, files, forbidden = FORBIDDEN }) =>
+  walk(dir)
+    .filter((file) => files.test(file))
+    .flatMap((file) => forbidden.filter((s) => readFileSync(file, "utf8").includes(s)).map((s) => `${file}: ${s}`)),
 );
 
 if (leaks.length > 0) {

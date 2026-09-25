@@ -1,0 +1,115 @@
+---
+title: Providers and confidence
+description: How an Intent Provider answers closed questions, how confidence bands turn answers into decisions, and the rules the compiler applies around them.
+---
+
+## Intent Provider
+
+A pluggable service that picks among closed, Host-approved choices to help interpret an Utterance. It never produces View Operations.
+
+```ts
+interface IntentProvider {
+  resolve(request: ResolutionRequest, signal?: AbortSignal): Promise<ResolutionResult>;
+}
+```
+
+The `ResolutionRequest` holds the Clauses, their literals and Mentions, the candidate families and columns, and a summary of the current view. The `ResolutionResult` returns, for each Clause, scored picks: which families it asks for, which columns it names, which enum or yes/no values, and optionally a sort direction. Every pick carries a confidence between 0 and 1.
+
+GridCue parses the result against the protocol. A malformed response, an unknown choice, or a missing answer makes the request fail safely, with the view unchanged.
+
+## Candidates and closed choices
+
+A **Candidate** is one option in a closed set of choices offered to a provider. Every set comes from your View Schema and the adapter's capabilities, never from the provider, and every set has an explicit way out:
+
+- the families include `unsupported.data_mutation`, `unsupported.workflow_action`, `unsupported.navigation` and `unsupported.export`;
+- value, direction and literal questions include `none`;
+- only columns you exposed are offered, each with only the families and operators it allows.
+
+This is why a provider can't invent a column, an operator or a value. It can only point at one you declared, or say none fits.
+
+Jev fits this design well. It answers typed questions with probabilities: a Noul is a yes/no question answered with a probability, and a Choice picks one option from a closed list. GridCue asks many of them in one call, for example:
+
+- "Does the request step `clauses[0].text` ask to sort the rows?" (Noul)
+- "Which grid column does the condition `clauses[0].literals[0]` apply to?" with options Market value, Unrealized gain, or none (Choice)
+
+## Confidence bands
+
+The compiler compares each answer with two thresholds:
+
+| Band | Default | What happens |
+| --- | --- | --- |
+| At or above `ready` | 0.85 | Used as-is |
+| Between `clarify` and `ready` | 0.65 to 0.85 | GridCue asks a Clarification |
+| Below `clarify` | under 0.65 | Discarded; if nothing is left, GridCue abstains |
+
+You can set stricter bands on the controller:
+
+```ts
+createGridCue({ adapter, provider, confidence: { ready: 0.9, clarify: 0.7 } });
+```
+
+Confidence never bypasses validation, and GridCue never auto-applies, whatever the score. The defaults are tuned against `jev-1.13.0` on a labelled eval set.
+
+## Rules around the provider
+
+A provider scores each question on its own, so its answers can disagree. Deterministic rules settle that before any operation is built. They are the same for every provider, and each one is a unit test. The design records are ADRs 0012 to 0015 in the repository.
+
+### Mentions come first (ADR 0013)
+
+- A value named by a declared label or alias counts as confidence 1, with source `deterministic`.
+- A named column counts as confidence 1 too, unless the provider scores it below 0.40. Then it is dropped, because the name probably meant something else.
+- A name sitting where the rows go is not a column: "Roth **accounts**", "**accounts** with …", "sort **households** by …", "biggest **accounts** first". A name right after "by" or "on", or before "column", is always a column.
+- A value the User named is never silently ignored. If "Roth IRAs grouped by rep" couldn't keep the filter, GridCue would ask instead of grouping and dropping "Roth IRA".
+
+### Competing families (ADR 0012)
+
+When several Operation Families score high for one Clause, the compiler applies fixed rules in order:
+
+1. A family with nothing to act on yields to one that has something. "Show IRAs at Northgate" names values and no column, so it filters.
+2. Once any family is confident, middling ones are dropped instead of asked about.
+3. Show-only absorbs show and hide.
+4. Reset wins over the clears only when it scores higher than each of them.
+5. Between column families, a lead of at least 0.10 decides.
+6. Otherwise, GridCue asks the User to split the part.
+
+Each dropped family is recorded in the plan's evidence, so the audit trail says why.
+
+### One part, several changes (ADR 0014)
+
+With the `"fan-out"` strategy, Jev also answers, for every part:
+
+- which change each column is for, so "Show accounts over $1M sorted by gain" can filter and sort;
+- which kind of change the part mainly asks for;
+- whether a sort or grouping adds a level ("also group by advisor") instead of replacing it;
+- for wording such as "within" or "for each", which column is the outer level.
+
+Order and structure come from code; Jev answers bounded questions about them.
+
+### Your domain's words (ADR 0015)
+
+- A Value Group ("retirement") names several values at once.
+- An excluded value ("non-retirement", "excluding trusts") filters to the column's other approved values.
+- A value in a phrase such as "for trusts" or "at Northgate" is a filter, wherever it sits.
+- A text column's entity ranked by size ("largest households first") means the records, so GridCue offers to group rather than guess.
+
+See [Describe your domain](/docs/get-started/describe-your-domain) for the declarations these rules use.
+
+## Mock Provider and Jev
+
+| | Mock Provider | Jev |
+| --- | --- | --- |
+| Import | `createMockProvider` from `gridcue/mock` | `createJevProvider` from `gridcue/server` |
+| Runs | In the browser or on a server | On your server only, behind the Server Handler |
+| Needs | Nothing | A TypeSafe account and `JEV_API_KEY` |
+| Understands | Your labels, aliases and values, plus fixed keywords such as "sort", "group", "hide" | Looser wording: "who manages the account", "biggest first", nesting and "also" |
+| Use for | First runs, tests, demos, evals without a key | Real Users |
+
+The Mock reads names with the same Mention matcher as the core, and answers with fixed confidences. Its `defaultColumnForKind` option says which column a bare amount or percentage means.
+
+To call a provider that runs on your server, use `createRemoteProvider({ endpoint })` in the browser. It speaks the same protocol to your [Server Handler](/docs/guides/server-handler). Any other service can be a provider too: see [Build a provider](/docs/guides/build-a-provider).
+
+## Next
+
+- [Choosing a strategy](/docs/guides/choosing-a-strategy): `"focused"` or `"fan-out"`, and switching single questions off.
+- [Running evals](/docs/guides/evals): measure your own requests.
+- [Providers API](/docs/api/providers): every option.

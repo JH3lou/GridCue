@@ -1,0 +1,81 @@
+---
+title: Requests
+description: Utterances, Clauses, Mentions, Clarifications, Abstentions and Unsupported Segments.
+---
+
+These are the terms for what a User asks and how GridCue reads it. The examples use GridCue's synthetic wealth grid, with columns such as Registration type, Custodian, Advisor, Market value and Unrealized gain.
+
+## Utterance
+
+The raw text of one request, as the **User** (the person at the keyboard) typed or dictated it.
+
+> "Taxable accounts over $1 million, grouped by advisor"
+
+GridCue keeps the Utterance for the current interaction. It is not logged or put in audit events unless the **Host**, your application, opts in. Dictation tools write into the same text field, so a dictated request is just an Utterance with channel `"dictated"`.
+
+## Clause
+
+One part of an Utterance that asks for one kind of change. Code splits Clauses deterministically, at punctuation, "then", and "and" or a comma before a verb such as "sort", "group" or "hide". The User sees a Clause called a "part".
+
+| Utterance | Clauses |
+| --- | --- |
+| "Taxable accounts over $1 million, grouped by advisor" | "taxable accounts over $1 million" · "grouped by advisor" |
+| "Group by custodian, then advisor" | "group by custodian" · "group by advisor" (the second part borrows the first one's verb) |
+| "Roth IRAs grouped by rep" | one Clause: a value before another change's verb describes which rows |
+
+The kind of change a Clause asks for (filter, sort, group, show, hide, show only, clear, or reset) is its **Operation Family**. A provider scores each family; the compiler decides which ones are used.
+
+A request can have up to 12 Clauses.
+
+## Mention
+
+A column or enum value that a Clause names by one of the Host's declared labels or aliases. Code finds Mentions before any provider call, matching whole words and plurals.
+
+In "Roth accounts at Northgate, sorted by rep":
+
+- "Roth" is a Mention of Registration type = Roth IRA (an alias of the value);
+- "Northgate" is a Mention of Custodian = Northgate;
+- "rep" is a Mention of the Advisor column (an alias);
+- "accounts" is **not** a Mention of Account number. With `rowNoun: "account"` declared, it means the rows.
+
+A name used for the rows themselves is never a Mention. The rules lean toward "the rows" on purpose: a name wrongly read as the rows falls back to the provider, while a name wrongly read as a column would propose a wrong view.
+
+## Clarification
+
+A single focused question GridCue asks when it can't resolve a request without a choice only the User can make. It often offers bounded options.
+
+| Request | Clarification |
+| --- | --- |
+| "Show the big accounts" | "What should “show the big accounts” filter on? Include a value, such as an amount or a category." |
+| "Largest households first" | "Did you mean households as a whole? GridCue can group by Household." |
+| "Accounts over $1 million", when the provider can't tell which column the amount applies to | "Which column should be above $1,000,000?" |
+
+GridCue does not invent a threshold for "big" or pick a column for "$1 million" on a guess. Answering is one call:
+
+```ts
+cue.answer(clarificationId, optionId);
+```
+
+A plan with an open Clarification has status `needs_clarification` and no operations, so it can't be applied.
+
+## Abstention
+
+GridCue declining to propose any change, because the request is too ambiguous or too low-confidence to act on safely. Decisions below the `clarify` confidence band are discarded, not applied.
+
+> "What's the weather?" → "I'm not sure what to change for “what's the weather”. Try asking to filter, sort, group, or show or hide columns."
+
+If the User answers "No" to a Clarification and nothing is left, GridCue says "Okay, nothing will change," and keeps the request for editing. An Abstention is never reported as a success.
+
+## Unsupported Segment
+
+A part of an Utterance that asks for something outside the view-only boundary. GridCue recognises four kinds: editing data, workflow actions (trading, emailing, approving), navigation, and export. A request that names a restricted column is refused the same way.
+
+> "Show restricted holdings and place the trades"
+
+GridCue understands the first part, but "place the trades" is a workflow action. The **whole** plan is refused, with "GridCue only changes how the table looks, so it can't do “place the trades”. Remove that part to continue." GridCue never applies the allowed part quietly and implies the request succeeded.
+
+## Next
+
+- [Views](/docs/concepts/views): what a View Plan contains and how it applies.
+- [Providers and confidence](/docs/concepts/providers-and-confidence): how answers become decisions.
+- [Clarification prompt](/docs/components/clarification-prompt): the component that shows Clarifications.

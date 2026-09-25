@@ -205,3 +205,13 @@ The Site build runs `pnpm registry:build` and copies `registry/dist/r` to `/r`, 
 - **Cloudflare Git integration with a pnpm monorepo** is *unverified*. The fallback is a scoped-token GitHub Action.
 - **CSS scroll-driven animation support.** Browsers without it get the static three-column layout, the same as reduced motion.
 - **The recorded comparison ages.** It shows its date and model, and the handoff lists refreshing it when the model changes.
+
+## 9. Deviations recorded during the build
+
+| Spec said | Built | Why |
+| --- | --- | --- |
+| shadcn typeset styles the docs prose (§3, §5.4) | Fumadocs' own prose styles | typeset is generated in shadcn's web builder, with no CLI or registry item to install from a build. The owner can generate `typeset.css` there and drop it in later. |
+| Props tables generated from the TypeScript types (§5.5) | Read from each component's source at build time: its exported `…Props` interface and its destructured defaults | Same guarantee (no drift), without a type-checker in the Site build. It relies on the components' props staying one member per line. |
+| `pnpm eval:live -- --record` (§5.3) | A separate `pnpm eval:record` (`evals/record.ts`) | Recording runs fixed requests through focused, fan-out and the Mock, which is not the eval's pass/fail loop. Keeping them apart keeps both simple. |
+| Right-pane props as a table (§5.5) | A stacked list: name and type, then default | At 300 px a three-column table broke types mid-word. |
+| ADR 0006 updated in place (§4) | New ADR 0016, with 0006 marked superseded in part | The planning rule: an overturned decision gets a new ADR. |

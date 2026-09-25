@@ -1,0 +1,212 @@
+---
+title: Providers
+description: The IntentProvider interface, the Mock, Remote and Jev providers, and buildResolutionRequest.
+---
+
+An Intent Provider reads each Clause of an Utterance and scores closed choices: which kind of change it asks for, which columns and values it names, which direction it sorts. It never writes operations. GridCue's own code turns those scores into a View Plan, so a provider can only pick among what the schema and the grid allow.
+
+| Provider | Entry | Use it for |
+| --- | --- | --- |
+| `createMockProvider` | `gridcue/mock` | Tests, demos and keyless development. Rule-based, runs in the browser. |
+| `createRemoteProvider` | `gridcue` | The browser side of a real setup. Calls your Server Handler. |
+| `createJevProvider` | `gridcue/server` | The server side. Asks Jev, so the key stays on the server. |
+
+## IntentProvider
+
+```ts
+import type { IntentProvider } from "gridcue";
+
+interface IntentProvider {
+  resolve(request: ResolutionRequest, signal?: AbortSignal): Promise<ResolutionResult>;
+}
+```
+
+`resolve` receives a `ResolutionRequest` and returns a `ResolutionResult`, both described on the [Protocol](/docs/api/protocol#resolutionrequest) page. The Controller aborts `signal` when the User sends a new request, cancels, or the provider passes `providerTimeoutMs`. A provider should throw a `GridCueError` with a `PROVIDER_` code when it fails, so the Controller can show the right message; any other error is reported as `PROVIDER_FAILED`.
+
+To write your own, see [Build a provider](/docs/guides/build-a-provider).
+
+## createMockProvider
+
+```ts
+import { createMockProvider } from "gridcue/mock";
+
+function createMockProvider(options?: MockProviderOptions): IntentProvider;
+
+interface MockProviderOptions {
+  defaultColumnForKind?: Partial<Record<LiteralKind, string>>;
+}
+```
+
+A deterministic, rule-based Intent Provider for tests, demos and keyless development. It needs no server or account. It matches column and value names with the same deterministic matcher GridCue's core uses, reads verbs such as "sort", "group", "hide" and "clear" with fixed rules, and marks exports, workflow actions, data edits and navigation as unsupported.
+
+| Name | Type | Default | Description |
+| --- | --- | --- | --- |
+| `defaultColumnForKind` | `Partial<Record<LiteralKind, string>>` | none | Which column a bare amount refers to when the Clause names no column that fits it. For example `{ currency: "market_value" }` makes "accounts over $1 million" filter Market value. |
+
+`LiteralKind` is `"number" | "currency" | "percent" | "date" | "text" | "unreadable"`.
+
+```ts
+const provider = createMockProvider({ defaultColumnForKind: { currency: "market_value", percent: "concentration" } });
+```
+
+## createRemoteProvider
+
+```ts
+import { createRemoteProvider } from "gridcue";
+
+function createRemoteProvider(options: RemoteProviderOptions): IntentProvider;
+
+interface RemoteProviderOptions {
+  endpoint: string;
+  fetch?: typeof fetch;
+  headers?: Record<string, string>;
+}
+```
+
+Calls a Host's Server Handler, so the browser never holds a provider key. It POSTs the `ResolutionRequest` as JSON to `endpoint` and passes the Controller's abort signal to `fetch`.
+
+| Name | Type | Default | Description |
+| --- | --- | --- | --- |
+| `endpoint` | `string` | required | The Host's Server Handler URL, such as `"/api/gridcue"`. |
+| `fetch` | `typeof fetch` | `globalThis.fetch` | A custom `fetch`, for tests or to add behavior such as retries. |
+| `headers` | `Record<string, string>` | none | Extra request headers, such as a CSRF token. `content-type: application/json` is always sent. |
+
+Errors it throws:
+
+| Code | When |
+| --- | --- |
+| `PROVIDER_UNREACHABLE` | `fetch` itself failed (network error). An abort is re-thrown as is. |
+| The handler's own code | The response was not OK and its body carried an `error.code` starting `PROVIDER_` or `INPUT_`, such as `PROVIDER_TOO_COMPLEX`. The handler's message text is not passed on. |
+| `PROVIDER_FAILED` | The response was not OK and carried no usable code. |
+| `PROVIDER_MALFORMED` | The response body is not a valid `ResolutionResult`. |
+
+```ts
+const cue = createGridCue({
+  adapter,
+  provider: createRemoteProvider({ endpoint: "/api/gridcue", headers: { "x-csrf-token": token } }),
+});
+```
+
+## createJevProvider
+
+```ts
+import { createJevProvider } from "gridcue/server";
+
+function createJevProvider(options: JevProviderOptions): IntentProvider;
+
+interface JevProviderOptions {
+  apiKey?: string;
+  model?: string;
+  client?: JevClient;
+  maxQuestions?: number;
+  strategy?: "focused" | "fan-out";
+  signals?: Partial<Record<JevSignal, boolean>>;
+}
+```
+
+An Intent Provider that asks Jev bounded yes/no and choice questions about each Clause. Jev never sees rows or restricted columns. It is server-only: import it from `gridcue/server` and put it behind a Server Handler.
+
+| Name | Type | Default | Description |
+| --- | --- | --- | --- |
+| `apiKey` | `string` | none | Your TypeSafe API key. Passed to the TypeSafe client. |
+| `model` | `string` | `DEFAULT_JEV_MODEL` (`"jev-1.13.0"`) | The Jev model. The default is the model GridCue's confidence bands are tuned against. Pass `"jev-latest"` to float. |
+| `client` | `JevClient` | a `TypeSafeClient` | A client to use instead of the built-in one, such as a fake in tests or a client with your own logging. |
+| `maxQuestions` | `number` | `800` | GridCue's own per-request question budget, not an API limit. 800 is about 31k tokens, under Jev's 64k per request. Twelve Clauses on a nine-column schema need about 790. |
+| `strategy` | `"focused" \| "fan-out"` | `"fan-out"` | Which questions to ask. `"fan-out"` asks every signal except the opt-in `values`. `"focused"` asks only the first version's questions: fewer tokens, for grids whose requests are simple. |
+| `signals` | `Partial<Record<JevSignal, boolean>>` | none | Turns individual signals on or off on top of the strategy, such as `{ values: false }` for very large enums. |
+
+Behavior to know:
+
+- The strategy and signal names are checked when the provider is created. An unknown one throws a `GridCueError` with code `INPUT_CONFIG`, even without a key.
+- The built-in client has logging turned off, a 4-second per-attempt timeout and at most one retry. The Controller's own time limit still bounds the whole call.
+- If a request needs more than `maxQuestions` questions, the provider first falls back to the focused questions (keeping `reading`). If it is still over budget, it throws `PROVIDER_TOO_COMPLEX`.
+- A failed Jev call throws `PROVIDER_FAILED`. A missing answer or an unknown choice throws `PROVIDER_MALFORMED`.
+
+```ts
+import { createGridCueHandler, createJevProvider } from "gridcue/server";
+
+export const POST = createGridCueHandler({
+  provider: createJevProvider({ apiKey: process.env.JEV_API_KEY, strategy: "fan-out", signals: { values: true } }),
+});
+```
+
+For choosing between the strategies, see [Choosing a strategy](/docs/guides/choosing-a-strategy).
+
+### JEV_SIGNALS
+
+```ts
+const JEV_SIGNALS = ["roles", "kind", "adds", "outer", "values", "reading"] as const;
+type JevSignal = (typeof JEV_SIGNALS)[number];
+```
+
+The optional questions a strategy can ask. Each fills an optional field of `ClauseResolution`.
+
+| Signal | Asks | Fills |
+| --- | --- | --- |
+| `roles` | For each column and each of sort, group, show and hide: does the Clause ask to do that to this column? | `roles` |
+| `kind` | Which kind of change the Clause mainly asks for, as one choice over the families. | `kind` |
+| `adds` | If the Clause sorts or groups, does it add a level to the current sort or grouping rather than replace it? | `adds` |
+| `outer` | For reversal wording such as "advisor within custodian", which named column is the outer grouping or primary sort. Asked only when the wording matches and the Clause names more than one column. | `outer` |
+| `values` | One yes/no question per enum value, so several values can be yes ("retirement accounts" = IRA and Roth IRA). Off by default. Without it, the provider asks one choice question per enum column. | `values` |
+| `reading` | For an ambiguous row or entity noun, such as "households", whether it means the column's values, the other records, or this grid's rows. | `readings` |
+
+### JEV_STRATEGIES
+
+```ts
+const JEV_STRATEGIES: Readonly<Record<JevStrategy, readonly JevSignal[]>> = {
+  focused: [],
+  "fan-out": ["roles", "kind", "adds", "outer", "reading"],
+};
+```
+
+The signals each strategy turns on. `values` is in neither; turn it on with `signals: { values: true }`.
+
+### DEFAULT_JEV_MODEL
+
+```ts
+const DEFAULT_JEV_MODEL = "jev-1.13.0";
+```
+
+### JevClient
+
+```ts
+interface JevClient {
+  systemOne(
+    request: { model?: string; state: unknown; questions: Record<string, unknown> },
+    options?: { signal?: AbortSignal },
+  ): PromiseLike<{ answers: Record<string, unknown> }>;
+}
+```
+
+The slice of the TypeSafe client the provider uses. Pass your own through `client` to control logging, retries or timeouts, or pass a fake in tests.
+
+## buildResolutionRequest
+
+```ts
+import { buildResolutionRequest } from "gridcue";
+
+function buildResolutionRequest(
+  input: NormalizedInput,
+  schema: ViewSchema,
+  capabilities: ViewCapabilities,
+  state: ViewState,
+  mentions?: readonly Mention[],
+): ResolutionRequest;
+```
+
+Builds the `ResolutionRequest` the Controller sends to a provider. You need it only to test a provider or inspect exactly what it receives.
+
+- `input` is the Utterance split into Clauses, from `normalize(text)`.
+- The candidate families are the view families whose operations the grid supports, plus the four `unsupported.*` families.
+- The candidate columns are the exposed columns only, each with the families its capabilities allow, its legal operators, and its aliases, description, enum values, entity and value groups. Restricted columns are never included, and rows never are.
+- `view` carries the visible column IDs, the sorts, the grouping and whether any filter is on. Filter values are not sent.
+- `mentions` are the columns and values core already matched by a Host-declared name, from `matchMentions`. Each Clause gets its own.
+
+```ts
+import { buildResolutionRequest, isExposed, matchMentions, normalize } from "gridcue";
+
+const input = normalize("taxable accounts over $1M, largest first");
+const mentions = matchMentions(input.clauses, schema.columns.filter(isExposed), { rowNoun: schema.rowNoun });
+const request = buildResolutionRequest(input, schema, adapter.getCapabilities(), adapter.getState().state, mentions);
+const result = await provider.resolve(request);
+```
