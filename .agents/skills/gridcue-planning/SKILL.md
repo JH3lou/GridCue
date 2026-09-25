@@ -1,6 +1,8 @@
 ---
 name: gridcue-planning
 description: How GridCue turns an idea into an approved spec and plan before any code is written. Use when starting a new feature, package, adapter, or Site section, when the owner says "grill me" or "plan this", or when resuming the build-plan interview in docs/planning/build-plan-grill.md.
+metadata:
+  internal: true
 ---
 
 # Planning a GridCue change

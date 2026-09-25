@@ -1,1 +1,5 @@
-{ "title": "Get started", "defaultOpen": true, "pages": ["quick-start", "turn-on-jev", "describe-your-domain", "run-the-examples"] }
+{
+  "title": "Get started",
+  "defaultOpen": true,
+  "pages": ["quick-start", "ai-assistant", "turn-on-jev", "describe-your-domain", "run-the-examples"]
+}
