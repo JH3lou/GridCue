@@ -39,8 +39,11 @@ const detectFamilies = (clause: Clause, hasValues: boolean): string[] => {
     if (clears.length > 0) return clears;
   }
   if (/\bgroup(?:ed)?\b/.test(t)) return ["group"];
-  if (/\b(?:sort|order)(?:ed)?\b/.test(t) || (clause.direction && !hasValues)) return ["sort"];
+  if (/\b(?:sort|order)(?:ed)?\b/.test(t)) return ["sort"];
   if (/\bhide\b/.test(t)) return ["columns.hide"];
+  // A direction alone ("biggest first") is a sort, but only after the explicit verbs: "hide custodian, high to low"
+  // hides, and core asks about the sort (it never drops one).
+  if (clause.direction && !hasValues) return ["sort"];
   const only = /\b(?:keep|show|display) only\b|\bonly (?:show|display|keep)\b|\bjust the\b/.test(t);
   if (hasValues || clause.literals.length > 0) return ["filter"];
   if (only) return ["columns.only"];

@@ -5,6 +5,9 @@ import type { ColumnCapability, OperationType, ViewCapabilities, ViewSchema, Vie
 import { ColumnKind, EnumValue, FilterOperator, PROTOCOL_VERSION, SortSpec } from "./protocol";
 import { isExposed, operatorsFor } from "./schema";
 
+/** The longest Utterance the protocol accepts. */
+export const MAX_UTTERANCE_LENGTH = 2000;
+
 /** Operation families a clause can ask for. Providers choose among these; they never emit operations. */
 export const VIEW_FAMILIES = [
   "filter",
@@ -76,7 +79,7 @@ const LiteralSchema = z.object({
 
 export const ResolutionRequest = z.object({
   protocolVersion: z.literal(PROTOCOL_VERSION),
-  utterance: z.string().max(2000),
+  utterance: z.string().max(MAX_UTTERANCE_LENGTH),
   clauses: z
     .array(
       z.object({

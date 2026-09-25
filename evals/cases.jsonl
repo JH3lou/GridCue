@@ -35,3 +35,4 @@
 {"id":"value-in-preposition","utterance":"Sort by gain for trusts.","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"registration_type","operator":"eq","value":"trust"}},{"type":"sort.set","sorts":[{"columnId":"unrealized_gain","direction":"asc"}]}]}}
 {"id":"ranked-entity","utterance":"Largest households first.","expect":{"status":"needs_clarification","clarificationPrompt":"Did you mean households as a whole? GridCue can group by Household."}}
 {"id":"named-amount-column","utterance":"Show gain over $100k.","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"unrealized_gain","operator":"gt","value":100000}}]}}
+{"id":"direction-beside-hide","utterance":"Hide custodian, high to low","expect":{"status":"needs_clarification","clarificationPrompt":"Which column should be sorted by?"}}

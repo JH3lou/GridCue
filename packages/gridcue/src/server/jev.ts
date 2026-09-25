@@ -1,4 +1,3 @@
-import { choice, noul, TypeSafeClient } from "@typesafe-ai/sdk";
 import {
   type ClauseResolution,
   GridCueError,
@@ -8,6 +7,18 @@ import {
   REVERSAL_WORDING,
   type ResolutionRequest,
 } from "../index";
+
+// The SDK is an optional peer, loaded on the first Jev request: `gridcue/server` works without it for a Mock or
+// custom provider, and a Worker that never uses Jev never bundles it (pre-launch fix).
+type Sdk = typeof import("@typesafe-ai/sdk");
+let sdk: Promise<Sdk> | undefined;
+const loadSdk = (): Promise<Sdk> => {
+  sdk ??= import("@typesafe-ai/sdk").catch(() => {
+    sdk = undefined;
+    throw new GridCueError("INPUT_CONFIG", "The Jev provider needs @typesafe-ai/sdk. Install it next to gridcue.");
+  });
+  return sdk;
+};
 
 /** The slice of the TypeSafe client this provider uses. Tests pass a fake. */
 export interface JevClient {
@@ -91,11 +102,21 @@ export const createJevProvider = (options: JevProviderOptions): IntentProvider =
   // `logLevel` otherwise falls back to `TYPESAFE_LOG_LEVEL`; at `debug` the SDK logs full request and response
   // bodies (the Utterance, column labels, aliases, descriptions). Set it explicitly so a Host's environment
   // can't turn that on by accident. A Host that wants SDK logs can inject its own `client` instead.
-  const client: JevClient = options.client ?? (new TypeSafeClient({ apiKey: options.apiKey, logLevel: "off" }) as unknown as JevClient);
+  // One retry at most, and a short per-attempt timeout: the SDK's defaults (2 retries of 10 s) once held a request
+  // for 78 s. The Controller's own time limit (8 s by default) still bounds the whole call (v1 grill, Q1).
+  let client: JevClient | undefined = options.client;
   const maxQuestions = options.maxQuestions ?? 800;
   const model = options.model ?? DEFAULT_JEV_MODEL;
   return {
     async resolve(request: ResolutionRequest, signal?: AbortSignal) {
+      const { choice, noul, TypeSafeClient } = await loadSdk();
+      client ??= new TypeSafeClient({
+        apiKey: options.apiKey,
+        logLevel: "off",
+        timeout: 4000,
+        retry: { maxRetries: 1 },
+      }) as unknown as JevClient;
+      const jev = client;
       const { columns, families } = request.candidates;
       const labelOf = (id: string) => columns.find((c) => c.id === id)?.label ?? id;
       const build = (active: ReadonlySet<string>) => {
@@ -228,7 +249,7 @@ export const createJevProvider = (options: JevProviderOptions): IntentProvider =
       }
       let answers: Record<string, Answer>;
       try {
-        const response = await client.systemOne(
+        const response = await jev.systemOne(
           {
             model,
             state: {

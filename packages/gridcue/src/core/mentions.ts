@@ -100,6 +100,8 @@ const placement = (
   return undefined;
 };
 
+/** "for each account", "every account", "per account". */
+const EACH_BEFORE = /\b(?:each|every|per)\s+$/;
 /** "households" and "household" name the same noun. */
 const singular = (words: string) => nameKey(words).replace(/(?:es|s)$/, "");
 /** A value named after one of these is excluded, not chosen: "non-retirement", "excluding trusts". Left to the provider. */
@@ -164,6 +166,8 @@ export const matchMentions = (
         const place = placement(clause, h, all);
         const text = clause.text.slice(h.start, h.end);
         const isRowNoun = !!options.rowNoun && singular(text) === singular(options.rowNoun);
+        // "the household for each account", "per account": the grid's own row noun after "each" or "per" is the rows.
+        if (isRowNoun && EACH_BEFORE.test(clause.text.slice(0, h.start))) return [];
         // Any name of a column that declares an entity names that entity: "reps" for Advisor.
         const isEntity = !!h.item.entity;
         // "largest households first" ranks another entity: the column's values or the households as records.

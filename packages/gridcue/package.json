@@ -1,14 +1,33 @@
 {
   "name": "gridcue",
-  "version": "0.0.0",
-  "description": "Say what you need to see; GridCue safely configures the grid view.",
+  "version": "0.1.0",
+  "description": "Ask data grids in plain language: validated, previewable, undoable filter, sort, group, and column changes. Headless core, React, TanStack Table, Jev provider.",
+  "keywords": [
+    "data-grid",
+    "datagrid",
+    "table",
+    "natural-language",
+    "tanstack-table",
+    "react",
+    "shadcn",
+    "ai",
+    "llm",
+    "jev",
+    "filter",
+    "command-bar"
+  ],
   "license": "MIT",
+  "homepage": "https://gridcue.dev",
+  "bugs": "https://github.com/JH3lou/GridCue/issues",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/JH3lou/GridCue.git",
     "directory": "packages/gridcue"
   },
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "sideEffects": [
     "*.css",
     "./dist/server-browser.js"
@@ -41,7 +60,9 @@
     "./package.json": "./package.json"
   },
   "files": [
-    "dist"
+    "dist",
+    "CHANGELOG.md",
+    "LICENSE"
   ],
   "scripts": {
     "build": "tsdown",
@@ -50,7 +71,7 @@
     "check:package": "publint && attw --pack --profile esm-only --exclude-entrypoints styles.css && node --conditions=browser scripts/check-server-entry.mjs --expect=refuse && node --conditions=workerd --conditions=worker --conditions=browser scripts/check-server-entry.mjs --expect=load && node --conditions=edge-light --conditions=browser scripts/check-server-entry.mjs --expect=load && node --conditions=worker --conditions=browser scripts/check-server-entry.mjs --expect=refuse"
   },
   "dependencies": {
-    "zod": "4.6.5"
+    "zod": "^4.6.5"
   },
   "peerDependencies": {
     "@typesafe-ai/sdk": ">=0.6.0 <1",
@@ -81,5 +102,8 @@
     "tsdown": "0.23.0",
     "typescript": "7.0.2",
     "vitest": "5.0.1"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
