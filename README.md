@@ -1,4 +1,9 @@
-# GridCue
+<h1>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="apps/site/public/logo-dark.svg">
+    <img alt="GridCue" src="apps/site/public/logo.svg" height="56">
+  </picture>
+</h1>
 
 > Ask a dense grid a plain question. See the view that answers it.
 

@@ -11,13 +11,15 @@ import { gitConfig } from "@/lib/shared";
 import type { Route } from "./+types/home";
 
 export function meta(_: Route.MetaArgs) {
+  const title = "GridCue: ask your data grid in plain language";
+  const description =
+    "Use natural language to get insights from complicated data, dense grids and tables. GridCue previews every view change and never touches your data. Open source, MIT.";
   return [
-    { title: "GridCue: ask your data grid in plain language" },
-    {
-      name: "description",
-      content:
-        "Use natural language to get insights from complicated data, dense grids and tables. GridCue previews every view change and never touches your data. Open source, MIT.",
-    },
+    { title },
+    { name: "description", content: description },
+    { property: "og:title", content: title },
+    { property: "og:description", content: description },
+    { property: "og:url", content: "https://gridcue.dev" },
   ];
 }
 

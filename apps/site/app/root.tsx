@@ -38,6 +38,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        {/* Link cards on every page. Route `meta` replaces its parent's, so these live here rather than in `meta`. */}
+        <meta property="og:site_name" content="GridCue" />
+        <meta property="og:type" content="website" />
+        <meta property="og:image" content="https://gridcue.dev/og.png" />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta property="og:image:alt" content="GridCue: Ask your data a plain question. See the view that answers it." />
+        <meta name="twitter:card" content="summary_large_image" />
         <Meta />
         <Links />
       </head>

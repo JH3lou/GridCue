@@ -4,11 +4,11 @@ import { appName, gitConfig } from "./shared";
 export function baseOptions(): BaseLayoutProps {
   return {
     nav: {
-      // The owner's logo, with a light-ink copy for dark mode (the orange stays). 379×96 source, shown at 24px tall.
+      // The owner's logo, traced to SVG, with a light-ink copy for dark mode (the orange stays).
       title: (
         <>
-          <img src="/logo.png" alt={appName} width={95} height={24} className="h-6 w-auto dark:hidden" />
-          <img src="/logo-dark.png" alt={appName} width={95} height={24} className="hidden h-6 w-auto dark:block" />
+          <img src="/logo.svg" alt={appName} width={101} height={24} className="h-6 w-auto dark:hidden" />
+          <img src="/logo-dark.svg" alt={appName} width={101} height={24} className="hidden h-6 w-auto dark:block" />
         </>
       ),
     },
