@@ -46,6 +46,7 @@ The most likely defect is a change that works where you tested it and nowhere el
 - **Both UIs.** The built-in `<GridCueBar />` and the shadcn Component Registry sit on the same hooks. Behaviour belongs in hooks, look belongs in components, and a UI change is checked in both. See ADRs 0001 and 0008.
 - **Frameworks and tables.** The Vite and Next.js examples, and both Grid Adapters: the Rows Adapter and TanStack Table. Server-only code must never be reachable from a client bundle.
 - **The Site.** The marketing page, live demo, and developer docs. Update the docs page for any public API you change.
+- **Agent skill.** `skills/gridcue` guides coding agents through setup. A public API or setup change updates it, and `pnpm check:skills` fails on a docs link to a page that no longer exists.
 - **Failure paths.** Every new way in needs its way out: cancel, undo, clarification, and the unsupported result.
 
 ## Verifying
@@ -87,6 +88,7 @@ The most likely defect is a change that works where you tested it and nowhere el
 - `apps/site`: the Vite Site with marketing, demo, and docs. See ADR 0002.
 - `examples/`: minimal Vite and Next.js integrations.
 - `evals/`: synthetic eval cases.
+- `skills/gridcue` and `.claude-plugin/`: the installable agent skill and its Claude Code plugin. Maintainer skills live in `.agents/skills/`, marked internal.
 
 ## Code standards
 

@@ -76,6 +76,8 @@ export const POST = createGridCueHandler({ provider: createJevProvider({ apiKey:
 
 In the browser, swap `createMockProvider()` for `createRemoteProvider({ endpoint: "/api/gridcue" })` from `gridcue`. Put the endpoint behind your app's auth and rate limits.
 
+**Using a coding assistant?** `npx skills add JH3lou/GridCue --skill gridcue` teaches it to set GridCue up safely. See [Set up with an AI assistant](https://gridcue.dev/docs/get-started/ai-assistant).
+
 ## Entries
 
 | Entry | What it holds |

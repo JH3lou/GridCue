@@ -86,6 +86,8 @@ const [cue] = useState(() => {
 
 Type "sort by market value, largest first", review the Preview, and apply. The Mock Provider understands requests that use your column names and declared aliases.
 
+**Using a coding assistant?** `npx skills add JH3lou/GridCue --skill gridcue` teaches it to set GridCue up safely. See [Set up with an AI assistant](https://gridcue.dev/docs/get-started/ai-assistant).
+
 **2. Turn on Jev.** Swap the provider for `createRemoteProvider({ endpoint: "/api/gridcue" })` (from `gridcue`), and mount the server side where your API lives. It keeps your provider key off the browser:
 
 ```ts
