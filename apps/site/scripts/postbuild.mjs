@@ -1,6 +1,7 @@
-// Finishes the static build for Cloudflare Workers static assets (ADR 0006): the 404 page at the path
-// `not_found_handling: "404-page"` serves, and a sitemap and robots.txt for every prerendered page.
-import { copyFileSync, existsSync, readdirSync, statSync, writeFileSync } from "node:fs";
+// Finishes the static build for Cloudflare Workers static assets (ADR 0016): the 404 page at the path
+// `not_found_handling: "404-page"` serves, a sitemap and robots.txt for every prerendered page, and a check that
+// every internal link in those pages lands on something the build contains.
+import { copyFileSync, existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 
 const ORIGIN = "https://gridcue.dev";
@@ -31,3 +32,19 @@ writeFileSync(
 );
 writeFileSync(join(OUT, "robots.txt"), `User-agent: *\nAllow: /\n\nSitemap: ${ORIGIN}/sitemap.xml\n`);
 console.log(`Post-build: 404.html, sitemap.xml (${pages.length} pages), robots.txt.`);
+
+// A broken internal link fails the build, so a renamed docs page can't strand the links that pointed at it.
+const exists = (path) => [path, `${path}/index.html`, `${path}.html`].some((p) => existsSync(join(OUT, p)));
+const broken = new Map();
+for (const file of walk(OUT).filter((f) => f.endsWith(".html"))) {
+  for (const [, href] of readFileSync(file, "utf8").matchAll(/href="(\/[^"#?]*)/g)) {
+    const path = href.replace(/\/$/, "");
+    if (path === "" || href.startsWith("//") || exists(path)) continue;
+    broken.set(href, [...(broken.get(href) ?? []), relative(OUT, file)]);
+  }
+}
+if (broken.size > 0) {
+  console.error(`Broken internal links:\n${[...broken].map(([href, from]) => `  ${href} (in ${from.slice(0, 3).join(", ")})`).join("\n")}`);
+  process.exit(1);
+}
+console.log("Post-build: every internal link resolves.");
