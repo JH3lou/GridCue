@@ -23,17 +23,22 @@ pnpm eval:record     # writes apps/site/app/data/strategy-runs.json
 
 Review the diff before committing it. Every "ready" preview must be the view the request asked for.
 
-## Deploy (owner)
+## Deploy
 
-It runs on Cloudflare's free plan. There is no Worker code and there are no secrets.
+It runs on Cloudflare's free plan, as the Worker `gridcue-site` with the custom domain `gridcue.dev`, both set in `apps/site/wrangler.jsonc`. There is no Worker code and there are no secrets.
 
-1. In the Cloudflare dashboard, go to **Workers & Pages → Create → Import a repository**, and pick `JH3lou/GridCue`.
-2. Set:
-   - **Root directory:** `/`
-   - **Build command:** `pnpm install --frozen-lockfile && pnpm build:site`
-   - **Deploy command:** `cd apps/site && npx wrangler deploy`
-   - **Environment variable (optional):** `VITE_CF_ANALYTICS_TOKEN` for Cloudflare Web Analytics. It is a public beacon token, not a secret.
-3. Under the Worker's **Settings → Domains & Routes**, add `gridcue.dev`.
-4. Once it serves, set the repository's homepage to `https://gridcue.dev`.
+```bash
+npx wrangler login              # once; opens the browser
+pnpm build:site
+cd apps/site && npx wrangler deploy
+```
+
+`html_handling` is `drop-trailing-slash`, so pages are served at the slashless URLs the Site links to and lists in its sitemap. Missing paths get `404.html`.
+
+To deploy on every push instead, connect the repository under **Workers & Pages → gridcue-site → Settings → Build**:
+
+- **Build command:** `pnpm install --frozen-lockfile && pnpm build:site`
+- **Deploy command:** `cd apps/site && npx wrangler deploy`
+- **Environment variable (optional):** `VITE_CF_ANALYTICS_TOKEN` for Cloudflare Web Analytics. It is a public beacon token, not a secret.
 
 Never add `JEV_API_KEY`, or any other secret, to the Site's build or deploy settings. `pnpm check:bundles` builds the Site with a canary key and fails if it appears in the output.

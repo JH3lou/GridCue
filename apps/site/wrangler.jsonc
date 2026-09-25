@@ -1,13 +1,13 @@
-// Static assets only: no Worker code, so the Site runs on Cloudflare's free plan (ADR 0006).
-// Deploy with `pnpm build:site`, then `npx wrangler deploy` in apps/site, or connect the repo in
-// the Cloudflare dashboard with the build command and output directory in docs/operations/site.md.
+// Static assets only: no Worker code, so the Site runs on Cloudflare's free plan (ADR 0016).
+// Deploy steps are in docs/operations/site.md.
 {
   "$schema": "https://unpkg.com/wrangler/config-schema.json",
   "name": "gridcue-site",
   "compatibility_date": "2026-09-01",
+  "routes": [{ "pattern": "gridcue.dev", "custom_domain": true }],
   "assets": {
     "directory": "./build/client",
     "not_found_handling": "404-page",
-    "html_handling": "auto-trailing-slash"
+    "html_handling": "drop-trailing-slash"
   }
 }
