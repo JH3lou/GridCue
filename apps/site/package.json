@@ -3,8 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "react-router dev",
-    "build": "node scripts/copy-registry.mjs && react-router build && node scripts/postbuild.mjs",
+    "dev": "pnpm --filter gridcue build && pnpm --filter @gridcue-internal/registry build && react-router dev",
+    "build": "pnpm --filter gridcue build && pnpm --filter @gridcue-internal/registry build && node scripts/copy-registry.mjs && react-router build && node scripts/postbuild.mjs",
     "typecheck": "react-router typegen && tsc -p ."
   },
   "dependencies": {

@@ -10,8 +10,8 @@
     "build": "pnpm --filter gridcue build",
     "dev:vite": "pnpm build && pnpm --filter @gridcue-internal/example-vite dev",
     "dev:next": "pnpm build && pnpm --filter @gridcue-internal/example-next dev",
-    "dev:site": "pnpm build && pnpm registry:build && pnpm --filter @gridcue-internal/site dev",
-    "build:site": "pnpm build && pnpm registry:build && pnpm --filter @gridcue-internal/site build",
+    "dev:site": "pnpm --filter @gridcue-internal/site dev",
+    "build:site": "pnpm --filter @gridcue-internal/site build",
     "lint": "biome check . && oxlint",
     "format": "biome check --write .",
     "typecheck": "pnpm -r --if-present typecheck",
@@ -22,7 +22,7 @@
     "eval:record": "tsx --env-file-if-exists=.env.local evals/record.ts",
     "registry:build": "pnpm --filter @gridcue-internal/registry build",
     "check:package": "pnpm --filter gridcue check:package",
-    "check:bundles": "JEV_API_KEY=gridcue-bundle-canary pnpm --filter \"./examples/*\" --filter @gridcue-internal/site build && node scripts/check-bundles.mjs",
+    "check:bundles": "pnpm build && JEV_API_KEY=gridcue-bundle-canary pnpm --filter \"./examples/*\" build && JEV_API_KEY=gridcue-bundle-canary pnpm --filter @gridcue-internal/site build && node scripts/check-bundles.mjs",
     "check": "pnpm lint && pnpm build && pnpm typecheck && pnpm test && pnpm eval && pnpm registry:build && pnpm check:package && pnpm check:bundles"
   },
   "devDependencies": {
