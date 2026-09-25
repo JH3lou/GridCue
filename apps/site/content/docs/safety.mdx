@@ -21,7 +21,7 @@ An **Intent Provider** only answers bounded questions about choices you declared
 
 Nothing applies without a **Preview**: a deterministic description of exactly what will change, ending "No records will be changed." GridCue has no auto-apply, whatever the confidence.
 
-The plan is validated again at apply. A multi-part plan applies completely or not at all. If the view changed after the Preview, apply is refused instead of overwriting the User's change. Every applied plan can be undone, and undo is refused if it would erase a newer change.
+The plan is validated again at apply. A multi-part plan applies completely or not at all. If the view changed after the Preview, apply is refused instead of overwriting the User's change. Every applied plan can be undone, one step at a time back to the starting view, and undo is refused if it would erase a newer change. A new filter replaces the current ones unless the request says to add, and the Preview names each filter it removes.
 
 ## The data boundary
 
