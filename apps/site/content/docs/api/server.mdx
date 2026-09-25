@@ -45,7 +45,8 @@ It checks each request in this order and answers with JSON of the form `{ error:
 | 415 | `INPUT_CONTENT_TYPE` | The `content-type` header does not include `application/json`. |
 | 413 | `INPUT_TOO_LARGE` | `content-length` or the body read so far is over `maxBodyBytes`. |
 | 400 | `INPUT_INVALID` | The body is not JSON, or not a valid `ResolutionRequest`. |
-| 502 | the provider's `PROVIDER_` code, else `PROVIDER_FAILED` | The provider threw, or returned something that is not a valid `ResolutionResult`. |
+| 502 | `PROVIDER_MALFORMED` | The provider returned something that is not a valid `ResolutionResult`. |
+| 502 | the provider's `PROVIDER_` code, else `PROVIDER_FAILED` | The provider threw. |
 | 200 | none | The `ResolutionResult` as JSON. |
 
 Every response carries `cache-control: no-store`. The request's abort signal is passed to the provider, so a provider that honors it stops when the request is aborted. Provider failures always answer with the generic message "The intent provider failed."; the provider's own message is never sent.
@@ -103,7 +104,7 @@ app.post(
 | `JEV_STRATEGIES` | `Record<JevStrategy, readonly JevSignal[]>` | The signals each strategy turns on. |
 | `JevClient`, `JevProviderOptions`, `JevSignal`, `JevStrategy` | types | The provider's option and client types. |
 
-They are documented on the [Providers](/docs/api/providers#createjevprovider) page. `createJevProvider` uses `@typesafe-ai/sdk`, an optional peer dependency: install it on the server when you use Jev.
+They are documented on the [Providers](/docs/api/providers#createjevprovider) page. `createJevProvider` uses `@typesafe-ai/sdk`, an optional peer dependency: install it on the server when you use Jev. It loads on the first Jev request, so `gridcue/server` works without it for the Mock or your own provider; a Jev request without it fails with `INPUT_CONFIG`.
 
 ## Export conditions
 

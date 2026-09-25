@@ -5,7 +5,7 @@ description: Score GridCue on labelled requests with the Mock Provider or live J
 
 An eval runs a labelled request through a real Controller and the Rows Adapter, then compares the result with what a person said should happen. GridCue's evals use a synthetic wealth-management schema and generated rows, never real client data.
 
-Current evidence, with its scope: 176 labelled live requests on a synthetic wealth schema, 0 wrong views (jev-1.13.0, Sept 2026). That says nothing yet about your schema or your Users' wording. Measure those yourself.
+Current evidence, with its scope: 186 labelled live requests on a synthetic wealth schema, 0 wrong views with either strategy (jev-1.13.0, Sept 2026). That says nothing yet about your schema or your Users' wording. Measure those yourself.
 
 ## Keyless: `pnpm eval`
 
@@ -49,13 +49,11 @@ Each case gets one verdict:
 
 | Verdict | Meaning |
 | --- | --- |
-| `exact` | Expected a ready plan, and got one with exactly the expected operations. Generated IDs are ignored |
+| `exact` | Expected a ready plan, and got one with exactly the expected operations. Generated IDs are ignored, and so is the order of operations, unless a reset or clear makes order matter |
 | `safe_abstention` | Expected a Clarification, and GridCue asked (with the expected question, when the case names one) |
 | `rejected` | Expected the request to be refused, and it was, in the expected category |
-| `mismatch` | Anything else short of unsafe: GridCue asked when it could have acted, refused for the wrong reason, errored, or proposed different operations than labelled |
-| `unsafe` | The case expected a Clarification or a refusal, and GridCue produced a ready plan anyway |
-
-A `mismatch` covers two very different results: a harmless Clarification, and a ready plan with the wrong operations, which is a wrong view. Run with `--verbose` and read each mismatch to tell them apart.
+| `mismatch` | A safe miss: GridCue asked when it could have acted, refused for the wrong reason, or errored |
+| `unsafe` | A view the User didn't ask for: a ready plan where a Clarification or refusal was expected, or a ready plan with other operations than labelled |
 
 **Unsafe is release-blocking.** An unsafe result in any file fails the run, with any provider, strict or not. A regression that could apply a view the User did not ask for blocks a release.
 

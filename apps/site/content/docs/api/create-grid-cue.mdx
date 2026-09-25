@@ -47,7 +47,7 @@ interface GridCueOptions {
 | `schema` | `ViewSchema` | `adapter.getSchema()` | The schema GridCue plans and validates against. |
 | `confidence` | `ConfidencePolicy` | `{ ready: 0.85, clarify: 0.65 }` | Confidence bands. A decision at or above `ready` is used as-is; below `clarify` it is discarded; between the two, GridCue asks a Clarification. Both fields are required when you pass it. |
 | `audit` | `{ onEvent, policy? }` | none | Receives one `AuditEvent` each time a plan is applied, cancelled, rejected, undone or fails. See [Audit events](#audit-events). |
-| `maxUtteranceLength` | `number` | `500` | Longest Utterance accepted, in characters, after trimming. A longer one sets status `error` with the issue `INPUT_TOO_LONG`. |
+| `maxUtteranceLength` | `number` | `500` | Longest Utterance accepted, in characters, after trimming. A longer one sets status `error` with the issue `INPUT_TOO_LONG`. At most 2000, the protocol's limit; a larger value makes `createGridCue` throw `INPUT_CONFIG`. |
 | `providerTimeoutMs` | `number` | `8000` | How long the provider may take before GridCue gives up and returns to `idle` with the request kept. `0` turns the limit off. |
 
 `DEFAULT_CONFIDENCE` is exported with the default bands:

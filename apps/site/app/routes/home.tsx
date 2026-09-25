@@ -31,7 +31,7 @@ const HERO_SUGGESTIONS: Suggestion[] = [
   { label: "Sell anything over 10%", refusal: true },
 ];
 
-const EVIDENCE = "176 labelled live requests on a synthetic wealth schema, 0 wrong views (jev-1.13.0, Sept 2026)";
+const EVIDENCE = "186 labelled live requests on a synthetic wealth schema, 0 wrong views with either strategy (jev-1.13.0, Sept 2026)";
 
 function Section({ id, eyebrow, title, children }: { id?: string; eyebrow: string; title: string; children: ReactNode }) {
   return (
@@ -170,7 +170,7 @@ const SAFETY = [
   {
     icon: Lock,
     title: "Your rows stay yours",
-    body: "Only column names and values you approve go to the model. Rows never leave your app.",
+    body: "Rows never leave your app. The model sees the request, the values read from it, and the columns you expose.",
   },
   {
     icon: Undo2,

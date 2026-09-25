@@ -45,13 +45,13 @@ On the 9-column synthetic wealth schema, with `jev-1.13.0`:
 | --- | --- | --- |
 | Questions per part | 27 | about 55 to 70 |
 | Median latency | about 137 ms | about 153 ms |
-| Compound requests ("Roth IRAs grouped by rep") | Can propose a wrong view | Handled |
-| "Also group by advisor" | Can propose a wrong view | Handled |
-| Nesting ("advisor within custodian") | Can propose a wrong view | Handled |
+| Compound requests ("Roth IRAs grouped by rep") | Often asks a question | Handled |
+| "Also group by advisor" | Asks whether to add or replace | Handled |
+| Nesting ("advisor within custodian") | Asks which level is outer | Handled |
 
 Question count grows with your columns and enum values, so your numbers will differ.
 
-Focused is not simply "fan-out, cheaper". It gets simple, single-change requests right, but it still proposes wrong views on the request types the first version never handled: nesting, "also", and several changes in one part. Choose it only when your Users' requests are simple, and confirm that with evals on your own requests.
+Focused is not simply "fan-out, cheaper". It gets simple, single-change requests right. On the request types the first version never handled (nesting, "also", and several changes in one part) it has no answer to go on, so GridCue asks the User instead of guessing: on the wealth evals (186 live requests), focused applied no wrong views, but got 122 exactly right against fan-out's 159, asking or declining on most of the rest. Choose it only when your Users' requests are simple, and confirm that with evals on your own requests.
 
 ## The opt-in `values` signal
 
