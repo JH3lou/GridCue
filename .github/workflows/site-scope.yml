@@ -7,7 +7,8 @@ name: Site scope
 # job never checks out or runs the pull request's code: it only reads the list of changed files from the API.
 on:
   pull_request_target:
-    types: [opened, synchronize, reopened]
+    # edited: retargeting a pull request to another base changes its diff without a new commit.
+    types: [opened, synchronize, reopened, edited]
 
 permissions:
   pull-requests: read
@@ -20,6 +21,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           ASSOCIATION: ${{ github.event.pull_request.author_association }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
           REPO: ${{ github.repository }}
           NUMBER: ${{ github.event.pull_request.number }}
         run: |
@@ -28,6 +30,9 @@ jobs:
           case "$ASSOCIATION" in
             OWNER|MEMBER|COLLABORATOR) echo "The author has access to the repository."; exit 0 ;;
           esac
+          # Dependabot's login is reserved by GitHub, so no one else can open a pull request as it. Other bots get no
+          # exemption: anyone can run a bot account.
+          if [ "$AUTHOR" = "dependabot[bot]" ]; then echo "Opened by Dependabot."; exit 0; fi
           # Both sides of a rename count, so moving a Site file into the docs folder is still a Site change.
           FILES="$(gh api --paginate "repos/$REPO/pulls/$NUMBER/files" -q '.[] | .filename, (.previous_filename // empty)')"
           CHANGED="$(printf '%s\n' "$FILES" | grep '^apps/site/' | grep -v '^apps/site/content/docs/' || true)"
