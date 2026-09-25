@@ -1,6 +1,6 @@
 # Agent skills: implementation plan
 
-Spec: `docs/superpowers/specs/2026-09-24-agent-skills-design.md` (approved 2026-09-24). Status: draft for owner approval.
+Spec: `docs/superpowers/specs/2026-09-24-agent-skills-design.md` (approved 2026-09-24). Status: approved by the owner, 2026-09-24.
 
 **Goal:** an installable `gridcue` agent skill, available through the skills CLI and as a Claude Code plugin, that sets GridCue up safely in someone's app and reads the live docs for facts.
 

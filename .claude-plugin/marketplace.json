@@ -1,0 +1,12 @@
+{
+  "name": "gridcue",
+  "description": "Agent skills for setting up GridCue: plain-language view changes for data grids.",
+  "owner": { "name": "GridCue", "url": "https://gridcue.dev" },
+  "plugins": [
+    {
+      "name": "gridcue",
+      "description": "Set up GridCue in a React app: the Mock first, your domain's words, Jev behind your own endpoint, and evals.",
+      "source": "./"
+    }
+  ]
+}
