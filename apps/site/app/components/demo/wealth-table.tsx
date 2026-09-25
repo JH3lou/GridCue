@@ -39,20 +39,41 @@ export function WealthTable({
   const rows = table.getRowModel().rows;
   const visible = table.getVisibleLeafColumns().length;
   const grouped = rows[0]?.getIsGrouped() ?? false;
-  // A grouped view lists each group's accounts under its header, nested groups included (review fix).
-  type Line = (typeof rows)[number];
+  // A grouped view lists every group's header, and under each the first few of its accounts with a count of the
+  // rest, so no group is ever pushed off the end by an earlier one (review fixes).
+  type Row = (typeof rows)[number];
+  type Line = { row: Row } | { more: number; depth: number; key: string };
+  // Share maxRows among the innermost groups, the ones that hold accounts, with at least three each.
+  const innermost = (row: Row): number =>
+    row.getIsGrouped() ? (row.subRows.some((sub) => sub.getIsGrouped()) ? row.subRows.reduce((n, sub) => n + innermost(sub), 0) : 1) : 0;
+  const perGroup = Math.max(
+    3,
+    Math.floor(
+      maxRows /
+        Math.max(
+          1,
+          rows.reduce((n, row) => n + innermost(row), 0),
+        ),
+    ),
+  );
   const lines: Line[] = [];
-  const visit = (row: Line) => {
-    lines.push(row);
-    if (row.getIsGrouped()) for (const sub of row.subRows) visit(sub);
+  const visit = (row: Row) => {
+    lines.push({ row });
+    if (!row.getIsGrouped()) return;
+    const leaves = row.subRows.filter((sub) => !sub.getIsGrouped());
+    for (const sub of row.subRows.filter((sub) => sub.getIsGrouped())) visit(sub);
+    for (const sub of leaves.slice(0, perGroup)) lines.push({ row: sub });
+    if (leaves.length > perGroup) lines.push({ more: leaves.length - perGroup, depth: row.depth + 1, key: `${row.id}-more` });
   };
   for (const row of rows) visit(row);
-  const accounts = grouped ? lines.filter((row) => !row.getIsGrouped()).length : rows.length;
+  const accounts = grouped ? rows.reduce((n, row) => n + row.getLeafRows().filter((leaf) => !leaf.getIsGrouped()).length, 0) : rows.length;
+  // Group headers always show; accounts fill what's left of maxRows.
+  const shown = grouped ? lines : lines.slice(0, maxRows);
   return (
     <div className="grid gap-2">
       <p className="text-muted-foreground text-xs tabular-nums">
         {grouped ? `${rows.length} ${rows.length === 1 ? "group" : "groups"}, ${accounts} accounts` : `${rows.length} rows`}
-        {lines.length > maxRows ? `, showing the first ${maxRows} lines` : ""}
+        {!grouped && rows.length > maxRows ? `, showing the first ${maxRows}` : ""}
       </p>
       <div className="overflow-x-auto rounded-lg border bg-card">
         <Table>
@@ -68,7 +89,21 @@ export function WealthTable({
             ))}
           </TableHeader>
           <TableBody>
-            {lines.slice(0, maxRows).map((row) => {
+            {shown.map((line) => {
+              if ("more" in line) {
+                return (
+                  <TableRow key={line.key} className="hover:bg-transparent">
+                    <TableCell
+                      colSpan={visible}
+                      className="text-muted-foreground text-xs tabular-nums"
+                      style={{ paddingLeft: `${0.5 + line.depth * 1.25}rem` }}
+                    >
+                      and {line.more} more {line.more === 1 ? "account" : "accounts"}
+                    </TableCell>
+                  </TableRow>
+                );
+              }
+              const { row } = line;
               if (!row.getIsGrouped()) {
                 return (
                   <TableRow key={row.id}>
@@ -80,12 +115,15 @@ export function WealthTable({
                   </TableRow>
                 );
               }
-              const count = row.getLeafRows().length;
+              const count = row.getLeafRows().filter((leaf) => !leaf.getIsGrouped()).length;
               return (
                 <TableRow key={row.id} className="bg-muted/40 hover:bg-muted/40">
                   <TableCell colSpan={visible} className="font-medium" style={{ paddingLeft: `${0.5 + row.depth * 1.25}rem` }}>
-                    {String(row.groupingValue)}{" "}
-                    <span className="text-muted-foreground font-normal tabular-nums">
+                    {(() => {
+                      // The grouped column's own cell format: "Northgate", not the value id "northgate".
+                      const cell = row.getAllCells().find((c) => c.column.id === row.groupingColumnId);
+                      return cell ? flexRender(cell.column.columnDef.cell, cell.getContext()) : String(row.groupingValue);
+                    })()} <span className="text-muted-foreground font-normal tabular-nums">
                       · {count} {count === 1 ? "account" : "accounts"}
                     </span>
                   </TableCell>
