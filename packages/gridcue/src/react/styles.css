@@ -26,6 +26,8 @@
   padding: var(--gridcue-pad);
   display: grid;
   gap: var(--gridcue-gap);
+  /* Its own alignment: a host page that centres text (Vite's starter does) mustn't centre the Preview. */
+  text-align: start;
 }
 @media (prefers-color-scheme: dark) {
   .gridcue-bar {

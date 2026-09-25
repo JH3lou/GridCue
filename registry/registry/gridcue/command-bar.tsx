@@ -32,7 +32,7 @@ export function CommandBar({
   };
 
   return (
-    <section aria-label="GridCue" aria-busy={busy} className="grid gap-3">
+    <section aria-label="GridCue" aria-busy={busy} className="grid gap-3 text-start">
       <form onSubmit={submit} className="grid gap-1.5">
         <label htmlFor={`${id}-input`} className="text-sm font-medium">
           {label}
