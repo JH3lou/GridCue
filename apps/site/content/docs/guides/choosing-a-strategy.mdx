@@ -1,0 +1,101 @@
+---
+title: Choosing a strategy
+description: Pick which questions the Jev provider asks for each part of a request, and measure the choice on your own requests.
+---
+
+A **Strategy** decides which questions the Jev provider asks Jev for each part (Clause) of a request. Every question is a closed yes/no (Noul) or pick-one (Choice) question, and all of a request's questions go in one Jev call. The compiler is the same for every strategy: it treats a missing answer as "no signal".
+
+```ts
+import { createJevProvider } from "gridcue/server";
+
+createJevProvider({ apiKey: process.env.JEV_API_KEY }); // "fan-out", the default
+createJevProvider({ apiKey: process.env.JEV_API_KEY, strategy: "focused" });
+createJevProvider({ apiKey: process.env.JEV_API_KEY, signals: { values: true } });
+```
+
+## What each strategy asks
+
+**Focused** asks only the first version's questions, for each part:
+
+- for each change type the grid supports (filter, sort, group, show or hide columns, clear, reset) and each unsupported action (edit data, business workflows, navigation, export): "Does the part ask for this?";
+- for each column: "Does the part refer to this column, by its label or an alias?";
+- for each enum column: "Which value does it mention, if any?", and for each boolean column: true, false, or neither;
+- for each amount, percentage, or date in the part: "Which column does it apply to?";
+- when the part gives no direction: "Which sort direction?".
+
+When the User names a value by a declared label or alias, that column's column and value questions are skipped. A named column is still asked about, so GridCue can tell the column from the rows ("biggest accounts first").
+
+**Fan-out** asks everything focused asks, plus five signals:
+
+| Signal | The question | What it makes possible |
+| --- | --- | --- |
+| `roles` | For each column and change (sort, group, show, hide): "Does the part ask to … this column?" | More than one change in one part: "Show accounts over $1M sorted by gain" |
+| `kind` | "Which kind of change does the part mainly ask for?" | Choosing between close change types: "Get rid of the account column" |
+| `adds` | "Does it add a level to the current sort or grouping, rather than replace it?" | Adding to the view: "Also group by advisor" |
+| `outer` | "Is column A the outer grouping or primary sort, with B inside it?" Only asked for wording such as "within", "inside", "per", and two named columns | Nesting: "advisor within custodian" |
+| `reading` | For a row or entity noun: the column's values, the other records, or this grid's rows? | "Show the household for each account" |
+
+Each signal stayed only because removing it changed outcomes on live requests (ADRs 0014 and 0015).
+
+## Measured trade-offs
+
+On the 9-column synthetic wealth schema, with `jev-1.13.0`:
+
+| | Focused | Fan-out (default) |
+| --- | --- | --- |
+| Questions per part | 27 | about 55 to 70 |
+| Median latency | about 137 ms | about 153 ms |
+| Compound requests ("Roth IRAs grouped by rep") | Often asks a question | Handled |
+| "Also group by advisor" | Asks whether to add or replace | Handled |
+| Nesting ("advisor within custodian") | Asks which level is outer | Handled |
+
+Question count grows with your columns and enum values, so your numbers will differ.
+
+Focused is not simply "fan-out, cheaper". It gets simple, single-change requests right. On the request types the first version never handled (nesting, "also", and several changes in one part) it has no answer to go on, so GridCue asks the User instead of guessing: on the wealth evals (186 live requests), focused applied no wrong views, but got 122 exactly right against fan-out's 159, asking or declining on most of the rest. Choose it only when your Users' requests are simple, and confirm that with evals on your own requests.
+
+## The opt-in `values` signal
+
+`values` asks one yes/no question per enum value: "Does the part mean rows whose Registration type is IRA?". Several values can be yes, so it can catch a category nobody declared, such as "tax-advantaged accounts". On the wealth schema it adds about 5 questions per part.
+
+It is off in both strategies. In the ablation it decided only one case, below its bar of three. Turn it on when you have categories you can't list:
+
+```ts
+createJevProvider({ apiKey, signals: { values: true } });
+```
+
+Declaring the category is better when you can: a `valueGroups` entry on the column is deterministic and costs no questions. See [Describe your domain](/docs/get-started/describe-your-domain).
+
+## Switching single signals
+
+`signals` turns signals on or off on top of the strategy. The names are `roles`, `kind`, `adds`, `outer`, `values`, and `reading` (exported as `JEV_SIGNALS`).
+
+```ts
+// Fan-out without the nesting question
+createJevProvider({ apiKey, signals: { outer: false } });
+
+// Focused plus "also"
+createJevProvider({ apiKey, strategy: "focused", signals: { adds: true } });
+```
+
+An unknown strategy or signal name throws `INPUT_CONFIG` when the provider is created.
+
+## When a request is too big
+
+The provider has a question budget per request: `maxQuestions`, default 800, about 31k tokens. Twelve parts on a nine-column schema need about 790.
+
+If a request would go over the budget with every signal on, the provider drops back to the focused questions (keeping `reading`) and tries again. Only if that is still over budget does it fail with `PROVIDER_TOO_COMPLEX`, and the User sees "Try fewer parts at once." Nothing is applied.
+
+## Measure on your own requests
+
+The eval CLI takes the same choices as flags:
+
+```bash
+pnpm eval:live -- --strategy=focused      # the focused questions
+pnpm eval:live -- --without=outer,adds    # fan-out minus these signals
+pnpm eval:live -- --with=values           # fan-out plus the opt-in signal
+pnpm eval:live -- --verbose               # per-case latency, question count, and scores
+```
+
+Compare exact results, mismatches, and unsafe results between runs. A signal earns its questions if removing it turns correct results into Clarifications or wrong views. See [Running evals](/docs/guides/evals).
+
+Rerun the comparison when you change the model, your schema, or when your Users' wording shifts.

@@ -1,4 +1,9 @@
-# GridCue
+<h1>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="apps/site/public/logo-dark.svg">
+    <img alt="GridCue" src="apps/site/public/logo.svg" height="56">
+  </picture>
+</h1>
 
 > Ask a dense grid a plain question. See the view that answers it.
 
@@ -178,4 +183,4 @@ GridCue is an independent project. It is not made, sponsored, or endorsed by Typ
 
 ## License
 
-[MIT](LICENSE).
+[MIT](LICENSE), for the code and docs. The GridCue name and logo are not covered by it: use them to refer to the project, not to brand your own.

@@ -1,0 +1,105 @@
+---
+title: The pipeline
+description: What happens between a typed request and an applied, undoable view change.
+---
+
+import { Step, Steps } from 'fumadocs-ui/components/steps';
+
+GridCue is a compiler between a sentence and your grid's view. Deterministic code does most of the work. An **Intent Provider** (Jev, the Mock, or your own) is asked only bounded questions in the middle, and its answers are proposals that code checks.
+
+From the **Utterance** to the grid's view, in order:
+
+| Stage | Run by | What it does |
+| --- | --- | --- |
+| Normalize | code | Splits the request into parts; reads amounts and directions |
+| Screen restricted | code | Refuses restricted columns, before any network call |
+| Find Mentions | code | Finds columns and values named by your labels and aliases |
+| Ask the provider | Intent Provider | Closed yes/no and multiple-choice questions |
+| Compile | code | Turns answers and rules into a View Plan, a Clarification, or a refusal |
+| Validate | code | Checks against the schema, capabilities, and the current Revision |
+| Preview | code | Describes every change in plain language |
+| Apply / undo | adapter | Atomic, after the User approves; checked against the Revision |
+
+`createGridCue` runs all of this. You call `propose(text)`, the User reviews, and `apply()` or `undo()` finishes it.
+
+## Step by step
+
+<Steps>
+<Step>
+
+### Normalize
+
+The **Utterance**, the raw text of one request, is cleaned up (whitespace, spoken punctuation such as "comma") and split into **Clauses**, one per kind of change. Code also extracts literals that it handles better than a model: amounts such as "$1 million", percentages, dates, comparisons such as "over" and "at least", and directions such as "largest first".
+
+"Taxable accounts over $1 million, grouped by advisor" becomes two Clauses: "taxable accounts over $1 million", with a currency literal greater than 1,000,000, and "grouped by advisor".
+
+Requests over 500 characters (`maxUtteranceLength`) or with more than 12 Clauses stop here with a message.
+
+</Step>
+<Step>
+
+### Screen restricted columns
+
+Every Clause is checked for the label or any alias of a restricted column. A match refuses the whole request, and **the provider is never called**. The restricted column's name, metadata and values never leave the browser.
+
+</Step>
+<Step>
+
+### Find Mentions
+
+Code matches your declared column labels and aliases, and enum value labels and aliases, as whole words. Each match is a **Mention**. Grammar rules keep a noun that means the rows ("biggest accounts first") from counting as a column. See [Providers and confidence](/docs/concepts/providers-and-confidence).
+
+</Step>
+<Step>
+
+### Ask the provider closed questions
+
+GridCue builds a `ResolutionRequest`: the Clauses, their literals and Mentions, the columns the provider may choose from, and a summary of the current view. The provider answers questions such as "Does this part ask to sort the rows?" and "Which column does '$1 million' apply to: Market value, Unrealized gain, or none?". Every answer is a pick from a closed list, with a confidence between 0 and 1.
+
+The provider never returns View Operations. If it takes longer than `providerTimeoutMs` (8 seconds by default), GridCue returns to idle with the request kept.
+
+</Step>
+<Step>
+
+### Compile
+
+The compiler combines literals, Mentions and the provider's answers into a **View Plan**, using fixed rules and confidence bands. A request it can't resolve safely becomes a **Clarification**: one focused question for the User. A request outside the view, such as "sell them", becomes an **Unsupported Segment**, and nothing applies.
+
+</Step>
+<Step>
+
+### Validate
+
+A ready plan is checked against your View Schema, the Grid Adapter's capabilities, and the current **Revision** of the view: every column exists and allows the change, every operator fits the column, every value is approved, and sort and group limits hold. Only a plan that passes becomes an **Applicable Plan**.
+
+</Step>
+<Step>
+
+### Preview
+
+GridCue renders the plan as plain text, the same way every time: "Filter Registration type to Taxable; filter Market value above $1,000,000; group by Advisor. No records will be changed."
+
+</Step>
+<Step>
+
+### Apply and undo
+
+When the User approves, the plan is validated again and the Grid Adapter applies every operation at once, or none. If the view changed since the Preview, apply is refused rather than overwriting the User's own changes. Undo restores the exact previous view, but only if nothing has changed the view since. Each outcome can emit an audit event.
+
+</Step>
+</Steps>
+
+## Where each piece lives
+
+| Stage | Code | Replaceable? |
+| --- | --- | --- |
+| Normalize, screen, Mentions, compile, validate, preview | `gridcue` core | No. This is the part that decides. |
+| Ask the provider | An `IntentProvider` | Yes: Jev, the Mock, `createRemoteProvider`, or [your own](/docs/guides/build-a-provider) |
+| Apply and undo | A `GridAdapter` | Yes: TanStack Table, the Rows Adapter, or [your own](/docs/guides/build-an-adapter) |
+| Command bar, Preview, Clarification UI | `gridcue/react` or the Component Registry | Yes: use `useGridCue` to build your own |
+
+## Next
+
+- [Requests](/docs/concepts/requests): Utterances, Clauses, Mentions and Clarifications in detail.
+- [Views](/docs/concepts/views): View State, View Plans, Revisions and undo.
+- [Safety and protocol](/docs/safety): what leaves your app and what never does.

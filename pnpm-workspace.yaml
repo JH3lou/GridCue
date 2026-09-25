@@ -4,6 +4,7 @@ packages:
   - evals
   - registry
   - examples/*
+  - apps/*
 
 # pnpm runs no dependency install scripts unless listed here.
 allowBuilds:

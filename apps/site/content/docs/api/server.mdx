@@ -1,0 +1,138 @@
+---
+title: Server
+description: gridcue/server — the Server Handler, the Node wrapper, the Jev provider exports, and the runtime export conditions.
+---
+
+`gridcue/server` holds everything that must run on a server: the Server Handler that resolves requests with a server-side provider, a wrapper that mounts it in Node frameworks, and the Jev provider. The browser calls the handler through `createRemoteProvider`, so the provider key never reaches the browser.
+
+```ts
+import {
+  createGridCueHandler,
+  toNodeHandler,
+  createJevProvider,
+  DEFAULT_JEV_MODEL,
+  JEV_SIGNALS,
+  JEV_STRATEGIES,
+} from "gridcue/server";
+import type { GridCueHandler, HandlerOptions, JevClient, JevProviderOptions, JevSignal, JevStrategy } from "gridcue/server";
+```
+
+## createGridCueHandler
+
+```ts
+function createGridCueHandler(options: HandlerOptions): GridCueHandler;
+
+interface HandlerOptions {
+  provider: IntentProvider;
+  maxBodyBytes?: number;
+}
+
+type GridCueHandler = (request: Request) => Promise<Response>;
+```
+
+A Fetch-standard endpoint that resolves requests with a server-side provider. It takes a `Request` and returns a `Response`, so it runs anywhere a standard `Request` to `Response` function runs, such as a Next.js route handler. It never logs requests, payloads or keys.
+
+| Name | Type | Default | Description |
+| --- | --- | --- | --- |
+| `provider` | `IntentProvider` | required | The provider that resolves each request, usually `createJevProvider`. |
+| `maxBodyBytes` | `number` | `32768` (32 KB) | Largest accepted request body, in bytes. The body is read as a stream and reading stops as soon as it goes over. |
+
+It checks each request in this order and answers with JSON of the form `{ error: { code, message } }` on failure:
+
+| Status | Code | When |
+| --- | --- | --- |
+| 405 | `INPUT_METHOD` | The method is not `POST`. |
+| 415 | `INPUT_CONTENT_TYPE` | The `content-type` header does not include `application/json`. |
+| 413 | `INPUT_TOO_LARGE` | `content-length` or the body read so far is over `maxBodyBytes`. |
+| 400 | `INPUT_INVALID` | The body is not JSON, or not a valid `ResolutionRequest`. |
+| 502 | `PROVIDER_MALFORMED` | The provider returned something that is not a valid `ResolutionResult`. |
+| 502 | the provider's `PROVIDER_` code, else `PROVIDER_FAILED` | The provider threw. |
+| 200 | none | The `ResolutionResult` as JSON. |
+
+Every response carries `cache-control: no-store`. The request's abort signal is passed to the provider, so a provider that honors it stops when the request is aborted. Provider failures always answer with the generic message "The intent provider failed."; the provider's own message is never sent.
+
+The handler has no authentication or rate limiting of its own. Put it behind your app's auth and limits; see [Protect the endpoint](/docs/guides/protect-the-endpoint).
+
+```ts
+// app/api/gridcue/route.ts (Next.js)
+import { createGridCueHandler, createJevProvider } from "gridcue/server";
+
+export const POST = createGridCueHandler({
+  provider: createJevProvider({ apiKey: process.env.JEV_API_KEY }),
+});
+```
+
+## toNodeHandler
+
+```ts
+function toNodeHandler(
+  handler: GridCueHandler,
+  options?: { maxBodyBytes?: number },
+): (req: IncomingMessage, res: ServerResponse) => Promise<void>;
+```
+
+Wraps a Fetch-standard handler as a Node `(req, res)` listener. It mounts in Express, Fastify, Connect, Vite's dev server or `node:http`.
+
+| Name | Type | Default | Description |
+| --- | --- | --- | --- |
+| `handler` | `GridCueHandler` | required | The handler from `createGridCueHandler`. |
+| `options.maxBodyBytes` | `number` | `32768` | Largest body the wrapper reads from the Node stream. Over it, it answers 413 with `INPUT_TOO_LARGE` without calling the handler. |
+
+- If a body parser already ran (`req.body` is set), the wrapper uses that body instead of reading the stream: a string as is, anything else serialized with `JSON.stringify`. The handler's own `maxBodyBytes` still applies.
+- It copies the request headers, builds the URL from `req.originalUrl` or `req.url`, and aborts the handler's signal if the client disconnects before the response is sent.
+
+```ts
+import express from "express";
+import { createGridCueHandler, createJevProvider, toNodeHandler } from "gridcue/server";
+
+const app = express();
+app.post(
+  "/api/gridcue",
+  toNodeHandler(createGridCueHandler({ provider: createJevProvider({ apiKey: process.env.JEV_API_KEY }) })),
+);
+```
+
+## Jev exports
+
+`gridcue/server` also exports the Jev provider and its constants:
+
+| Export | Kind | Description |
+| --- | --- | --- |
+| `createJevProvider` | function | The Jev Intent Provider. |
+| `DEFAULT_JEV_MODEL` | `"jev-1.13.0"` | The default model. |
+| `JEV_SIGNALS` | `readonly JevSignal[]` | `["roles", "kind", "adds", "outer", "values", "reading"]`. |
+| `JEV_STRATEGIES` | `Record<JevStrategy, readonly JevSignal[]>` | The signals each strategy turns on. |
+| `JevClient`, `JevProviderOptions`, `JevSignal`, `JevStrategy` | types | The provider's option and client types. |
+
+They are documented on the [Providers](/docs/api/providers#createjevprovider) page. `createJevProvider` uses `@typesafe-ai/sdk`, an optional peer dependency: install it on the server when you use Jev. It loads on the first Jev request, so `gridcue/server` works without it for the Mock or your own provider; a Jev request without it fails with `INPUT_CONFIG`.
+
+## Export conditions
+
+`gridcue/server` resolves to different files depending on where it is bundled, so a provider key can never be shipped to a browser by mistake:
+
+```json
+"./server": {
+  "types": "./dist/server.d.ts",
+  "workerd": "./dist/server.js",
+  "edge-light": "./dist/server.js",
+  "browser": "./dist/server-browser.js",
+  "default": "./dist/server.js"
+}
+```
+
+| Condition | Resolves to | Used by |
+| --- | --- | --- |
+| `workerd` | the real module | Cloudflare Workers (wrangler) |
+| `edge-light` | the real module | Vercel's Edge Runtime |
+| `browser` | a stub that throws on import | browser bundles |
+| `default` | the real module | Node and everything else |
+
+The browser stub throws as soon as it is imported:
+
+```text
+gridcue/server runs only on a server. Import createRemoteProvider from "gridcue" in the browser instead.
+```
+
+`workerd` and `edge-light` are listed before `browser`, because wrangler resolves with `workerd`, `worker` and `browser` together; without them a Worker would get the stub. The `worker` condition is deliberately not listed: bundlers use it for browser Web Workers, and resolving the real module there would put the key inside a page's own Web Worker. See ADR 0011 in the repository. `@typesafe-ai/sdk`, which the Jev provider uses, runs under `workerd` too: a live Jev request was checked under `wrangler dev`, with and without `nodejs_compat`.
+
+To call the handler from the browser, use [`createRemoteProvider`](/docs/api/providers#createremoteprovider) from `gridcue`. For a full walkthrough, see [Server Handler](/docs/guides/server-handler).

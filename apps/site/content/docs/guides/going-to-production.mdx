@@ -1,0 +1,112 @@
+---
+title: Going to production
+description: A checklist for shipping GridCue with Jev - auth, timeouts, audit, confidence, model pinning, evals, and keeping keys server-side.
+---
+
+Work through this list before real Users type into GridCue.
+
+## 1. Auth and rate limits on the endpoint
+
+The Server Handler has no auth of its own, and every call spends provider credits. Put it behind your app's session check and a per-User rate limit. See [Protect the endpoint](/docs/guides/protect-the-endpoint).
+
+## 2. Keys stay on the server
+
+- Keep `JEV_API_KEY` in a server-side environment variable or secret store.
+- Never give it a `VITE_` or `NEXT_PUBLIC_` prefix. Those copy it into the browser bundle.
+- Import `gridcue/server` only from server code. In a browser build it throws on import.
+- The browser talks to your endpoint through `createRemoteProvider`, and never holds a key.
+
+## 3. Verify no key reaches the browser
+
+GridCue's own merge gate runs `pnpm check:bundles`: it builds the examples with a fake key, then fails if any browser asset contains that key, `api.typesafe.ai`, or `TypeSafeClient`. Do the same in your CI:
+
+```bash
+JEV_API_KEY=bundle-canary-123 npm run build
+! grep -rlE "bundle-canary-123|api\.typesafe\.ai|TypeSafeClient" dist/
+```
+
+Point `grep` at your browser output: `dist/` for Vite, `.next/static` for Next.js. The command fails if any file matches.
+
+## 4. Set the provider timeout
+
+`createGridCue` gives the provider 8 seconds by default (`providerTimeoutMs: 8000`). Past that, GridCue aborts the call and returns to idle with the request kept in the input. The User sees "That took too long. Try again." The view does not change.
+
+```ts
+const cue = createGridCue({ schema, adapter, provider, providerTimeoutMs: 5000 });
+```
+
+`0` turns the limit off. Don't: a provider that retries on its own can hold a request for over a minute. The Jev provider already caps each attempt at 4 seconds with one retry.
+
+Other failures show "Couldn't interpret that request. The view hasn't changed." A request over the question budget shows "Try fewer parts at once."
+
+## 5. Record audit events
+
+Pass `audit.onEvent` to get one structured event for each plan that is applied, cancelled, rejected, undone, or fails to apply:
+
+```ts
+import { createGridCue, type AuditEvent } from "gridcue";
+
+const cue = createGridCue({
+  schema,
+  adapter,
+  provider,
+  audit: {
+    onEvent: (event: AuditEvent) => log.info(event), // your logger
+    policy: { includeStructure: true },
+  },
+});
+```
+
+By default an event holds no text, labels, or values: the outcome, plan ID, status, operation types, a confidence band (`high`, `medium`, `low`, or `none`), the Revisions, and an error code when there is one. `AuditPolicy` opts in to more:
+
+| Option | Adds | Default |
+| --- | --- | --- |
+| `includeText` | The User's raw request text | Off |
+| `includeStructure` | Column IDs and operators for each operation. Filter values are never included | Off |
+
+Turn on `includeText` only if your data policy allows storing what Users type.
+
+## 6. Decide on confidence
+
+GridCue uses a decision as-is at or above `ready`, asks a Clarification between `clarify` and `ready`, and discards it below `clarify`. The defaults are `{ ready: 0.85, clarify: 0.65 }` (`DEFAULT_CONFIDENCE`), tuned against `jev-1.13.0`.
+
+```ts
+const cue = createGridCue({ schema, adapter, provider, confidence: { ready: 0.9, clarify: 0.7 } });
+```
+
+Raising the bands means more Clarifications and fewer silent applies. Lowering them does the opposite. Change them only with eval results on your own requests in hand. See [Providers and confidence](/docs/concepts/providers-and-confidence).
+
+## 7. Pin the Jev model
+
+`createJevProvider` uses `jev-1.13.0` by default (`DEFAULT_JEV_MODEL`). GridCue's confidence bands and evals are measured against it. Pin it explicitly so an upgrade is a decision, not a surprise:
+
+```ts
+createJevProvider({ apiKey: process.env.JEV_API_KEY, model: "jev-1.13.0" });
+```
+
+`model: "jev-latest"` floats to the newest model. If you move to a new model, rerun your evals first.
+
+## 8. Choose a strategy
+
+`"fan-out"`, the default, handles compound, "also", and nested requests. `"focused"` asks fewer questions. See [Choosing a strategy](/docs/guides/choosing-a-strategy).
+
+## 9. Run evals against your own schema
+
+GridCue's published evidence is scoped to one schema: 186 labelled live requests on a synthetic wealth schema, 0 wrong views with either strategy (jev-1.13.0, Sept 2026). Your columns, aliases, and Users' wording are different. Write labelled cases for your schema and run them with live Jev before launch, and again after any model, strategy, or schema change. Treat any unsafe result as release-blocking. See [Running evals](/docs/guides/evals).
+
+## 10. Mark restricted columns
+
+List every column GridCue must never see or act on in `restricted`. Restricted columns are never sent to a provider, and a request that names one is refused. See [Safety](/docs/safety).
+
+## Quick reference
+
+| Setting | Where | Default |
+| --- | --- | --- |
+| `providerTimeoutMs` | `createGridCue` | `8000` |
+| `confidence` | `createGridCue` | `{ ready: 0.85, clarify: 0.65 }` |
+| `audit` | `createGridCue` | Off |
+| `maxUtteranceLength` | `createGridCue` | `500` |
+| `model` | `createJevProvider` | `"jev-1.13.0"` |
+| `strategy` | `createJevProvider` | `"fan-out"` |
+| `maxQuestions` | `createJevProvider` | `800` |
+| `maxBodyBytes` | `createGridCueHandler`, `toNodeHandler` | `32768` |

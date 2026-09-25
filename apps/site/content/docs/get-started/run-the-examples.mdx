@@ -1,0 +1,82 @@
+---
+title: Run the examples
+description: Run GridCue's Vite and Next.js examples from the repository, on the Mock Provider or on Jev.
+---
+
+The GridCue repository has two working examples. Both show the same synthetic wealth grid: 500 generated advisory accounts, none of them real client data.
+
+| Example | Stack | Grid Adapter | Command bar |
+| --- | --- | --- | --- |
+| `examples/vite` | Vite, React, TanStack Table v9, shadcn/ui | TanStack Table | The registry's shadcn `CommandBar` |
+| `examples/next` | Next.js App Router, plain CSS, no Tailwind | Rows Adapter | The package's `<GridCueBar />` |
+
+## Set up
+
+You need Node 24 and pnpm 12.6, through corepack:
+
+```bash
+git clone https://github.com/JH3lou/GridCue.git
+cd GridCue
+corepack enable
+pnpm install
+```
+
+## Start an example
+
+From the repository root:
+
+```bash
+pnpm dev:vite    # http://localhost:5173
+pnpm dev:next    # http://localhost:3100
+```
+
+Each command builds the `gridcue` package first, then starts the example's dev server. Both follow your OS light or dark setting.
+
+## Mock by default, Jev with a key
+
+Both examples call their own `/api/gridcue` Server Handler. It uses the **Mock Provider** unless a Jev key is set, so they work with no account.
+
+To use Jev, create `.env.local` at the **repository root** (not inside the example):
+
+```bash
+# .env.local, at the repo root. Git ignores it.
+JEV_API_KEY=your-key
+```
+
+Restart the example. A key exported in your shell wins over the file. Both examples, `pnpm eval:live` and `pnpm test:live` read this one file; `pnpm test` never does. The template is `.env.example`.
+
+<Callout type="warn">
+Never prefix the key with `VITE_` or `NEXT_PUBLIC_`. The repository's `pnpm check:bundles` fails the build if the key ever reaches a browser bundle.
+</Callout>
+
+## What to look at
+
+**`examples/vite`** is the [quick start](/docs/get-started/quick-start) with the shadcn command bar in place of `GridCueBar`:
+
+- `src/App.tsx`: a shadcn Data Table as it existed before GridCue, plus the three GridCue lines.
+- `gridcue-api.ts`: picks Jev or the Mock from the environment and wraps the handler with `toNodeHandler`.
+- `vite.config.ts`: mounts that handler at `/api/gridcue` in `vite dev` and `vite preview`.
+- A **Developer panel** checkbox shows each request's View Plan, its confidence, and any validation issues.
+
+**`examples/next`** keeps rows in memory and renders a plain `<table>`:
+
+- `app/accounts-view.tsx`: `createRowsAdapter`, `applyView`, and `GridCueBar`, including grouped rows.
+- `app/api/gridcue/route.ts`: the Server Handler as a route's `POST` export.
+
+Both read their schema from `fixtures/wealth`, which shows every declaration in [Describe your domain](/docs/get-started/describe-your-domain).
+
+## Things to type
+
+- "Taxable accounts over $1 million, grouped by advisor"
+- "Retirement accounts at Northgate, sorted by gain"
+- "Group by custodian, then advisor"
+- "Hide concentration and unrealized gain"
+- "Show the tax ID" (refused: Tax ID is restricted)
+- "Sell anything over 10%" (refused: GridCue only changes the view)
+
+The Mock understands the wording above because the fixture declares aliases, values and default amount columns. Jev also handles looser phrasing, such as "who manages the account".
+
+## Next
+
+- [Vite with TanStack Table](/docs/guides/vite-tanstack) and [Next.js with the Rows Adapter](/docs/guides/next-rows-adapter) walk through each example.
+- [Running evals](/docs/guides/evals): the labelled requests behind GridCue's accuracy numbers.

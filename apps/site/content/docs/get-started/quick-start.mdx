@@ -1,0 +1,135 @@
+---
+title: Your grid in 5 minutes
+description: Add a GridCue command bar to a TanStack Table app with the keyless Mock Provider. No server, no account, no key.
+---
+
+This page adds a command bar to an existing TanStack Table v9 app. It uses the **Mock Provider**: an Intent Provider that answers from fixed rules instead of a model. It runs in the browser, so you need no server and no key. When it works, [turn on Jev](/docs/get-started/turn-on-jev).
+
+## 1. Install
+
+```bash
+npm i gridcue
+```
+
+You already have `react` (19 or later) and `@tanstack/react-table` (v9). GridCue has no other runtime requirements for this page.
+
+## 2. Wire the table
+
+Three additions to a table you already have:
+
+1. Register `gridcueFilterFn` as the default filter function, so GridCue's filters evaluate.
+2. Build a View Schema from the table's columns with `schemaFromTanStack`.
+3. Create one controller with `createGridCue`, and render `<GridCueBar />`.
+
+```tsx
+import {
+  columnFilteringFeature,
+  columnGroupingFeature,
+  columnOrderingFeature,
+  columnVisibilityFeature,
+  createFilteredRowModel,
+  createGroupedRowModel,
+  createSortedRowModel,
+  rowSortingFeature,
+  tableFeatures,
+  useTable,
+} from "@tanstack/react-table";
+import { createGridCue } from "gridcue";
+import { createMockProvider } from "gridcue/mock";
+import { GridCueBar } from "gridcue/react";
+import { createTanStackAdapter, gridcueFilterFn, schemaFromTanStack } from "gridcue/tanstack-table";
+import "gridcue/styles.css";
+import { useState } from "react";
+
+// GridCue reads and writes filters, sorting, grouping, visibility, and column order.
+const features = tableFeatures({
+  columnFilteringFeature,
+  rowSortingFeature,
+  columnGroupingFeature,
+  columnVisibilityFeature,
+  columnOrderingFeature,
+  filteredRowModel: createFilteredRowModel(),
+  sortedRowModel: createSortedRowModel(),
+  groupedRowModel: createGroupedRowModel(),
+});
+
+export function Accounts() {
+  const table = useTable({
+    features,
+    columns, // your existing column definitions
+    data, // your existing rows
+    defaultColumn: { filterFn: gridcueFilterFn }, // 1
+  });
+
+  // Create the controller once. useTable returns a new object whenever table state changes.
+  const [cue] = useState(() => {
+    const schema = schemaFromTanStack(table, { restricted: ["tax_id"] }); // 2
+    return createGridCue({
+      schema,
+      adapter: createTanStackAdapter({ schema, table }),
+      provider: createMockProvider(), // 3
+    });
+  });
+
+  return (
+    <>
+      <GridCueBar controller={cue} />
+      {/* render your table as before */}
+    </>
+  );
+}
+```
+
+`schemaFromTanStack` reads each column's id and string header, and infers its kind from the first 50 rows. The rows are used only for that; they never leave the call. `restricted` names columns GridCue must never use or send anywhere. It must match a real column id, or `schemaFromTanStack` throws.
+
+<Callout type="warn">
+Don't wrap `createGridCue` in a `useMemo` keyed on `table`. It would rebuild the controller on every table change and lose undo.
+</Callout>
+
+## 3. Type a request
+
+Start the app and type into the bar. The Mock Provider understands requests that use your column names. On a grid with Market value, Advisor and Account number columns, try:
+
+- "sort by market value, largest first"
+- "group by advisor"
+- "hide the account number column"
+- "reset the view"
+
+GridCue shows a **Preview**: a plain description of exactly what will change, ending with "No records will be changed." Press **Apply**, or Ctrl/⌘ Enter. Then try **Undo**. Escape cancels.
+
+The Mock matches names as written. It does not know that "rep" means Advisor, that "roth" is a registration type, or which column "$1 million" refers to. Teach it:
+
+- Add aliases and approved values with the schema's `columns` option. See [Describe your domain](/docs/get-started/describe-your-domain).
+- Tell the Mock which column a bare amount means:
+
+```ts
+createMockProvider({ defaultColumnForKind: { currency: "market_value", percent: "concentration" } });
+```
+
+Jev does not need these hints for every phrasing, but it still benefits from aliases and approved values.
+
+## Not using TanStack Table?
+
+If your rows sit in memory and you render them with any table, use the **Rows Adapter** instead. `createRowsAdapter` holds the View State, and `applyView` filters, sorts and groups your rows for rendering:
+
+```tsx
+import { applyView, createGridCue, createRowsAdapter, defineSchema } from "gridcue";
+import { createMockProvider } from "gridcue/mock";
+import { useSyncExternalStore } from "react";
+
+const schema = defineSchema([{ id: "market_value", label: "Market value", kind: "currency" } /* … */]);
+const adapter = createRowsAdapter({ schema });
+const cue = createGridCue({ adapter, provider: createMockProvider() });
+
+// In your component, re-render on every view change, then render view.rows with any table:
+const { state } = useSyncExternalStore(adapter.subscribe, adapter.getState, adapter.getState);
+const view = applyView(rows, state, schema); // { columns, rows, groups? }
+```
+
+The full walkthrough is [Next.js with the Rows Adapter](/docs/guides/next-rows-adapter).
+
+## Next
+
+- [Turn on Jev](/docs/get-started/turn-on-jev): a real model behind a Server Handler.
+- [Describe your domain](/docs/get-started/describe-your-domain): aliases, values, and the words your Users use.
+- [Components](/docs/components/command-bar): the shadcn/ui command bar, if you prefer it to `GridCueBar`.

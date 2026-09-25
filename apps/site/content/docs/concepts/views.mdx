@@ -1,0 +1,126 @@
+---
+title: Views
+description: View State, View Operations, View Plans, Applicable Plans, Previews, Revisions and undo.
+---
+
+GridCue changes how a grid looks, never the records behind it. These are the terms for that view and for changes to it.
+
+## View State
+
+The complete arrangement of a grid at one moment. GridCue represents it the same way for every grid library:
+
+```ts
+interface ViewState {
+  visibleColumnIds: string[];
+  columnOrder: string[];
+  filters: FilterGroup | null; // AND of predicates such as { columnId, operator: "gt", value: 1000000 }
+  sorts: SortSpec[]; // { columnId, direction: "asc" | "desc" }, primary first
+  groupBy: string[]; // outermost first
+  // Reserved in the protocol, not proposed yet:
+  pinnedColumnIds: { start: string[]; end: string[] };
+  aggregations: AggregationSpec[];
+  density: "compact" | "comfortable" | "spacious";
+}
+```
+
+A **Grid Adapter** translates between this shape and one grid library. `createTanStackAdapter` reads and writes TanStack Table's filter, sort, grouping, visibility and order state. `createRowsAdapter` holds the View State itself, and `applyView(rows, state, schema)` produces the rows to render.
+
+Your own controls keep working. A header click or a column menu changes the same View State, and the adapter reports it.
+
+## View Operation
+
+One atomic kind of view change. GridCue proposes these:
+
+| Operation | Example Preview line |
+| --- | --- |
+| `filter.add` | Filter Market value above $1,000,000 |
+| `filter.clear` | Clear all filters |
+| `sort.set` | Sort by Market value, descending |
+| `group.set` | Group by Custodian, then Advisor |
+| `columns.show` | Show Concentration |
+| `columns.hide` | Hide Account number |
+| `columns.order` | Put Advisor and Market value first |
+| `view.reset` | Reset the view |
+
+Clearing sorting or grouping is a `sort.set` or `group.set` with an empty list. Pinning, aggregation and density are declared in the protocol for later; GridCue does not propose them today.
+
+## View Plan
+
+An ordered set of View Operations proposed for one Utterance, tied to the Revision it was built against. It also records its status, its confidence, the evidence behind each decision, and any Clarifications or Unsupported Segments.
+
+For "Roth accounts sorted by market value, largest first":
+
+```json
+{
+  "protocolVersion": "0.1",
+  "id": "plan_2",
+  "baseRevision": "rows:0",
+  "status": "ready",
+  "operations": [
+    {
+      "type": "filter.add",
+      "predicate": { "id": "filter_1", "type": "predicate", "columnId": "registration_type", "operator": "eq", "value": "roth_ira" },
+      "combineWith": "and"
+    },
+    { "type": "sort.set", "sorts": [{ "columnId": "market_value", "direction": "desc" }] }
+  ],
+  "confidence": 0.95,
+  "evidence": [
+    { "key": "c0.value.registration_type", "selectedId": "roth_ira", "confidence": 1, "source": "deterministic" },
+    { "key": "c0.family", "selectedId": "sort", "confidence": 0.95, "source": "provider" }
+  ],
+  "clarifications": [],
+  "unsupportedSegments": []
+}
+```
+
+(Evidence shortened.) Every evidence entry names its source: `deterministic` for code, `provider` for the Intent Provider, `host` for your schema, `user` for a Clarification answer. The plan's `confidence` is the lowest of its decisions.
+
+A plan's `status` is one of:
+
+- `ready`: every decision is resolved;
+- `needs_clarification`: GridCue has a question, and the plan has no operations;
+- `unsupported`: part of the request is outside the view or names a restricted column. It may carry operations for the Preview, but it can never apply.
+
+## Applicable Plan
+
+A View Plan that has passed every validation check against the current Revision and may be applied. Only `validatePlan` produces one, at runtime; a type assertion can't. Adapters refuse anything else.
+
+Validation checks that every column exists and allows the change, every operator is legal for the column's kind and your `allowedOperators`, every enum value is approved, the adapter supports each operation, sort and group limits hold (three sorts and two group levels by default), and the resulting state is consistent. GridCue validates when it builds the Preview and again at apply. When a ready plan fails validation at Preview time, it never becomes applicable: the controller's status becomes `unsupported`, with the first issue as its message.
+
+## Preview
+
+The deterministic, human-readable description of exactly what a View Plan would change, shown before anything is applied. The same plan always gives the same text. It is rendered from the validated structure, not written by a model.
+
+```ts
+const { preview } = cue.getState();
+preview?.lines; // ["Filter Registration type to Roth IRA", "Sort by Market value, descending"]
+preview?.text; // "Filter Registration type to Roth IRA; sort by Market value, descending. No records will be changed."
+```
+
+GridCue does not auto-apply. The User applies from the Preview, or cancels.
+
+## Revision
+
+An identifier for one specific View State, such as `rows:3` or `tanstack:7`. It changes on every view change, including the User's own clicks.
+
+Each plan carries its `baseRevision`. If the view changed between Preview and apply, apply is refused with "The view changed since this preview. Preview the request again." GridCue never overwrites a change it didn't see.
+
+## Undo
+
+Every applied plan is undoable. `cue.undo()` restores the exact View State from before the apply, and `getState().canUndo` says whether that is possible.
+
+Undo also checks the Revision. If the view changed after the apply, undo is refused ("The view changed after that update, so undo would erase newer changes"), because restoring would erase that newer change.
+
+```ts
+await cue.apply(); // true: the view changed, canUndo is true
+await cue.undo(); // true: the previous view is back, message "Change undone."
+```
+
+Apply is atomic. If the grid fails part-way, GridCue restores the previous view when it safely can, and says which happened.
+
+## Next
+
+- [Providers and confidence](/docs/concepts/providers-and-confidence): where a plan's decisions come from.
+- [Preview panel](/docs/components/preview-panel): the component that shows the Preview.
+- [Protocol types](/docs/api/protocol): the full shapes.

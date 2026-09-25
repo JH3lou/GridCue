@@ -1,0 +1,95 @@
+---
+title: Turn on Jev
+description: Swap the Mock Provider for TypeSafe's Jev behind a Server Handler, so the key never reaches the browser.
+---
+
+The Mock Provider only understands exact names. **Jev**, TypeSafe's typed-decision model, understands the wording people actually use: "who manages the account", "biggest first", "also group by advisor". GridCue calls Jev from your server, never from the browser, so your key stays private.
+
+Two changes: the browser talks to your endpoint instead of the Mock, and your server answers that endpoint with Jev.
+
+## 1. Install the TypeSafe SDK
+
+```bash
+npm i gridcue @typesafe-ai/sdk
+```
+
+`@typesafe-ai/sdk` is an optional peer dependency of `gridcue`. Only `gridcue/server` uses it.
+
+## 2. Point the browser at your endpoint
+
+Replace `createMockProvider()` with `createRemoteProvider`, from the root `gridcue` entry. It posts each request to a URL you choose:
+
+```tsx
+import { createGridCue, createRemoteProvider } from "gridcue";
+
+const cue = createGridCue({
+  schema,
+  adapter: createTanStackAdapter({ schema, table }),
+  provider: createRemoteProvider({ endpoint: "/api/gridcue" }),
+});
+```
+
+`createRemoteProvider` also takes `headers` (for example, a CSRF token) and a custom `fetch`.
+
+## 3. Mount the Server Handler
+
+The **Server Handler** is a small endpoint that holds the provider's key and answers resolution requests. `createGridCueHandler` returns a Fetch-standard `(request: Request) => Promise<Response>` function. Give it a provider made by `createJevProvider`.
+
+Next.js App Router:
+
+```ts
+// app/api/gridcue/route.ts
+import { createGridCueHandler, createJevProvider } from "gridcue/server";
+
+export const POST = createGridCueHandler({
+  provider: createJevProvider({ apiKey: process.env.JEV_API_KEY }),
+});
+```
+
+Express, or any Node `(req, res)` server, through `toNodeHandler`:
+
+```ts
+import express from "express";
+import { createGridCueHandler, createJevProvider, toNodeHandler } from "gridcue/server";
+
+const handler = createGridCueHandler({ provider: createJevProvider({ apiKey: process.env.JEV_API_KEY }) });
+
+const app = express();
+app.post("/api/gridcue", toNodeHandler(handler));
+```
+
+The handler accepts only `POST` with a JSON body up to 32 KB (`maxBodyBytes`), validates the request against the protocol, and never logs requests, payloads or keys. Other runtimes (Hono, Cloudflare Workers, Vite's dev server) are in [Server Handler recipes](/docs/guides/server-handler).
+
+## Where the key goes
+
+Put the key in a server-side environment variable named `JEV_API_KEY`. Locally, that is a git-ignored `.env.local`:
+
+```bash
+# .env.local
+JEV_API_KEY=your-key
+```
+
+<Callout type="error">
+Never name it `VITE_JEV_API_KEY` or `NEXT_PUBLIC_JEV_API_KEY`. Those prefixes copy the value into the browser bundle, where anyone can read it.
+</Callout>
+
+Only import `gridcue/server` from server code. In a browser build it throws on import, so a mistake fails loudly instead of shipping the key.
+
+## Choose a strategy
+
+`createJevProvider` takes a `strategy`: `"fan-out"` (the default) asks more questions per part and handles compound, "also" and nested requests, while `"focused"` asks the fewest questions for simple, single-change requests. See [Choosing a strategy](/docs/guides/choosing-a-strategy).
+
+```ts
+createJevProvider({ apiKey: process.env.JEV_API_KEY, strategy: "focused" });
+```
+
+The provider pins the model to `jev-1.13.0`, the model GridCue's confidence bands are tuned against. Pass `model` to change it, and re-run your evals when you do.
+
+## Protect the endpoint
+
+Every call to `/api/gridcue` spends your Jev credits, and GridCue adds no auth of its own. Put the endpoint behind the same session check and rate limits as the rest of your app before you ship. See [Protect the endpoint](/docs/guides/protect-the-endpoint).
+
+## Next
+
+- [Describe your domain](/docs/get-started/describe-your-domain): aliases, approved values, and domain nouns.
+- [Going to production](/docs/guides/going-to-production): auth, rate limits, timeouts and audit.

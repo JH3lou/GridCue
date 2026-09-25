@@ -1,0 +1,13 @@
+---
+title: Overview
+description: "GridCue's shadcn/ui components, and the plain-CSS command bar for apps without Tailwind."
+---
+
+GridCue ships its UI two ways. Pick the one that matches your app.
+
+| | You get | Styling | Install |
+| --- | --- | --- | --- |
+| **[CommandBar](/docs/components/command-bar)** (shadcn registry) | The source files, copied into your app | Tailwind + shadcn/ui, yours to restyle | `npx shadcn@latest add https://gridcue.dev/r/command-bar.json` |
+| **[GridCueBar](/docs/components/grid-cue-bar)** (in the package) | A ready-made component | Plain CSS with variables, no Tailwind needed | `npm i gridcue` |
+
+The command bar is composed from two smaller parts you can use on their own: the [PreviewPanel](/docs/components/preview-panel) and the [ClarificationPrompt](/docs/components/clarification-prompt). Every preview on these pages runs live in your browser on the keyless Mock Provider.

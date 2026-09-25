@@ -1,0 +1,84 @@
+---
+title: Protect the endpoint
+description: The Server Handler has no auth of its own. Put it behind your app's session check and rate limits.
+---
+
+`/api/gridcue` calls your Intent Provider, and with Jev every call spends your credits. Anyone who can reach the endpoint can spend them.
+
+GridCue adds no auth of its own. The Host owns authorization, so the endpoint gets the same protection as the rest of your app's API:
+
+- **Authentication.** Only signed-in Users reach the handler.
+- **Rate limits.** Per User or per session, so one client can't run up your bill.
+- **The usual API hygiene.** CSRF protection if you use cookie sessions, and your normal request logging (the handler logs nothing itself).
+
+The handler never sees your rows and never changes data. The risk is cost and abuse of your provider account, not data access.
+
+## Next.js
+
+Wrap the handler in your session check:
+
+```ts
+// app/api/gridcue/route.ts
+import { createGridCueHandler, createJevProvider } from "gridcue/server";
+import { auth } from "@/auth"; // your app's session helper
+
+const handler = createGridCueHandler({
+  provider: createJevProvider({ apiKey: process.env.JEV_API_KEY }),
+});
+
+export async function POST(request: Request) {
+  const session = await auth();
+  if (!session) return new Response("Unauthorized", { status: 401 });
+  return handler(request);
+}
+```
+
+Add a rate limit the same way, with whatever your app already uses, before calling `handler(request)`. Return a 429 when it trips. The command bar then shows "Couldn't interpret that request. The view hasn't changed." and keeps the request.
+
+## Express
+
+Put your existing middleware in front of `toNodeHandler`:
+
+```ts
+import express from "express";
+import { rateLimit } from "express-rate-limit";
+import { createGridCueHandler, createJevProvider, toNodeHandler } from "gridcue/server";
+
+const handler = createGridCueHandler({
+  provider: createJevProvider({ apiKey: process.env.JEV_API_KEY }),
+});
+
+const app = express();
+app.post(
+  "/api/gridcue",
+  requireLogin, // your app's auth middleware
+  rateLimit({ windowMs: 60_000, limit: 30 }),
+  toNodeHandler(handler),
+);
+```
+
+## Sending credentials from the browser
+
+Same-origin `fetch` sends cookies by default, so cookie sessions need nothing extra. For a bearer token or a CSRF header, pass `headers` to `createRemoteProvider`:
+
+```ts
+import { createRemoteProvider } from "gridcue";
+
+const provider = createRemoteProvider({
+  endpoint: "/api/gridcue",
+  headers: { "x-csrf-token": csrfToken },
+});
+```
+
+For anything more involved, pass your own `fetch`.
+
+## What the handler already limits
+
+These are built in, but they are not a substitute for auth or rate limits:
+
+- Bodies over 32 KB are refused (`maxBodyBytes`).
+- Requests must match the resolution protocol: at most 2,000 characters and 12 parts.
+- The Jev provider caps questions per request (`maxQuestions`, default 800).
+- The Controller in the browser keeps requests under 500 characters by default (`maxUtteranceLength`).
+
+See [Going to production](/docs/guides/going-to-production) for the rest of the checklist.

@@ -1,0 +1,153 @@
+---
+title: Server Handler recipes
+description: Mount createGridCueHandler in Next.js, Hono, Cloudflare Workers, Express, or plain Node.
+---
+
+The **Server Handler** holds the Intent Provider's key and answers resolution requests from the browser. `createGridCueHandler` builds it:
+
+```ts
+import { createGridCueHandler, createJevProvider } from "gridcue/server";
+
+const handler = createGridCueHandler({
+  provider: createJevProvider({ apiKey: process.env.JEV_API_KEY }),
+});
+// handler: (request: Request) => Promise<Response>
+```
+
+It is a Fetch-standard function, so it runs anywhere a `Request` to `Response` function runs. For Node's `(req, res)` style, wrap it with `toNodeHandler`.
+
+In the browser, point `createRemoteProvider({ endpoint: "/api/gridcue" })` at the path you mount.
+
+## What the handler does
+
+- Accepts only `POST` (else 405) with a JSON `content-type` (else 415).
+- Refuses bodies over `maxBodyBytes`, default 32 KB (413). It stops reading as soon as the limit is passed.
+- Validates the body against the resolution protocol (400 on anything else).
+- Calls the provider, validates its answer, and returns it as JSON with `cache-control: no-store`.
+- On a provider failure, returns 502 with a stable code such as `PROVIDER_FAILED` or `PROVIDER_TOO_COMPLEX`, never the provider's own message.
+- Never logs requests, payloads, or keys.
+
+Errors have the shape `{ "error": { "code": "…", "message": "…" } }`. `createRemoteProvider` reads the code, so the User sees the right message.
+
+It adds no auth and no rate limit. Add both around it: see [Protect the endpoint](/docs/guides/protect-the-endpoint).
+
+## Next.js route handler
+
+```ts
+// app/api/gridcue/route.ts
+import { createGridCueHandler, createJevProvider } from "gridcue/server";
+
+export const POST = createGridCueHandler({
+  provider: createJevProvider({ apiKey: process.env.JEV_API_KEY }),
+});
+```
+
+The GridCue examples run this on the Node.js runtime, the default.
+
+## Hono
+
+Hono gives you the standard `Request` as `c.req.raw`:
+
+```ts
+import { Hono } from "hono";
+import { createGridCueHandler, createJevProvider } from "gridcue/server";
+
+const handler = createGridCueHandler({
+  provider: createJevProvider({ apiKey: process.env.JEV_API_KEY }),
+});
+
+const app = new Hono();
+app.post("/api/gridcue", (c) => handler(c.req.raw));
+
+export default app;
+```
+
+## Cloudflare Workers
+
+A Worker reads secrets from `env`, which only exists inside `fetch`. Build the handler on the first request and reuse it:
+
+```ts
+import { createGridCueHandler, type GridCueHandler, createJevProvider } from "gridcue/server";
+
+let handler: GridCueHandler | undefined;
+
+export default {
+  async fetch(request: Request, env: { JEV_API_KEY: string }): Promise<Response> {
+    if (new URL(request.url).pathname !== "/api/gridcue") return new Response("Not found", { status: 404 });
+    handler ??= createGridCueHandler({ provider: createJevProvider({ apiKey: env.JEV_API_KEY }) });
+    return handler(request);
+  },
+};
+```
+
+Store the key with `wrangler secret put JEV_API_KEY`.
+
+Checked with a live Jev request under `wrangler dev` (ADR 0011): the TypeSafe SDK runs under `workerd`, with or without the `nodejs_compat` flag.
+
+## Express
+
+`toNodeHandler` turns the Fetch-standard handler into a Node `(req, res)` listener:
+
+```ts
+import express from "express";
+import { createGridCueHandler, createJevProvider, toNodeHandler } from "gridcue/server";
+
+const handler = createGridCueHandler({
+  provider: createJevProvider({ apiKey: process.env.JEV_API_KEY }),
+});
+
+const app = express();
+app.post("/api/gridcue", toNodeHandler(handler));
+app.listen(3000);
+```
+
+It works with or without `express.json()` in front: it reads the parsed `req.body` when a body parser already ran, and the raw stream otherwise. It also aborts the provider call when the client disconnects.
+
+`toNodeHandler(handler, { maxBodyBytes })` takes its own body limit, default 32 KB, for the stream it reads itself.
+
+## Plain Node
+
+The same listener mounts in `node:http`, Connect, Fastify's raw handlers, or Vite's dev server:
+
+```ts
+import { createServer } from "node:http";
+import { createGridCueHandler, createJevProvider, toNodeHandler } from "gridcue/server";
+
+const listener = toNodeHandler(
+  createGridCueHandler({ provider: createJevProvider({ apiKey: process.env.JEV_API_KEY }) }),
+);
+
+createServer((req, res) => {
+  if (req.url === "/api/gridcue") return void listener(req, res);
+  res.writeHead(404).end();
+}).listen(3000);
+```
+
+For Vite's dev server, see [Vite with TanStack Table](/docs/guides/vite-tanstack).
+
+## Where `gridcue/server` loads
+
+`gridcue/server` resolves by export condition:
+
+| Condition | Resolves to |
+| --- | --- |
+| `workerd` (Cloudflare Workers) | The real module |
+| `edge-light` (Vercel Edge Runtime) | The real module |
+| `browser` | A stub that throws on import |
+| `default` (Node and the rest) | The real module |
+
+The browser stub is deliberate. If a client file imports `gridcue/server`, the build fails loudly instead of shipping a key-holding module to the browser. `worker` is deliberately not a condition, because bundlers also use it for a page's own Web Workers (ADR 0011).
+
+In the browser, use `createRemoteProvider` from `gridcue` instead.
+
+## Any other provider
+
+`createGridCueHandler` takes any `IntentProvider`, not only Jev. The Mock Provider works for keyless staging environments:
+
+```ts
+import { createMockProvider } from "gridcue/mock";
+
+export const POST = createGridCueHandler({ provider: createMockProvider() });
+```
+
+To write your own, see [Build a provider](/docs/guides/build-a-provider).

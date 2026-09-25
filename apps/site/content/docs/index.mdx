@@ -1,0 +1,60 @@
+---
+title: Introduction
+description: GridCue turns a plain-language request into a checked, previewable change to a data grid's view.
+---
+
+Use natural language to get the insights you need from complicated data, dense grids and tables.
+
+GridCue is an open-source TypeScript toolkit. A person types or dictates a request such as "taxable accounts over $1 million, grouped by advisor, biggest first". GridCue turns it into a filter, sort, group and column change on the grid you already have. It shows exactly what will change, applies it only when the person approves, and offers undo.
+
+GridCue changes the **view**: filters, sorts, grouping, which columns show and in what order, and reset. It does not edit records, compute answers, or aggregate. The answer is the view.
+
+## Who it's for
+
+- **The people who work in dense grids.** Advisors, traders, operations and support teams who know the view they want but have to fight the controls to reach it.
+- **The developers who build those screens.** You add a command bar to an existing TanStack Table, or to any table whose rows you hold in memory, in a few lines.
+
+Two terms appear throughout these docs. The **Host** is your application: it owns the data, the grid, credentials and the final decision to apply a change. The **User** is the person typing or dictating the request.
+
+## How it works
+
+1. Deterministic code splits the request into parts and finds the columns and values it names.
+2. An Intent Provider picks among closed, Host-approved choices. It never writes the plan.
+3. Code compiles and validates a View Plan, shows a Preview, and applies it only on approval, with undo.
+
+The full sequence is on [The pipeline](/docs/concepts/pipeline).
+
+## What makes it different
+
+- **The model proposes; code decides.** A provider only answers bounded yes/no and multiple-choice questions. Unknown columns, operators and values fail closed.
+- **Preview before apply.** Every change is described in plain words first. A multi-part change applies completely or not at all.
+- **Rows stay in your app.** Only the request and column metadata you approved reach a provider. Keys stay on your server.
+- **Uncertainty asks.** An ambiguous request gets one focused question, not a guess.
+
+Measured with Jev: 186 labelled live requests on a synthetic wealth schema, 0 wrong views with either strategy (jev-1.13.0, Sept 2026).
+
+## What ships
+
+One npm package, `gridcue`, with separate entries:
+
+| Import | What it holds |
+| --- | --- |
+| `gridcue` | The core: protocol, compiler, validation, Preview, audit, the Rows Adapter, and `createRemoteProvider` |
+| `gridcue/react` | `useGridCue` and the ready-made `<GridCueBar />` (styled by `gridcue/styles.css`) |
+| `gridcue/tanstack-table` | The adapter for TanStack Table v9, including shadcn's Data Table |
+| `gridcue/mock` | The Mock Provider, for keyless development |
+| `gridcue/server` | The Server Handler and the Jev provider, never reachable from a browser bundle |
+
+The shadcn/ui components live in a separate Component Registry. See [Components](/docs/components/command-bar).
+
+## Built for Jev, not tied to it
+
+GridCue is built for TypeSafe's Jev, which turns unstructured state into typed decisions with probabilities. The core does not depend on Jev: any provider that implements the `IntentProvider` interface works, and the Mock Provider needs no account at all.
+
+GridCue is an independent open-source project, not affiliated with or endorsed by TypeSafe.
+
+## Where to go next
+
+- [Your grid in 5 minutes](/docs/get-started/quick-start): the Mock Provider, no server, no key.
+- [The pipeline](/docs/concepts/pipeline): what happens between a request and an applied view.
+- [Try the demo](/demo): type a request against a synthetic wealth grid.

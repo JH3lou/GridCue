@@ -1,0 +1,275 @@
+---
+title: createGridCue
+description: The Controller that wires a grid, a schema and an Intent Provider together, and the state it exposes.
+---
+
+`createGridCue` is the one object a Host creates to connect a grid to GridCue. It takes a Grid Adapter and an Intent Provider, turns each Utterance into a View Plan, shows a Preview, asks a Clarification when it is unsure, and applies or undoes the change through the adapter. It lives in the main `gridcue` entry.
+
+## createGridCue
+
+```ts
+import { createGridCue } from "gridcue";
+
+function createGridCue(options: GridCueOptions): GridCueController;
+```
+
+```ts
+import { createGridCue, createRemoteProvider, createRowsAdapter } from "gridcue";
+
+const adapter = createRowsAdapter({ schema });
+const cue = createGridCue({
+  adapter,
+  provider: createRemoteProvider({ endpoint: "/api/gridcue" }),
+});
+
+await cue.propose("taxable accounts over $1M, largest first");
+if (cue.getState().status === "ready") await cue.apply();
+```
+
+## GridCueOptions
+
+```ts
+interface GridCueOptions {
+  adapter: GridAdapter;
+  provider: IntentProvider;
+  schema?: ViewSchema;
+  confidence?: ConfidencePolicy;
+  audit?: { onEvent: (event: AuditEvent) => void; policy?: AuditPolicy };
+  maxUtteranceLength?: number;
+  providerTimeoutMs?: number;
+}
+```
+
+| Name | Type | Default | Description |
+| --- | --- | --- | --- |
+| `adapter` | `GridAdapter` | required | The Grid Adapter that reads and writes the grid's view. See [Adapters](/docs/api/adapters). |
+| `provider` | `IntentProvider` | required | The Intent Provider that resolves each Clause. See [Providers](/docs/api/providers). |
+| `schema` | `ViewSchema` | `adapter.getSchema()` | The schema GridCue plans and validates against. |
+| `confidence` | `ConfidencePolicy` | `{ ready: 0.85, clarify: 0.65 }` | Confidence bands. A decision at or above `ready` is used as-is; below `clarify` it is discarded; between the two, GridCue asks a Clarification. Both fields are required when you pass it. |
+| `audit` | `{ onEvent, policy? }` | none | Receives one `AuditEvent` each time a plan is applied, cancelled, rejected, undone or fails. See [Audit events](#audit-events). |
+| `maxUtteranceLength` | `number` | `500` | Longest Utterance accepted, in characters, after trimming. A longer one sets status `error` with the issue `INPUT_TOO_LONG`. At most 2000, the protocol's limit; a larger value makes `createGridCue` throw `INPUT_CONFIG`. |
+| `providerTimeoutMs` | `number` | `8000` | How long the provider may take before GridCue gives up and returns to `idle` with the request kept. `0` turns the limit off. |
+
+`DEFAULT_CONFIDENCE` is exported with the default bands:
+
+```ts
+interface ConfidencePolicy {
+  /** At or above this, a decision is used as-is. Default 0.85. */
+  ready: number;
+  /** Below this, a decision is discarded. Between the two, GridCue asks. Default 0.65. */
+  clarify: number;
+}
+
+const DEFAULT_CONFIDENCE: ConfidencePolicy = { ready: 0.85, clarify: 0.65 };
+```
+
+For how the bands shape Clarifications, see [Providers and confidence](/docs/concepts/providers-and-confidence).
+
+## GridCueController
+
+```ts
+interface GridCueController {
+  getState(): ControllerState;
+  subscribe(listener: () => void): () => void;
+  propose(text: string, options?: { channel?: "typed" | "dictated" | "api" }): Promise<ViewPlan | null>;
+  answer(clarificationId: string, optionId: string): ViewPlan | null;
+  apply(): Promise<boolean>;
+  cancel(): void;
+  undo(): Promise<boolean>;
+  dispose(): void;
+}
+```
+
+### getState
+
+```ts
+getState(): ControllerState;
+```
+
+Returns the current `ControllerState`. The object is replaced, never mutated, on each change, so it works as a `useSyncExternalStore` snapshot.
+
+### subscribe
+
+```ts
+subscribe(listener: () => void): () => void;
+```
+
+Calls `listener` after every state change, including changes the Controller picks up from the adapter (for example a User clicking a column header, which can change `canUndo`). Returns a function that removes the listener.
+
+### propose
+
+```ts
+propose(text: string, options?: { channel?: "typed" | "dictated" | "api" }): Promise<ViewPlan | null>;
+```
+
+Turns an Utterance into a View Plan and a Preview.
+
+- The text is trimmed. Empty text returns `null` and changes nothing.
+- A new call aborts any request still in flight, silently.
+- Text longer than `maxUtteranceLength` sets status `error` with the issue `INPUT_TOO_LONG` and returns `null`.
+- More than 12 Clauses sets status `error` with the issue `INPUT_TOO_COMPLEX` and returns `null`.
+- While the provider works, status is `resolving`.
+- If a Clause names a restricted column, the provider is not called at all; the plan comes back `unsupported`.
+- If the provider takes longer than `providerTimeoutMs`, status returns to `idle` with the Utterance kept, the message "That took too long. Try again." and the issue `PROVIDER_TIMEOUT`. The call returns `null`.
+- If the provider throws, status is `error` with the provider's `GridCueError` code (or `PROVIDER_FAILED`). A result that does not match `ResolutionResult` gives `PROVIDER_MALFORMED`.
+
+Otherwise it returns the compiled `ViewPlan` and sets status from it:
+
+| Plan outcome | Status |
+| --- | --- |
+| `ready` and it passes validation | `ready`, with a `preview` |
+| `ready` but validation fails | `unsupported`, with `issues` from validation |
+| `needs_clarification` | `needs_clarification`, with `message` set to the first Clarification's prompt |
+| `unsupported` | `unsupported`, with a message naming the part it can't do |
+
+`channel` is recorded on the plan's `source.channel`. Default `"typed"`.
+
+### answer
+
+```ts
+answer(clarificationId: string, optionId: string): ViewPlan | null;
+```
+
+Answers a Clarification on the current plan and compiles the plan again with that answer, without calling the provider again. Returns the new plan, which may be `ready` or may ask another Clarification. Returns `null` and does nothing when the status is not `needs_clarification`, the Clarification ID is unknown, or the option ID is not one of that Clarification's options.
+
+### apply
+
+```ts
+apply(): Promise<boolean>;
+```
+
+Applies the ready plan through the adapter. Returns `true` when the view changed.
+
+- Does nothing and returns `false` unless the status is `ready`.
+- Sets status `applying`, then validates the plan again against the grid's current state. If the view changed since the Preview, status becomes `error` with the message "The view changed since this preview. Preview the request again." and nothing is applied.
+- If the adapter returns a failure, status becomes `error` with the adapter's code and nothing is changed.
+- If the adapter throws part-way, the Controller restores the previous view only when nothing else has changed it since; otherwise it leaves the view as it is. The issue code is `ADAPTER_FAILED`.
+- On success, status becomes `applied` with the message "View updated." and the change can be undone.
+
+### cancel
+
+```ts
+cancel(): void;
+```
+
+Aborts any request in flight, drops the current plan and returns to `idle`. The Utterance is kept so the User can edit it. If a plan was showing and had not been applied, an audit event with outcome `cancelled` is sent.
+
+### undo
+
+```ts
+undo(): Promise<boolean>;
+```
+
+Restores the view from before the last apply. Returns `true` on success, with status `idle` and the message "Change undone."
+
+GridCue keeps one undo step. Undo works only while the grid is still at the revision the apply produced: if anything changed the view since, undo is refused with the issue `PLAN_STALE_REVISION`, so it can never erase a newer change. `canUndo` in the state tells you whether undo is available right now.
+
+### dispose
+
+```ts
+dispose(): void;
+```
+
+Aborts any request in flight, unsubscribes from the adapter and removes every listener. Call it when the grid unmounts.
+
+## ControllerState
+
+```ts
+interface ControllerState {
+  status: InteractionStatus;
+  utterance: string;
+  plan: ViewPlan | null;
+  preview: Preview | null;
+  message: string | null;
+  issues: Issue[];
+  canUndo: boolean;
+}
+```
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `status` | `InteractionStatus` | Where the current request is. See below. |
+| `utterance` | `string` | The trimmed text of the current request. |
+| `plan` | `ViewPlan \| null` | The compiled View Plan, when there is one. See [Protocol](/docs/api/protocol#viewplan). |
+| `preview` | `Preview \| null` | What the plan will change, when it has operations. Cleared while a Clarification is open. |
+| `message` | `string \| null` | A short, User-facing message for the current status. |
+| `issues` | `Issue[]` | Problems found, each with a stable `code`, a `message` safe to show Users and an optional `path`. |
+| `canUndo` | `boolean` | `true` when the last apply can be undone: the grid is still at the revision that apply produced. |
+
+`Preview` has two fields:
+
+```ts
+interface Preview {
+  /** One line per operation, in order. */
+  lines: string[];
+  /** The whole preview as one sentence, ending with the no-data-change assurance. */
+  text: string;
+}
+```
+
+The Preview is deterministic: the same plan always gives the same text, and `text` always ends with "No records will be changed."
+
+## InteractionStatus
+
+```ts
+type InteractionStatus =
+  | "idle"
+  | "resolving"
+  | "ready"
+  | "needs_clarification"
+  | "unsupported"
+  | "applying"
+  | "applied"
+  | "error";
+```
+
+| Value | Meaning |
+| --- | --- |
+| `idle` | No request, or the last one was cancelled, undone or timed out. |
+| `resolving` | The Intent Provider is working on the request. |
+| `ready` | A valid plan with a Preview is waiting for the User to apply it. |
+| `needs_clarification` | GridCue needs the User to pick an option before it can plan. |
+| `unsupported` | The request asks for something GridCue can't do here: a data edit, a restricted column, or a change this grid doesn't allow. |
+| `applying` | The adapter is applying the plan. |
+| `applied` | The view changed. |
+| `error` | Something failed. `message` and `issues` say what. |
+
+## Audit events
+
+Pass `audit.onEvent` to record what Users apply. Events carry no values, labels or text unless the Host opts in with `audit.policy`.
+
+```ts
+interface AuditPolicy {
+  /** Include the raw request text. Off by default. */
+  includeText?: boolean;
+  /** Include column IDs and operators. Values are never included. Off by default. */
+  includeStructure?: boolean;
+}
+
+type AuditOutcome = "applied" | "cancelled" | "rejected" | "undone" | "failed";
+
+interface AuditEvent {
+  type: "gridcue.plan";
+  outcome: AuditOutcome;
+  protocolVersion: string;
+  planId: string;
+  status: "ready" | "needs_clarification" | "unsupported";
+  operationTypes: string[];
+  confidenceBand: "high" | "medium" | "low" | "none";
+  baseRevision: string;
+  newRevision?: string;
+  errorCode?: string;
+  text?: string;
+  structure?: Array<{ type: string; columnIds: string[]; operator?: string }>;
+}
+```
+
+`confidenceBand` is worked out from the plan's confidence and the Controller's `confidence` bands: `high` at or above `ready`, `medium` at or above `clarify`, `low` below, and `none` when the plan has no confidence.
+
+```ts
+const cue = createGridCue({
+  adapter,
+  provider,
+  audit: { onEvent: (event) => log.info(event), policy: { includeStructure: true } },
+});
+```
