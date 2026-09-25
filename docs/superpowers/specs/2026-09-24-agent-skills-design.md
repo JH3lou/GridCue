@@ -1,6 +1,6 @@
 # Agent skills: design
 
-Status: draft for owner approval. Decisions: `docs/planning/agent-skills-grill.md`, Round 1 (all recommendations accepted).
+Status: approved by the owner, 2026-09-24. Decisions: `docs/planning/agent-skills-grill.md`, Round 1 (all recommendations accepted).
 
 ## 1. Purpose
 
