@@ -183,4 +183,4 @@ GridCue is an independent project. It is not made, sponsored, or endorsed by Typ
 
 ## License
 
-[MIT](LICENSE).
+[MIT](LICENSE), for the code and docs. The GridCue name and logo are not covered by it: use them to refer to the project, not to brand your own.
