@@ -1,0 +1,9 @@
+{
+  "name": "gridcue",
+  "version": "0.1.0",
+  "description": "Set up GridCue in a React app: the Mock first, your domain's words, Jev behind your own endpoint, and evals.",
+  "author": { "name": "GridCue", "url": "https://gridcue.dev" },
+  "homepage": "https://gridcue.dev",
+  "repository": "https://github.com/JH3lou/GridCue",
+  "license": "MIT"
+}

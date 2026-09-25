@@ -1,6 +1,8 @@
 ---
 name: better-ui
 description: Polishes and improves the UI in your project. Covers concentric border radius, optical alignment, surface depth, contextual icons, hit areas and more.
+metadata:
+  internal: true
 ---
 
 # UI polish
