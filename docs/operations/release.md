@@ -8,9 +8,10 @@ npm adds a trusted publisher only to a package that already exists, so 0.1.0 is 
 
 1. **Sign in to the npm account** that will own `gridcue`, turn on two-factor authentication, and run `npm login`.
 2. **Merge the release PR**, and wait for CI's `pnpm check` to pass on `main`.
-3. **Publish 0.1.0 from a clean copy of that merge commit.** A worktree keeps local edits out of the build:
+3. **Publish 0.1.0 from a clean copy of that merge commit.** Name the commit once and use it for both the build and the tag, so the tag always points at what was published. A worktree keeps local edits out of the build:
    ```bash
-   git fetch origin && git worktree add ../gridcue-release origin/main && cd ../gridcue-release
+   git fetch origin && RELEASE_SHA=<merge-sha>   # the merge commit from step 2
+   git worktree add ../gridcue-release "$RELEASE_SHA" && cd ../gridcue-release
    pnpm install --frozen-lockfile && pnpm check
    cd packages/gridcue
    npm pack --dry-run            # LICENSE, README.md, CHANGELOG.md and dist/ are listed
@@ -23,7 +24,7 @@ npm adds a trusted publisher only to a package that already exists, so 0.1.0 is 
    - Environment: leave empty
 
    `packages/gridcue/package.json`'s `repository.url` already matches the repository exactly, which npm requires. Then, on the same page, set publishing access to require 2FA and disallow tokens.
-5. **Tag the same commit:** `git tag v0.1.0 <merge-sha> && git push origin v0.1.0`. The workflow runs its checks, sees that 0.1.0 is on npm, and skips publishing.
+5. **Tag the commit you published:** `git tag v0.1.0 "$RELEASE_SHA" && git push origin v0.1.0`. The workflow runs its checks, sees that 0.1.0 is on npm, and skips publishing.
 6. **Check** `npm view gridcue`, and install it in a fresh project. The Provenance badge first appears on 0.1.1.
 7. **Clean up** with `git worktree remove ../gridcue-release`.
 

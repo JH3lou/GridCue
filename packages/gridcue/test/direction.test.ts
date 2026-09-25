@@ -69,6 +69,16 @@ describe("a direction with no sort picked", () => {
     expect(cue.getState().status).toBe("needs_clarification");
   });
 
+  it("keeps the answered sort after a reset earlier in the request", async () => {
+    const cue = setup();
+    await cue.propose("sort by value; reset the view; hide custodian, high to low");
+    cue.answer("c2.sort.column", "value");
+    const ops = cue.getState().plan?.operations ?? [];
+    const reset = ops.findIndex((o) => o.type === "view.reset");
+    expect(reset).toBeGreaterThanOrEqual(0);
+    expect(ops.slice(reset + 1)).toContainEqual({ type: "sort.set", sorts: [{ columnId: "value", direction: "desc" }] });
+  });
+
   it("adds no question when the sort already has its column", async () => {
     const cue = setup();
     await cue.propose("sort by value, largest first");
