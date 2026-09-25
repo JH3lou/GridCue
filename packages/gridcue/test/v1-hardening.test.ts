@@ -88,6 +88,22 @@ describe("apply and undo never stick", () => {
     expect(cue.getState()).toMatchObject({ status: "error", message: "The grid couldn't apply that change. The previous view is back." });
   });
 
+  it("restores the previous view when a write stops with an in-between value", async () => {
+    const adapter = createRowsAdapter({ schema });
+    const cue = createGridCue({ adapter, provider: mock });
+    const before = adapter.getState().state;
+    await cue.propose("sort by value");
+    adapter.apply = async () => {
+      // The write got as far as a sort that is neither the old one nor the plan's, then failed.
+      const now = adapter.getState();
+      await adapter.restore({ ...now, state: { ...now.state, sorts: [{ columnId: "name", direction: "asc" }] } });
+      throw new Error("half-written");
+    };
+    expect(await cue.apply()).toBe(false);
+    expect(adapter.getState().state).toEqual(before);
+    expect(cue.getState().message).toBe("The grid couldn't apply that change. The previous view is back.");
+  });
+
   it("leaves the view alone when a newer change landed before recovery", async () => {
     const adapter = createRowsAdapter({ schema });
     const cue = createGridCue({ adapter, provider: mock });

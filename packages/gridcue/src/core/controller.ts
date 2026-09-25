@@ -286,9 +286,10 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
       try {
         result = await adapter.apply(recheck.plan);
       } catch {
-        // A write that throws part-way may have changed the grid. Put the previous view back only when every part of
-        // the view still holds either its old value or this plan's value: then nothing else has changed it since,
-        // and restoring can't erase a newer change (review fix).
+        // A write that throws part-way may have changed the grid. The parts of the view this plan writes may hold any
+        // value, since a write can stop between steps (columns reordered but not yet hidden). Put the previous view
+        // back when every other part still holds its old value: then nothing else has changed the grid since, and
+        // restoring can't erase a newer change (review fixes).
         let restored = false;
         let untouched = false;
         try {
@@ -296,7 +297,8 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
           const after = resultingState(recheck.plan);
           const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
           untouched = same(now, before.state);
-          const ours = (Object.keys(now) as Array<keyof typeof now>).every((k) => same(now[k], before.state[k]) || same(now[k], after[k]));
+          const writes = (k: keyof typeof now) => !same(after[k], before.state[k]);
+          const ours = (Object.keys(now) as Array<keyof typeof now>).every((k) => writes(k) || same(now[k], before.state[k]));
           if (!untouched && ours) restored = (await adapter.restore(before)).ok;
         } catch {
           restored = false;
