@@ -1,0 +1,36 @@
+name: Site scope
+
+# People without write access may change the Site's docs pages (apps/site/content/docs), so a code change can come
+# with its docs, but not the rest of the Site: the marketing page, demo, design, and build. Required on main.
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  site-scope:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+      - name: Outside contributors change only the Site's docs
+        env:
+          ASSOCIATION: ${{ github.event.pull_request.author_association }}
+          AUTHOR_TYPE: ${{ github.event.pull_request.user.type }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          case "$ASSOCIATION" in
+            OWNER|MEMBER|COLLABORATOR) echo "The author has access to the repository."; exit 0 ;;
+          esac
+          # Only apps installed on this repository by its owner can open pull requests as a bot (Dependabot, say).
+          if [ "$AUTHOR_TYPE" = "Bot" ]; then echo "Opened by an installed app."; exit 0; fi
+          CHANGED="$(git diff --no-renames --name-only "$BASE...$HEAD" -- apps/site ':(exclude)apps/site/content/docs')"
+          if [ -n "$CHANGED" ]; then
+            echo "::error::Outside contributors can change the Site's docs pages (apps/site/content/docs) but not the rest of apps/site. Open an issue to suggest other Site changes."
+            echo "$CHANGED"
+            exit 1
+          fi
+          echo "Only the Site's docs pages, or nothing in the Site, changed."
