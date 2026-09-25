@@ -1,0 +1,7 @@
+# Owners are asked to review changes to their paths. The last matching line wins.
+*                          @JH3lou
+
+# The Site outside its docs pages is maintained by the project (CONTRIBUTING.md, the Site scope check).
+/apps/site/                @JH3lou
+# Workflows and repository settings decide what may merge and deploy.
+/.github/                  @JH3lou
