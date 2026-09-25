@@ -1,0 +1,171 @@
+---
+title: Next.js with the Rows Adapter
+description: Keep rows in memory, render them with any table, and answer requests from a Next.js route handler.
+---
+
+Use the **Rows Adapter** when your app holds its rows in memory and renders its own table, with no grid library. GridCue keeps the View State. `applyView` turns that state and your rows into what to render.
+
+The finished version is `examples/next` in the GridCue repo: a plain HTML table, no Tailwind. Run it with `pnpm dev:next`.
+
+## Install
+
+```bash
+npm i gridcue @typesafe-ai/sdk
+```
+
+`@typesafe-ai/sdk` is only needed for Jev, and only on the server.
+
+## Describe the columns
+
+`defineSchema` builds the **View Schema** from your column IDs and labels. Declare what can't be inferred without sample rows: kinds, enum values, aliases, and restricted columns.
+
+```ts
+// lib/accounts-schema.ts
+import { defineSchema, emptyViewState } from "gridcue";
+
+export interface Account {
+  account_number: string;
+  advisor_name: string;
+  registration_type: "taxable" | "ira" | "roth_ira";
+  market_value: number;
+  tax_id: string;
+}
+
+const columns = [
+  { id: "account_number", label: "Account number" },
+  { id: "advisor_name", label: "Advisor" },
+  { id: "registration_type", label: "Registration type" },
+  { id: "market_value", label: "Market value" },
+  { id: "tax_id", label: "Tax ID" },
+];
+
+export const schema = defineSchema(columns, {
+  rowNoun: "account",
+  restricted: ["tax_id"],
+  columns: {
+    advisor_name: { aliases: ["advisor", "rep"] },
+    registration_type: {
+      enumValues: [
+        { id: "taxable", label: "Taxable" },
+        { id: "ira", label: "IRA" },
+        { id: "roth_ira", label: "Roth IRA", aliases: ["roth"] },
+      ],
+    },
+    market_value: { kind: "currency", aliases: ["value", "balance"] },
+  },
+});
+
+/** Start with every column visible except the restricted one. */
+export const initialState = {
+  ...emptyViewState(columns.map((c) => c.id)),
+  visibleColumnIds: columns.map((c) => c.id).filter((id) => id !== "tax_id"),
+};
+```
+
+A restricted column is never sent to a provider and never acted on. A request that names it is refused. See [Safety](/docs/safety).
+
+## Render the view
+
+The Controller and the adapter live in a client component. Create them once with a `useState` initializer, so re-renders don't rebuild them:
+
+```tsx
+// app/accounts-view.tsx
+"use client";
+
+import { applyView, createGridCue, createRemoteProvider, createRowsAdapter } from "gridcue";
+import { GridCueBar } from "gridcue/react";
+import { useState, useSyncExternalStore } from "react";
+import { type Account, initialState, schema } from "@/lib/accounts-schema";
+
+export function AccountsView({ rows }: { rows: Account[] }) {
+  const [{ adapter, cue }] = useState(() => {
+    const adapter = createRowsAdapter({ schema, initialState });
+    return { adapter, cue: createGridCue({ adapter, provider: createRemoteProvider({ endpoint: "/api/gridcue" }) }) };
+  });
+  const { state } = useSyncExternalStore(adapter.subscribe, adapter.getState, adapter.getState);
+  const view = applyView(rows, state, schema);
+  const label = (id: string) => schema.columns.find((c) => c.id === id)?.label ?? id;
+
+  return (
+    <main>
+      <GridCueBar controller={cue} />
+      <table>
+        <thead>
+          <tr>
+            {view.columns.map((id) => (
+              <th key={id}>{label(id)}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {view.rows.map((row) => (
+            <tr key={row.account_number}>
+              {view.columns.map((id) => (
+                <td key={id}>{String(row[id as keyof Account])}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </main>
+  );
+}
+```
+
+`createGridCue` takes the schema from the adapter when you don't pass one.
+
+`applyView(rows, state, schema)` is pure. It returns:
+
+| Field | What it holds |
+| --- | --- |
+| `columns` | Visible column IDs, in display order |
+| `rows` | The filtered and sorted rows |
+| `groups` | Present only when the view is grouped: one entry per distinct key, `{ key, rows }`, in first-seen order |
+
+To render groups, loop over `view.groups` when it is set and render each group's `rows`, as `examples/next` does. GridCue groups rows; it does not compute totals.
+
+Import the stylesheet once, in the root layout:
+
+```tsx
+// app/layout.tsx
+import "gridcue/styles.css";
+```
+
+### Your own controls
+
+When the User clicks a column header, change the view through the adapter, so GridCue sees the change and bumps the Revision:
+
+```ts
+adapter.setState((s) => ({ ...s, sorts: [{ columnId: "market_value", direction: "desc" }] }));
+```
+
+A pending Preview built on the old Revision is then refused instead of overwriting the User's change.
+
+`createRowsAdapter` also takes `maxSorts` (default 3) and `maxGroups` (default 2). `initialState` is what "reset the view" returns to.
+
+## The route handler
+
+`createGridCueHandler` returns a Fetch-standard `(request: Request) => Promise<Response>`, which is exactly what a Next.js route handler exports:
+
+```ts
+// app/api/gridcue/route.ts
+import { createMockProvider } from "gridcue/mock";
+import { createGridCueHandler, createJevProvider } from "gridcue/server";
+
+const apiKey = process.env.JEV_API_KEY;
+
+/** Jev when JEV_API_KEY is set on the server, the Mock Provider otherwise. */
+export const POST = createGridCueHandler({
+  provider: apiKey ? createJevProvider({ apiKey }) : createMockProvider(),
+});
+```
+
+The key stays in the route handler's environment. Never name it `NEXT_PUBLIC_JEV_API_KEY`: that prefix copies it into the browser bundle. `gridcue/server` throws if a client component imports it.
+
+Before you ship, wrap the handler in your session check and rate limit. See [Protect the endpoint](/docs/guides/protect-the-endpoint).
+
+## Next steps
+
+- [Server Handler recipes](/docs/guides/server-handler) for Express, Hono, and Cloudflare Workers.
+- [Adapters](/docs/api/adapters) for the full Rows Adapter reference.
+- [Going to production](/docs/guides/going-to-production).

@@ -1,0 +1,123 @@
+---
+title: Describe your domain
+description: Teach GridCue the words your Users use with aliases, approved values, restricted columns, and three domain declarations.
+---
+
+Every grid has its own vocabulary. An advisor says "rep" for Advisor, "Roth" for Roth IRA, and "retirement accounts" for two registration types at once. GridCue learns this from your **View Schema**: your declaration of which columns exist, what they mean, and what may be done with each.
+
+You write it once, as the options to `defineSchema` or `schemaFromTanStack`. Both take the same `SchemaOptions`. The examples on this page come from GridCue's synthetic wealth fixture, a grid of advisory accounts.
+
+```ts
+import { defineSchema } from "gridcue";
+
+const schema = defineSchema(columns, {
+  id: "wealth-accounts",
+  restricted: ["tax_id"],
+  rowNoun: "account",
+  columns: {
+    // per-column additions, keyed by column id
+  },
+});
+```
+
+`defineSchema` throws if `restricted` or `columns` names an id that matches no column, so a typo fails at startup instead of silently.
+
+## Aliases
+
+An alias is another name for a column or a value. GridCue matches labels and aliases as whole words, and plurals match too.
+
+```ts
+columns: {
+  advisor_name: { aliases: ["advisor", "rep", "financial advisor"] },
+  market_value: {
+    kind: "currency",
+    aliases: ["value", "balance", "aum", "assets"],
+    description: "The account's total value. 'Accounts over $X' refers to this column.",
+  },
+  unrealized_gain: { kind: "currency", aliases: ["gain", "gains", "unrealized gains"] },
+},
+```
+
+A column or value named by one of its labels or aliases is a **Mention**. Deterministic code finds Mentions before any provider is asked. A named value counts as certain; a named column does too, unless the provider scores it very low. So "sort by rep" works on the Mock Provider as well as on Jev.
+
+Declare `kind` where it can't be inferred from the data. Currency and percent never can: a number column holding dollars looks like any other number. `description` is a short, approved sentence the provider reads.
+
+## Approved values: `enumValues`
+
+`enumValues` lists the values of a category column that GridCue may use, each with an id, a label, and optional aliases. Declaring it makes the column an `enum`.
+
+```ts
+registration_type: {
+  aliases: ["registration", "account type", "tax status"],
+  enumValues: [
+    { id: "taxable", label: "Taxable", aliases: ["brokerage", "non-qualified"] },
+    { id: "ira", label: "IRA", aliases: ["traditional ira"] },
+    { id: "roth_ira", label: "Roth IRA", aliases: ["roth"] },
+    { id: "trust", label: "Trust" },
+  ],
+},
+```
+
+Now "Roth accounts" filters Registration type to Roth IRA, and "non-retirement" or "excluding trusts" filters to the other approved values.
+
+These values are sent to the provider. List only values you are willing to share, and never fill this list by uploading every distinct value from your data.
+
+## Restricted columns
+
+`restricted` names columns GridCue must never expose to a provider or act on:
+
+```ts
+restricted: ["tax_id"],
+columns: {
+  tax_id: { aliases: ["ssn", "social security number", "tin"] },
+},
+```
+
+A request that names a restricted column, by its label or any alias, is refused before any provider call. The User sees "That request mentions a restricted column, so GridCue can't use it." Add the aliases people might use, so the refusal catches them. See [Safety and protocol](/docs/safety).
+
+## Domain declarations
+
+Three optional declarations tell GridCue how your domain's nouns work. They change how a request is read, not what GridCue can do.
+
+### `rowNoun`: what one row is
+
+```ts
+rowNoun: "account",
+```
+
+In "biggest accounts first", "accounts" means the rows, not the Account number column, even though "account" is one of that column's aliases. With `rowNoun` set, GridCue reads it that way: it won't sort by Account number, and the provider picks the column "biggest" refers to, or GridCue asks. It also lets the provider answer "this grid's rows" when a noun is unclear.
+
+### `entity`: the other record a column names
+
+```ts
+household: { entity: "household" },
+advisor_name: { aliases: ["advisor", "rep", "financial advisor"], entity: "advisor" },
+```
+
+A column like Household names another kind of record. "Largest households first" can't sort by the Household column, because you can't rank a name by size. It means households as whole records. So instead of guessing, GridCue asks: "Did you mean households as a whole? GridCue can group by Household." Any name of the column counts, so "top reps first" is handled the same way.
+
+### `valueGroups`: your categories
+
+```ts
+registration_type: {
+  enumValues: [/* as above */],
+  valueGroups: [{ label: "Retirement", aliases: ["retirement account"], values: ["ira", "roth_ira"] }],
+},
+```
+
+A Value Group is a Host-named category over several values of one column. "Retirement accounts grouped by advisor" filters Registration type to IRA or Roth IRA, then groups. "Non-retirement" filters to the rest. `defineSchema` throws if a group names a value that is not in the column's `enumValues`.
+
+## Narrowing what a column allows
+
+Two more per-column options limit what GridCue may propose:
+
+- `capabilities`: which of `filter`, `sort`, `group`, `show`, `hide` and `reorder` the column allows. The default is all six.
+- `allowedOperators`: a subset of the operators the column's kind allows, such as `["eq", "in"]`.
+
+A request that needs something the column doesn't allow gets a Clarification or an unsupported result, never a quiet substitute.
+
+## Next
+
+- [Choosing a strategy](/docs/guides/choosing-a-strategy): which questions Jev asks.
+- [Requests](/docs/concepts/requests): how an Utterance becomes parts and Mentions.
+- [Schema API](/docs/api/schema): every `SchemaOptions` and `ColumnOverride` field.

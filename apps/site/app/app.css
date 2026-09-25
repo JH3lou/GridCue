@@ -1,0 +1,207 @@
+@import "tailwindcss";
+@import "fumadocs-ui/css/shadcn.css";
+@import "fumadocs-ui/css/preset.css";
+
+/* The registry components live in the monorepo's registry/, so Tailwind must scan them too. */
+@source "../../../registry/registry/gridcue";
+
+@custom-variant dark (&:is(.dark *));
+
+/* shadcn neutral theme; Fumadocs takes its colors from these (fumadocs-ui/css/shadcn.css). */
+:root {
+  --radius: 0.625rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+
+  /* Motion tokens (Site spec §2, design pass). Values are exact. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-icon: cubic-bezier(0.2, 0, 0, 1);
+  --duration-press: 160ms;
+  --duration-popover: 180ms;
+  --duration-preview: 240ms;
+  --duration-exit: 150ms;
+
+  /* Surfaces: layered shadows for elevation, borders only for structure. */
+  --shadow-raised: 0 1px 2px oklch(0 0 0 / 0.06), 0 4px 12px oklch(0 0 0 / 0.06);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --shadow-raised: 0 1px 2px oklch(0 0 0 / 0.4), 0 4px 12px oklch(0 0 0 / 0.3);
+}
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+html {
+  scrollbar-gutter: stable;
+}
+
+/* Keeps the page from shifting when a dialog locks scroll: it must beat the inline style react-remove-scroll sets. */
+html > body[data-scroll-locked] {
+  /* biome-ignore lint/complexity/noImportantStyles: overrides an inline style */
+  margin-right: 0px !important;
+  /* biome-ignore lint/complexity/noImportantStyles: overrides an inline style */
+  --removed-body-scroll-bar-size: 0px !important;
+}
+
+/* Every pressable element: scale(0.96) on press (better-ui), 160ms, off for reduced motion. */
+.press {
+  transition-property: scale;
+  transition-duration: var(--duration-press);
+  transition-timing-function: var(--ease-out);
+}
+.press:active:not(:disabled) {
+  scale: 0.96;
+}
+@media (prefers-reduced-motion: reduce) {
+  .press:active:not(:disabled) {
+    scale: 1;
+  }
+}
+
+/* The Preview enters with a short rise and staggered lines; exits are softer (design pass). */
+.preview-enter {
+  transition-property: opacity, translate;
+  transition-duration: var(--duration-preview);
+  transition-timing-function: var(--ease-out);
+  @starting-style {
+    opacity: 0;
+    translate: 0 8px;
+  }
+}
+.preview-enter li {
+  transition-property: opacity, translate;
+  transition-duration: var(--duration-preview);
+  transition-timing-function: var(--ease-out);
+  @starting-style {
+    opacity: 0;
+    translate: 0 4px;
+  }
+}
+.preview-enter li:nth-child(2) {
+  transition-delay: 40ms;
+}
+.preview-enter li:nth-child(3) {
+  transition-delay: 80ms;
+}
+.preview-enter li:nth-child(n + 4) {
+  transition-delay: 120ms;
+}
+
+/* A changed column header stays marked for 1.2s: a static cue beside any motion. */
+.changed-header {
+  background: color-mix(in oklch, var(--primary) 12%, transparent);
+  transition: background-color 1200ms var(--ease-out);
+}
+
+/* "How it works": sticky steps driven by native scroll, no smooth-scroll library (design pass). */
+@supports (animation-timeline: view()) {
+  .scroll-step {
+    animation: step-in linear both;
+    animation-timeline: view();
+    animation-range: entry 10% cover 40%;
+  }
+  @keyframes step-in {
+    from {
+      opacity: 0.25;
+      translate: 0 24px;
+    }
+    to {
+      opacity: 1;
+      translate: 0 0;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .preview-enter,
+  .preview-enter li {
+    translate: none;
+    @starting-style {
+      translate: none;
+    }
+  }
+  .scroll-step {
+    animation: none;
+  }
+}

@@ -1,0 +1,171 @@
+---
+title: React
+description: gridcue/react — the useGridCue hook, the GridCueBar command bar, and the CSS variables in gridcue/styles.css.
+---
+
+`gridcue/react` binds a GridCue Controller to React. `useGridCue` gives you the Controller's state and actions with no styling, for building your own UI. `GridCueBar` is a ready-made command bar styled by `gridcue/styles.css` that works in any React app, with or without Tailwind. React 19 or later is required.
+
+```ts
+import { APPLY_SHORTCUT, GridCueBar, STATUS_LABEL, useGridCue } from "gridcue/react";
+import type { GridCueBarProps, GridCueBinding } from "gridcue/react";
+```
+
+## useGridCue
+
+```ts
+function useGridCue(controller: GridCueController): GridCueBinding;
+```
+
+Subscribes a component to a GridCue Controller with `useSyncExternalStore` and returns its state plus its actions. It adds no styling and holds no credentials. Create the Controller once, outside render or in a `useState` initializer, and pass it in.
+
+### GridCueBinding
+
+```ts
+interface GridCueBinding extends ControllerState {
+  propose: GridCueController["propose"];
+  answer: GridCueController["answer"];
+  apply: GridCueController["apply"];
+  cancel: GridCueController["cancel"];
+  undo: GridCueController["undo"];
+  onInputKeyDown: (event: { key: string; metaKey: boolean; ctrlKey: boolean; preventDefault(): void }) => void;
+}
+```
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `status` | `InteractionStatus` | Where the current request is. |
+| `utterance` | `string` | The text of the current request. |
+| `plan` | `ViewPlan \| null` | The compiled View Plan. Read `plan.clarifications` to render a Clarification. |
+| `preview` | `Preview \| null` | What the plan will change: `lines` (one per operation) and `text`. |
+| `message` | `string \| null` | A short, User-facing message for the current status. |
+| `issues` | `Issue[]` | Problems found, each with a stable `code`. |
+| `canUndo` | `boolean` | Whether the last apply can be undone right now. |
+| `propose` | `(text, options?) => Promise<ViewPlan \| null>` | Sends an Utterance. |
+| `answer` | `(clarificationId, optionId) => ViewPlan \| null` | Answers a Clarification. |
+| `apply` | `() => Promise<boolean>` | Applies the ready plan. |
+| `cancel` | `() => void` | Drops the current request and keeps the text. |
+| `undo` | `() => Promise<boolean>` | Undoes the last apply. |
+| `onInputKeyDown` | `(event) => void` | Keyboard behavior for the request input, shared by every GridCue UI: Escape cancels, and Ctrl+Enter or Cmd+Enter applies a ready Preview without leaving the input. |
+
+The state fields and actions are the Controller's own; see [createGridCue](/docs/api/create-grid-cue) for what each does. `dispose` is not included: call `controller.dispose()` yourself when the grid unmounts.
+
+```tsx
+import { APPLY_SHORTCUT, STATUS_LABEL, useGridCue } from "gridcue/react";
+
+function MyBar({ controller }: { controller: GridCueController }) {
+  const cue = useGridCue(controller);
+  const [text, setText] = useState("");
+  return (
+    <form onSubmit={(e) => { e.preventDefault(); void cue.propose(text); }}>
+      <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={cue.onInputKeyDown} />
+      <p role="status">{STATUS_LABEL[cue.status]} {cue.message}</p>
+      {cue.status === "ready" && cue.preview && (
+        <>
+          <ul>{cue.preview.lines.map((line) => <li key={line}>{line}</li>)}</ul>
+          <button type="button" aria-keyshortcuts={APPLY_SHORTCUT.aria} onClick={() => void cue.apply()}>Apply</button>
+        </>
+      )}
+    </form>
+  );
+}
+```
+
+## STATUS_LABEL
+
+```ts
+const STATUS_LABEL: Record<InteractionStatus, string>;
+```
+
+Short, non-color status labels shared by every GridCue UI:
+
+| Status | Label |
+| --- | --- |
+| `idle` | (empty) |
+| `resolving` | Working out your request… |
+| `ready` | Ready to apply |
+| `needs_clarification` | Needs your input |
+| `unsupported` | Can't do that |
+| `applying` | Applying… |
+| `applied` | Applied |
+| `error` | Something went wrong |
+
+## APPLY_SHORTCUT
+
+```ts
+const APPLY_SHORTCUT = { aria: "Control+Enter Meta+Enter", label: "Ctrl/⌘ Enter" };
+```
+
+The shortcut that applies a ready Preview. Use `aria` for `aria-keyshortcuts` and `label` for a visible hint. The key handling itself lives in `onInputKeyDown`.
+
+## GridCueBar
+
+```tsx
+function GridCueBar(props: GridCueBarProps): JSX.Element;
+
+interface GridCueBarProps {
+  controller: GridCueController;
+  label?: string;
+  placeholder?: string;
+  className?: string;
+}
+```
+
+A ready-made command bar styled by `gridcue/styles.css`. It renders the request input with a Preview button, a live status line, the Preview with Apply and Cancel, option buttons for a Clarification, an Edit request button when the request needs changing, and an Undo button while `canUndo` is true.
+
+| Name | Type | Default | Description |
+| --- | --- | --- | --- |
+| `controller` | `GridCueController` | required | The Controller from `createGridCue`. |
+| `label` | `string` | `"Describe the view you want"` | Visible label for the input. |
+| `placeholder` | `string` | `"e.g. taxable accounts over $1M, largest first"` | Placeholder text for the input. |
+| `className` | `string` | none | Extra class names, added after `gridcue-bar` on the outer `section`. |
+
+```tsx
+import { GridCueBar } from "gridcue/react";
+import "gridcue/styles.css";
+
+<GridCueBar controller={cue} label="Ask the accounts grid" className="my-bar" />
+```
+
+Accessibility built in: the status line is a polite live region the input points to with `aria-describedby`; the section sets `aria-busy` while resolving or applying; Apply carries `aria-keyshortcuts`; and the Preview button is disabled while busy or when the input is empty. Only the first Clarification's options are shown at a time.
+
+For more on the bar and the other UI pieces, see [GridCueBar](/docs/components/grid-cue-bar) in Components.
+
+## Styles and CSS variables
+
+Import the stylesheet once:
+
+```ts
+import "gridcue/styles.css";
+```
+
+Every rule is scoped to `gridcue-` classes. The custom properties below are set on `.gridcue-bar`; override them to match your app. Pair `.gridcue-bar` with a class you pass through `className`, as in the example, so your values win over both the light and dark defaults whatever order the stylesheets load in.
+
+| Variable | Light default | Dark default | Used for |
+| --- | --- | --- | --- |
+| `--gridcue-bg` | `#ffffff` | `#111827` | Bar background |
+| `--gridcue-fg` | `#111827` | `#f9fafb` | Text |
+| `--gridcue-muted` | `#4b5563` | `#d1d5db` | Status line, notes and hints |
+| `--gridcue-border` | `#d1d5db` | `#374151` | Input and button borders, panel divider |
+| `--gridcue-hover` | `oklch(0 0 0 / 0.04)` | `oklch(1 0 0 / 0.06)` | Button hover background |
+| `--gridcue-accent` | `#2563eb` | `#60a5fa` | Apply button, focus ring |
+| `--gridcue-accent-hover` | `#1d4ed8` | `#93c5fd` | Apply button hover |
+| `--gridcue-accent-fg` | `#ffffff` | `#111827` | Apply button text |
+| `--gridcue-radius` | `6px` | same | Input and button corner radius |
+| `--gridcue-pad` | `12px` | same | Bar padding |
+| `--gridcue-gap` | `8px` | same | Space between rows and buttons |
+| `--gridcue-font` | `inherit` | same | Font family |
+| `--gridcue-shadow` | a 1px ring plus two soft shadows | `0 0 0 1px oklch(1 0 0 / 0.08)` | Bar depth |
+
+The dark defaults apply under `prefers-color-scheme: dark`. The bar's outer radius is `--gridcue-radius` plus `--gridcue-pad`, so the corners stay concentric when you change either.
+
+```css
+/* <GridCueBar controller={cue} className="my-bar" /> */
+.gridcue-bar.my-bar {
+  --gridcue-accent: #0f766e;
+  --gridcue-accent-hover: #115e59;
+  --gridcue-radius: 4px;
+  --gridcue-font: "Inter", sans-serif;
+}
+```
+
+The classes it uses, for finer overrides: `gridcue-bar`, `gridcue-form`, `gridcue-label`, `gridcue-row`, `gridcue-input`, `gridcue-button`, `gridcue-primary`, `gridcue-status` (with a `data-status` attribute set to the current status), `gridcue-status-label`, `gridcue-message`, `gridcue-panel`, `gridcue-fieldset`, `gridcue-heading`, `gridcue-list`, `gridcue-note`, `gridcue-actions` and `gridcue-hint`.

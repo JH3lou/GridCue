@@ -1,0 +1,455 @@
+---
+title: Protocol
+description: The protocol types GridCue passes between the Host, the Intent Provider and the Grid Adapter, and every GridCueError code.
+---
+
+These are the shapes that pass between GridCue's parts: the schema a Host describes, the View State an adapter holds, the View Plan GridCue compiles, and the request and result an Intent Provider exchanges. Each is exported from `gridcue` both as a TypeScript type and as a Zod schema of the same name, so you can validate data at a boundary with `ViewPlan.safeParse(value)` and similar.
+
+## PROTOCOL_VERSION
+
+```ts
+const PROTOCOL_VERSION = "0.1";
+```
+
+Every `ViewPlan` and `ResolutionRequest` carries this version.
+
+## ViewSchema
+
+```ts
+interface ViewSchema {
+  id: string;
+  version: string;
+  columns: ColumnDescriptor[];
+  rowNoun?: string;
+}
+```
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `id` | `string` | The schema's ID. |
+| `version` | `string` | The schema's version. |
+| `columns` | `ColumnDescriptor[]` | Every column, restricted ones included. |
+| `rowNoun` | `string` | What one row is, such as `"account"`. Its name in a request means the rows, not a column. |
+
+Build one with [`defineSchema`](/docs/api/schema#defineschema).
+
+## ColumnDescriptor
+
+```ts
+interface ColumnDescriptor {
+  id: string;
+  label: string;
+  description?: string;
+  kind: ColumnKind;
+  aliases?: string[];
+  capabilities: ColumnCapability[];
+  allowedOperators?: FilterOperator[];
+  sensitivity: "public" | "internal" | "restricted";
+  exposeToProvider?: boolean;
+  enumValues?: EnumValue[];
+  entity?: string;
+  valueGroups?: Array<{ label: string; aliases?: string[]; values: string[] }>;
+}
+
+interface EnumValue {
+  id: string;
+  label: string;
+  aliases?: string[];
+}
+```
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `id` | `string` | The column ID the grid uses. |
+| `label` | `string` | The name Users and the provider see. |
+| `description` | `string` | A short description for the provider. |
+| `kind` | `ColumnKind` | `string`, `number`, `currency`, `percent`, `date`, `datetime`, `boolean` or `enum`. |
+| `aliases` | `string[]` | Other names for the column. |
+| `capabilities` | `ColumnCapability[]` | What GridCue may do with it: any of `filter`, `sort`, `group`, `aggregate`, `show`, `hide`, `reorder`, `pin`. |
+| `allowedOperators` | `FilterOperator[]` | Narrows the kind's filter operators. |
+| `sensitivity` | `"public" \| "internal" \| "restricted"` | A `restricted` column is never sent to a provider and never acted on. |
+| `exposeToProvider` | `boolean` | `false` keeps the column out of provider requests. |
+| `enumValues` | `EnumValue[]` | The approved values. Filters on an `enum` column must use these IDs. |
+| `entity` | `string` | The other record this column names, such as `"household"`, so "largest households first" can be read either way. |
+| `valueGroups` | `Array<{ label, aliases?, values }>` | Host-named categories over the enum values, such as Retirement = IRA and Roth IRA. |
+
+The default operators and capabilities for each kind are on the [Schema](/docs/api/schema#column-kinds) page.
+
+## ViewState
+
+```ts
+interface ViewState {
+  visibleColumnIds: string[];
+  columnOrder: string[];
+  pinnedColumnIds: { start: string[]; end: string[] };
+  filters: FilterGroup | null;
+  sorts: SortSpec[];
+  groupBy: string[];
+  aggregations: AggregationSpec[];
+  density: "compact" | "comfortable" | "spacious";
+}
+
+interface VersionedViewState {
+  revision: string;
+  state: ViewState;
+}
+
+interface SortSpec {
+  columnId: string;
+  direction: "asc" | "desc";
+}
+
+interface AggregationSpec {
+  columnId: string;
+  function: "sum" | "avg" | "min" | "max" | "count";
+}
+```
+
+The whole view of a grid. `groupBy` lists nested levels, outermost first. `sorts` lists levels in priority order. A `VersionedViewState` pairs it with a `revision` string that changes whenever the view changes; GridCue uses it to refuse stale plans and stale undos.
+
+`emptyViewState(columnIds)` returns a view with every given column visible in that order, no pins, filters, sorts, groups or aggregations, and `comfortable` density.
+
+## FilterPredicate and FilterGroup
+
+```ts
+interface FilterPredicate {
+  id: string;
+  type: "predicate";
+  columnId: string;
+  operator: FilterOperator;
+  value?: Scalar | Scalar[] | { min: Scalar; max: Scalar };
+}
+
+interface FilterGroup {
+  id: string;
+  type: "group";
+  combinator: "and" | "or";
+  children: Array<FilterPredicate | FilterGroup>;
+}
+
+type FilterOperator =
+  | "eq" | "neq" | "gt" | "gte" | "lt" | "lte"
+  | "between" | "contains" | "startsWith" | "in" | "isEmpty" | "isNotEmpty";
+
+type Scalar = string | number | boolean | null;
+```
+
+A filter is a tree: a `FilterGroup` combines predicates and nested groups with `and` or `or`. The value's shape depends on the operator, and validation checks it against the column's kind:
+
+| Operator | Value |
+| --- | --- |
+| `isEmpty`, `isNotEmpty` | none |
+| `between` | `{ min, max }` |
+| `in` | a non-empty array |
+| every other operator | one value |
+
+A single value must fit the kind: a finite number for `number`, `currency` and `percent`; a boolean for `boolean`; a `YYYY-MM-DD` string for `date`; a parseable date string for `datetime`; one of the `enumValues` IDs for `enum`; a string for `string`.
+
+## ViewOperation
+
+```ts
+type ViewOperation =
+  | { type: "filter.add"; predicate: FilterPredicate; combineWith: "and" | "or" }
+  | { type: "filter.clear" }
+  | { type: "sort.set"; sorts: SortSpec[] }
+  | { type: "group.set"; columnIds: string[] }
+  | { type: "columns.show"; columnIds: string[] }
+  | { type: "columns.hide"; columnIds: string[] }
+  | { type: "columns.order"; columnIds: string[] }
+  | { type: "columns.pin"; columnIds: string[]; position: "start" | "end" | "none" }
+  | { type: "aggregation.set"; aggregations: AggregationSpec[] }
+  | { type: "density.set"; density: "compact" | "comfortable" | "spacious" }
+  | { type: "view.reset" };
+```
+
+One change to the view. Operations apply in order.
+
+| Type | Effect | In `MVP_OPERATIONS` |
+| --- | --- | --- |
+| `filter.add` | Adds `predicate` to the filters. With no filters yet, it starts a group with `combineWith`. If the root group already uses `combineWith`, the predicate joins it; otherwise the old root and the predicate are wrapped in a new group. | yes |
+| `filter.clear` | Removes every filter. | yes |
+| `sort.set` | Replaces the sorts. An empty list clears sorting. | yes |
+| `group.set` | Replaces the grouping, outermost first. An empty list clears it. | yes |
+| `columns.show` | Makes columns visible, keeping `columnOrder`. `columnIds` is non-empty. | yes |
+| `columns.hide` | Hides columns. `columnIds` is non-empty. | yes |
+| `columns.order` | Moves these columns to the front, in this order. `columnIds` is non-empty. | yes |
+| `columns.pin` | Pins columns to the start or end, or unpins them with `none`. | no |
+| `aggregation.set` | Replaces the aggregations. | no |
+| `density.set` | Sets the row density. | no |
+| `view.reset` | Returns to the adapter's default view. | yes |
+
+GridCue changes the view only. `aggregation.set` exists in the protocol but is not in `MVP_OPERATIONS`, and neither are `columns.pin` or `density.set`: no first-release adapter supports them, and a plan that uses them fails validation with `PLAN_OPERATION_UNSUPPORTED`. See [Adapters](/docs/api/adapters#mvp_operations).
+
+## ViewPlan
+
+```ts
+interface ViewPlan {
+  protocolVersion: "0.1";
+  id: string;
+  baseRevision: string;
+  source: { channel: "typed" | "dictated" | "api"; text?: string };
+  status: "ready" | "needs_clarification" | "unsupported";
+  operations: ViewOperation[];
+  confidence?: number;
+  evidence: DecisionEvidence[];
+  clarifications: Clarification[];
+  unsupportedSegments: Array<{ text?: string; category: UnsupportedCategory }>;
+}
+```
+
+What GridCue compiled from one Utterance.
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `protocolVersion` | `"0.1"` | The protocol version. |
+| `id` | `string` | The plan's ID. |
+| `baseRevision` | `string` | The view revision the plan was made against. A plan is refused once the view has moved on. |
+| `source` | `{ channel, text? }` | How the request arrived, and its text. |
+| `status` | `"ready" \| "needs_clarification" \| "unsupported"` | Whether the plan can be applied, needs an answer first, or asks for something GridCue can't do. |
+| `operations` | `ViewOperation[]` | The changes, in order. |
+| `confidence` | `number` | Between 0 and 1, when known. |
+| `evidence` | `DecisionEvidence[]` | The decisions behind the plan. |
+| `clarifications` | `Clarification[]` | Questions for the User when `status` is `needs_clarification`. |
+| `unsupportedSegments` | `Array<{ text?, category }>` | The parts GridCue can't do when `status` is `unsupported`. |
+
+A plan becomes applicable only through `validatePlan`, which checks it against the schema, the adapter's capabilities and the current revision, and returns a frozen `ApplicableViewPlan`. Adapters accept only those.
+
+## Clarification
+
+```ts
+interface Clarification {
+  id: string;
+  prompt: string;
+  options?: Array<{ id: string; label: string }>;
+  required: true;
+}
+```
+
+A question GridCue asks instead of guessing. Answer it with `controller.answer(clarification.id, option.id)`.
+
+## DecisionEvidence
+
+```ts
+interface DecisionEvidence {
+  key: string;
+  selectedId?: string;
+  confidence?: number;
+  source: "deterministic" | "provider" | "host" | "user";
+}
+```
+
+One decision behind a plan: what was decided (`key`), what was chosen (`selectedId`), how sure (`confidence`, 0 to 1), and who decided. `deterministic` is GridCue's own rules, `provider` is the Intent Provider, and `host` is the Host's configuration (such as a restricted column). `user` is part of the protocol, but the compiler does not emit it today.
+
+## UnsupportedCategory
+
+```ts
+type UnsupportedCategory = "data_mutation" | "workflow_action" | "navigation" | "export" | "restricted_column" | "unknown";
+```
+
+| Value | Meaning |
+| --- | --- |
+| `data_mutation` | Editing, deleting or changing data. |
+| `workflow_action` | A business action such as trading, emailing or approving. |
+| `navigation` | Opening another page or record. |
+| `export` | Exporting, downloading, printing or copying data. |
+| `restricted_column` | The request names a restricted column. |
+| `unknown` | Anything else GridCue can't do. |
+
+## ResolutionRequest
+
+```ts
+interface ResolutionRequest {
+  protocolVersion: "0.1";
+  utterance: string;
+  clauses: Array<{
+    index: number;
+    text: string;
+    literals: Literal[];
+    direction?: "asc" | "desc";
+    continues?: "sort" | "group";
+    mentions?: Array<{ columnId: string; valueId?: string; ambiguous?: true; text?: string }>;
+  }>;
+  candidates: { families: string[]; columns: CandidateColumn[]; rowNoun?: string };
+  view: { visibleColumnIds: string[]; sorts: SortSpec[]; groupBy: string[]; hasFilters: boolean };
+}
+```
+
+What an Intent Provider receives. It holds no rows and no restricted columns. `utterance` is at most 2,000 characters, and there are at most 12 Clauses.
+
+| Name | Description |
+| --- | --- |
+| `clauses[].index` | The Clause's position in the Utterance. |
+| `clauses[].text` | The Clause's text. |
+| `clauses[].literals` | Amounts, percentages, dates and quoted text found in the Clause. See below. |
+| `clauses[].direction` | A sort direction core already read from the words, when there is one. |
+| `clauses[].continues` | Set when a part with no verb ("then advisor") continued the sort or group of the part before it. |
+| `clauses[].mentions` | Columns and enum values core already matched by a Host-declared name. A provider may skip asking about them. `ambiguous` marks a row or entity noun ("households") that could mean the column or the records; `text` is the words as written. |
+| `candidates.families` | The families the provider may pick from: the view families this grid supports, plus the four `unsupported.*` families. |
+| `candidates.columns` | The columns the provider may pick from. |
+| `candidates.rowNoun` | What one row is. |
+| `view` | The current view: visible columns, sorts, grouping, and whether any filter is on. Filter values are not sent. |
+
+```ts
+interface Literal {
+  kind: "number" | "currency" | "percent" | "date" | "text" | "unreadable";
+  value: number | string;
+  upper?: number | string;
+  comparator?: "eq" | "gt" | "gte" | "lt" | "lte" | "between";
+  at: number;
+}
+
+interface CandidateColumn {
+  id: string;
+  label: string;
+  kind: ColumnKind;
+  aliases?: string[];
+  description?: string;
+  families: string[];
+  operators: FilterOperator[];
+  enumValues?: EnumValue[];
+  entity?: string;
+  valueGroups?: Array<{ label: string; aliases?: string[]; values: string[] }>;
+}
+```
+
+`upper` is the upper bound for `between`, and `at` is the literal's character offset within its Clause. `unreadable` marks a number whose format is ambiguous, such as "1.000.000"; GridCue asks rather than guesses. A candidate column's `families` are the families its capabilities allow, and `operators` are its legal filter operators.
+
+### Families
+
+```ts
+const VIEW_FAMILIES = [
+  "filter", "sort", "group",
+  "columns.show", "columns.hide", "columns.only",
+  "filter.clear", "sort.clear", "group.clear", "view.reset",
+] as const;
+
+const UNSUPPORTED_FAMILIES = [
+  "unsupported.data_mutation", "unsupported.workflow_action", "unsupported.navigation", "unsupported.export",
+] as const;
+```
+
+The kinds of change a Clause can ask for. Providers choose among these; they never emit operations. A view family is offered only when the grid supports every operation it needs:
+
+| Family | Operations | Column capabilities needed |
+| --- | --- | --- |
+| `filter` | `filter.add` | `filter` |
+| `sort` | `sort.set` | `sort` |
+| `group` | `group.set` | `group` |
+| `columns.show` | `columns.show` | `show` |
+| `columns.hide` | `columns.hide` | `hide` |
+| `columns.only` | `columns.show`, `columns.hide`, `columns.order` | `show`, `hide`, `reorder` |
+| `filter.clear` | `filter.clear` | none |
+| `sort.clear` | `sort.set` | none |
+| `group.clear` | `group.set` | none |
+| `view.reset` | `view.reset` | none |
+
+## ResolutionResult
+
+```ts
+interface ResolutionResult {
+  clauses: ClauseResolution[];
+}
+
+interface Pick {
+  id: string;
+  confidence: number;
+}
+```
+
+What an Intent Provider returns: one `ClauseResolution` per Clause. Every `confidence` is a probability between 0 and 1. The Controller checks the result against this shape and reports `PROVIDER_MALFORMED` if it does not match.
+
+## ClauseResolution
+
+```ts
+interface ClauseResolution {
+  clauseIndex: number;
+  families: Pick[];
+  columns: Pick[];
+  values: Array<{ columnId: string; valueId: string; confidence: number }>;
+  direction?: Pick;
+  unmatchedTerms: string[];
+  roles?: Array<{ columnId: string; family: string; confidence: number }>;
+  kind?: Pick;
+  adds?: number;
+  outer?: Array<{ outerId: string; innerId: string; confidence: number }>;
+  readings?: Array<{ columnId: string; reading: "column" | "records" | "rows"; confidence: number }>;
+  literalColumns?: Array<{ literalIndex: number; columnId: string; confidence: number }>;
+}
+```
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `clauseIndex` | `number` | Which Clause this resolves. |
+| `families` | `Pick[]` | How likely the Clause asks for each family. |
+| `columns` | `Pick[]` | Columns the Clause refers to, in the order they are mentioned. |
+| `values` | `Array<{ columnId, valueId, confidence }>` | Approved enum value IDs, or `"true"` / `"false"` for boolean columns. |
+| `direction` | `Pick` | Sort direction, `asc` or `desc`. |
+| `unmatchedTerms` | `string[]` | Phrases that look like column references but match no candidate. Never guessed at. |
+
+The optional fields below come from the fan-out and chassis signals. A provider may leave any of them out; the Jev provider fills them according to its [strategy and signals](/docs/api/providers#jev_signals).
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `roles` | `Array<{ columnId, family, confidence }>` | Per column and column family: does the Clause ask for that change to that column? |
+| `kind` | `Pick` | The kind of change the Clause mainly asks for, as a relative pick over the families. |
+| `adds` | `number` | Probability that a sort or grouping adds a level to the current view's, rather than replacing it. |
+| `outer` | `Array<{ outerId, innerId, confidence }>` | For reversal wording ("advisor within custodian"): is `outerId` the outer grouping or primary sort? |
+| `readings` | `Array<{ columnId, reading, confidence }>` | What an ambiguous row or entity noun refers to: the column's values (`column`), the other records (`records`), or this grid's rows (`rows`). |
+| `literalColumns` | `Array<{ literalIndex, columnId, confidence }>` | The column each literal applies to, by its index in the Clause's `literals`. |
+
+## GridCueError
+
+```ts
+type ErrorStage = "INPUT" | "RESOLUTION" | "PLAN" | "POLICY" | "ADAPTER" | "PROVIDER";
+type GridCueErrorCode = `${ErrorStage}_${string}`;
+
+class GridCueError extends Error {
+  readonly code: GridCueErrorCode;
+  constructor(code: GridCueErrorCode, message: string);
+}
+
+function isGridCueError(value: unknown): value is GridCueError;
+
+interface Issue {
+  code: GridCueErrorCode;
+  message: string;
+  path?: string;
+}
+```
+
+Every failure has a stable code starting with its stage. Some are thrown as a `GridCueError`; the rest appear as `Issue`s on the Controller's `issues`, as adapter `ApplyResult` codes, or as the Server Handler's `error.code`. Issue messages are safe to show Users. These are the codes the source uses today:
+
+| Code | Where | Meaning |
+| --- | --- | --- |
+| `INPUT_TOO_LONG` | Controller issue | The Utterance is longer than `maxUtteranceLength`. |
+| `INPUT_TOO_COMPLEX` | Controller issue | The Utterance has more than 12 Clauses. |
+| `INPUT_SCHEMA` | thrown by `defineSchema` | The schema is invalid. See [Schema](/docs/api/schema#input_schema-errors). |
+| `INPUT_CONFIG` | thrown by `createJevProvider` | Unknown strategy or signal name. |
+| `INPUT_METHOD` | Server Handler, 405 | The request is not a `POST`. |
+| `INPUT_CONTENT_TYPE` | Server Handler, 415 | The request is not JSON. |
+| `INPUT_TOO_LARGE` | Server Handler and `toNodeHandler`, 413 | The body is over `maxBodyBytes`. |
+| `INPUT_INVALID` | Server Handler, 400 | The body is not JSON or not a valid `ResolutionRequest`. |
+| `PROVIDER_FAILED` | provider, handler, Controller issue | The provider failed, or threw something that was not a `GridCueError`. |
+| `PROVIDER_MALFORMED` | provider, Controller issue | The provider's result did not match `ResolutionResult`, or Jev omitted an answer. |
+| `PROVIDER_TIMEOUT` | Controller issue | The provider took longer than `providerTimeoutMs`. |
+| `PROVIDER_TOO_COMPLEX` | thrown by `createJevProvider` | The request needs more questions than `maxQuestions`. |
+| `PROVIDER_UNREACHABLE` | thrown by `createRemoteProvider` | The Server Handler could not be reached. |
+| `PLAN_SHAPE` | validation issue | The plan does not match the `ViewPlan` shape. |
+| `PLAN_STALE_REVISION` | validation issue, undo | The view changed since the plan was made, or since the change to undo. |
+| `PLAN_NOT_READY` | validation issue | The plan still needs a Clarification or has an unsupported part. |
+| `PLAN_NOT_ATOMIC` | validation issue | The adapter can't apply changes atomically. |
+| `PLAN_OPERATION_UNSUPPORTED` | validation issue | The adapter doesn't support an operation in the plan. |
+| `PLAN_UNKNOWN_COLUMN` | validation issue | The plan names a column that does not exist. |
+| `PLAN_COLUMN_CAPABILITY` | validation issue | A column can't be used for that change. |
+| `PLAN_OPERATOR_NOT_ALLOWED` | validation issue | A filter uses an operator the column doesn't allow. |
+| `PLAN_VALUE_TYPE` | validation issue | A filter value doesn't fit the column's kind or operator. |
+| `PLAN_CARDINALITY` | validation issue | More sort or group levels than the adapter allows. |
+| `PLAN_INCONSISTENT_STATE` | validation issue | The result would have duplicate columns in the order, a visible column missing from it, or no visible columns. |
+| `PLAN_INVALID` | audit event | Fallback `errorCode` for a plan rejected at apply time with no issue code. |
+| `POLICY_RESTRICTED_COLUMN` | validation issue | The plan names a restricted column. |
+| `ADAPTER_NOT_APPLICABLE` | adapter result, thrown by `resultingState` | The plan did not come from `validatePlan`. |
+| `ADAPTER_STALE_REVISION` | adapter result | The view changed before the adapter applied the plan. |
+| `ADAPTER_UNSUPPORTED_FILTER` | TanStack adapter result | TanStack column filters can only be combined with AND. |
+| `ADAPTER_FAILED` | Controller issue | The adapter threw while applying or undoing. |
+
+The `RESOLUTION` stage is defined in `ErrorStage`, but no code uses it yet.

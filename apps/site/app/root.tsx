@@ -1,0 +1,101 @@
+import { RootProvider } from "fumadocs-ui/provider/react-router";
+import { isRouteErrorResponse, Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
+import type { Route } from "./+types/root";
+import "./app.css";
+import SearchDialog from "@/components/search";
+import NotFound from "./routes/not-found";
+
+export const links: Route.LinksFunction = () => [
+  { rel: "icon", href: "/favicon.ico", sizes: "32x32" },
+  { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
+  { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
+  { rel: "preconnect", href: "https://fonts.googleapis.com" },
+  {
+    rel: "preconnect",
+    href: "https://fonts.gstatic.com",
+    crossOrigin: "anonymous",
+  },
+  {
+    rel: "stylesheet",
+    href: "https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap",
+  },
+];
+
+const ANALYTICS_TOKEN = import.meta.env.VITE_CF_ANALYTICS_TOKEN as string | undefined;
+
+export const meta: Route.MetaFunction = () => [
+  { title: "GridCue: ask your data grid in plain language" },
+  {
+    name: "description",
+    content:
+      "Use natural language to get insights from complicated data, dense grids and tables. GridCue previews every view change and never touches your data. Open source.",
+  },
+];
+
+export function Layout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <meta charSet="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        {/* Link cards on every page. Route `meta` replaces its parent's, so these live here rather than in `meta`. */}
+        <meta property="og:site_name" content="GridCue" />
+        <meta property="og:type" content="website" />
+        <meta property="og:image" content="https://gridcue.dev/og.png" />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta property="og:image:alt" content="GridCue: Ask your data a plain question. See the view that answers it." />
+        <meta name="twitter:card" content="summary_large_image" />
+        <Meta />
+        <Links />
+      </head>
+      <body className="flex flex-col min-h-screen">
+        {/* Suppress transitions for one frame on a theme switch, so it snaps instead of smearing (better-ui). */}
+        <RootProvider search={{ SearchDialog }} theme={{ disableTransitionOnChange: true }}>
+          {children}
+        </RootProvider>
+        {ANALYTICS_TOKEN && (
+          // Cloudflare Web Analytics: cookieless and free (Site grill Q10). Set VITE_CF_ANALYTICS_TOKEN at build time.
+          <script
+            defer
+            src="https://static.cloudflareinsights.com/beacon.min.js"
+            data-cf-beacon={JSON.stringify({ token: ANALYTICS_TOKEN })}
+          />
+        )}
+        <ScrollRestoration />
+        <Scripts />
+      </body>
+    </html>
+  );
+}
+
+export default function App() {
+  return <Outlet />;
+}
+
+export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
+  let message = "Oops!";
+  let details = "An unexpected error occurred.";
+  let stack: string | undefined;
+
+  if (isRouteErrorResponse(error)) {
+    if (error.status === 404) return <NotFound />;
+    message = "Error";
+    details = error.statusText;
+  } else if (import.meta.env.DEV && error && error instanceof Error) {
+    details = error.message;
+    stack = error.stack;
+  }
+
+  return (
+    <main className="pt-16 p-4 w-full max-w-[1400px] mx-auto">
+      <h1>{message}</h1>
+      <p>{details}</p>
+      {stack && (
+        <pre className="w-full p-4 overflow-x-auto">
+          <code>{stack}</code>
+        </pre>
+      )}
+    </main>
+  );
+}

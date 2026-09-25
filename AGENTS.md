@@ -6,7 +6,7 @@ The first provider is TypeSafe AI's Jev. Jev picks among closed, typed choices. 
 
 ## Status
 
-The first package build is implemented from `docs/superpowers/specs/2026-09-23-gridcue-package-design.md` and `docs/superpowers/plans/2026-09-23-gridcue-package.md`. The Site is next and gets its own spec and plan. Local commands are in `docs/operations/development.md`.
+The first package build is implemented from `docs/superpowers/specs/2026-09-23-gridcue-package-design.md` and `docs/superpowers/plans/2026-09-23-gridcue-package.md`. The Site (`apps/site`) is built from `docs/superpowers/specs/2026-09-24-site-design.md`, and deploys as described in `docs/operations/site.md`. Local commands are in `docs/operations/development.md`.
 
 ## What we never compromise on
 

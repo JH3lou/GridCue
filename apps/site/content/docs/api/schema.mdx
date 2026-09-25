@@ -1,0 +1,217 @@
+---
+title: Schema
+description: defineSchema, schemaFromTanStack and describeProviderPayload, and the column kinds, capabilities and operators they produce.
+---
+
+A `ViewSchema` tells GridCue which columns exist, what kind of data each holds, what the User may do with each, and which names the Intent Provider may see. You rarely write one by hand: build it with `defineSchema` from the columns your table already has, or with `schemaFromTanStack` from a TanStack Table.
+
+## defineSchema
+
+```ts
+import { defineSchema } from "gridcue";
+
+function defineSchema(columns: readonly ColumnInput[], options?: SchemaOptions): ViewSchema;
+
+interface ColumnInput {
+  id: string;
+  label?: string;
+  kind?: ColumnKind;
+}
+```
+
+Builds a `ViewSchema` from a list of columns and per-column additions. For each column:
+
+- **label** is the override's `label`, else the input's `label`, else the ID made readable (`market_value` and `marketValue` both become "Market value").
+- **kind** is the override's `kind`, else the input's `kind`, else `enum` when the override lists `enumValues`, else inferred from `sampleRows`. See [Column kinds](#column-kinds).
+- **capabilities** is the override's `capabilities`, else the defaults. A restricted column gets none.
+- **sensitivity** is `restricted` for columns listed in `restricted`, `internal` for every other column. A restricted column is also marked `exposeToProvider: false`.
+
+The result is checked against the `ViewSchema` shape before it is returned.
+
+```ts
+const schema = defineSchema(
+  [{ id: "account_number" }, { id: "account_type" }, { id: "market_value" }, { id: "advisor" }, { id: "ssn" }],
+  {
+    id: "accounts",
+    rowNoun: "account",
+    restricted: ["ssn"],
+    columns: {
+      market_value: { kind: "currency", aliases: ["balance", "aum"] },
+      account_type: {
+        enumValues: [
+          { id: "ira", label: "IRA" },
+          { id: "roth_ira", label: "Roth IRA", aliases: ["roth"] },
+          { id: "taxable", label: "Taxable" },
+        ],
+        valueGroups: [{ label: "Retirement", values: ["ira", "roth_ira"] }],
+      },
+    },
+  },
+);
+```
+
+## SchemaOptions
+
+```ts
+interface SchemaOptions {
+  id?: string;
+  version?: string;
+  columns?: Record<string, ColumnOverride>;
+  restricted?: string[];
+  rowNoun?: string;
+  sampleRows?: ReadonlyArray<Record<string, unknown>>;
+}
+```
+
+| Name | Type | Default | Description |
+| --- | --- | --- | --- |
+| `id` | `string` | `"default"` | The schema's ID. |
+| `version` | `string` | `"1"` | The schema's version. |
+| `columns` | `Record<string, ColumnOverride>` | none | Per-column additions, keyed by column ID: aliases, descriptions, approved enum values, narrower capabilities. |
+| `restricted` | `string[]` | none | Column IDs GridCue must never expose to a provider or act on. |
+| `rowNoun` | `string` | none | What one row is, such as `"account"`. Its name in a request means the rows, not a column. |
+| `sampleRows` | `ReadonlyArray<Record<string, unknown>>` | none | Rows used only to infer missing kinds. They never leave the caller. |
+
+## ColumnOverride
+
+```ts
+interface ColumnOverride {
+  label?: string;
+  kind?: ColumnKind;
+  description?: string;
+  aliases?: string[];
+  capabilities?: ColumnCapability[];
+  allowedOperators?: FilterOperator[];
+  enumValues?: EnumValue[];
+  entity?: string;
+  valueGroups?: Array<{ label: string; aliases?: string[]; values: string[] }>;
+}
+```
+
+| Name | Type | Default | Description |
+| --- | --- | --- | --- |
+| `label` | `string` | input label, else humanized ID | The name Users and the provider see. |
+| `kind` | `ColumnKind` | input kind, else inferred | The column's data kind. Declare `currency` and `percent`: they can't be inferred. |
+| `description` | `string` | none | A short description sent to the provider. |
+| `aliases` | `string[]` | none | Other names Users call this column, such as `["balance", "aum"]`. |
+| `capabilities` | `ColumnCapability[]` | `DEFAULT_CAPABILITIES` | What GridCue may do with this column. Pass a narrower list to forbid, say, grouping. |
+| `allowedOperators` | `FilterOperator[]` | the kind's operators | Narrows the filter operators. It can only remove operators the kind allows, never add one. |
+| `enumValues` | `EnumValue[]` | none | The approved values, each `{ id, label, aliases? }`. Setting this without a `kind` makes the column an `enum`. |
+| `entity` | `string` | none | The other record this column names, such as `"household"`, so "largest households first" can be read either as the column or as the records. |
+| `valueGroups` | `Array<{ label, aliases?, values }>` | none | Host-named categories over the enum values, such as `{ label: "Retirement", values: ["ira", "roth_ira"] }`. Every value must be one of the column's `enumValues` IDs. |
+
+## Column kinds
+
+```ts
+type ColumnKind = "string" | "number" | "currency" | "percent" | "date" | "datetime" | "boolean" | "enum";
+```
+
+Each kind has a fixed set of filter operators. `allowedOperators` can narrow it.
+
+| Kind | Operators |
+| --- | --- |
+| `string` | `eq`, `neq`, `contains`, `startsWith`, `in`, `isEmpty`, `isNotEmpty` |
+| `number` | `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `between`, `isEmpty`, `isNotEmpty` |
+| `currency` | `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `between`, `isEmpty`, `isNotEmpty` |
+| `percent` | `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `between`, `isEmpty`, `isNotEmpty` |
+| `date` | `eq`, `gt`, `gte`, `lt`, `lte`, `between`, `isEmpty`, `isNotEmpty` |
+| `datetime` | `eq`, `gt`, `gte`, `lt`, `lte`, `between`, `isEmpty`, `isNotEmpty` |
+| `boolean` | `eq` |
+| `enum` | `eq`, `neq`, `in`, `isEmpty`, `isNotEmpty` |
+
+`operatorsFor(column)` returns the operators legal for a `ColumnDescriptor`: its kind's operators, narrowed by its `allowedOperators`.
+
+### Kind inference
+
+When no kind is given and the column has no `enumValues`, `inferKind` reads the column's values in `sampleRows`, ignoring `null`, `undefined` and `""`:
+
+| All present values are | Kind |
+| --- | --- |
+| booleans | `boolean` |
+| finite numbers | `number` |
+| `Date` objects or strings starting `YYYY-MM-DDT` | `datetime` |
+| strings of the form `YYYY-MM-DD` | `date` |
+| anything else, or no values at all | `string` |
+
+A money or percentage column infers as `number`. Declare it as `currency` or `percent` so amounts like "$1M" and "10%" reach it.
+
+## Column capabilities
+
+```ts
+type ColumnCapability = "filter" | "sort" | "group" | "aggregate" | "show" | "hide" | "reorder" | "pin";
+
+const DEFAULT_CAPABILITIES: ColumnCapability[] = ["filter", "sort", "group", "show", "hide", "reorder"];
+```
+
+Every column that is not restricted gets `DEFAULT_CAPABILITIES` unless its override says otherwise. `aggregate` and `pin` exist in the protocol but are not defaults, and no first-release adapter supports the operations that use them.
+
+## schemaFromTanStack
+
+```ts
+import { schemaFromTanStack } from "gridcue/tanstack-table";
+
+function schemaFromTanStack(table: TanStackTableLike, options?: Omit<SchemaOptions, "sampleRows">): ViewSchema;
+```
+
+Builds a schema from a TanStack Table v9 instance. It reads every leaf column, uses a column's `columnDef.header` as its label when the header is a string, and infers kinds from the first 50 rows of the table's core row model. It takes every `SchemaOptions` field except `sampleRows`, which it fills itself, and passes them to `defineSchema`.
+
+```ts
+const schema = schemaFromTanStack(table, {
+  rowNoun: "account",
+  restricted: ["ssn"],
+  columns: { market_value: { kind: "currency" } },
+});
+```
+
+## describeProviderPayload
+
+```ts
+import { describeProviderPayload } from "gridcue";
+
+function describeProviderPayload(schema: ViewSchema): {
+  columns: ProviderPayloadColumn[];
+  rowNoun?: string;
+  rows: "never sent";
+};
+
+interface ProviderPayloadColumn {
+  id: string;
+  label: string;
+  kind: ColumnKind;
+  aliases?: string[];
+  description?: string;
+  enumValues?: EnumValue[];
+  entity?: string;
+  valueGroups?: Array<{ label: string; aliases?: string[]; values: string[] }>;
+}
+```
+
+Returns exactly what an Intent Provider may receive about this schema, so you can review or log it. Restricted columns, and columns with `exposeToProvider: false`, are left out. Rows are never included; the `rows` field always reads `"never sent"`.
+
+```ts
+console.log(describeProviderPayload(schema));
+```
+
+## INPUT_SCHEMA errors
+
+`defineSchema` (and so `schemaFromTanStack`) throws a `GridCueError` with code `INPUT_SCHEMA` when:
+
+| Problem | Message |
+| --- | --- |
+| Two columns share an ID | `Column ids must be unique. Repeated: …` |
+| `restricted` names an ID that matches no column | `restricted names an id that matches no column: …` |
+| `columns` has a key that matches no column | `columns names an id that matches no column: …` |
+| A `valueGroups` entry names a value that is not in the column's `enumValues` | `valueGroups on <id> name values that are not in its enumValues: …` |
+| The built schema fails the `ViewSchema` shape, such as an empty label or ID | `Invalid schema: <path>: <problem>` |
+
+```ts
+import { defineSchema, isGridCueError } from "gridcue";
+
+try {
+  defineSchema(columns, options);
+} catch (error) {
+  if (isGridCueError(error) && error.code === "INPUT_SCHEMA") console.error(error.message);
+}
+```
+
+The full `ViewSchema` and `ColumnDescriptor` shapes are on the [Protocol](/docs/api/protocol#viewschema) page.

@@ -1,0 +1,173 @@
+---
+title: Build an adapter
+description: Implement the GridAdapter interface to connect GridCue to another grid library, and prove it with the adapter contract suite.
+---
+
+A **Grid Adapter** translates between GridCue's View State and one grid library. It contains no language logic: GridCue has already compiled and validated the plan, and computed the view it produces. The adapter reads the grid's view, writes a whole new view atomically, and reports every change.
+
+GridCue ships two: the **Rows Adapter** (`createRowsAdapter`, for rows in memory) and the TanStack Table adapter (`createTanStackAdapter`). Both are short. Read `src/core/rows-adapter.ts` and `src/tanstack/index.ts` in the GridCue repo alongside this page.
+
+## The interface
+
+```ts
+import type { ApplicableViewPlan, ApplyResult, VersionedViewState, ViewCapabilities, ViewSchema, ViewState } from "gridcue";
+
+interface GridAdapter {
+  getSchema(): ViewSchema;
+  getCapabilities(): ViewCapabilities;
+  getState(): VersionedViewState;
+  getDefaultState(): ViewState;
+  apply(plan: ApplicableViewPlan): Promise<ApplyResult>;
+  restore(snapshot: VersionedViewState): Promise<ApplyResult>;
+  subscribe(listener: (state: VersionedViewState) => void): () => void;
+}
+```
+
+`ApplyResult` is `{ ok: true, state }` or `{ ok: false, code, message }`, where `code` starts with `ADAPTER_`.
+
+## Each method
+
+**`getSchema()`** returns the View Schema, usually built with `defineSchema`. `createGridCue` uses it when you don't pass `schema` yourself.
+
+**`getState()`** returns `{ revision, state }`. `state` is the full View State: `visibleColumnIds`, `columnOrder`, `filters`, `sorts`, `groupBy`, and the rest (start from `emptyViewState(columnIds)`). `revision` is a string that must change whenever the view changes, and only then. GridCue ties every plan to the Revision it was built on.
+
+**`getCapabilities()`** says what the adapter can do:
+
+| Field | Meaning |
+| --- | --- |
+| `operations` | The operation types you support. Use `[...MVP_OPERATIONS]`: `filter.add`, `filter.clear`, `sort.set`, `group.set`, `columns.show`, `columns.hide`, `columns.order`, `view.reset` |
+| `maxSorts`, `maxGroups` | Optional limits. Plans that exceed them fail validation |
+| `supportsAtomicApply` | Every operation applies or none do |
+| `supportsSnapshotRestore` | `restore` puts back an exact earlier view |
+| `observesChanges` | `subscribe` reports the User's own changes too, not only GridCue's |
+
+Return a new object on every call, so a caller can't change your capabilities by mutating what you returned. Advertise only what you really support.
+
+**`getDefaultState()`** returns the view that "reset the view" goes back to. The Rows Adapter uses its `initialState`. The TanStack adapter uses the table's view when the adapter was created.
+
+**`apply(plan)`** writes a validated plan. It must:
+
+1. Refuse any plan that didn't come from `validatePlan`. Check with `isApplicable(plan)` and return `ADAPTER_NOT_APPLICABLE`.
+2. Refuse a stale plan: if `plan.baseRevision` isn't the current Revision, return `ADAPTER_STALE_REVISION` and change nothing.
+3. Write `resultingState(plan)`, the full View State the plan produces, in one step. Don't interpret `plan.operations` yourself.
+4. Notify subscribers once, and return the new `{ revision, state }`.
+
+If the grid can't represent the result, return a failure and change nothing. The TanStack adapter, for example, refuses OR and nested filter groups with `ADAPTER_UNSUPPORTED_FILTER`.
+
+**`restore(snapshot)`** writes `snapshot.state` back, for undo. It bumps the Revision like any other change.
+
+**`subscribe(listener)`** calls `listener` with the new `{ revision, state }` on every view change, including the User's own clicks on column headers. It returns a function that unsubscribes.
+
+### `observesChanges`
+
+GridCue refuses to apply a plan built on an older Revision, so a pending Preview can never overwrite the User's manual changes (ADR 0009). That only works if the adapter notices those changes. Set `observesChanges: true` when `subscribe` fires for every change made by any means.
+
+If your grid can't report manual changes, set it to `false`. The Controller re-reads `getState()` before every apply regardless, so make sure `getState()` reads the grid's live view and returns a new Revision whenever that view differs.
+
+## A skeleton
+
+`grid` stands for your grid library's own API.
+
+```ts
+import {
+  type ApplyResult,
+  emptyViewState,
+  type GridAdapter,
+  isApplicable,
+  MVP_OPERATIONS,
+  resultingState,
+  type VersionedViewState,
+  type ViewSchema,
+  type ViewState,
+} from "gridcue";
+
+export const createMyGridAdapter = (schema: ViewSchema, grid: MyGrid): GridAdapter => {
+  let n = 0;
+  const read = (): ViewState => ({
+    ...emptyViewState(grid.columnIds()),
+    // …translate the grid's filters, sorting, grouping, visibility, and order
+  });
+  const current = (): VersionedViewState => ({ revision: `mygrid:${n}`, state: read() });
+  const defaultState = read();
+  const listeners = new Set<(s: VersionedViewState) => void>();
+
+  // Every view change, including the User's own, bumps the Revision and notifies once.
+  grid.onViewChange(() => {
+    n++;
+    const snapshot = current();
+    for (const l of listeners) l(snapshot);
+  });
+
+  const write = (next: ViewState): ApplyResult => {
+    grid.batch(() => {
+      // …translate `next` into the grid's own state, all in one batch
+    });
+    return { ok: true, state: current() };
+  };
+
+  return {
+    getSchema: () => schema,
+    getCapabilities: () => ({
+      operations: [...MVP_OPERATIONS],
+      maxSorts: 3,
+      maxGroups: 2,
+      supportsAtomicApply: true,
+      supportsSnapshotRestore: true,
+      observesChanges: true,
+    }),
+    getState: current,
+    getDefaultState: () => structuredClone(defaultState),
+    async apply(plan) {
+      if (!isApplicable(plan)) return { ok: false, code: "ADAPTER_NOT_APPLICABLE", message: "Only validated plans can be applied." };
+      if (plan.baseRevision !== current().revision)
+        return { ok: false, code: "ADAPTER_STALE_REVISION", message: "The view changed first." };
+      return write(resultingState(plan));
+    },
+    async restore(snapshot) {
+      return write(snapshot.state);
+    },
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+  };
+};
+```
+
+Make sure a batched write fires `onViewChange` once, not once per setting, or subscribers are notified several times per apply. Bump the Revision only when the View State actually changes: the TanStack adapter compares a serialised View State, because its store also notifies for pagination, selection, and column sizing.
+
+## Prove it with the contract suite
+
+Every Grid Adapter in GridCue passes the same contract suite: `packages/gridcue/test/adapter-contract.ts` in the GridCue repo. It checks that an adapter:
+
+- applies a multi-operation plan and bumps the Revision;
+- notifies subscribers once per apply;
+- rejects plans that were not validated, and leaves the view unchanged;
+- reports manual changes, so a stale plan is refused;
+- restores an exact snapshot;
+- doesn't advertise `columns.pin`, `aggregation.set`, or `density.set`;
+- hands out capabilities a caller can't use to corrupt the adapter;
+- stops notifying after unsubscribe;
+- uses codes starting with `ADAPTER_` for every refused apply.
+
+The suite is not part of the npm package. Copy the file into your tests, change its imports from `../src/...` to `gridcue`, and run it with Vitest:
+
+```ts
+import { runAdapterContract } from "./adapter-contract";
+import { createMyGridAdapter } from "../src/my-grid-adapter";
+
+runAdapterContract("My grid adapter", () => {
+  const grid = createTestGrid();
+  const adapter = createMyGridAdapter(schema, grid);
+  return {
+    adapter,
+    manualChange: () => grid.sortBy("team", "asc"), // the User changing the view by hand
+    numericColumn: "value", // supports filter and sort, and is numeric
+    otherColumn: "name", // supports filter and sort
+  };
+});
+```
+
+`make` must return a fresh adapter each time.
+
+Then run a few real requests through `createGridCue` with the Mock Provider, and check the grid renders what the Preview said.

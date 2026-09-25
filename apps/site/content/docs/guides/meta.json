@@ -1,0 +1,14 @@
+{
+  "title": "Guides",
+  "pages": [
+    "vite-tanstack",
+    "next-rows-adapter",
+    "server-handler",
+    "protect-the-endpoint",
+    "going-to-production",
+    "choosing-a-strategy",
+    "build-a-provider",
+    "build-an-adapter",
+    "evals"
+  ]
+}

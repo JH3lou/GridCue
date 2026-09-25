@@ -1,0 +1,104 @@
+---
+title: Safety and protocol
+description: What GridCue can change, what leaves your app, where keys live, what gets audited, and the protocol version.
+---
+
+GridCue puts a model near a screen where people make decisions, so its limits are part of the product. This page lists them, and says where each one is enforced.
+
+## View only
+
+GridCue changes the **view**: filters, sorts, grouping, which columns show and in what order, and reset. It never edits cells, places trades, sends messages, exports or copies data, navigates to other screens, or starts workflows. It does not compute answers or aggregate.
+
+A request that asks for one of those things contains an **Unsupported Segment**, and the whole request is refused, even if part of it was a valid view change. "Show restricted holdings and place the trades" applies nothing. The User is told why and can remove the part GridCue can't do.
+
+Editing records would be a separate product with its own risk model, not a setting.
+
+## The model proposes, code decides
+
+An **Intent Provider** only answers bounded questions about choices you declared, each with an explicit "none". It never returns operations, code or free-form JSON. Deterministic code builds the **View Plan** and validates it against your View Schema, the Grid Adapter's capabilities and the current Revision. Unknown columns, operators, values and actions fail closed. Ambiguous or low-confidence requests get a Clarification, or no change at all.
+
+## Preview before apply
+
+Nothing applies without a **Preview**: a deterministic description of exactly what will change, ending "No records will be changed." GridCue has no auto-apply, whatever the confidence.
+
+The plan is validated again at apply. A multi-part plan applies completely or not at all. If the view changed after the Preview, apply is refused instead of overwriting the User's change. Every applied plan can be undone, one step at a time back to the starting view, and undo is refused if it would erase a newer change. A new filter replaces the current ones unless the request says to add, and the Preview names each filter it removes.
+
+## The data boundary
+
+Rows never leave your app. The provider needs only the request and a description of your columns.
+
+**What is sent to the provider** (through your Server Handler, for Jev):
+
+- the Utterance, and the text of each Clause with the amounts, dates and directions code read from it;
+- the Mentions code found, as column and value ids;
+- for each exposed column: its id, label, kind, aliases and description, the approved enum values you declared, its `entity` and `valueGroups`, and the families and operators it allows;
+- the schema's `rowNoun`;
+- a summary of the current view: visible column ids, the sorts and grouping, and whether any filter is set (not what it filters on).
+
+**What is never sent:**
+
+- rows or cell values;
+- restricted columns: not their names, aliases or values;
+- enum values you didn't list in `enumValues`;
+- the current filter values;
+- keys, cookies or tokens.
+
+To see what your schema exposes, call `describeProviderPayload(schema)` from `gridcue`. It returns each exposed column's id, label, kind, aliases, description, approved values, entity and value groups, the `rowNoun`, and `rows: "never sent"`.
+
+`enumValues` is the one place you choose to share values. List only what you are willing to send, and never fill it with every distinct value in your data.
+
+## Restricted columns
+
+Columns named in `restricted` are never offered to a provider and can't be filtered, sorted, grouped or shown by GridCue. A request that names one, by its label or any alias, is refused **before any provider call**, so nothing about that request leaves the browser. The User sees "That request mentions a restricted column, so GridCue can't use it."
+
+The screen matches every form of the name, with no grammar rules, so it errs toward refusing. Give restricted columns the aliases people actually use, such as "ssn" for Tax ID.
+
+## Keys stay on the server
+
+- Provider credentials live only in the **Server Handler**, a small endpoint you host. The browser uses `createRemoteProvider`, which holds no key.
+- Name the variable `JEV_API_KEY`. Never prefix it with `VITE_` or `NEXT_PUBLIC_`, which would copy it into the browser bundle.
+- `gridcue/server` throws if a browser build imports it.
+- The handler never logs requests, payloads or keys, and the Jev provider turns the TypeSafe SDK's own logging off.
+- GridCue adds no auth to the endpoint. It spends your credits, so put it behind your session check and rate limits: see [Protect the endpoint](/docs/guides/protect-the-endpoint).
+
+## Audit events
+
+Every outcome can emit a structured audit event. Pass a handler to the controller:
+
+```ts
+createGridCue({
+  adapter,
+  provider,
+  audit: {
+    onEvent: (event) => myAuditLog.write(event),
+    policy: { includeStructure: true }, // optional
+  },
+});
+```
+
+An event has type `gridcue.plan` and an outcome: `applied`, `cancelled`, `rejected`, `undone` or `failed`. It carries the protocol version, the plan id and status, the operation types, a confidence band (`high`, `medium`, `low` or `none`), the base and new Revisions, and an error code when there is one.
+
+By default it holds no request text, column labels or values. Two opt-ins widen it:
+
+- `includeText`: adds the raw request text;
+- `includeStructure`: adds the column ids and operators of each operation. Filter values are never included.
+
+## Telemetry
+
+Telemetry is off by default. GridCue sends no usage data of its own anywhere. The only network call it makes is to the provider you configure, and audit events go only to the `onEvent` function you pass.
+
+## The protocol version
+
+Plans and resolution requests carry `protocolVersion: "0.1"`. The Server Handler rejects a request with any other version, or any shape it doesn't recognise, with a 400.
+
+Within 0.1, new fields are optional, so a provider that ignores them behaves as before. A new operation, a changed meaning, a removed field or a changed validation rule needs a new protocol version and a recorded decision.
+
+## Adapter limits: no OR filters
+
+The TanStack Table adapter stores GridCue's filters as TanStack column filters, which can only be combined with AND. It refuses a View State whose filters use OR or nest groups, with `ADAPTER_UNSUPPORTED_FILTER`, and changes nothing.
+
+The compiler never produces those shapes: every filter it adds combines with AND, and several values of one column ("retirement accounts" = IRA and Roth IRA) become one filter with the `in` operator. The refusal only matters if your own code writes such a state.
+
+## Reporting a vulnerability
+
+Report security problems privately through [GitHub's private vulnerability reporting](https://github.com/JH3lou/GridCue/security/advisories/new), not in a public issue. In scope: any way GridCue could change data instead of views, apply a plan that failed validation, leak rows or credentials to a provider or the browser, or be steered by crafted requests or schema text.

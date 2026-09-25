@@ -2,7 +2,17 @@
   "$schema": "https://biomejs.dev/schemas/2.5.14/schema.json",
   "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
   "files": {
-    "includes": ["**", "!**/dist", "!**/.next", "!**/next-env.d.ts", "!registry/src/components/ui", "!examples/*/src/components/ui"]
+    "includes": [
+      "**",
+      "!**/dist",
+      "!**/.next",
+      "!**/next-env.d.ts",
+      "!registry/src/components/ui",
+      "!examples/*/src/components/ui",
+      "!apps/site/app/components/ui",
+      "!apps/site/public/r",
+      "!apps/site/app/data"
+    ]
   },
   "formatter": { "indentStyle": "space", "indentWidth": 2, "lineWidth": 140 },
   "linter": { "rules": { "preset": "recommended" } },

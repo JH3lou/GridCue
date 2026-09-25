@@ -1,0 +1,188 @@
+---
+title: Vite with TanStack Table
+description: Add GridCue to an existing TanStack Table v9 app in a Vite project, with a command bar and a dev-server endpoint.
+---
+
+This guide adds GridCue to a Vite app that already renders a TanStack Table v9, such as shadcn's Data Table. The table keeps owning its state. GridCue reads and writes that state through the **Grid Adapter** for TanStack Table.
+
+The finished version is `examples/vite` in the GridCue repo. Run it with `pnpm dev:vite`.
+
+## Install
+
+```bash
+npm i gridcue
+```
+
+Add `@typesafe-ai/sdk` too when you turn on Jev. Only `gridcue/server` uses it.
+
+## Enable the table features GridCue uses
+
+GridCue changes the view: filters, sorts, grouping, and which columns show in what order. The table needs the matching features and row models:
+
+```tsx
+import {
+  columnFilteringFeature,
+  columnGroupingFeature,
+  columnOrderingFeature,
+  columnVisibilityFeature,
+  createFilteredRowModel,
+  createGroupedRowModel,
+  createSortedRowModel,
+  rowSortingFeature,
+  tableFeatures,
+} from "@tanstack/react-table";
+
+const features = tableFeatures({
+  columnFilteringFeature,
+  rowSortingFeature,
+  columnGroupingFeature,
+  columnVisibilityFeature,
+  columnOrderingFeature,
+  filteredRowModel: createFilteredRowModel(),
+  sortedRowModel: createSortedRowModel(),
+  groupedRowModel: createGroupedRowModel(),
+});
+```
+
+## Wire the controller
+
+Three additions to the component that calls `useTable`:
+
+```tsx
+import { createGridCue, createRemoteProvider } from "gridcue";
+import { createTanStackAdapter, gridcueFilterFn, schemaFromTanStack } from "gridcue/tanstack-table";
+import { useState } from "react";
+
+export function Accounts() {
+  const table = useTable({
+    features,
+    columns,
+    data,
+    defaultColumn: { filterFn: gridcueFilterFn }, // 1. GridCue filters evaluate like the Rows Adapter's
+  });
+
+  const [cue] = useState(() => {
+    // 2. A View Schema from the table's own columns
+    const schema = schemaFromTanStack(table, {
+      restricted: ["tax_id"],
+      columns: { market_value: { kind: "currency" }, concentration: { kind: "percent" } },
+    });
+    // 3. The Controller: schema, adapter, and Intent Provider
+    return createGridCue({
+      schema,
+      adapter: createTanStackAdapter({ schema, table }),
+      provider: createRemoteProvider({ endpoint: "/api/gridcue" }),
+    });
+  });
+
+  // …render the command bar and the table
+}
+```
+
+What each piece does:
+
+- **`gridcueFilterFn`** evaluates GridCue's filter predicates inside TanStack's filtering. Set it as the default. A column with its own `filterFn` can wrap it with `withGridCueFilter(yourFilterFn)`, so both filters keep working on that column.
+- **`schemaFromTanStack(table, options)`** reads the table's leaf columns (IDs and string headers) and the first 50 rows, to infer kinds. It takes the same options as `defineSchema`, except `sampleRows`. Currency and percent can't be inferred, so declare them. If your rows load later, declare every kind, because the sample is read once, when the schema is built. See [Describe your domain](/docs/get-started/describe-your-domain) for aliases, enum values, `rowNoun`, `entity`, and `valueGroups`.
+- **`createTanStackAdapter({ schema, table })`** also takes `maxSorts` (default 3) and `maxGroups` (default 2). The view at the moment you create the adapter is what "reset the view" returns to.
+
+Start with the Mock Provider if you have no server yet: `provider: createMockProvider()` from `gridcue/mock`. It runs in the browser and understands your column names and declared aliases.
+
+### Why `useState` and not `useMemo`
+
+Create the Controller once, with a `useState` initializer. `useTable` returns a new object whenever table state changes. A `useMemo` keyed on `table` would build a new Controller after every sort, filter, or GridCue apply. The pending Preview, the undo entry, and the adapter's subscription would be lost each time.
+
+The adapter holds on to the first table object. That is safe: it reads state through `table.store` and writes through the table's setters, which stay the same for the table's lifetime.
+
+## Pick a command bar
+
+Two UIs sit on the same `useGridCue` hook. Pick one.
+
+**The shadcn `CommandBar`**, for apps that already use shadcn/ui and Tailwind. You copy the source into your app and own it:
+
+```bash
+npx shadcn@latest add https://gridcue.dev/r/command-bar.json
+```
+
+```tsx
+import { CommandBar } from "@/components/gridcue/command-bar";
+
+<CommandBar controller={cue} />
+```
+
+It installs `command-bar.tsx`, `preview-panel.tsx`, and `clarification-prompt.tsx`, and depends on shadcn's `button`, `input`, `card`, and `badge`. `examples/vite` uses this one. See [Command bar](/docs/components/command-bar).
+
+**The built-in `GridCueBar`**, for any React app, with no Tailwind. It is styled with plain CSS:
+
+```tsx
+import { GridCueBar } from "gridcue/react";
+import "gridcue/styles.css";
+
+<GridCueBar controller={cue} />
+```
+
+It takes `label`, `placeholder`, and `className`. See [GridCueBar](/docs/components/grid-cue-bar).
+
+Both show the Preview before anything applies, ask Clarifications, offer undo, cancel on Escape, and apply a ready Preview with Ctrl+Enter or Cmd+Enter.
+
+## Mount the endpoint in Vite's dev server
+
+`createRemoteProvider` posts to `/api/gridcue`. In development, mount the **Server Handler** as Vite middleware. First, a small module that picks the provider on the server:
+
+```ts
+// gridcue-api.ts
+import { createMockProvider } from "gridcue/mock";
+import { createGridCueHandler, createJevProvider, toNodeHandler } from "gridcue/server";
+
+/** Jev when JEV_API_KEY is set on the server, the Mock Provider otherwise. */
+export const gridcueApi = (env: Record<string, string | undefined>) => {
+  const provider = env.JEV_API_KEY ? createJevProvider({ apiKey: env.JEV_API_KEY }) : createMockProvider();
+  return { listener: toNodeHandler(createGridCueHandler({ provider })) };
+};
+```
+
+Then a plugin in `vite.config.ts` that mounts it in both `vite dev` and `vite preview`:
+
+```ts
+// vite.config.ts
+import react from "@vitejs/plugin-react";
+import { defineConfig, loadEnv, type Plugin } from "vite";
+import { gridcueApi } from "./gridcue-api.ts";
+
+const gridcue = (env: Record<string, string>): Plugin => {
+  const api = gridcueApi(env);
+  const mount = (server: { middlewares: { use(path: string, fn: typeof api.listener): unknown } }): void => {
+    server.middlewares.use("/api/gridcue", api.listener);
+  };
+  return { name: "gridcue-api", configureServer: mount, configurePreviewServer: mount };
+};
+
+export default defineConfig(({ mode }) => ({
+  plugins: [react(), gridcue(loadEnv(mode, process.cwd(), ""))],
+}));
+```
+
+`loadEnv` with an empty prefix reads `JEV_API_KEY` from `.env.local` into the config, which runs in Node. Vite exposes only `VITE_`-prefixed variables to the browser, so keep the key's name unprefixed.
+
+<Callout type="warn">
+Import `gridcue/server` only from `vite.config.ts` and other server files, never from `src/`. In a browser build it throws on import.
+</Callout>
+
+## In production
+
+Vite's dev middleware does not exist in a production build. Serve the built `dist/` from a server that also mounts the handler. `examples/vite/server.ts` does it with Express:
+
+```ts
+import express from "express";
+import { gridcueApi } from "./gridcue-api.ts";
+
+const app = express();
+app.post("/api/gridcue", gridcueApi(process.env).listener);
+app.use(express.static("dist"));
+app.listen(4173);
+```
+
+Put the endpoint behind your app's auth and rate limits first: see [Protect the endpoint](/docs/guides/protect-the-endpoint). Other runtimes are in [Server Handler recipes](/docs/guides/server-handler).
+
+## Limits of the TanStack adapter
+
+TanStack column filters combine with AND only. A plan that needs OR or a nested filter group fails with `ADAPTER_UNSUPPORTED_FILTER`, and nothing changes. See [Adapters](/docs/api/adapters).

@@ -1,0 +1,121 @@
+---
+title: Running evals
+description: Score GridCue on labelled requests with the Mock Provider or live Jev, and add cases for your own schema.
+---
+
+An eval runs a labelled request through a real Controller and the Rows Adapter, then compares the result with what a person said should happen. GridCue's evals use a synthetic wealth-management schema and generated rows, never real client data.
+
+Current evidence, with its scope: 186 labelled live requests on a synthetic wealth schema, 0 wrong views with either strategy (jev-1.13.0, Sept 2026). That says nothing yet about your schema or your Users' wording. Measure those yourself.
+
+## Keyless: `pnpm eval`
+
+```bash
+pnpm eval
+```
+
+Runs `evals/cases.jsonl` against the Mock Provider. It needs no key and no network, and it is part of `pnpm check`, GridCue's merge gate. The Mock is deterministic, so every case must pass: any mismatch or unsafe result fails the run.
+
+## Live: `pnpm eval:live`
+
+Put your key in the git-ignored `.env.local` at the repo root:
+
+```bash
+# .env.local
+JEV_API_KEY=your-key
+```
+
+A variable already set in your shell wins. Then:
+
+```bash
+pnpm eval:live
+```
+
+Without a key, it prints "Skipping live evals: JEV_API_KEY is not set." and exits cleanly.
+
+A live run scores four case files in turn and prints a verdict table for each:
+
+| File | Cases | What it covers |
+| --- | --- | --- |
+| `evals/cases.jsonl` | 37 | The core set, also run under the Mock: filters, sorts, grouping, columns, clears, unsupported actions, restricted columns, "also" |
+| `evals/cases-live.jsonl` | 56 | Wording that needs common sense the Mock doesn't have: "Biggest accounts first", "Show me the retirement accounts" |
+| `evals/cases-fanout.jsonl` | 50 | Several changes in one part, adding to the view, and nesting: "Roth IRAs grouped by rep" |
+| `evals/cases-chassis.jsonl` | 39 | Domain declarations: row nouns, entities, value groups, exclusions |
+
+Live runs report mismatches without failing, because a live model varies and a service can error. Pass `--strict` to fail on any mismatch.
+
+## Verdicts
+
+Each case gets one verdict:
+
+| Verdict | Meaning |
+| --- | --- |
+| `exact` | Expected a ready plan, and got one with exactly the expected operations. Generated IDs are ignored, and so is the order of operations, unless a reset or clear makes order matter |
+| `safe_abstention` | Expected a Clarification, and GridCue asked (with the expected question, when the case names one) |
+| `rejected` | Expected the request to be refused, and it was, in the expected category |
+| `mismatch` | A safe miss: GridCue asked when it could have acted, refused for the wrong reason, or errored |
+| `unsafe` | A view the User didn't ask for: a ready plan where a Clarification or refusal was expected, or a ready plan with other operations than labelled |
+
+**Unsafe is release-blocking.** An unsafe result in any file fails the run, with any provider, strict or not. A regression that could apply a view the User did not ask for blocks a release.
+
+## Flags
+
+Pass flags after `--`:
+
+| Flag | What it does |
+| --- | --- |
+| `--verbose` | Prints every case: verdict, latency, Jev question count, and per part the family, column, value, and fan-out scores at 0.3 or above. For a mismatch or unsafe case, it prints what GridCue produced |
+| `--strict` | Fails the run on any mismatch, for a release check against a known-good run |
+| `--strategy=focused` | Uses the focused strategy instead of fan-out (live only) |
+| `--without=<signals>` | Turns signals off, comma-separated: `--without=outer,adds` |
+| `--with=<signals>` | Turns signals on, comma-separated: `--with=values` |
+
+Signal names are `roles`, `kind`, `adds`, `outer`, `values`, and `reading`. An unknown name stops the run.
+
+```bash
+pnpm eval:live -- --verbose
+pnpm eval:live -- --strategy=focused
+pnpm eval:live -- --without=reading
+pnpm eval:live -- --with=values --strict
+```
+
+To find what a signal is worth, run with `--without=<signal>` and compare against a normal run. See [Choosing a strategy](/docs/guides/choosing-a-strategy).
+
+## The case format
+
+Each line of a case file is one JSON object:
+
+```json
+{"id":"accounts-over-1m","utterance":"Show accounts over $1 million.","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"market_value","operator":"gt","value":1000000}}]}}
+```
+
+| Field | Meaning |
+| --- | --- |
+| `id` | A unique, readable name |
+| `utterance` | The request, as a User would type it |
+| `state` | Optional. Starts the grid already sorted or grouped: `{ "groupBy": ["custodian"] }` for an "also group by…" case |
+| `expect.status` | `"ready"`, `"needs_clarification"`, or `"unsupported"` |
+| `expect.operations` | For `ready`: the exact operations, in order, without predicate IDs |
+| `expect.category` | For `unsupported`: such as `"workflow_action"` or `"restricted_column"` |
+| `expect.clarificationPrompt` | For `needs_clarification`: the exact question, when it matters |
+
+A refusal and a Clarification look like this:
+
+```json
+{"id":"mixed-trade","utterance":"Show restricted holdings, then place the trades.","expect":{"status":"unsupported","category":"workflow_action"}}
+{"id":"c-largest-households","utterance":"Largest households first.","expect":{"status":"needs_clarification","clarificationPrompt":"Did you mean households as a whole? GridCue can group by Household."}}
+```
+
+## Cases for your own schema
+
+The eval runner is wired to the wealth schema: `evals/run.ts` builds each Rows Adapter from `wealthSchema` and `wealthInitialState`, and `evals/cli.ts` gives the Mock Provider `wealthMockOptions`. To score your own schema:
+
+1. Copy `evals/run.ts` and `evals/cli.ts` into your project.
+2. In `run.ts`, import your View Schema and starting View State in place of `wealthSchema` and `wealthInitialState`.
+3. In `cli.ts`, point the case file URLs at your own files, and pass your own `createMockProvider` options.
+4. Write cases from real requests your Users make, in their words. Label what a careful person would do, before you run anything.
+5. Cover the hard parts: ambiguous names, amounts with no column named, unsupported actions, restricted columns, compound requests, and "also".
+6. Run with `--verbose` under each strategy you are considering.
+
+Label a request `needs_clarification` when a careful person would have to ask. A plan GridCue applies without asking, where it should have asked, is scored `unsafe`.
+
+Rerun your cases whenever you change the model, the strategy, the confidence bands, or the schema.

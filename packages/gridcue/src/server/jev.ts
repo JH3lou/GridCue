@@ -15,6 +15,7 @@ let sdk: Promise<Sdk> | undefined;
 const loadSdk = (): Promise<Sdk> => {
   sdk ??= import("@typesafe-ai/sdk").catch(() => {
     sdk = undefined;
+    // scripts/check-bundles.mjs looks for this text in the Site's browser bundle: keep them in step.
     throw new GridCueError("INPUT_CONFIG", "The Jev provider needs @typesafe-ai/sdk. Install it next to gridcue.");
   });
   return sdk;
