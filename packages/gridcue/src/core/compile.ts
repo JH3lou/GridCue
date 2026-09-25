@@ -6,6 +6,7 @@ import {
   type ColumnDescriptor,
   type ColumnKind,
   type DecisionEvidence,
+  type FilterGroup,
   type FilterPredicate,
   PROTOCOL_VERSION,
   type UnsupportedCategory,
@@ -87,6 +88,39 @@ const CHANGE_VERB: Partial<Record<string, RegExp>> = {
   "columns.show": /\bshow(?:n)?\b/,
   "columns.only": /\b(?:keep|only)\b/,
 };
+/**
+ * Whether a part asks to keep the view's current filters and narrow them, instead of replacing them (ADR 0017).
+ * "Only those", "among them", and "narrow it down" always mean the filters. "Also" and "too" belong to whichever
+ * change they sit next to: "show trusts and also sort by value" sorts in addition, and still replaces the filters.
+ */
+const OTHER_CHANGE = /^(?:sort|order|group|ungroup|hide|pin|put|move|reorder)(?:ed|s)?\b/;
+const keepsFilters = (text: string): boolean => {
+  if (
+    /\b(?:(?:only|just) (?:those|these|them)|(?:of|among|within|from) (?:those|these|them)|narrow(?:ed)? (?:it |them |that |this )?(?:down|to)|further)\b/.test(
+      text,
+    )
+  ) {
+    return true;
+  }
+  // A leading "also" or "additionally" goes with the verb right after it.
+  for (const m of text.matchAll(/\b(?:also|additionally)\s+(?:(?:and|then)\s+)?(\w+)/g)) {
+    if (!OTHER_CHANGE.test(m[1] ?? "")) return true;
+  }
+  // A trailing "too" or "as well" goes with the last verb before it.
+  for (const m of text.matchAll(/\b(?:too|as well)\b/g)) {
+    const before = text.slice(0, m.index);
+    const verbs = [
+      ...before.matchAll(/\b(sort|order|group|ungroup|hide|pin|put|move|reorder|show|filter|only|keep|include|exclude|display|list)\w*/g),
+    ];
+    const last = verbs.at(-1)?.[1] ?? "";
+    if (!OTHER_CHANGE.test(last)) return true;
+  }
+  return false;
+};
+/** How many predicates a filter group holds, nested groups included. */
+const predicatesIn = (group: FilterGroup | null): number =>
+  (group?.children ?? []).reduce((n, child) => n + ("children" in child ? predicatesIn(child) : 1), 0);
+
 /** A part that replaces the sort or grouping named before it, instead of adding a level. */
 const REPLACES = /\b(?:instead|rather)\b/;
 /** Words that may add a level to the current sort or grouping: "also group by advisor", "a second sort". */
@@ -697,6 +731,19 @@ export const compile = (c: CompileInput): ViewPlan => {
               prompt: `What should “${clause.text}” filter on? Include a value, such as an amount or a category.`,
               required: true,
             });
+          }
+          // A new filter replaces the view's current filters, as a new sort or grouping replaces the current one,
+          // unless this part says to add to them: "also", "only those", "narrow it down" (ADR 0017). The request's
+          // first filtering part decides; filters within one request always combine. One clear per plan, and none
+          // after a reset or clear the request already asked for.
+          const replacing =
+            predicates.length > 0 &&
+            predicatesIn(c.state.filters) > 0 &&
+            !keepsFilters(clause.text) &&
+            !operations.some((o) => o.type === "filter.add" || o.type === "filter.clear" || o.type === "view.reset");
+          if (replacing) {
+            operations.push({ type: "filter.clear" });
+            evidence.push({ key: `${key}.filters`, selectedId: "replace", confidence: 1, source: "deterministic" });
           }
           for (const predicate of predicates) operations.push({ type: "filter.add", predicate, combineWith: "and" });
         } else {
