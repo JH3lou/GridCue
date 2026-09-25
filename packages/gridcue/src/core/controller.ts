@@ -6,7 +6,7 @@ import { type NormalizedInput, normalize } from "./normalize";
 import { screenRestricted } from "./policy";
 import { type AuditEvent, type AuditPolicy, type Preview, renderPreview, toAuditEvent } from "./preview";
 import type { VersionedViewState, ViewPlan, ViewSchema } from "./protocol";
-import { buildResolutionRequest, type IntentProvider, ResolutionResult } from "./resolution";
+import { buildResolutionRequest, type IntentProvider, MAX_UTTERANCE_LENGTH, ResolutionResult } from "./resolution";
 import { isExposed } from "./schema";
 import { type ApplicableViewPlan, resultingState, validatePlan } from "./validate";
 
@@ -30,6 +30,7 @@ export interface GridCueOptions {
   schema?: ViewSchema;
   confidence?: ConfidencePolicy;
   audit?: { onEvent: (event: AuditEvent) => void; policy?: AuditPolicy };
+  /** The longest request the Controller accepts, in characters. Default 500; at most 2000, the protocol's limit. */
   maxUtteranceLength?: number;
   /**
    * How long a provider may take before GridCue gives up and returns to idle with the request kept. Default 8000 ms;
@@ -66,6 +67,10 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
   const { adapter, provider } = options;
   const schema = options.schema ?? adapter.getSchema();
   const maxLength = options.maxUtteranceLength ?? 500;
+  // The protocol caps an Utterance at 2000 characters, so a larger limit would only fail later, at the Server Handler.
+  if (maxLength > MAX_UTTERANCE_LENGTH) {
+    throw new GridCueError("INPUT_CONFIG", `maxUtteranceLength can be at most ${MAX_UTTERANCE_LENGTH}.`);
+  }
   const providerTimeoutMs = options.providerTimeoutMs ?? 8000;
   let state: ControllerState = IDLE;
   let inflight: AbortController | null = null;
@@ -202,6 +207,7 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
           message: `Try fewer parts at once. GridCue handles up to ${MAX_CLAUSES} in one request.`,
           issues: [{ code: "INPUT_TOO_COMPLEX", message: "Too many clauses." }],
         });
+        if (inflight === controller) inflight = null;
         return null;
       }
       const base = adapter.getState();

@@ -6,6 +6,7 @@ export interface GridCueBarProps {
   controller: GridCueController;
   /** Visible label for the input. Default "Describe the view you want". */
   label?: string;
+  /** Example text in the empty input. Default "e.g. taxable accounts over $1M, largest first": set one from your domain. */
   placeholder?: string;
   className?: string;
 }
