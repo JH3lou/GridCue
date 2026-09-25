@@ -41,13 +41,14 @@ const stripIds = (ops: readonly ViewOperation[]) =>
   });
 
 /**
- * Whether two operation lists produce the same view. Operations of different kinds commute, so order is ignored,
- * unless a reset or clear is involved: "reset, then group" is not "group, then reset".
+ * Whether two operation lists produce the same view. Only order that can't change the view is ignored: filters
+ * are ANDed, and a sort, a grouping and the column changes don't affect each other. Operations of one kind keep
+ * their order (show then hide is not hide then show), and a reset or clear makes the whole order matter.
  */
 const sameView = (got: readonly unknown[], want: readonly unknown[]) => {
-  const ordered = [...got, ...want].some((op) => /\.(?:reset|clear)$/.test((op as { type: string }).type));
-  if (ordered) return isDeepStrictEqual(got, want);
-  // Sorted by a key-order-independent form, then compared deeply as before.
+  const type = (op: unknown) => (op as { type: string }).type;
+  if ([...got, ...want].some((op) => /\.(?:reset|clear)$/.test(type(op)))) return isDeepStrictEqual(got, want);
+  const kind = (op: unknown) => (type(op).startsWith("columns.") ? "columns" : type(op));
   const canonical = (v: unknown): string =>
     Array.isArray(v)
       ? `[${v.map(canonical).join(",")}]`
@@ -57,8 +58,19 @@ const sameView = (got: readonly unknown[], want: readonly unknown[]) => {
             .map((k) => `${k}:${canonical((v as Record<string, unknown>)[k])}`)
             .join(",")}}`
         : JSON.stringify(v);
-  const sorted = (ops: readonly unknown[]) => [...ops].sort((a, b) => canonical(a).localeCompare(canonical(b)));
-  return isDeepStrictEqual(sorted(got), sorted(want));
+  const byKind = (ops: readonly unknown[]) => {
+    const kinds = new Map<string, unknown[]>();
+    for (const op of ops) kinds.set(kind(op), [...(kinds.get(kind(op)) ?? []), op]);
+    // Filters are a set; every other kind keeps its order.
+    const filters = kinds.get("filter.add");
+    if (filters)
+      kinds.set(
+        "filter.add",
+        [...filters].sort((a, b) => canonical(a).localeCompare(canonical(b))),
+      );
+    return Object.fromEntries([...kinds].sort(([a], [b]) => a.localeCompare(b)));
+  };
+  return isDeepStrictEqual(byKind(got), byKind(want));
 };
 
 /**
