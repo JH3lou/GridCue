@@ -1,7 +1,7 @@
 import { writeFileSync } from "node:fs";
 import { wealthInitialState, wealthMockOptions, wealthSchema } from "@gridcue-internal/wealth-fixtures";
 import { TypeSafeClient } from "@typesafe-ai/sdk";
-import { createGridCue, createRowsAdapter, type IntentProvider } from "gridcue";
+import { createGridCue, createRowsAdapter, type IntentProvider, type ViewState } from "gridcue";
 import { createMockProvider } from "gridcue/mock";
 import { createJevProvider, DEFAULT_JEV_MODEL, type JevClient } from "gridcue/server";
 
@@ -14,20 +14,28 @@ if (!process.env.JEV_API_KEY) {
   process.exit(1);
 }
 
-// Chosen to show where the strategies differ: compound requests, nesting, "also", and the declined cases.
-const REQUESTS = [
-  "Roth IRAs grouped by rep",
-  "Taxable accounts over $1M, sort by concentration, highest first",
-  "Show me the retirement accounts",
-  "Biggest accounts first",
-  "Group by custodian, then by advisor",
-  "Also sort by market value",
-  "Accounts excluding trusts, largest first",
-  "Sort by gains for trusts",
-  "Hide custodian and account number",
-  "Largest households first",
-  "Sell anything over 10%",
-  "What's the total market value?",
+// Chosen to show where the strategies differ: compound requests, nesting, "also", and the declined cases. A request
+// that builds on the current view starts from one, described for the reader.
+const REQUESTS: Array<{ utterance: string; start?: { view: Partial<ViewState>; description: string } }> = [
+  { utterance: "Roth IRAs grouped by rep" },
+  { utterance: "Taxable accounts over $1M, sort by concentration, highest first" },
+  { utterance: "Show me the retirement accounts" },
+  { utterance: "Biggest accounts first" },
+  { utterance: "Group by custodian, then by advisor" },
+  {
+    utterance: "Also sort by market value",
+    start: { view: { sorts: [{ columnId: "advisor_name", direction: "asc" }] }, description: "sorted by Advisor" },
+  },
+  {
+    utterance: "Also group by advisor",
+    start: { view: { groupBy: ["custodian"] }, description: "grouped by Custodian" },
+  },
+  { utterance: "Accounts excluding trusts, largest first" },
+  { utterance: "Sort by gains for trusts" },
+  { utterance: "Hide custodian and account number" },
+  { utterance: "Largest households first" },
+  { utterance: "Sell anything over 10%" },
+  { utterance: "What's the total market value?" },
 ];
 
 let questions = 0;
@@ -45,11 +53,14 @@ const PROVIDERS: Array<["focused" | "fan-out" | "mock", IntentProvider]> = [
 ];
 
 const requests = [];
-for (const utterance of REQUESTS) {
+for (const { utterance, start } of REQUESTS) {
   const runs = [];
   for (const [strategy, provider] of PROVIDERS) {
     questions = 0;
-    const cue = createGridCue({ adapter: createRowsAdapter({ schema: wealthSchema, initialState: wealthInitialState }), provider });
+    const cue = createGridCue({
+      adapter: createRowsAdapter({ schema: wealthSchema, initialState: { ...wealthInitialState, ...start?.view } }),
+      provider,
+    });
     const started = Date.now();
     await cue.propose(utterance);
     const latencyMs = Date.now() - started;
@@ -62,7 +73,7 @@ for (const utterance of REQUESTS) {
       ...(strategy === "mock" ? {} : { questions, latencyMs }),
     });
   }
-  requests.push({ utterance, runs });
+  requests.push({ utterance, ...(start ? { start: start.description } : {}), runs });
   console.log(`${utterance}: ${runs.map((r) => `${r.strategy} ${r.status}`).join(", ")}`);
 }
 

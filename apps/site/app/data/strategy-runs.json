@@ -8,21 +8,30 @@
         {
           "strategy": "focused",
           "status": "ready",
-          "preview": ["Filter Registration type to Roth IRA", "Group by Advisor"],
+          "preview": [
+            "Filter Registration type to Roth IRA",
+            "Group by Advisor"
+          ],
           "questions": 25,
-          "latencyMs": 381
+          "latencyMs": 384
         },
         {
           "strategy": "fan-out",
           "status": "ready",
-          "preview": ["Filter Registration type to Roth IRA", "Group by Advisor"],
+          "preview": [
+            "Filter Registration type to Roth IRA",
+            "Group by Advisor"
+          ],
           "questions": 59,
-          "latencyMs": 296
+          "latencyMs": 299
         },
         {
           "strategy": "mock",
           "status": "ready",
-          "preview": ["Filter Registration type to Roth IRA", "Group by Advisor"]
+          "preview": [
+            "Filter Registration type to Roth IRA",
+            "Group by Advisor"
+          ]
         }
       ]
     },
@@ -32,21 +41,33 @@
         {
           "strategy": "focused",
           "status": "ready",
-          "preview": ["Filter Registration type to Taxable", "Filter Market value above $1,000,000", "Sort by Concentration, descending"],
+          "preview": [
+            "Filter Registration type to Taxable",
+            "Filter Market value above $1,000,000",
+            "Sort by Concentration, descending"
+          ],
           "questions": 52,
-          "latencyMs": 156
+          "latencyMs": 131
         },
         {
           "strategy": "fan-out",
           "status": "ready",
-          "preview": ["Filter Registration type to Taxable", "Filter Market value above $1,000,000", "Sort by Concentration, descending"],
+          "preview": [
+            "Filter Registration type to Taxable",
+            "Filter Market value above $1,000,000",
+            "Sort by Concentration, descending"
+          ],
           "questions": 124,
-          "latencyMs": 169
+          "latencyMs": 159
         },
         {
           "strategy": "mock",
           "status": "ready",
-          "preview": ["Filter Registration type to Taxable", "Filter Market value above $1,000,000", "Sort by Concentration, descending"]
+          "preview": [
+            "Filter Registration type to Taxable",
+            "Filter Market value above $1,000,000",
+            "Sort by Concentration, descending"
+          ]
         }
       ]
     },
@@ -56,21 +77,27 @@
         {
           "strategy": "focused",
           "status": "ready",
-          "preview": ["Filter Registration type to any of IRA and Roth IRA"],
+          "preview": [
+            "Filter Registration type to any of IRA and Roth IRA"
+          ],
           "questions": 25,
-          "latencyMs": 169
+          "latencyMs": 196
         },
         {
           "strategy": "fan-out",
           "status": "ready",
-          "preview": ["Filter Registration type to any of IRA and Roth IRA"],
+          "preview": [
+            "Filter Registration type to any of IRA and Roth IRA"
+          ],
           "questions": 59,
-          "latencyMs": 124
+          "latencyMs": 156
         },
         {
           "strategy": "mock",
           "status": "ready",
-          "preview": ["Filter Registration type to any of IRA and Roth IRA"]
+          "preview": [
+            "Filter Registration type to any of IRA and Roth IRA"
+          ]
         }
       ]
     },
@@ -83,14 +110,16 @@
           "preview": [],
           "message": "Which column should be sorted by?",
           "questions": 26,
-          "latencyMs": 129
+          "latencyMs": 157
         },
         {
           "strategy": "fan-out",
           "status": "ready",
-          "preview": ["Sort by Market value, descending"],
+          "preview": [
+            "Sort by Market value, descending"
+          ],
           "questions": 64,
-          "latencyMs": 151
+          "latencyMs": 145
         },
         {
           "strategy": "mock",
@@ -106,45 +135,87 @@
         {
           "strategy": "focused",
           "status": "ready",
-          "preview": ["Group by Custodian, then Advisor"],
+          "preview": [
+            "Group by Custodian, then Advisor"
+          ],
           "questions": 54,
-          "latencyMs": 170
+          "latencyMs": 131
         },
         {
           "strategy": "fan-out",
           "status": "ready",
-          "preview": ["Group by Custodian, then Advisor"],
+          "preview": [
+            "Group by Custodian, then Advisor"
+          ],
           "questions": 130,
-          "latencyMs": 164
+          "latencyMs": 196
         },
         {
           "strategy": "mock",
           "status": "ready",
-          "preview": ["Group by Custodian, then Advisor"]
+          "preview": [
+            "Group by Custodian, then Advisor"
+          ]
         }
       ]
     },
     {
       "utterance": "Also sort by market value",
+      "start": "sorted by Advisor",
       "runs": [
         {
           "strategy": "focused",
-          "status": "ready",
-          "preview": ["Sort by Market value, ascending"],
+          "status": "needs_clarification",
+          "preview": [],
+          "message": "Add Market value to the current sort, or replace it?",
           "questions": 27,
-          "latencyMs": 146
+          "latencyMs": 125
         },
         {
           "strategy": "fan-out",
           "status": "ready",
-          "preview": ["Sort by Market value, ascending"],
+          "preview": [
+            "Sort by Advisor, ascending; then Market value, ascending"
+          ],
           "questions": 65,
-          "latencyMs": 158
+          "latencyMs": 140
         },
         {
           "strategy": "mock",
           "status": "ready",
-          "preview": ["Sort by Market value, ascending"]
+          "preview": [
+            "Sort by Advisor, ascending; then Market value, ascending"
+          ]
+        }
+      ]
+    },
+    {
+      "utterance": "Also group by advisor",
+      "start": "grouped by Custodian",
+      "runs": [
+        {
+          "strategy": "focused",
+          "status": "needs_clarification",
+          "preview": [],
+          "message": "Add Advisor to the current grouping, or replace it?",
+          "questions": 27,
+          "latencyMs": 113
+        },
+        {
+          "strategy": "fan-out",
+          "status": "ready",
+          "preview": [
+            "Group by Custodian, then Advisor"
+          ],
+          "questions": 65,
+          "latencyMs": 132
+        },
+        {
+          "strategy": "mock",
+          "status": "ready",
+          "preview": [
+            "Group by Custodian, then Advisor"
+          ]
         }
       ]
     },
@@ -162,9 +233,12 @@
         {
           "strategy": "fan-out",
           "status": "ready",
-          "preview": ["Filter Registration type to any of Taxable, IRA and Roth IRA", "Sort by Market value, descending"],
+          "preview": [
+            "Filter Registration type to any of Taxable, IRA and Roth IRA",
+            "Sort by Market value, descending"
+          ],
           "questions": 59,
-          "latencyMs": 137
+          "latencyMs": 134
         },
         {
           "strategy": "mock",
@@ -180,21 +254,30 @@
         {
           "strategy": "focused",
           "status": "ready",
-          "preview": ["Filter Registration type to Trust", "Sort by Unrealized gain, ascending"],
+          "preview": [
+            "Filter Registration type to Trust",
+            "Sort by Unrealized gain, ascending"
+          ],
           "questions": 25,
-          "latencyMs": 174
+          "latencyMs": 120
         },
         {
           "strategy": "fan-out",
           "status": "ready",
-          "preview": ["Filter Registration type to Trust", "Sort by Unrealized gain, ascending"],
+          "preview": [
+            "Filter Registration type to Trust",
+            "Sort by Unrealized gain, ascending"
+          ],
           "questions": 59,
-          "latencyMs": 171
+          "latencyMs": 206
         },
         {
           "strategy": "mock",
           "status": "ready",
-          "preview": ["Filter Registration type to Trust", "Sort by Unrealized gain, ascending"]
+          "preview": [
+            "Filter Registration type to Trust",
+            "Sort by Unrealized gain, ascending"
+          ]
         }
       ]
     },
@@ -204,21 +287,27 @@
         {
           "strategy": "focused",
           "status": "ready",
-          "preview": ["Hide Custodian and Account number"],
+          "preview": [
+            "Hide Custodian and Account number"
+          ],
           "questions": 27,
-          "latencyMs": 152
+          "latencyMs": 117
         },
         {
           "strategy": "fan-out",
           "status": "ready",
-          "preview": ["Hide Custodian and Account number"],
+          "preview": [
+            "Hide Custodian and Account number"
+          ],
           "questions": 65,
-          "latencyMs": 155
+          "latencyMs": 131
         },
         {
           "strategy": "mock",
           "status": "ready",
-          "preview": ["Hide Custodian and Account number"]
+          "preview": [
+            "Hide Custodian and Account number"
+          ]
         }
       ]
     },
@@ -231,7 +320,7 @@
           "preview": [],
           "message": "Did you mean households as a whole? GridCue can group by Household.",
           "questions": 26,
-          "latencyMs": 115
+          "latencyMs": 131
         },
         {
           "strategy": "fan-out",
@@ -239,7 +328,7 @@
           "preview": [],
           "message": "Did you mean households as a whole? GridCue can group by Household.",
           "questions": 65,
-          "latencyMs": 125
+          "latencyMs": 142
         },
         {
           "strategy": "mock",
@@ -258,7 +347,7 @@
           "preview": [],
           "message": "GridCue only changes how the table looks, so it can't do “sell anything over 10%”. Remove that part to continue.",
           "questions": 28,
-          "latencyMs": 136
+          "latencyMs": 185
         },
         {
           "strategy": "fan-out",
@@ -266,7 +355,7 @@
           "preview": [],
           "message": "GridCue only changes how the table looks, so it can't do “sell anything over 10%”. Remove that part to continue.",
           "questions": 66,
-          "latencyMs": 237
+          "latencyMs": 154
         },
         {
           "strategy": "mock",
@@ -285,7 +374,7 @@
           "preview": [],
           "message": "I'm not sure what to change for “what's the total market value”. Try asking to filter, sort, group, or show or hide columns.",
           "questions": 27,
-          "latencyMs": 110
+          "latencyMs": 137
         },
         {
           "strategy": "fan-out",
@@ -293,7 +382,7 @@
           "preview": [],
           "message": "I'm not sure what to change for “what's the total market value”. Try asking to filter, sort, group, or show or hide columns.",
           "questions": 65,
-          "latencyMs": 156
+          "latencyMs": 169
         },
         {
           "strategy": "mock",

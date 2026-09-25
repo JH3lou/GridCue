@@ -6,6 +6,8 @@ export interface StrategyRuns {
   model: string;
   requests: Array<{
     utterance: string;
+    /** The view the request starts from, when it builds on one: "sorted by Advisor". */
+    start?: string;
     runs: Array<{
       strategy: "focused" | "fan-out" | "mock";
       status: string;
@@ -41,11 +43,16 @@ export function CompareStrategies() {
         <select value={index} onChange={(e) => setIndex(Number(e.target.value))} className="bg-background h-10 rounded-md border px-3">
           {recorded.requests.map((r, i) => (
             <option key={r.utterance} value={i}>
-              {r.utterance}
+              {r.start ? `${r.utterance} (from a view ${r.start})` : r.utterance}
             </option>
           ))}
         </select>
       </label>
+      {request?.start && (
+        <p className="text-muted-foreground text-sm">
+          Starting from a view <span className="text-foreground">{request.start}</span>.
+        </p>
+      )}
       <div className="grid gap-4 md:grid-cols-3">
         {request?.runs.map((run) => (
           <div key={run.strategy} className="bg-card grid content-start gap-3 rounded-xl p-5 shadow-[var(--shadow-raised)]">
