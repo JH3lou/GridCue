@@ -6,6 +6,7 @@ import {
   type ColumnDescriptor,
   type ColumnKind,
   type DecisionEvidence,
+  type FilterGroup,
   type FilterPredicate,
   PROTOCOL_VERSION,
   type UnsupportedCategory,
@@ -87,6 +88,13 @@ const CHANGE_VERB: Partial<Record<string, RegExp>> = {
   "columns.show": /\bshow(?:n)?\b/,
   "columns.only": /\b(?:keep|only)\b/,
 };
+/** Words that keep the view's current filters and narrow them, instead of replacing them (ADR 0017). */
+const FILTER_ADDS =
+  /\b(?:also|too|as well|additionally|further|(?:only|just) (?:those|these|them)|(?:of|among|within|from) (?:those|these|them)|narrow(?:ed)? (?:it |them |that |this )?(?:down|to))\b/;
+/** How many predicates a filter group holds, nested groups included. */
+const predicatesIn = (group: FilterGroup | null): number =>
+  (group?.children ?? []).reduce((n, child) => n + ("children" in child ? predicatesIn(child) : 1), 0);
+
 /** A part that replaces the sort or grouping named before it, instead of adding a level. */
 const REPLACES = /\b(?:instead|rather)\b/;
 /** Words that may add a level to the current sort or grouping: "also group by advisor", "a second sort". */
@@ -697,6 +705,18 @@ export const compile = (c: CompileInput): ViewPlan => {
               prompt: `What should “${clause.text}” filter on? Include a value, such as an amount or a category.`,
               required: true,
             });
+          }
+          // A new filter replaces the view's current filters, as a new sort or grouping replaces the current one,
+          // unless this part says to add to them: "also", "only those", "narrow it down" (ADR 0017). One clear per
+          // plan, and none after a reset or clear the request already asked for.
+          const replacing =
+            predicates.length > 0 &&
+            predicatesIn(c.state.filters) > 0 &&
+            !FILTER_ADDS.test(clause.text) &&
+            !operations.some((o) => o.type === "filter.add" || o.type === "filter.clear" || o.type === "view.reset");
+          if (replacing) {
+            operations.push({ type: "filter.clear" });
+            evidence.push({ key: `${key}.filters`, selectedId: "replace", confidence: 1, source: "deterministic" });
           }
           for (const predicate of predicates) operations.push({ type: "filter.add", predicate, combineWith: "and" });
         } else {

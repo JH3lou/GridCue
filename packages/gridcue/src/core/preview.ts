@@ -1,5 +1,5 @@
 import { type ConfidencePolicy, DEFAULT_CONFIDENCE } from "./compile";
-import type { ColumnDescriptor, FilterPredicate, Scalar, ViewOperation, ViewPlan, ViewSchema, ViewState } from "./protocol";
+import type { ColumnDescriptor, FilterGroup, FilterPredicate, Scalar, ViewOperation, ViewPlan, ViewSchema, ViewState } from "./protocol";
 
 const OPERATOR_TEXT: Record<FilterPredicate["operator"], string> = {
   eq: "to",
@@ -32,7 +32,11 @@ export const formatValue = (value: Scalar, column?: ColumnDescriptor): string =>
 const list = (items: string[]): string =>
   items.length <= 1 ? (items[0] ?? "") : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
 
-const describe = (op: ViewOperation, schema: ViewSchema): string => {
+/** Every predicate in a filter group, nested groups included. */
+const predicatesOf = (group: FilterGroup | null | undefined): FilterPredicate[] =>
+  (group?.children ?? []).flatMap((child) => ("children" in child ? predicatesOf(child) : [child]));
+
+const describe = (op: ViewOperation, schema: ViewSchema, current?: Pick<ViewState, "filters">): string => {
   const col = (id: string) => schema.columns.find((c) => c.id === id);
   const label = (id: string) => col(id)?.label ?? id;
   switch (op.type) {
@@ -51,8 +55,14 @@ const describe = (op: ViewOperation, schema: ViewSchema): string => {
               : formatValue(v, c);
       return `Filter ${label(p.columnId)} ${OPERATOR_TEXT[p.operator]}${shown ? ` ${shown}` : ""}`;
     }
-    case "filter.clear":
-      return "Clear all filters";
+    case "filter.clear": {
+      // Name what goes, so a new filter never silently drops an old one (user feedback on the live demo).
+      const removed = predicatesOf(current?.filters).map((predicate) =>
+        describe({ type: "filter.add", predicate, combineWith: "and" }, schema).replace(/^Filter /, ""),
+      );
+      if (removed.length === 0) return "Clear all filters";
+      return `Remove the ${removed.length === 1 ? "filter" : "filters"} ${removed.join("; ")}`;
+    }
     case "sort.set":
       return op.sorts.length === 0
         ? "Clear sorting"
@@ -87,8 +97,13 @@ export interface Preview {
 }
 
 /** Renders exactly what a plan will change. Deterministic: the same plan always gives the same text. */
-export const renderPreview = (plan: Pick<ViewPlan, "operations">, schema: ViewSchema): Preview => {
-  const lines = plan.operations.map((op) => describe(op, schema));
+export const renderPreview = (
+  plan: Pick<ViewPlan, "operations">,
+  schema: ViewSchema,
+  /** The view the plan applies to. With it, a line that clears filters names the ones it removes. */
+  current?: Pick<ViewState, "filters">,
+): Preview => {
+  const lines = plan.operations.map((op) => describe(op, schema, current));
   const joined = lines.map((l, i) => (i === 0 ? l : l.charAt(0).toLowerCase() + l.slice(1))).join("; ");
   return { lines, text: `${joined ? `${joined}. ` : ""}No records will be changed.` };
 };
