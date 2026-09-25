@@ -89,6 +89,8 @@ const CHANGE_VERB: Partial<Record<string, RegExp>> = {
 };
 /** A part that replaces the sort or grouping named before it, instead of adding a level. */
 const REPLACES = /\b(?:instead|rather)\b/;
+/** Words that may add a level to the current sort or grouping: "also group by advisor", "a second sort". */
+const ADDS_WORDING = /\b(?:also|too|as well|additionally|another|second|add)\b/;
 const isColumnFamily = (f: Pick) => isView(f.id) && COLUMN_FAMILIES[f.id] !== undefined;
 /** How far the top column family must lead the next for the next to be dropped (ADR 0012). */
 export const FAMILY_MARGIN = 0.1;
@@ -733,15 +735,51 @@ export const compile = (c: CompileInput): ViewPlan => {
           // Code keeps the order named; with reversal wording, the provider may say the later one is outer (Q6).
           const outerScore = (a: string, b: string) => res.outer?.find((o) => o.outerId === a && o.innerId === b)?.confidence ?? 0;
           const ids = cols.map((col) => col.id);
+          const levelled = family === "sort" || family === "group";
           if (REVERSAL_WORDING.test(clause.text) && ids.length === 2) {
             const [first = "", second = ""] = ids;
-            if (outerScore(second, first) >= FAN_OUT.outer && outerScore(second, first) > outerScore(first, second)) {
+            const outerKey = `${key}.${family}.outer`;
+            if (levelled && answers[outerKey] !== undefined) {
+              if (answers[outerKey] === second) ids.reverse();
+              note(outerKey, answers[outerKey], 1, "user");
+            } else if (levelled && res.outer === undefined) {
+              // Nobody was asked which level is outer (a focused strategy, or a provider without the question), and
+              // the wording may reverse the named order: ask rather than keep it (pre-launch fix).
+              clarifications.push({
+                id: outerKey,
+                prompt: family === "sort" ? "Which should be the primary sort?" : "Which should be the outer grouping?",
+                options: [first, second].map((id) => ({ id, label: column(id)?.label ?? id })),
+                required: true,
+              });
+              continue;
+            } else if (outerScore(second, first) >= FAN_OUT.outer && outerScore(second, first) > outerScore(first, second)) {
               ids.reverse();
               evidence.push({ key: `${key}.outer`, selectedId: second, confidence: outerScore(second, first), source: "provider" });
             }
           }
           // "Also group by advisor": add a level to the current view's sort or grouping instead of replacing it (Q7).
-          const adds = (res.adds ?? 0) >= FAN_OUT.adds && !REPLACES.test(clause.text);
+          // With no answer to that question, "also" or "too" is asked about, since it may add to the view or only
+          // join this part to the one before it (pre-launch fix).
+          const addsKey = `${key}.${family}.adds`;
+          const replaces = REPLACES.test(clause.text);
+          const existing = family === "sort" ? c.state.sorts.length > 0 : family === "group" && c.state.groupBy.length > 0;
+          let adds = (res.adds ?? 0) >= FAN_OUT.adds && !replaces;
+          if (levelled && res.adds === undefined && !replaces && existing && ADDS_WORDING.test(clause.text)) {
+            if (answers[addsKey] === undefined) {
+              clarifications.push({
+                id: addsKey,
+                prompt: `Add ${ids.map((id) => column(id)?.label ?? id).join(" and ")} to the current ${family === "sort" ? "sort" : "grouping"}, or replace it?`,
+                options: [
+                  { id: "add", label: "Add a level" },
+                  { id: "replace", label: "Replace it" },
+                ],
+                required: true,
+              });
+              continue;
+            }
+            adds = answers[addsKey] === "add";
+            note(addsKey, answers[addsKey], 1, "user");
+          }
           if (family === "sort") {
             const direction =
               clause.direction ?? (res.direction && res.direction.confidence >= bands.ready ? (res.direction.id as "asc" | "desc") : "asc");
@@ -768,6 +806,29 @@ export const compile = (c: CompileInput): ViewPlan => {
             if (others.length > 0) operations.push({ type: "columns.hide", columnIds: others });
             operations.push({ type: "columns.order", columnIds: ids });
           }
+        }
+      }
+      // A direction in the text ("largest first", "high to low") asks for a sort even when the provider picked only
+      // another change for this part: "accounts excluding trusts, largest first". It is never silently dropped, and
+      // code never guesses its column: the User picks one.
+      if (clause.direction && !viewFamilies.includes("sort")) {
+        const answerKey = `${key}.sort.column`;
+        const answered = answers[answerKey] ? column(answers[answerKey]) : undefined;
+        if (answered?.capabilities.includes("sort")) {
+          note(answerKey, answered.id, 1, "user");
+          const sort = { columnId: answered.id, direction: clause.direction };
+          const current = operations.find((o) => o.type === "sort.set");
+          if (current?.type === "sort.set") {
+            if (!current.sorts.some((x) => x.columnId === sort.columnId)) current.sorts.push(sort);
+          } else operations.push({ type: "sort.set", sorts: [sort] });
+        } else {
+          evidence.push({ key: `${key}.direction`, selectedId: "sort", confidence: 1, source: "deterministic" });
+          clarifications.push({
+            id: answerKey,
+            prompt: `Which column should be ${COLUMN_WORD.sort}?`,
+            options: optionsFor(null, "sort"),
+            required: true,
+          });
         }
       }
     }
