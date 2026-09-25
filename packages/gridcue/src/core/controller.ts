@@ -84,7 +84,11 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
     mentions: Mention[];
   } | null = null;
   let applicable: ApplicableViewPlan | null = null;
-  let undoEntry: { before: VersionedViewState; appliedRevision: string; plan: ViewPlan } | null = null;
+  // Every applied plan can be undone, newest first. An entry is undoable while the grid still shows what that plan
+  // produced (its revision); a manual change in between ends the chain there (user feedback on the live demo).
+  type UndoEntry = { before: VersionedViewState; appliedRevision: string; plan: ViewPlan };
+  const undoStack: UndoEntry[] = [];
+  const MAX_UNDO = 20;
   let ids = 0;
   const listeners = new Set<() => void>();
 
@@ -96,7 +100,8 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
     } catch {
       revision = undefined;
     }
-    state = { ...state, ...next, canUndo: undoEntry !== null && revision === undoEntry.appliedRevision };
+    const top = undoStack.at(-1);
+    state = { ...state, ...next, canUndo: top !== undefined && revision === top.appliedRevision };
     for (const l of listeners) l();
   };
   const audit = (plan: ViewPlan, outcome: Parameters<typeof toAuditEvent>[1], extra?: Parameters<typeof toAuditEvent>[3]) =>
@@ -121,7 +126,7 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
       newId: (prefix) => `${prefix}_${++ids}`,
     });
     applicable = null;
-    const preview = plan.operations.length > 0 ? renderPreview(plan, schema) : null;
+    const preview = plan.operations.length > 0 ? renderPreview(plan, schema, session.base.state) : null;
     if (plan.status === "ready") {
       const result = validatePlan(plan, {
         schema,
@@ -320,7 +325,8 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
         });
         return false;
       }
-      undoEntry = { before, appliedRevision: result.state.revision, plan };
+      undoStack.push({ before, appliedRevision: result.state.revision, plan });
+      if (undoStack.length > MAX_UNDO) undoStack.shift();
       applicable = null;
       audit(plan, "applied", { newRevision: result.state.revision });
       set({ status: "applied", message: "View updated." });
@@ -337,7 +343,7 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
     },
 
     async undo() {
-      const entry = undoEntry;
+      const entry = undoStack.at(-1);
       if (!entry) return false;
       let current: VersionedViewState;
       try {
@@ -351,7 +357,7 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
         return false;
       }
       if (current.revision !== entry.appliedRevision) {
-        undoEntry = null;
+        undoStack.length = 0;
         set({
           status: "error",
           message: "The view changed after that update, so undo would erase newer changes.",
@@ -363,7 +369,7 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
       try {
         result = await adapter.restore(entry.before);
       } catch {
-        undoEntry = null;
+        undoStack.length = 0;
         set({
           status: "error",
           message: "The grid couldn't undo that change.",
@@ -371,11 +377,17 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
         });
         return false;
       }
-      undoEntry = null;
+      undoStack.pop();
       if (!result.ok) {
+        undoStack.length = 0;
         set({ status: "error", message: "Couldn't undo that change.", issues: [{ code: result.code, message: result.message }] });
         return false;
       }
+      // The earlier entry stays undoable only if nothing changed the grid between the two applies: then the view
+      // just restored is exactly what that earlier plan produced, now under a new revision.
+      const earlier = undoStack.at(-1);
+      if (earlier && earlier.appliedRevision === entry.before.revision) earlier.appliedRevision = result.state.revision;
+      else undoStack.length = 0;
       audit(entry.plan, "undone", { newRevision: result.state.revision });
       set({ ...IDLE, utterance: state.utterance, message: "Change undone." });
       return true;
