@@ -35,6 +35,7 @@ The maintainer decides. Decisions that are hard to reverse are recorded as ADRs 
 - Include before and after screenshots for UI changes, and a short video for motion.
 - Run `pnpm check` locally. It must pass.
 - Update the Site's developer docs if you changed a public API. Follow the documentation rules in `AGENTS.md`.
+- If you do not have repository access, change only the docs pages (`apps/site/content/docs`) in `apps/site`. The rest of the Site (the marketing page, demo, design, and build) is maintained by the project; a check fails outside contributors' PRs that change it. To suggest a change there, open an issue.
 - Never commit API keys, `.env` files, or real client data. Fixtures are synthetic.
 
 Opening a PR does not oblige anyone to merge it. We may ask you to shrink it, or reimplement the idea ourselves.

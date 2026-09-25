@@ -1,0 +1,44 @@
+name: Site scope
+
+# People without write access may change the Site's docs pages (apps/site/content/docs), so a code change can come
+# with its docs, but not the rest of the Site: the marketing page, demo, design, and build. Required on main.
+#
+# pull_request_target runs this file as it is on main, so a pull request can't edit the check that judges it. The
+# job never checks out or runs the pull request's code: it only reads the list of changed files from the API.
+on:
+  pull_request_target:
+    # edited: retargeting a pull request to another base changes its diff without a new commit.
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  pull-requests: read
+
+jobs:
+  site-scope:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Outside contributors change only the Site's docs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ASSOCIATION: ${{ github.event.pull_request.author_association }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+          REPO: ${{ github.repository }}
+          NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          # Fail closed: an API error must never read as "no Site files changed".
+          set -euo pipefail
+          case "$ASSOCIATION" in
+            OWNER|MEMBER|COLLABORATOR) echo "The author has access to the repository."; exit 0 ;;
+          esac
+          # Dependabot's login is reserved by GitHub, so no one else can open a pull request as it. Other bots get no
+          # exemption: anyone can run a bot account.
+          if [ "$AUTHOR" = "dependabot[bot]" ]; then echo "Opened by Dependabot."; exit 0; fi
+          # Both sides of a rename count, so moving a Site file into the docs folder is still a Site change.
+          FILES="$(gh api --paginate "repos/$REPO/pulls/$NUMBER/files" -q '.[] | .filename, (.previous_filename // empty)')"
+          CHANGED="$(printf '%s\n' "$FILES" | grep '^apps/site/' | grep -v '^apps/site/content/docs/' || true)"
+          if [ -n "$CHANGED" ]; then
+            echo "::error::Outside contributors can change the Site's docs pages (apps/site/content/docs) but not the rest of apps/site. Open an issue to suggest other Site changes."
+            echo "$CHANGED"
+            exit 1
+          fi
+          echo "Only the Site's docs pages, or nothing in the Site, changed."

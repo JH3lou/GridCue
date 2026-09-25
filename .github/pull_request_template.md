@@ -14,6 +14,7 @@
 
 - [ ] This PR is small and focused
 - [ ] `pnpm check` passes locally
-- [ ] Public API changes are reflected in the developer docs
+- [ ] A public API or setup change updates its docs page in `apps/site/content/docs` in this PR
+- [ ] Without repository access, nothing in `apps/site` changes outside `apps/site/content/docs`
 - [ ] No secrets, `.env` files, or real client data in the diff
 - [ ] Nothing here lets GridCue change data rather than views
