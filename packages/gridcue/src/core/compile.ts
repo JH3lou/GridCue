@@ -817,7 +817,8 @@ export const compile = (c: CompileInput): ViewPlan => {
         if (answered?.capabilities.includes("sort")) {
           note(answerKey, answered.id, 1, "user");
           const sort = { columnId: answered.id, direction: clause.direction };
-          const current = operations.find((o) => o.type === "sort.set");
+          // Joins the sort still in effect, never one a later reset or "instead" has cleared (review fix).
+          const current = levelsOf("sort.set", REPLACES.test(clause.text));
           if (current?.type === "sort.set") {
             if (!current.sorts.some((x) => x.columnId === sort.columnId)) current.sorts.push(sort);
           } else operations.push({ type: "sort.set", sorts: [sort] });
