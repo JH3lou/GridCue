@@ -6,8 +6,10 @@ const FORBIDDEN = ["gridcue-bundle-canary", "api.typesafe.ai", "TypeSafeClient"]
 const ASSETS = /\.(js|mjs|html|css|json|map)$/;
 const ROOTS = [
   { dir: "examples/vite/dist", files: ASSETS },
-  // The Site is static and has no key at all (ADR 0006). Its docs quote server code, so only the canary is forbidden there.
-  { dir: "apps/site/build/client", files: ASSETS, forbidden: ["gridcue-bundle-canary"] },
+  // The Site is static and has no key at all (ADR 0016). Its docs quote server code, so names like TypeSafeClient
+  // can't be forbidden there. Instead, the Jev provider's own error text (packages/gridcue/src/server/jev.ts), which
+  // the docs never quote, marks the provider having been bundled for the browser.
+  { dir: "apps/site/build/client", files: ASSETS, forbidden: ["gridcue-bundle-canary", "The Jev provider needs @typesafe-ai/sdk"] },
   { dir: "examples/next/.next/static", files: ASSETS },
   // Pages Next prerenders are served to browsers as-is. Route handlers' server code here is not.
   { dir: "examples/next/.next/server/app", files: /\.(html|rsc)$/ },
