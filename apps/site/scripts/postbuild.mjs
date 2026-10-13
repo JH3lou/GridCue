@@ -1,6 +1,6 @@
 // Finishes the static build for Cloudflare Workers static assets (ADR 0016): the 404 page at the path
-// `not_found_handling: "404-page"` serves, a sitemap and robots.txt for every prerendered page, and a check that
-// every internal link in those pages lands on something the build contains.
+// `not_found_handling: "404-page"` serves, a sitemap and robots.txt for every prerendered page, and checks that
+// discovery assets exist and every internal link in those pages lands on something the build contains.
 import { copyFileSync, existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 
@@ -30,8 +30,19 @@ writeFileSync(
     .map((path) => `  <url><loc>${ORIGIN}${path}</loc></url>`)
     .join("\n")}\n</urlset>\n`,
 );
-writeFileSync(join(OUT, "robots.txt"), `User-agent: *\nAllow: /\n\nSitemap: ${ORIGIN}/sitemap.xml\n`);
+writeFileSync(
+  join(OUT, "robots.txt"),
+  `User-agent: *\nAllow: /\nContent-Signal: ai-train=no, search=yes, ai-input=no\n\nSitemap: ${ORIGIN}/sitemap.xml\n`,
+);
 console.log(`Post-build: 404.html, sitemap.xml (${pages.length} pages), robots.txt.`);
+
+for (const asset of ["_headers", ".well-known/api-catalog"]) {
+  if (!existsSync(join(OUT, asset))) {
+    console.error(`Missing ${OUT}/${asset}.`);
+    process.exit(1);
+  }
+}
+console.log("Post-build: agent discovery headers and API catalog are present.");
 
 // A broken internal link fails the build, so a renamed docs page can't strand the links that pointed at it.
 const exists = (path) => [path, `${path}/index.html`, `${path}.html`].some((p) => existsSync(join(OUT, p)));

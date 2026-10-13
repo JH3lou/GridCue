@@ -11,7 +11,7 @@ pnpm dev:site        # builds the package and registry, then serves http://local
 
 After the first run, `pnpm --filter @gridcue-internal/site dev` is enough unless the package or registry changed.
 
-`pnpm build:site` writes the static Site to `apps/site/build/client`: prerendered HTML for every page, `404.html`, `sitemap.xml`, `robots.txt`, the static search index, and `llms.txt`. To serve that output the way Cloudflare does, run `npx wrangler dev` in `apps/site`.
+`pnpm build:site` writes the static Site to `apps/site/build/client`: prerendered HTML for every page, `404.html`, `sitemap.xml`, `robots.txt`, the RFC 9727 API catalog, the static search index, and `llms.txt`. It also copies `_headers`, which adds the Site's agent-discovery `Link` headers to `/` and the catalog response. To serve that output the way Cloudflare does, run `npx wrangler dev` in `apps/site`.
 
 ## Refresh the recorded strategy runs
 
@@ -25,7 +25,7 @@ Review the diff before committing it. Every "ready" preview must be the view the
 
 ## Deploy
 
-It runs on Cloudflare's free plan, as the Worker `gridcue-site` with the custom domain `gridcue.dev`, both set in `apps/site/wrangler.jsonc`. There is no Worker code and there are no secrets.
+It runs on Cloudflare's free plan, as the Worker `gridcue-site` with the custom domain `gridcue.dev`, both set in `apps/site/wrangler.jsonc`. There is no Worker code and there are no secrets. Cloudflare Workers Static Assets reads `apps/site/public/_headers` to add response headers without origin code.
 
 **`main` is what's live.** Cloudflare builds and deploys every push to `main`, so nothing reaches gridcue.dev without a merge. Pull requests, including ones from forks, are never deployed; CI's site build (broken MDX, broken internal links, the canary-key check) is their check.
 

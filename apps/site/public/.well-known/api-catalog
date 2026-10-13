@@ -1,0 +1,36 @@
+{
+  "linkset": [
+    {
+      "anchor": "https://gridcue.dev/.well-known/api-catalog",
+      "item": [
+        {
+          "href": "https://gridcue.dev/api/search"
+        },
+        {
+          "href": "https://gridcue.dev/r/registry.json"
+        }
+      ]
+    },
+    {
+      "anchor": "https://gridcue.dev/",
+      "service-desc": [
+        {
+          "href": "https://gridcue.dev/r/registry.json",
+          "type": "application/json"
+        }
+      ],
+      "service-doc": [
+        {
+          "href": "https://gridcue.dev/docs",
+          "type": "text/html"
+        }
+      ],
+      "describedby": [
+        {
+          "href": "https://gridcue.dev/llms-full.txt",
+          "type": "text/plain"
+        }
+      ]
+    }
+  ]
+}
