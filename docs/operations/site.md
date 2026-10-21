@@ -38,7 +38,7 @@ It runs on Cloudflare's free plan, as the Worker `gridcue-site` with the custom 
    - **Root directory:** `/`
    - **Build command:** `pnpm install --frozen-lockfile && pnpm build:site`
    - **Deploy command:** `cd apps/site && npx wrangler deploy`
-   - **Build variables:** `NODE_VERSION` = `24.22.1`, and optionally `VITE_CF_ANALYTICS_TOKEN` for Cloudflare Web Analytics (a public beacon token, not a secret).
+   - **Build variables:** optionally `VITE_CF_ANALYTICS_TOKEN` for Cloudflare Web Analytics (a public beacon token, not a secret). Leave `NODE_VERSION` unset: the build reads the Node version from `.node-version`, which CI and release use too.
 3. Merge something to `main`, and check the build log and https://gridcue.dev.
 
 Never add `JEV_API_KEY`, or any other secret, to the Site's build settings. `pnpm check:bundles` builds the Site with a canary key and fails if it appears in the output.

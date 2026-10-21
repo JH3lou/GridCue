@@ -18,7 +18,7 @@ jobs:
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
       - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
-          node-version: 24.22.1
+          node-version-file: .node-version
           cache: pnpm
           registry-url: https://registry.npmjs.org
       # Trusted publishing needs npm 11.5.1 or later.
