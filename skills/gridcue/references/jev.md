@@ -10,7 +10,7 @@ Only when the User wants a real model. It needs a Jev API key from TypeSafe, whi
 browser: createRemoteProvider({ endpoint: "/api/gridcue" })  →  your server route  →  createGridCueHandler + createJevProvider (holds the key)  →  Jev
 ```
 
-1. **Install the SDK on the server:** `npm i @typesafe-ai/sdk`. Only `createJevProvider` uses it.
+1. **Install the SDK on the server:** `npm i @typesafe-ai/sdk`. Only `createJevProvider` uses it. On Node, the server needs 22.23.4, 24.22.1, 26.12.1, or later in those lines; if `node -v` is older, tell the User to upgrade.
 2. **Browser:** replace `createMockProvider()` with `createRemoteProvider({ endpoint: "/api/gridcue" })` from `gridcue`.
 3. **Server route**, by stack:
    - **Next.js:** `app/api/gridcue/route.ts` exports `POST = createGridCueHandler({ provider: createJevProvider({ apiKey: process.env.JEV_API_KEY }) })`.
