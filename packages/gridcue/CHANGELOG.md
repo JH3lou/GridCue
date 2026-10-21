@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- `engines.node` is now `^22.23.4 || ^24.22.1 || >=26.12.1`, the releases with the Node.js October 2026 security fixes. Node 20 is no longer supported.
+
 ## 0.1.0 (2026-09-25)
 
 The first release.
