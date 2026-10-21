@@ -2,7 +2,7 @@
 
 ## Setup
 
-Node 24 and pnpm 12.6 (via corepack) are required.
+Node 24.22.1 or later and pnpm 12.6 (via corepack) are required.
 
 ```bash
 corepack enable
