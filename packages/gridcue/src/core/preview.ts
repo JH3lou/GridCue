@@ -86,6 +86,10 @@ const describe = (op: ViewOperation, schema: ViewSchema, current?: Pick<ViewStat
       return `Summarize ${list(op.aggregations.map((a) => `${label(a.columnId)} (${a.function})`))}`;
     case "density.set":
       return `Use ${op.density} density`;
+    case "limit.set":
+      return op.count === null
+        ? "Show every row"
+        : `Show only the first ${op.count.toLocaleString("en-US")} ${op.count === 1 ? "row" : "rows"}`;
     case "view.reset":
       return "Reset the view";
   }
@@ -94,20 +98,35 @@ const describe = (op: ViewOperation, schema: ViewSchema, current?: Pick<ViewStat
 export interface Preview {
   /** One line per operation, in order. */
   lines: string[];
+  /**
+   * What the request asked for that the plan leaves out, such as a count on a grid that can't limit rows ("top 10"
+   * where the adapter has no `limit.set`, ADR 0018). Not an operation, so never a line; `text` includes them.
+   * `renderPreview` always sets it; optional so a Preview built by hand (a fixture, a story) still type-checks.
+   */
+  notes?: string[];
   /** The whole preview as one sentence, ending with the no-data-change assurance. */
   text: string;
 }
 
+/** The count a plan left out because the grid can't limit rows (ADR 0018), or undefined. */
+export const droppedLimit = (plan: Partial<Pick<ViewPlan, "evidence">>): number | undefined => {
+  const dropped = plan.evidence?.findLast((e) => e.key.startsWith("dropped:") && e.key.endsWith(".limit"));
+  const count = Number(dropped?.selectedId);
+  return Number.isInteger(count) && count > 0 ? count : undefined;
+};
+
 /** Renders exactly what a plan will change. Deterministic: the same plan always gives the same text. */
 export const renderPreview = (
-  plan: Pick<ViewPlan, "operations">,
+  plan: Pick<ViewPlan, "operations"> & Partial<Pick<ViewPlan, "evidence">>,
   schema: ViewSchema,
   /** The view the plan applies to. With it, a line that clears filters names the ones it removes. */
   current?: Pick<ViewState, "filters">,
 ): Preview => {
   const lines = plan.operations.map((op) => describe(op, schema, current));
-  const joined = lines.map((l, i) => (i === 0 ? l : l.charAt(0).toLowerCase() + l.slice(1))).join("; ");
-  return { lines, text: `${joined ? `${joined}. ` : ""}No records will be changed.` };
+  const count = droppedLimit(plan);
+  const notes = count === undefined ? [] : [`Count not applied: this grid can't show only the first ${count.toLocaleString("en-US")}`];
+  const joined = [...lines, ...notes].map((l, i) => (i === 0 ? l : l.charAt(0).toLowerCase() + l.slice(1))).join("; ");
+  return { lines, notes, text: `${joined ? `${joined}. ` : ""}No records will be changed.` };
 };
 
 export interface ViewDiff {

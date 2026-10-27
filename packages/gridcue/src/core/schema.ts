@@ -50,6 +50,8 @@ export interface SchemaOptions {
   restricted?: string[];
   /** What one row is, such as "account" (ADR 0015). */
   rowNoun?: string;
+  /** The column "top", "largest", "biggest" and "smallest" rank by when a request names none, such as "market_value" (ADR 0018). */
+  defaultMeasure?: string;
   /** Rows used only to infer missing kinds. They never leave the caller. */
   sampleRows?: ReadonlyArray<Record<string, unknown>>;
 }
@@ -96,6 +98,9 @@ export const defineSchema = (columns: readonly ColumnInput[], options: SchemaOpt
   if (unknownOverrides.length > 0) {
     throw new GridCueError("INPUT_SCHEMA", `columns names an id that matches no column: ${unknownOverrides.join(", ")}.`);
   }
+  if (options.defaultMeasure !== undefined && !knownIds.has(options.defaultMeasure)) {
+    throw new GridCueError("INPUT_SCHEMA", `defaultMeasure names an id that matches no column: ${options.defaultMeasure}.`);
+  }
 
   for (const [id, override] of Object.entries(options.columns ?? {})) {
     const known = new Set((override.enumValues ?? []).map((v) => v.id));
@@ -109,6 +114,7 @@ export const defineSchema = (columns: readonly ColumnInput[], options: SchemaOpt
     id: options.id ?? "default",
     version: options.version ?? "1",
     ...(options.rowNoun ? { rowNoun: options.rowNoun } : {}),
+    ...(options.defaultMeasure ? { defaultMeasure: options.defaultMeasure } : {}),
     columns: columns.map((input): ColumnDescriptor => {
       const override = options.columns?.[input.id] ?? {};
       const kind = override.kind ?? input.kind ?? (override.enumValues ? "enum" : inferKind(sample.map((row) => row[input.id])));

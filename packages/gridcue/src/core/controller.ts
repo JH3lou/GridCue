@@ -2,7 +2,7 @@ import type { GridAdapter } from "./adapter";
 import { type ConfidencePolicy, compile } from "./compile";
 import { GridCueError, type Issue, isGridCueError } from "./errors";
 import { type Mention, matchMentions } from "./mentions";
-import { type NormalizedInput, normalize } from "./normalize";
+import { type NormalizedInput, normalize, withoutNamedSizes } from "./normalize";
 import { screenRestricted } from "./policy";
 import { type AuditEvent, type AuditPolicy, type Preview, renderPreview, toAuditEvent } from "./preview";
 import type { VersionedViewState, ViewPlan, ViewSchema } from "./protocol";
@@ -123,6 +123,7 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
       restricted: session.restricted,
       mentions: session.mentions,
       answers: session.answers,
+      operations: adapter.getCapabilities().operations,
       ...(options.confidence ? { confidence: options.confidence } : {}),
       newId: (prefix) => `${prefix}_${++ids}`,
     });
@@ -256,8 +257,8 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
         controller.signal.addEventListener("abort", () => reject(new GridCueError("PROVIDER_TIMEOUT", "Aborted.")), { once: true }),
       );
       abandoned.catch(() => {});
-      const input = normalize(utterance);
-      if (input.clauses.length > MAX_CLAUSES) {
+      const normalized = normalize(utterance);
+      if (normalized.clauses.length > MAX_CLAUSES) {
         clearTimeout(timer);
         set({
           status: "error",
@@ -268,9 +269,10 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
         return null;
       }
       const base = adapter.getState();
-      const restricted = screenRestricted(input, schema);
+      const restricted = screenRestricted(normalized, schema);
       const mentions =
-        restricted.length === 0 ? matchMentions(input.clauses, schema.columns.filter(isExposed), { rowNoun: schema.rowNoun }) : [];
+        restricted.length === 0 ? matchMentions(normalized.clauses, schema.columns.filter(isExposed), { rowNoun: schema.rowNoun }) : [];
+      const input = withoutNamedSizes(normalized, mentions);
       try {
         let resolution: ResolutionResult = { clauses: [] };
         if (restricted.length === 0) {

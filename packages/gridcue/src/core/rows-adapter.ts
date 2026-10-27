@@ -30,7 +30,8 @@ export const createRowsAdapter = (options: RowsAdapterOptions): RowsAdapter => {
   return {
     getSchema: () => options.schema,
     getCapabilities: () => ({
-      operations: [...MVP_OPERATIONS],
+      // The rows are all in memory, so a count ("top 10") is exact here (ADR 0018).
+      operations: [...MVP_OPERATIONS, "limit.set"],
       maxSorts: options.maxSorts ?? 3,
       maxGroups: options.maxGroups ?? 2,
       supportsAtomicApply: true,
@@ -87,15 +88,17 @@ export const applyView = <Row extends object>(rows: readonly Row[], state: ViewS
           }
           return 0;
         });
+  // A count keeps the first rows of the sorted view, before grouping, so "top 10 grouped by advisor" is still ten rows.
+  const limited = state.limit === undefined ? sorted : sorted.slice(0, state.limit);
   const columns = state.columnOrder.filter((id) => state.visibleColumnIds.includes(id));
-  if (state.groupBy.length === 0) return { columns, rows: sorted };
+  if (state.groupBy.length === 0) return { columns, rows: limited };
   const groups = new Map<string, { key: Record<string, Scalar>; rows: Row[] }>();
-  for (const row of sorted) {
+  for (const row of limited) {
     const key = Object.fromEntries(state.groupBy.map((id) => [id, (cell(row, id) ?? null) as Scalar]));
     const k = JSON.stringify(key);
     const group = groups.get(k) ?? { key, rows: [] };
     group.rows.push(row);
     groups.set(k, group);
   }
-  return { columns, rows: sorted, groups: [...groups.values()] };
+  return { columns, rows: limited, groups: [...groups.values()] };
 };

@@ -1,6 +1,6 @@
 {
   "name": "gridcue",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Ask data grids in plain language: validated, previewable, undoable filter, sort, group, and column changes. Headless core, React, TanStack Table, Jev provider.",
   "keywords": [
     "data-grid",

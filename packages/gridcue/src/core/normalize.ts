@@ -22,6 +22,8 @@ export interface Clause {
    * it. The compiler uses it to read a value there ("then Northgate") as a filter, not a level.
    */
   continues?: "sort" | "group";
+  /** How many rows a ranking asks for: "top 10", "largest 5" (ADR 0018). That number is not a literal. */
+  limit?: number;
 }
 
 export interface NormalizedInput {
@@ -66,9 +68,70 @@ const CLAUSE_VERBS = [
   "put",
   "approve",
 ];
+const QUOTED = /"([^"]+)"/g;
+/** Blanks quoted spans, keeping offsets, so words inside a quoted value never read as an instruction, a size or a count. */
+export const unquoted = (text: string): string => text.replace(QUOTED, (s) => " ".repeat(s.length));
+
 const VERB_ALT = CLAUSE_VERBS.join("|");
 const VERB = `(?:${VERB_ALT})(?:ed)?\\b`;
 const SPLIT = new RegExp(`[;!?]+|\\.(?=\\s|$)|,?\\s+then\\s+|,\\s*(?=${VERB})|\\s+and\\s+(?=${VERB})`, "g");
+
+/**
+ * A change that starts mid-line with no comma or "and" before it: "grouped by household sorted largest to smallest",
+ * "sort by value only trusts", "group by advisor where value is over 1m". "Order" counts only before "by" or a
+ * direction, so "in descending order" never starts a part.
+ */
+const MID_LINE_VERB =
+  /\s(?=(?:sort|order|group)(?:ed)?\s+(?:by|on|from|largest|biggest|smallest|highest|lowest|ascending|descending)\b|(?:show|only|where)\s+\S|filter(?:ed)?\s+(?:to|by|on|for|out|where)\b)/g;
+const INSTRUCTION_WORD = new RegExp(`\\b(${VERB_ALT}|where)(?:ed)?\\b`, "g");
+/** The kind of change a verb starts. "Show", "only" and "where" all choose rows, so they never split from each other. */
+const verbFamily = (verb: string): string =>
+  /^(?:sort|order)/.test(verb)
+    ? "sort"
+    : /^group/.test(verb)
+      ? "group"
+      : /^(?:show|only|filter|where|keep|display|list|include|exclude)/.test(verb)
+        ? "filter"
+        : verb;
+
+/**
+ * Splits a part where a different kind of change starts mid-line (ADR 0018). The text before it must already give
+ * an instruction with words after its verb, so "Roth IRAs grouped by rep" stays one part (the value describes the rows)
+ * and "show only trusts" never splits after "show". A second verb of the same kind ("show accounts where …") stays in
+ * its part.
+ */
+const splitMidLine = (part: string): string[] => {
+  const out: string[] = [];
+  const bare = unquoted(part);
+  let start = 0;
+  for (const m of bare.matchAll(MID_LINE_VERB)) {
+    const at = m.index ?? 0;
+    const before = bare.slice(start, at);
+    const last = [...before.matchAll(INSTRUCTION_WORD)].at(-1);
+    const next = bare.slice(at + 1).match(/^[a-z]+/)?.[0] ?? "";
+    // A quoted argument counts as words after the verb: 'hide "market value" sorted by name' (review fix).
+    if (
+      !last ||
+      !part
+        .slice(start, at)
+        .slice((last.index ?? 0) + last[0].length)
+        .trim()
+    )
+      continue;
+    if (verbFamily(last[1] ?? "") === verbFamily(next)) continue;
+    out.push(part.slice(start, at));
+    start = at + 1;
+  }
+  out.push(part.slice(start));
+  return out;
+};
+
+/**
+ * A ranking with a count: "top 10", "largest 5 households", "top 10,000". Its number is the count, never a filter value
+ * (ADR 0018).
+ */
+const COUNT =
+  /\b(?:top|largest|biggest|smallest)\s+([1-9]\d{0,2}(?:,\d{3})+|[1-9]\d*)\b(?!\s*(?:%|percent\b|k\b|thousand\b|mm?\b|million\b|bn?\b|billion\b|dollars\b|[.,]\d))/;
 
 const COMPARATORS: Array<[RegExp, Comparator]> = [
   [/\b(?:no more than|at most|up to)\s*$/, "lte"],
@@ -92,12 +155,44 @@ const MULTIPLIERS: Record<string, number> = {
 
 const NUMBER = /(\$)?\s?(\d[\d,.]*\d|\d)\s*(k|thousand|mm|m|million|bn|b|billion)?\b\s*(%|percent\b|dollars\b)?/g;
 const ISO_DATE = /\b\d{4}-\d{2}-\d{2}\b/g;
-const QUOTED = /"([^"]+)"/g;
-
 const DESC =
   /\b(?:largest|biggest|highest|greatest|most|top|newest|latest)\b[^,]*?\bfirst\b|\bdescending\b|\bhigh(?:est)? to low(?:est)?\b|\bdesc\b/;
 const ASC =
   /\b(?:smallest|lowest|least|oldest|earliest)\b[^,]*?\bfirst\b|\bascending\b|\blow(?:est)? to high(?:est)?\b|\ba to z\b|\balphabetical(?:ly)?\b|\basc\b/;
+/** Size words. On their own they rank by size: the schema's `defaultMeasure` when no column is named (ADR 0018). */
+export const SIZE_WORDS = /\b(?:top|largest|biggest|smallest)\b/;
+/**
+ * A part's sort direction, first match wins. "Largest to smallest" names the top of the list first, so it is read
+ * before the size word alone, and before "smallest … first" could claim it.
+ */
+const DIRECTIONS: ReadonlyArray<readonly [RegExp, "asc" | "desc"]> = [
+  [/\b(?:largest|biggest|highest|greatest|most|top)\s+to\s+(?:smallest|lowest|least|bottom)\b/, "desc"],
+  [/\b(?:smallest|lowest|least|bottom)\s+to\s+(?:largest|biggest|highest|greatest|most|top)\b/, "asc"],
+  [DESC, "desc"],
+  [ASC, "asc"],
+  [/\b(?:top|largest|biggest)\b/, "desc"],
+  [/\bsmallest\b/, "asc"],
+];
+
+const directionOf = (text: string) => DIRECTIONS.find(([re]) => re.test(unquoted(text)))?.[1];
+
+/**
+ * Reads each part's direction again with the columns and values it names blanked, so a size word that belongs to a
+ * name ("show top tier", where "Top tier" is a value) never asks for a sort (review fix).
+ */
+export const withoutNamedSizes = (
+  input: NormalizedInput,
+  mentions: ReadonlyArray<{ clauseIndex: number; start: number; end: number }>,
+): NormalizedInput => ({
+  ...input,
+  clauses: input.clauses.map((clause) => {
+    const spans = mentions.filter((m) => m.clauseIndex === clause.index);
+    if (spans.length === 0) return clause;
+    const { direction: _read, ...rest } = clause;
+    const direction = directionOf(spans.reduce((t, m) => t.slice(0, m.start) + " ".repeat(m.end - m.start) + t.slice(m.end), clause.text));
+    return direction ? { ...rest, direction } : rest;
+  }),
+});
 
 /** Dotted thousands ("1.000.000"), or commas not in groups of three ("10,5"), are ambiguous across locales. */
 const AMBIGUOUS_NUMBER = /^\d{1,3}(?:\.\d{3})+$|,(?!\d{3}(?:\D|$))/;
@@ -122,7 +217,7 @@ const extractLiterals = (clause: string): Literal[] => {
   for (const m of clause.matchAll(QUOTED)) {
     literals.push({ kind: "text", value: m[1] ?? "", at: m.index ?? 0 });
   }
-  const withoutQuotes = clause.replace(QUOTED, (s) => " ".repeat(s.length));
+  const withoutQuotes = unquoted(clause);
   for (const m of withoutQuotes.matchAll(ISO_DATE)) {
     literals.push({ kind: "date", value: m[0], comparator: comparatorBefore(withoutQuotes, m.index ?? 0), at: m.index ?? 0 });
   }
@@ -182,6 +277,7 @@ export const normalize = (raw: string): NormalizedInput => {
   let levelVerb: string | undefined;
   const parts = text
     .split(SPLIT)
+    .flatMap(splitMidLine)
     .map((p) =>
       p
         .trim()
@@ -201,13 +297,20 @@ export const normalize = (raw: string): NormalizedInput => {
   return {
     text,
     clauses: parts.map(({ part, continues }, index) => {
-      const direction = DESC.test(part) ? "desc" : ASC.test(part) ? "asc" : undefined;
+      const bare = unquoted(part);
+      const direction = directionOf(bare);
+      const count = COUNT.exec(bare);
+      const digits = count?.[1] ?? "";
+      // The count's digits are blanked, keeping offsets, so "top 10" never reads as "equal to 10".
+      const at = count ? count.index + count[0].length - digits.length : -1;
+      const literalText = count ? part.slice(0, at) + " ".repeat(digits.length) + part.slice(at + digits.length) : part;
       return {
         index,
         text: part,
-        literals: extractLiterals(part),
+        literals: extractLiterals(literalText),
         ...(direction ? { direction } : {}),
         ...(continues ? { continues } : {}),
+        ...(count ? { limit: Number(digits.replaceAll(",", "")) } : {}),
       };
     }),
   };

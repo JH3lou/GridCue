@@ -59,6 +59,7 @@ interface SchemaOptions {
   columns?: Record<string, ColumnOverride>;
   restricted?: string[];
   rowNoun?: string;
+  defaultMeasure?: string;
   sampleRows?: ReadonlyArray<Record<string, unknown>>;
 }
 ```
@@ -70,6 +71,7 @@ interface SchemaOptions {
 | `columns` | `Record<string, ColumnOverride>` | none | Per-column additions, keyed by column ID: aliases, descriptions, approved enum values, narrower capabilities. |
 | `restricted` | `string[]` | none | Column IDs GridCue must never expose to a provider or act on. |
 | `rowNoun` | `string` | none | What one row is, such as `"account"`. Its name in a request means the rows, not a column. |
+| `defaultMeasure` | `string` | none | The column a size word ranks by when the request names none: "top accounts", "largest to smallest", "smallest first" sort by it, descending for top, largest and biggest, ascending for smallest. It must name a column; a restricted or unsortable one is never used. Without it, GridCue asks which column. |
 | `sampleRows` | `ReadonlyArray<Record<string, unknown>>` | none | Rows used only to infer missing kinds. They never leave the caller. |
 
 ## ColumnOverride

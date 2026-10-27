@@ -36,3 +36,5 @@
 {"id":"ranked-entity","utterance":"Largest households first.","expect":{"status":"needs_clarification","clarificationPrompt":"Did you mean households as a whole? GridCue can group by Household."}}
 {"id":"named-amount-column","utterance":"Show gain over $100k.","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"unrealized_gain","operator":"gt","value":100000}}]}}
 {"id":"direction-beside-hide","utterance":"Hide custodian, high to low","expect":{"status":"needs_clarification","clarificationPrompt":"Which column should be sorted by?"}}
+{"id":"mid-line-group-then-sort","utterance":"Group by advisor sorted by market value largest to smallest","expect":{"status":"ready","operations":[{"type":"group.set","columnIds":["advisor_name"]},{"type":"sort.set","sorts":[{"columnId":"market_value","direction":"desc"}]}]}}
+{"id":"smallest-to-largest","utterance":"Sort by market value smallest to largest","expect":{"status":"ready","operations":[{"type":"sort.set","sorts":[{"columnId":"market_value","direction":"asc"}]}]}}

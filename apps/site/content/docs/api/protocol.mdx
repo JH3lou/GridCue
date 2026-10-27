@@ -21,6 +21,7 @@ interface ViewSchema {
   version: string;
   columns: ColumnDescriptor[];
   rowNoun?: string;
+  defaultMeasure?: string;
 }
 ```
 
@@ -30,6 +31,7 @@ interface ViewSchema {
 | `version` | `string` | The schema's version. |
 | `columns` | `ColumnDescriptor[]` | Every column, restricted ones included. |
 | `rowNoun` | `string` | What one row is, such as `"account"`. Its name in a request means the rows, not a column. |
+| `defaultMeasure` | `string` | The column "top", "largest", "biggest" and "smallest" sort by when the request names none. |
 
 Build one with [`defineSchema`](/docs/api/schema#defineschema).
 
@@ -87,6 +89,7 @@ interface ViewState {
   groupBy: string[];
   aggregations: AggregationSpec[];
   density: "compact" | "comfortable" | "spacious";
+  limit?: number;
 }
 
 interface VersionedViewState {
@@ -105,7 +108,7 @@ interface AggregationSpec {
 }
 ```
 
-The whole view of a grid. `groupBy` lists nested levels, outermost first. `sorts` lists levels in priority order. A `VersionedViewState` pairs it with a `revision` string that changes whenever the view changes; GridCue uses it to refuse stale plans and stale undos.
+The whole view of a grid. `groupBy` lists nested levels, outermost first. `sorts` lists levels in priority order. `limit`, when present, shows only that many rows from the top of the sorted view. A `VersionedViewState` pairs it with a `revision` string that changes whenever the view changes; GridCue uses it to refuse stale plans and stale undos.
 
 `emptyViewState(columnIds)` returns a view with every given column visible in that order, no pins, filters, sorts, groups or aggregations, and `comfortable` density.
 
@@ -159,6 +162,7 @@ type ViewOperation =
   | { type: "columns.pin"; columnIds: string[]; position: "start" | "end" | "none" }
   | { type: "aggregation.set"; aggregations: AggregationSpec[] }
   | { type: "density.set"; density: "compact" | "comfortable" | "spacious" }
+  | { type: "limit.set"; count: number | null }
   | { type: "view.reset" };
 ```
 
@@ -176,6 +180,7 @@ One change to the view. Operations apply in order.
 | `columns.pin` | Pins columns to the start or end, or unpins them with `none`. | no |
 | `aggregation.set` | Replaces the aggregations. | no |
 | `density.set` | Sets the row density. | no |
+| `limit.set` | Shows only the first `count` rows of the sorted view; `null` shows every row again. A count in a request ("top 10") produces it only where the adapter lists it; elsewhere the plan sorts alone and the Preview's `notes` say the count was not applied. | no |
 | `view.reset` | Returns to the adapter's default view. | yes |
 
 GridCue changes the view only. `aggregation.set` exists in the protocol but is not in `MVP_OPERATIONS`, and neither are `columns.pin` or `density.set`: no first-release adapter supports them, and a plan that uses them fails validation with `PLAN_OPERATION_UNSUPPORTED`. See [Adapters](/docs/api/adapters#mvp_operations).
