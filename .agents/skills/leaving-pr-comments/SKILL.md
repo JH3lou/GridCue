@@ -1,6 +1,8 @@
 ---
 name: leaving-pr-comments
 description: Use whenever leaving comments on GitHub.
+metadata:
+  internal: true
 ---
 
 # Leaving PR Comments
