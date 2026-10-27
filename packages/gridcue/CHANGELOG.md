@@ -1,7 +1,17 @@
 # Changelog
 
-## Unreleased
+## 0.2.0 (2026-10-27)
 
+**Resolution** (ADR 0018)
+- Several changes in one line without punctuation: a part also splits where a different kind of change starts mid-line ("grouped by household sorted largest to smallest" is two parts). "Roth IRAs grouped by rep" and "show accounts where value is over $1M" stay one part.
+- Direction phrases: "largest to smallest", "biggest to smallest", "top", "largest" and "biggest" sort descending; "smallest to largest" and "smallest" ascending. "Largest to smallest" no longer sorts ascending.
+- `defaultMeasure` on the schema names the grid's main value column. "Top accounts", "largest to smallest" and "smallest first" sort by it when no column is named, instead of asking. Column synonyms stay `aliases`.
+
+**Operations**
+- `limit.set` shows only the first `count` rows of the sorted view, with its own preview line ("Show only the first 10 rows"). "Top 10" produces it where the adapter lists it; the Rows Adapter does. Elsewhere the plan sorts alone and `Preview.notes` says the count was not applied. `ViewState.limit` is optional.
+- `compile` takes the adapter's `operations`; the Controller passes them.
+
+**Platform**
 - `engines.node` is now `^22.23.4 || ^24.22.1 || >=26.12.1`, the releases with the Node.js October 2026 security fixes. Node 20 is no longer supported.
 
 ## 0.1.0 (2026-09-25)
