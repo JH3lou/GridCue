@@ -88,7 +88,7 @@ const MVP_OPERATIONS: readonly string[] = [
 ];
 ```
 
-The operations every first-release adapter supports. Both built-in adapters report exactly this list. The protocol also defines `columns.pin`, `aggregation.set` and `density.set`, but they are not in `MVP_OPERATIONS`, no request family produces them today, and validation would reject them against these adapters with `PLAN_OPERATION_UNSUPPORTED`. GridCue changes the view only; `aggregation.set` exists in the protocol but is not part of the first release.
+The operations every first-release adapter supports. The TanStack Table adapter reports exactly this list; the Rows Adapter adds `limit.set`, since its rows are all in memory and a count is exact there. An adapter whose rows come a page at a time should not list `limit.set`: GridCue then sorts alone and says the count was not applied. The protocol also defines `columns.pin`, `aggregation.set` and `density.set`, but they are not in `MVP_OPERATIONS`, no request family produces them today, and validation would reject them against these adapters with `PLAN_OPERATION_UNSUPPORTED`. GridCue changes the view only; `aggregation.set` exists in the protocol but is not part of the first release.
 
 ## createRowsAdapter
 

@@ -8,7 +8,7 @@ const PRONOUNS = new Set(["it", "this", "that", "them", "these", "those", "one",
 export const unknownTerm = (clauseText: string): string | undefined => {
   const term = clauseText
     .replace(/^.*?\b(?:sort(?:ed)?|order(?:ed)?|group(?:ed)?|hide|show|display|filter)\b(?:\s+(?:by|on))?\s*/, "")
-    .replace(/\b(?:largest|biggest|highest|smallest|lowest|newest|oldest)\b.*$|\b(?:ascending|descending|first|column|columns)\b/g, "")
+    .replace(/\b(?:largest|biggest|highest|smallest|lowest|newest|oldest|top)\b.*$|\b(?:ascending|descending|first|column|columns)\b/g, "")
     .replace(/\b(?:the|me|us)\b/g, "")
     .replace(/[^\p{L}\p{N}\s'-]/gu, " ")
     .replace(/\s+/g, " ")

@@ -55,9 +55,9 @@ const QUALIFIER_AFTER = /^\s*(?:with|without|where|whose|that|which|at|in|from|h
 const BY_AFTER = /^\s*by\b/;
 const COMPARISON_AFTER =
   /^\s*(?:(?:is|are)\s+)?(?:over|under|above|below|exceed(?:s|ing)?|more than|less than|greater than|fewer than|at least|at most|up to|between|>|<)/;
-// A superlative ranks rows: "biggest accounts first", "largest households first".
+// A superlative ranks rows: "biggest accounts first", "largest households first", "top 10 households" (ADR 0018).
 const SUPERLATIVE_BEFORE =
-  /\b(?:biggest|largest|smallest|highest|lowest|greatest|least|most|top|bottom|best|worst|richest|poorest|newest|oldest)\s+(?:[\p{L}-]+\s+)?$/u;
+  /\b(?:biggest|largest|smallest|highest|lowest|greatest|least|most|top|bottom|best|worst|richest|poorest|newest|oldest)\s+(?:\d{1,4}\s+)?(?:[\p{L}-]+\s+)?$/u;
 // These slots always hold a column: "sort by value in descending order", "hide the account column".
 const COLUMN_SLOT_BEFORE = /\b(?:by|on)\s+(?:the\s+)?$/;
 const COLUMN_WORD_AFTER = /^\s*columns?\b/;

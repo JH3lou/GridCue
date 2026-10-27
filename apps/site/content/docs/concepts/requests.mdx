@@ -15,13 +15,17 @@ GridCue keeps the Utterance for the current interaction. It is not logged or put
 
 ## Clause
 
-One part of an Utterance that asks for one kind of change. Code splits Clauses deterministically, at punctuation, "then", and "and" or a comma before a verb such as "sort", "group" or "hide". The User sees a Clause called a "part".
+One part of an Utterance that asks for one kind of change. Code splits Clauses deterministically, at punctuation, "then", and "and" or a comma before a verb such as "sort", "group" or "hide". It also splits mid-line, with no punctuation, where a different kind of change starts after an instruction ("sorted", "grouped", "show", "only", "filter", "where"). The User sees a Clause called a "part".
 
 | Utterance | Clauses |
 | --- | --- |
 | "Taxable accounts over $1 million, grouped by advisor" | "taxable accounts over $1 million" · "grouped by advisor" |
 | "Group by custodian, then advisor" | "group by custodian" · "group by advisor" (the second part borrows the first one's verb) |
+| "Grouped by household sorted largest to smallest" | "grouped by household" · "sorted largest to smallest" |
 | "Roth IRAs grouped by rep" | one Clause: a value before another change's verb describes which rows |
+| "Show accounts where value is over $1M" | one Clause: "show" and "where" both choose rows |
+
+Size words set a sort direction: "largest to smallest", "biggest first", "top" and "largest" sort descending; "smallest to largest", "smallest first" and "smallest" ascending. With no column named, they sort by the schema's [`defaultMeasure`](/docs/api/schema#schemaoptions), or GridCue asks which column. A count after a size word ("top 10", "largest 5") is a count, never a filter value: it becomes [`limit.set`](/docs/api/protocol#viewoperation) where the adapter supports it.
 
 The kind of change a Clause asks for (filter, sort, group, show, hide, show only, clear, or reset) is its **Operation Family**. A provider scores each family; the compiler decides which ones are used.
 

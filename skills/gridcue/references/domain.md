@@ -16,6 +16,7 @@ The Mock matches column labels as written; Jev understands more, but both do bet
 - **`description`** where a column's meaning isn't obvious, such as "'Accounts over $X' refers to this column."
 - **`restricted`**: every column whose name or values are sensitive (tax ids, personal data, internal notes). GridCue never sends or acts on them, and a request that names one is refused. Add the aliases people might use, so the refusal catches them. When unsure, ask the User.
 - **`rowNoun`**: what one row is ("account"), so "biggest accounts first" means the rows, not the Account number column.
+- **`defaultMeasure`**: the grid's main value column ("market_value"), so "top accounts" and "largest to smallest" sort by it instead of asking which column.
 - **`entity`** on a column that names another record ("household", "advisor"), so "largest households first" asks what the User means instead of guessing.
 - **`valueGroups`** for the User's own categories over one column's values ("Retirement" = IRA + Roth IRA).
 - **`capabilities`** or **`allowedOperators`**, only to narrow a column that must not be sorted, grouped, or filtered in some way.

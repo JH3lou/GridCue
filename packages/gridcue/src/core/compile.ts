@@ -1,5 +1,5 @@
 import { LITERAL_COLUMN_KINDS, type Mention } from "./mentions";
-import type { Literal, NormalizedInput } from "./normalize";
+import { type Literal, type NormalizedInput, SIZE_WORDS } from "./normalize";
 import type { RestrictedMention } from "./policy";
 import {
   type Clarification,
@@ -49,6 +49,11 @@ export interface CompileInput {
   /** Answers to earlier clarifications, keyed by clarification ID. */
   answers?: Record<string, string>;
   confidence?: ConfidencePolicy;
+  /**
+   * The operations the grid supports (its adapter's capabilities). A count ("top 10") becomes `limit.set` only where
+   * this lists it; otherwise the plan sorts alone and records the count as not applied (ADR 0018).
+   */
+  operations?: readonly string[];
   newId: (prefix: string) => string;
 }
 
@@ -236,6 +241,11 @@ export const compile = (c: CompileInput): ViewPlan => {
   const note = (key: string, selectedId: string, confidence: number, source: DecisionEvidence["source"]) => {
     evidence.push({ key, selectedId, confidence, source });
     confidences.push(confidence);
+  };
+  // "Top accounts", "largest to smallest": a size word with no column ranks by the Host's main value column (ADR 0018).
+  const measureFor = (text: string): ColumnDescriptor | undefined => {
+    const measure = c.schema.defaultMeasure ? column(c.schema.defaultMeasure) : undefined;
+    return measure?.capabilities.includes("sort") && SIZE_WORDS.test(text) ? measure : undefined;
   };
 
   for (const mention of c.restricted ?? []) {
@@ -755,15 +765,22 @@ export const compile = (c: CompileInput): ViewPlan => {
           const bound = new Set(boundTo(family) ?? []);
           const free = new Set(freeFor(family));
           const pool = picked.filter((col) => bound.has(col.id) || (changes.length < 2 && free.has(col.id)));
-          const cols = (answered ? [answered] : pool).filter((col) =>
+          let cols = (answered ? [answered] : pool).filter((col) =>
             COLUMN_FAMILIES[family]?.every((cap) => col.capabilities.includes(cap)),
           );
           if (answered) note(answerKey, answered.id, 1, "user");
+          // A provider's own term wins. Core names one only when no "Did you mean …?" is pending here and the
+          // Clause named nothing it recognised: it never calls a Host-declared name unknown.
+          const pending = clarifications.some((q) => q.id.startsWith(`${key}.column.`));
+          const unknown =
+            cols.length > 0 ? undefined : (res.unmatchedTerms[0] ?? (pending || own.length > 0 ? undefined : unknownTerm(clause.text)));
+          // A size word with no column named sorts by the Host's main value column; an unknown name is still asked about.
+          const measure = cols.length === 0 && family === "sort" && !pending && !unknown ? measureFor(clause.text) : undefined;
+          if (measure) {
+            cols = [measure];
+            note(`${key}.measure`, measure.id, 1, "host");
+          }
           if (cols.length === 0) {
-            // A provider's own term wins. Core names one only when no "Did you mean …?" is pending here and the
-            // Clause named nothing it recognised: it never calls a Host-declared name unknown.
-            const pending = clarifications.some((q) => q.id.startsWith(`${key}.column.`));
-            const unknown = res.unmatchedTerms[0] ?? (pending || own.length > 0 ? undefined : unknownTerm(clause.text));
             // A name several columns share was left to the provider; it is ambiguous, not missing (review fix).
             const sharing = unknown ? columnsNamed(unknown).filter((col) => col.capabilities.includes(capability as never)) : [];
             clarifications.push({
@@ -857,13 +874,17 @@ export const compile = (c: CompileInput): ViewPlan => {
       }
       // A direction in the text ("largest first", "high to low") asks for a sort even when the provider picked only
       // another change for this part: "accounts excluding trusts, largest first". It is never silently dropped, and
-      // code never guesses its column: the User picks one.
+      // code never guesses its column: the User picks one, unless a size word names the Host's `defaultMeasure`.
       if (clause.direction && !viewFamilies.includes("sort")) {
         const answerKey = `${key}.sort.column`;
         const answered = answers[answerKey] ? column(answers[answerKey]) : undefined;
-        if (answered?.capabilities.includes("sort")) {
-          note(answerKey, answered.id, 1, "user");
-          const sort = { columnId: answered.id, direction: clause.direction };
+        // "Trusts, largest first": a size word sorts by the Host's main value column, when it declares one (ADR 0018).
+        const measure = answered ? undefined : measureFor(clause.text);
+        const chosen = answered?.capabilities.includes("sort") ? answered : measure;
+        if (chosen) {
+          if (chosen === measure) note(`${key}.measure`, chosen.id, 1, "host");
+          else note(answerKey, chosen.id, 1, "user");
+          const sort = { columnId: chosen.id, direction: clause.direction };
           // Joins the sort still in effect, never one a later reset or "instead" has cleared (review fix).
           const current = levelsOf("sort.set", REPLACES.test(clause.text));
           if (current?.type === "sort.set") {
@@ -877,6 +898,18 @@ export const compile = (c: CompileInput): ViewPlan => {
             options: optionsFor(null, "sort"),
             required: true,
           });
+        }
+      }
+      // "Top 10": the count shows only the first rows of the sorted view, where the grid can (ADR 0018). Elsewhere the
+      // plan sorts alone and keeps the count as dropped evidence, which the Preview names in its notes.
+      if (clause.limit !== undefined) {
+        if (c.operations?.includes("limit.set")) {
+          const earlier = operations.findIndex((o) => o.type === "limit.set");
+          if (earlier >= 0) operations.splice(earlier, 1);
+          operations.push({ type: "limit.set", count: clause.limit });
+          note(`${key}.limit`, String(clause.limit), 1, "deterministic");
+        } else {
+          evidence.push({ key: `dropped:${key}.limit`, selectedId: String(clause.limit), confidence: 1, source: "host" });
         }
       }
     }

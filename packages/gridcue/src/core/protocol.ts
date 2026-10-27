@@ -63,6 +63,11 @@ export const ViewSchema = z.object({
   columns: z.array(ColumnDescriptor),
   /** What one row is, such as "account". Its name in a request means the rows, not a column. */
   rowNoun: z.string().min(1).optional(),
+  /**
+   * The column a size word ranks by when the request names none: "top accounts", "largest to smallest", "smallest
+   * first" sort by it (ADR 0018). Without one, GridCue asks which column.
+   */
+  defaultMeasure: z.string().min(1).optional(),
 });
 export type ViewSchema = z.infer<typeof ViewSchema>;
 
@@ -113,6 +118,8 @@ export const ViewState = z.object({
   groupBy: z.array(z.string()),
   aggregations: z.array(AggregationSpec),
   density: Density,
+  /** How many rows the grid shows, from the top of the sorted view (ADR 0018). Absent: every row. */
+  limit: z.number().int().positive().optional(),
 });
 export type ViewState = z.infer<typeof ViewState>;
 
@@ -130,6 +137,8 @@ export const ViewOperation = z.discriminatedUnion("type", [
   z.object({ type: z.literal("columns.pin"), columnIds: z.array(z.string()), position: z.enum(["start", "end", "none"]) }),
   z.object({ type: z.literal("aggregation.set"), aggregations: z.array(AggregationSpec) }),
   z.object({ type: z.literal("density.set"), density: Density }),
+  /** Show only the first `count` rows of the sorted view; `null` shows every row again (ADR 0018). */
+  z.object({ type: z.literal("limit.set"), count: z.number().int().positive().nullable() }),
   z.object({ type: z.literal("view.reset") }),
 ]);
 export type ViewOperation = z.infer<typeof ViewOperation>;

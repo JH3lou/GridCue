@@ -44,6 +44,10 @@ const step = (s: ViewState, op: ViewOperation, defaultState: ViewState): ViewSta
       return { ...s, aggregations: op.aggregations };
     case "density.set":
       return { ...s, density: op.density };
+    case "limit.set": {
+      const { limit: _cleared, ...rest } = s;
+      return op.count === null ? rest : { ...s, limit: op.count };
+    }
     case "view.reset":
       return structuredClone(defaultState);
   }
