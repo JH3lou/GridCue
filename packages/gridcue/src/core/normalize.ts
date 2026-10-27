@@ -68,6 +68,10 @@ const CLAUSE_VERBS = [
   "put",
   "approve",
 ];
+const QUOTED = /"([^"]+)"/g;
+/** Blanks quoted spans, keeping offsets, so words inside a quoted value never read as an instruction, a size or a count. */
+export const unquoted = (text: string): string => text.replace(QUOTED, (s) => " ".repeat(s.length));
+
 const VERB_ALT = CLAUSE_VERBS.join("|");
 const VERB = `(?:${VERB_ALT})(?:ed)?\\b`;
 const SPLIT = new RegExp(`[;!?]+|\\.(?=\\s|$)|,?\\s+then\\s+|,\\s*(?=${VERB})|\\s+and\\s+(?=${VERB})`, "g");
@@ -98,15 +102,16 @@ const verbFamily = (verb: string): string =>
  */
 const splitMidLine = (part: string): string[] => {
   const out: string[] = [];
+  const bare = unquoted(part);
   let start = 0;
-  for (const m of part.matchAll(MID_LINE_VERB)) {
+  for (const m of bare.matchAll(MID_LINE_VERB)) {
     const at = m.index ?? 0;
-    const before = part.slice(start, at);
+    const before = bare.slice(start, at);
     const last = [...before.matchAll(INSTRUCTION_WORD)].at(-1);
-    const next = part.slice(at + 1).match(/^[a-z]+/)?.[0] ?? "";
+    const next = bare.slice(at + 1).match(/^[a-z]+/)?.[0] ?? "";
     if (!last || !before.slice((last.index ?? 0) + last[0].length).trim()) continue;
     if (verbFamily(last[1] ?? "") === verbFamily(next)) continue;
-    out.push(before);
+    out.push(part.slice(start, at));
     start = at + 1;
   }
   out.push(part.slice(start));
@@ -139,8 +144,6 @@ const MULTIPLIERS: Record<string, number> = {
 
 const NUMBER = /(\$)?\s?(\d[\d,.]*\d|\d)\s*(k|thousand|mm|m|million|bn|b|billion)?\b\s*(%|percent\b|dollars\b)?/g;
 const ISO_DATE = /\b\d{4}-\d{2}-\d{2}\b/g;
-const QUOTED = /"([^"]+)"/g;
-
 const DESC =
   /\b(?:largest|biggest|highest|greatest|most|top|newest|latest)\b[^,]*?\bfirst\b|\bdescending\b|\bhigh(?:est)? to low(?:est)?\b|\bdesc\b/;
 const ASC =
@@ -183,7 +186,7 @@ const extractLiterals = (clause: string): Literal[] => {
   for (const m of clause.matchAll(QUOTED)) {
     literals.push({ kind: "text", value: m[1] ?? "", at: m.index ?? 0 });
   }
-  const withoutQuotes = clause.replace(QUOTED, (s) => " ".repeat(s.length));
+  const withoutQuotes = unquoted(clause);
   for (const m of withoutQuotes.matchAll(ISO_DATE)) {
     literals.push({ kind: "date", value: m[0], comparator: comparatorBefore(withoutQuotes, m.index ?? 0), at: m.index ?? 0 });
   }
@@ -263,8 +266,9 @@ export const normalize = (raw: string): NormalizedInput => {
   return {
     text,
     clauses: parts.map(({ part, continues }, index) => {
-      const direction = DIRECTIONS.find(([re]) => re.test(part))?.[1];
-      const count = COUNT.exec(part);
+      const bare = unquoted(part);
+      const direction = DIRECTIONS.find(([re]) => re.test(bare))?.[1];
+      const count = COUNT.exec(bare);
       const digits = count?.[1] ?? "";
       // The count's digits are blanked, keeping offsets, so "top 10" never reads as "equal to 10".
       const at = count ? count.index + count[0].length - digits.length : -1;

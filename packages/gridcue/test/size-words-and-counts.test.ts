@@ -59,6 +59,12 @@ describe("several changes in one line", () => {
     expect(normalize("sort by value in descending order").clauses).toHaveLength(1);
   });
 
+  it("never splits inside a quoted value", () => {
+    const [clause, ...rest] = normalize('filter name "clients grouped by rep"').clauses;
+    expect(rest).toEqual([]);
+    expect(clause?.literals).toEqual([{ kind: "text", value: "clients grouped by rep", at: 12 }]);
+  });
+
   it("proposes every change it understands, not only the first", async () => {
     const cue = setup();
     await cue.propose("show top accounts grouped by household sorted largest to smallest");
@@ -126,6 +132,17 @@ describe("the main value column (defaultMeasure)", () => {
     expect(cue.getState().status).toBe("needs_clarification");
   });
 
+  it("asks rather than replace a named column that can't sort", async () => {
+    const noSort = defineSchema(columns, {
+      ...options,
+      defaultMeasure: "value",
+      columns: { ...options.columns, household: { entity: "household", capabilities: ["show", "hide", "filter"] } },
+    });
+    const cue = setup(noSort);
+    await cue.propose("sort by household largest first");
+    expect(cue.getState().status).toBe("needs_clarification");
+  });
+
   it("is not used when it is restricted or can't sort", async () => {
     const restricted = defineSchema(columns, { ...options, defaultMeasure: "value", restricted: ["value"] });
     const cue = setup(restricted);
@@ -157,6 +174,22 @@ describe("a count", () => {
     expect(clause?.literals).toEqual([]);
     expect(normalize("accounts over 10").clauses[0]?.limit).toBeUndefined();
     expect(normalize("top 10% of accounts").clauses[0]?.limit).toBeUndefined();
+  });
+
+  it("never reads a count, size word or direction inside a quoted value", async () => {
+    const [clause] = normalize('filter name "top 10"').clauses;
+    expect(clause?.limit).toBeUndefined();
+    expect(clause?.direction).toBeUndefined();
+    expect(clause?.literals).toEqual([{ kind: "text", value: "top 10", at: 12 }]);
+    const cue = setup();
+    await cue.propose('filter account name "top 10"');
+    expect(cue.getState().plan?.operations).toEqual([
+      {
+        type: "filter.add",
+        predicate: expect.objectContaining({ columnId: "name", operator: "contains", value: "top 10" }),
+        combineWith: "and",
+      },
+    ]);
   });
 
   it("limits the sorted view where the grid can, with its own preview line", async () => {

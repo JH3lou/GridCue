@@ -1,5 +1,5 @@
 import { LITERAL_COLUMN_KINDS, type Mention } from "./mentions";
-import { type Literal, type NormalizedInput, SIZE_WORDS } from "./normalize";
+import { type Literal, type NormalizedInput, SIZE_WORDS, unquoted } from "./normalize";
 import type { RestrictedMention } from "./policy";
 import {
   type Clarification,
@@ -245,7 +245,7 @@ export const compile = (c: CompileInput): ViewPlan => {
   // "Top accounts", "largest to smallest": a size word with no column ranks by the Host's main value column (ADR 0018).
   const measureFor = (text: string): ColumnDescriptor | undefined => {
     const measure = c.schema.defaultMeasure ? column(c.schema.defaultMeasure) : undefined;
-    return measure?.capabilities.includes("sort") && SIZE_WORDS.test(text) ? measure : undefined;
+    return measure?.capabilities.includes("sort") && SIZE_WORDS.test(unquoted(text)) ? measure : undefined;
   };
 
   for (const mention of c.restricted ?? []) {
@@ -774,8 +774,10 @@ export const compile = (c: CompileInput): ViewPlan => {
           const pending = clarifications.some((q) => q.id.startsWith(`${key}.column.`));
           const unknown =
             cols.length > 0 ? undefined : (res.unmatchedTerms[0] ?? (pending || own.length > 0 ? undefined : unknownTerm(clause.text)));
-          // A size word with no column named sorts by the Host's main value column; an unknown name is still asked about.
-          const measure = cols.length === 0 && family === "sort" && !pending && !unknown ? measureFor(clause.text) : undefined;
+          // A size word with no column named sorts by the Host's main value column. An unknown name, or a named column
+          // that can't sort, is still asked about (review fix).
+          const measure =
+            cols.length === 0 && pool.length === 0 && family === "sort" && !pending && !unknown ? measureFor(clause.text) : undefined;
           if (measure) {
             cols = [measure];
             note(`${key}.measure`, measure.id, 1, "host");
