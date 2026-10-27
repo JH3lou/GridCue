@@ -182,6 +182,15 @@ describe("a count", () => {
     expect(normalize("top 10,000 accounts").clauses[0]?.literals).toEqual([]);
   });
 
+  it("ranks the rows by the main value column, whatever the count", async () => {
+    const named = defineSchema([{ id: "account", label: "Account" }, ...columns.slice(1)], { ...options, defaultMeasure: "value" });
+    const cue = setup(named);
+    for (const count of ["10", "10,000", "20000"]) {
+      await cue.propose(`top ${count} accounts`);
+      expect(cue.getState().plan?.operations[0]).toEqual({ type: "sort.set", sorts: [{ columnId: "value", direction: "desc" }] });
+    }
+  });
+
   it("never reads a size word inside a named value as a sort", async () => {
     const tiered = defineSchema([...columns, { id: "tier", label: "Tier" }], {
       ...options,
