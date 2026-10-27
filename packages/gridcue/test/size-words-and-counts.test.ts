@@ -59,6 +59,10 @@ describe("several changes in one line", () => {
     expect(normalize("sort by value in descending order").clauses).toHaveLength(1);
   });
 
+  it("counts a quoted argument as words after the verb", () => {
+    expect(normalize('hide "market value" sorted by name').clauses.map((c) => c.text)).toEqual(['hide "market value"', "sorted by name"]);
+  });
+
   it("never splits inside a quoted value", () => {
     const [clause, ...rest] = normalize('filter name "clients grouped by rep"').clauses;
     expect(rest).toEqual([]);
@@ -180,6 +184,15 @@ describe("a count", () => {
     expect(normalize("top 10,000 accounts").clauses[0]?.limit).toBe(10_000);
     expect(normalize("top 20000 accounts").clauses[0]?.limit).toBe(20_000);
     expect(normalize("top 10,000 accounts").clauses[0]?.literals).toEqual([]);
+  });
+
+  it("never swaps a named column that holds a size for the main value column", async () => {
+    const scored = defineSchema([...columns, { id: "score", label: "Score", kind: "number" }], { ...options, defaultMeasure: "value" });
+    const cue = setup(scored);
+    for (const request of ["top 10 scores", "top 20000 scores", "largest scores first"]) {
+      await cue.propose(request);
+      expect(cue.getState().plan?.operations[0]).toEqual({ type: "sort.set", sorts: [{ columnId: "score", direction: "desc" }] });
+    }
   });
 
   it("ranks the rows by the main value column, whatever the count", async () => {

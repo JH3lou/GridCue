@@ -109,7 +109,15 @@ const splitMidLine = (part: string): string[] => {
     const before = bare.slice(start, at);
     const last = [...before.matchAll(INSTRUCTION_WORD)].at(-1);
     const next = bare.slice(at + 1).match(/^[a-z]+/)?.[0] ?? "";
-    if (!last || !before.slice((last.index ?? 0) + last[0].length).trim()) continue;
+    // A quoted argument counts as words after the verb: 'hide "market value" sorted by name' (review fix).
+    if (
+      !last ||
+      !part
+        .slice(start, at)
+        .slice((last.index ?? 0) + last[0].length)
+        .trim()
+    )
+      continue;
     if (verbFamily(last[1] ?? "") === verbFamily(next)) continue;
     out.push(part.slice(start, at));
     start = at + 1;

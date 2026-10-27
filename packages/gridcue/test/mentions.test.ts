@@ -128,8 +128,10 @@ describe("matchMentions superlatives", () => {
   it("reads a name after a superlative, with at most one word between, as the rows (rule 5)", () => {
     expect(found("biggest items first")).toEqual([]);
     expect(found("largest open items first")).toEqual(["state=open"]);
-    // Leaning toward the rows: this falls back to the provider rather than being matched.
-    expect(found("sort by the largest cost")).toEqual([]);
+    // A ranked column that holds a size may be the rows or the column: it is left to the provider, never matched.
+    expect(matchMentions(normalize("sort by the largest cost").clauses, columns)).toEqual([
+      expect.objectContaining({ columnId: "price", ambiguous: true }),
+    ]);
   });
 });
 
