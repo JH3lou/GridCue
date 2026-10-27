@@ -176,6 +176,25 @@ describe("a count", () => {
     expect(normalize("top 10% of accounts").clauses[0]?.limit).toBeUndefined();
   });
 
+  it("reads counts with thousands separators or more digits", () => {
+    expect(normalize("top 10,000 accounts").clauses[0]?.limit).toBe(10_000);
+    expect(normalize("top 20000 accounts").clauses[0]?.limit).toBe(20_000);
+    expect(normalize("top 10,000 accounts").clauses[0]?.literals).toEqual([]);
+  });
+
+  it("never reads a size word inside a named value as a sort", async () => {
+    const tiered = defineSchema([...columns, { id: "tier", label: "Tier" }], {
+      ...options,
+      defaultMeasure: "value",
+      columns: { ...options.columns, tier: { enumValues: [{ id: "top", label: "Top tier" }] } },
+    });
+    const cue = setup(tiered);
+    await cue.propose("show top tier");
+    expect(cue.getState().plan?.operations).toEqual([
+      { type: "filter.add", predicate: expect.objectContaining({ columnId: "tier", value: "top" }), combineWith: "and" },
+    ]);
+  });
+
   it("never reads a count, size word or direction inside a quoted value", async () => {
     const [clause] = normalize('filter name "top 10"').clauses;
     expect(clause?.limit).toBeUndefined();

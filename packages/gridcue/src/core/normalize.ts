@@ -118,9 +118,12 @@ const splitMidLine = (part: string): string[] => {
   return out;
 };
 
-/** A ranking with a count: "top 10", "largest 5 households". Its number is the count, never a filter value (ADR 0018). */
+/**
+ * A ranking with a count: "top 10", "largest 5 households", "top 10,000". Its number is the count, never a filter value
+ * (ADR 0018).
+ */
 const COUNT =
-  /\b(?:top|largest|biggest|smallest)\s+([1-9]\d{0,3})\b(?!\s*(?:%|percent\b|k\b|thousand\b|mm?\b|million\b|bn?\b|billion\b|dollars\b|[.,]\d))/;
+  /\b(?:top|largest|biggest|smallest)\s+([1-9]\d{0,2}(?:,\d{3})+|[1-9]\d*)\b(?!\s*(?:%|percent\b|k\b|thousand\b|mm?\b|million\b|bn?\b|billion\b|dollars\b|[.,]\d))/;
 
 const COMPARATORS: Array<[RegExp, Comparator]> = [
   [/\b(?:no more than|at most|up to)\s*$/, "lte"],
@@ -162,6 +165,26 @@ const DIRECTIONS: ReadonlyArray<readonly [RegExp, "asc" | "desc"]> = [
   [/\b(?:top|largest|biggest)\b/, "desc"],
   [/\bsmallest\b/, "asc"],
 ];
+
+const directionOf = (text: string) => DIRECTIONS.find(([re]) => re.test(unquoted(text)))?.[1];
+
+/**
+ * Reads each part's direction again with the columns and values it names blanked, so a size word that belongs to a
+ * name ("show top tier", where "Top tier" is a value) never asks for a sort (review fix).
+ */
+export const withoutNamedSizes = (
+  input: NormalizedInput,
+  mentions: ReadonlyArray<{ clauseIndex: number; start: number; end: number }>,
+): NormalizedInput => ({
+  ...input,
+  clauses: input.clauses.map((clause) => {
+    const spans = mentions.filter((m) => m.clauseIndex === clause.index);
+    if (spans.length === 0) return clause;
+    const { direction: _read, ...rest } = clause;
+    const direction = directionOf(spans.reduce((t, m) => t.slice(0, m.start) + " ".repeat(m.end - m.start) + t.slice(m.end), clause.text));
+    return direction ? { ...rest, direction } : rest;
+  }),
+});
 
 /** Dotted thousands ("1.000.000"), or commas not in groups of three ("10,5"), are ambiguous across locales. */
 const AMBIGUOUS_NUMBER = /^\d{1,3}(?:\.\d{3})+$|,(?!\d{3}(?:\D|$))/;
@@ -267,7 +290,7 @@ export const normalize = (raw: string): NormalizedInput => {
     text,
     clauses: parts.map(({ part, continues }, index) => {
       const bare = unquoted(part);
-      const direction = DIRECTIONS.find(([re]) => re.test(bare))?.[1];
+      const direction = directionOf(bare);
       const count = COUNT.exec(bare);
       const digits = count?.[1] ?? "";
       // The count's digits are blanked, keeping offsets, so "top 10" never reads as "equal to 10".
@@ -279,7 +302,7 @@ export const normalize = (raw: string): NormalizedInput => {
         literals: extractLiterals(literalText),
         ...(direction ? { direction } : {}),
         ...(continues ? { continues } : {}),
-        ...(count ? { limit: Number(digits) } : {}),
+        ...(count ? { limit: Number(digits.replaceAll(",", "")) } : {}),
       };
     }),
   };
