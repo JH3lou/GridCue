@@ -16,6 +16,7 @@ export default defineConfig(({ mode }) => {
         "packages/gridcue",
         "registry",
         "evals",
+        { test: { name: "site", root: "apps/site", include: ["app/**/*.test.ts"] } },
         { test: { name: "live", root: "packages/gridcue", include: ["test/live/**/*.test.ts"] } },
       ],
     },
