@@ -199,6 +199,7 @@ function ComposedChart({
         <YAxis
           yAxisId="left"
           domain={domain}
+          allowDecimals={false}
           hide={!showYAxis}
           tickLine={false}
           axisLine={false}

@@ -87,9 +87,11 @@ describe("fetchVersionDownloads", () => {
   it("returns versions newest first", async () => {
     const fetch = async (url: string | URL | Request) => {
       expect(String(url)).toBe("https://api.npmjs.org/versions/gridcue/last-week");
-      return json({ package: "gridcue", downloads: { "0.9.0": 4, "0.10.0": 20, "0.2.0": 1 } });
+      return json({ package: "gridcue", downloads: { "0.9.0": 4, "1.0.0-rc.1": 2, "0.10.0": 20, "1.0.0": 9, "0.2.0": 1 } });
     };
     expect(await fetchVersionDownloads("gridcue", { fetch })).toEqual([
+      { version: "1.0.0", downloads: 9 },
+      { version: "1.0.0-rc.1", downloads: 2 },
       { version: "0.10.0", downloads: 20 },
       { version: "0.9.0", downloads: 4 },
       { version: "0.2.0", downloads: 1 },
@@ -116,14 +118,15 @@ describe("summarize", () => {
   it("has no delta when the previous window reaches before the first day or is zero", () => {
     const summary = summarize(series("2026-10-01", [0, 0, 5, 5, 5, 5, 5, 5]));
     expect(summary.windows[2]).toMatchObject({ days: 30, current: 30, delta: null });
-    expect(summarize(series("2026-10-01", [0, 4])).windows[0]?.delta).toBeNull();
+    expect(summarize(series("2026-10-01", [0, 4])).windows[0]).toEqual({ days: 1, current: 4, previous: 0, delta: null });
+    expect(summarize(series("2026-10-01", [4])).windows[0]).toEqual({ days: 1, current: 4, previous: null, delta: null });
   });
 
   it("handles no data", () => {
     expect(summarize([])).toEqual({
       allTime: 0,
       lastDay: null,
-      windows: [1, 7, 30].map((days) => ({ days, current: 0, previous: 0, delta: null })),
+      windows: [1, 7, 30].map((days) => ({ days, current: 0, previous: null, delta: null })),
     });
   });
 });

@@ -182,9 +182,10 @@ function Kpi({ label, value, lead, children }: { label: string; value?: number; 
   );
 }
 
-function Delta({ window: { days, delta } }: { window: WindowSummary }) {
+function Delta({ window: { days, previous, delta } }: { window: WindowSummary }) {
   const period = days === 1 ? "prior day" : `prior ${days} days`;
-  if (delta === null) return <>No {period} yet</>;
+  if (previous === null) return <>No {period} yet</>;
+  if (delta === null) return <>None in {period}</>;
   const tone = delta > 0 ? "text-emerald-700 dark:text-emerald-400" : delta < 0 ? "text-red-700 dark:text-red-400" : "";
   return (
     <>
@@ -245,7 +246,7 @@ function DailyChart({ days }: { days: DayCount[] | null }) {
             showYAxis
             animate={false}
             barRadius={2}
-            yFormatter={count}
+            yFormatter={(n) => formatNumber(n, { maximumFractionDigits: 1 })}
             className="h-64"
             role="img"
             aria-label={`Daily downloads, ${rows.length} days`}

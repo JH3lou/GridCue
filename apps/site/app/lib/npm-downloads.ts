@@ -14,8 +14,9 @@ export interface DayCount {
 export interface WindowSummary {
   days: number;
   current: number;
-  previous: number;
-  /** Change as a fraction, or null when there is no full previous window to compare with. */
+  /** Null when the data doesn't yet reach back a full previous window. */
+  previous: number | null;
+  /** Change as a fraction, or null when there is no previous window or it had no downloads. */
   delta: number | null;
 }
 export interface PeriodTotal {
@@ -83,9 +84,17 @@ export async function fetchVersionDownloads(pkg: string, options: FetchOptions =
   const body = await getJson(`${API}/versions/${pkg}/last-week`, options);
   const counts = isRecord(body) && isRecord(body.downloads) ? Object.entries(body.downloads) : null;
   if (!counts?.every(([, n]) => Number.isFinite(n))) throw new Error("Unexpected response from npm for versions");
-  return counts
-    .map(([version, downloads]) => ({ version, downloads: downloads as number }))
-    .sort((a, b) => b.version.localeCompare(a.version, "en", { numeric: true }));
+  return (
+    counts
+      .map(([version, downloads]) => ({ version, downloads: downloads as number }))
+      // A prerelease sorts below its release: compare the release part first, then "no prerelease" wins.
+      .sort(
+        (a, b) =>
+          b.version.split("-")[0].localeCompare(a.version.split("-")[0], "en", { numeric: true }) ||
+          Number(!b.version.includes("-")) - Number(!a.version.includes("-")) ||
+          b.version.localeCompare(a.version, "en", { numeric: true }),
+      )
+  );
 }
 
 const sum = (values: number[]) => values.reduce((total, n) => total + n, 0);
@@ -99,8 +108,8 @@ export function summarize(days: DayCount[]) {
     lastDay: days.at(-1)?.day ?? null,
     windows: [1, 7, 30].map((size): WindowSummary => {
       const current = sum(values.slice(Math.max(n - size, 0)));
-      const previous = sum(values.slice(Math.max(n - 2 * size, 0), Math.max(n - size, 0)));
-      return { days: size, current, previous, delta: n >= 2 * size && previous > 0 ? (current - previous) / previous : null };
+      const previous = n >= 2 * size ? sum(values.slice(n - 2 * size, n - size)) : null;
+      return { days: size, current, previous, delta: previous ? (current - previous) / previous : null };
     }),
   };
 }
