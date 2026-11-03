@@ -22,6 +22,8 @@ const pages = walk(OUT)
   .filter((file) => file.endsWith("index.html"))
   .map((file) => `/${relative(OUT, file).replace(/index\.html$/, "")}`.replace(/\/$/, "") || "/")
   .filter((path) => path !== "/404")
+  // The admin pages are unlisted (download stats grill, Q2).
+  .filter((path) => !path.startsWith("/admin"))
   .sort();
 
 writeFileSync(
