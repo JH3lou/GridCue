@@ -23,6 +23,14 @@ pnpm eval:record     # writes apps/site/app/data/strategy-runs.json
 
 Review the diff before committing it. Every "ready" preview must be the view the request asked for.
 
+## Downloads dashboard
+
+`/admin/downloads` shows `gridcue`'s npm downloads: the all-time total, the last day, 7 days and 30 days, daily downloads with a 7-day average, downloads by version, and weekly or monthly totals. The browser fetches them from npm's public API (`api.npmjs.org`) on each visit, in chunks of 500 days or less, because npm silently cuts longer ranges at about 18 months. There is no server, storage or key, so it stays within ADR 0016.
+
+The page is unlisted, not private. It isn't linked from the Site, it's left out of `sitemap.xml`, and it's marked `noindex`, but anyone with the URL sees the same public numbers npm shows. To restrict it, add a Cloudflare Access application for `gridcue.dev/admin/*` in the Zero Trust dashboard. No code changes.
+
+npm publishes a day's counts after the day ends in UTC, so the newest data is yesterday's.
+
 ## Deploy
 
 It runs on Cloudflare's free plan, as the Worker `gridcue-site` with the custom domain `gridcue.dev`, both set in `apps/site/wrangler.jsonc`. There is no Worker code and there are no secrets. Cloudflare Workers Static Assets reads `apps/site/public/_headers` to add response headers without origin code.

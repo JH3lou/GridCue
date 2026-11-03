@@ -41,7 +41,7 @@ This log covers an admin dashboard for `gridcue`'s npm downloads. It follows `.c
 | Four KPIs at the same size | All time at `text-3xl` (30px), the others at `text-2xl` (24px) | taste: the answer figure leads at 1.3 times its siblings or more |
 | `delta-badge` coloured pill, up = green | Only the number is coloured, `text-xs`, with the window in words ("vs prior 7 days"). A delta with no baseline is grey ("new"). | taste: colour only the number; zero or undefined changes are grey |
 | `trend-chart` `type="monotone"`, gradient fill at 0.6 | Daily downloads as grey bars, a 7-day average line in one hue, `curve="linear"`, no fill | taste: straight segments, one hue on the main data, fill 14% or less |
-| `chart-1..5` rainbow defaults | One token, `--chart-1: oklch(0.55 0.17 255)` light and `oklch(0.72 0.14 255)` dark, with bars in `var(--muted-foreground)` at 0.35 opacity | taste: one hue per chart, one subject keeps one hue |
+| `chart-1..5` rainbow defaults | One token in the logo's orange (#F25619): `--chart-1: oklch(0.64 0.2 40)` light and `oklch(0.7 0.18 42)` dark, with bars in `var(--muted-foreground)` at 0.35 opacity | taste: one hue per chart, one subject keeps one hue |
 | Chart animates on every data change, 500ms | Animation off (`animate={false}`) | emil: a dashboard reloaded many times a day doesn't animate. Crisp and fast. |
 | Range switch as a filled `Tabs` | A 32px segmented control, 30d / 90d / All, with `aria-pressed` and `scale(0.96)` on press over 160ms `--ease-out` | better-ui: scale on press is 0.96; emil: press feedback 100–160ms |
 | Flat `Card` with `shadow-sm` and a border | The Site's `--shadow-raised` with a `ring-1 ring-border` hairline, `rounded-xl` | better-ui: shadows for elevation; high-end: soft diffused shadow |

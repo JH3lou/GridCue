@@ -3,7 +3,7 @@ import { RefreshCw } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BarList } from "@/components/ui/bar-list";
 import { Button } from "@/components/ui/button";
-import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { ComposedChart } from "@/components/ui/composed-chart";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDelta, formatNumber } from "@/lib/format";
@@ -90,7 +90,7 @@ export default function AdminDownloads() {
             </span>
             <h1 className="text-2xl font-semibold tracking-tight">Downloads</h1>
             <p className="text-sm text-pretty text-muted-foreground" aria-live="polite">
-              {week ? finding(week) : days.status === "error" ? "Couldn't load downloads." : "Loading downloads from npm…"}
+              {week ? finding(week) : days.status === "error" ? "Downloads are unavailable right now." : "Loading downloads from npm…"}
             </p>
           </div>
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
@@ -109,11 +109,11 @@ export default function AdminDownloads() {
 
         {days.status === "error" ? (
           <Card className={panel}>
-            <CardHeader>
-              <CardTitle>npm didn't respond</CardTitle>
+            <CardHeader className="px-5">
+              <CardTitle>Couldn't load downloads from npm</CardTitle>
               <CardDescription>{days.message}</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="px-5">
               <Button size="sm" onClick={refresh} disabled={refreshing} className={press}>
                 Try again
               </Button>
@@ -126,7 +126,7 @@ export default function AdminDownloads() {
           </>
         )}
 
-        <div className="grid items-start gap-4 lg:grid-cols-2">
+        <div className="grid gap-4 lg:grid-cols-2">
           <Versions versions={versions} retry={refresh} />
           {days.status !== "error" && <Totals days={days.status === "ready" ? days.data : null} />}
         </div>
@@ -291,6 +291,17 @@ function Versions({ versions, retry }: { versions: Loaded<VersionCount[]>; retry
           />
         )}
       </CardContent>
+      {used.length > 0 && (
+        <CardFooter className="mt-auto justify-between px-5 text-xs text-muted-foreground">
+          <span className="tabular-nums">{count(used.reduce((total, v) => total + v.downloads, 0))} in total</span>
+          <a
+            href={`https://www.npmjs.com/package/${PACKAGE}?activeTab=versions`}
+            className="rounded-sm underline-offset-4 outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            All versions on npm
+          </a>
+        </CardFooter>
+      )}
     </Card>
   );
 }
@@ -303,13 +314,14 @@ const units = [
 function Totals({ days }: { days: DayCount[] | null }) {
   const [unit, setUnit] = useState<"week" | "month">("week");
   const rows = useMemo(() => (days ? totalsBy(days, unit).slice(0, 6) : []), [days, unit]);
+  const first = days?.[0]?.day ?? "";
   const name = (start: string) => (unit === "week" ? `Week of ${utcDate(start)}` : utcDate(start, { month: "long", year: "numeric" }));
 
   return (
     <Card className={panel}>
       <CardHeader className="px-5">
         <CardTitle>Totals</CardTitle>
-        <CardDescription className="text-xs">Weeks start Monday, UTC</CardDescription>
+        <CardDescription className="text-xs">{unit === "week" ? "Weeks start Monday, UTC" : "Calendar months, UTC"}</CardDescription>
         <CardAction>
           <Segmented label="Period" options={units} value={unit} onChange={setUnit} />
         </CardAction>
@@ -329,7 +341,9 @@ function Totals({ days }: { days: DayCount[] | null }) {
                 <TableRow key={row.start}>
                   <TableCell>
                     {name(row.start)}
-                    {row.partial && <span className="text-muted-foreground"> · so far</span>}
+                    {row.partial && (
+                      <span className="text-muted-foreground">{row.start < first ? ` · from ${utcDate(first)}` : " · so far"}</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-right tabular-nums">{count(row.downloads)}</TableCell>
                   <TableCell className="text-right text-muted-foreground tabular-nums">
