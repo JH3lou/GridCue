@@ -25,22 +25,23 @@ npm adds a trusted publisher only to a package that already exists, so 0.1.0 is 
 
    `packages/gridcue/package.json`'s `repository.url` already matches the repository exactly, which npm requires. Then, on the same page, set publishing access to require 2FA and disallow tokens.
 5. **Tag the commit you published.** From your usual clone, in any shell, read it from the release worktree: `git tag v0.1.0 "$(git -C ../gridcue-release rev-parse HEAD)" && git push origin v0.1.0`. The workflow runs its checks, sees that 0.1.0 is on npm, and skips publishing.
-6. **Check** `npm view gridcue`, and install it in a fresh project. The Provenance badge first appears on 0.1.1.
+6. **Check** `npm view gridcue`, and install it in a fresh project. The Provenance badge first appears on the first release the workflow publishes (0.2.0).
 7. **Clean up** with `git worktree remove ../gridcue-release`.
 
 ## Every release
 
-1. **Update the version** in `packages/gridcue/package.json`, and add its section to `packages/gridcue/CHANGELOG.md` with the release date.
+1. **Update the version** in `packages/gridcue/package.json` and `.claude-plugin/plugin.json` (`pnpm check:skills` fails when they differ), and add its section to `packages/gridcue/CHANGELOG.md` with the release date. The Site's changelog page renders that file.
 2. **Merge to `main`** through a PR. CI runs `pnpm check`.
 3. **Tag the merge commit and push the tag:**
    ```bash
-   git tag v0.1.0 && git push origin v0.1.0
+   git fetch origin && git tag v0.2.0 <merge-sha> && git push origin v0.2.0
    ```
 4. **The Release workflow**:
    - checks that the tag matches the package version;
    - runs `pnpm check` (lint, build, typecheck, tests, Mock evals, package and bundle checks);
    - publishes.
-5. **Check the result** on npmjs.com: the version, and the "Provenance" badge.
+   If `npm publish` fails with `E404 Not Found - PUT https://registry.npmjs.org/gridcue`, npm did not accept the workflow as a trusted publisher. Delete and recreate the trusted publisher with the values in step 4 of the first release, then rerun the failed run with `gh run rerun <run-id>`. Never publish by hand.
+5. **Check the result** on npmjs.com: the version, and the "Provenance" badge. Then check that https://gridcue.dev/changelog shows the release, which proves the Site deployed (see `site.md`).
 
 ## Before tagging
 
