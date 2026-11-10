@@ -19,7 +19,7 @@ GridCue 0.2.0 turns dense ranking requests into one checked View Plan: changes c
 - `compile` accepts the adapter's `operations`; the Controller passes them automatically. Direct callers can pass this optional list to enable capability-aware row limits.
 
 **Fixes**
-- Quoted values and arguments no longer trigger part splitting, sort directions, size words, or row counts.
+- Quoted values and arguments no longer trigger mid-line part splitting, sort directions, size words, or row counts when the quoted span remains intact. Punctuation-based splitting can still break quoted spans.
 - Approved values that contain size words (such as "Top tier"), named columns in requests such as "top 10 scores", and large counts keep their intended meaning instead of being replaced by `defaultMeasure` or read as filter values.
 
 **Site**
