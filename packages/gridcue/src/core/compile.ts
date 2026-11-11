@@ -289,13 +289,16 @@ export const compile = (c: CompileInput): ViewPlan => {
   if (unsupportedSegments.length === 0) {
     for (const clause of c.input.clauses) {
       const key = `c${clause.index}`;
-      const res: ClauseResolution = c.resolution.clauses.find((r) => r.clauseIndex === clause.index) ?? {
+      const proposed: ClauseResolution = c.resolution.clauses.find((r) => r.clauseIndex === clause.index) ?? {
         clauseIndex: clause.index,
         families: [],
         columns: [],
         values: [],
         unmatchedTerms: [],
       };
+      const ownMentions = (c.mentions ?? []).filter((m) => m.clauseIndex === clause.index);
+      const res = narrowProposal(proposed, clause, ownMentions, c.schema, (e) => evidence.push(e));
+      const opsBefore = operations.length;
       // Mentions are deterministic: a named value is used at confidence 1. A named column is too, unless the provider
       // scored that column below MENTION_FLOOR: "biggest accounts first" names the rows, not Account number (ADR 0013).
       const own = (c.mentions ?? []).filter((m) => m.clauseIndex === clause.index);
@@ -735,7 +738,29 @@ export const compile = (c: CompileInput): ViewPlan => {
 
       // A clear that names columns ("clear the market value filter") clears only those: the rest of the current
       // filters, sorts or groups stay. GridCue asks when it can't keep the rest exactly.
-      const targets = mentionedColumns;
+      // A column named right before a layout word belongs to that clear only: "the account name filter and the sort"
+      // clears that column's filters and the whole sort. One named before "view" that is the grid's own row noun
+      // ("reset my tasks view") names the grid, not a column. Any other named column applies to every clear, as before.
+      const placedOn = (m: Mention) => {
+        const w = /^(?:'s)?\s+(filters?|sorts?|sorting|grouping|groups?|view)\b/.exec(clause.text.slice(m.end))?.[1] ?? "";
+        return w.startsWith("filter") ? "filter" : w.startsWith("sort") ? "sort" : w.startsWith("group") ? "group" : w ? "view" : undefined;
+      };
+      const isRowNounText = (m: Mention) =>
+        !!rowNounKey &&
+        clause.text
+          .slice(m.start, m.end)
+          .toLowerCase()
+          .replace(/(?:es|s)$/, "") === rowNounKey;
+      const targetsFor = (thing: string) =>
+        mentionedColumns.filter((id) =>
+          own.some((m) => {
+            if (m.columnId !== id || m.valueId !== undefined) return false;
+            const placed = placedOn(m);
+            if (placed === "view" && isRowNounText(m)) return false;
+            return placed === undefined || placed === thing;
+          }),
+        );
+      let targets = mentionedColumns;
       const clearOnly = (what: string) =>
         clarifications.push({
           id: `${key}.clear`,
@@ -743,6 +768,8 @@ export const compile = (c: CompileInput): ViewPlan => {
           required: true,
         });
       for (const family of viewFamilies) {
+        const thing = family === "filter.clear" ? "filter" : family === "sort.clear" ? "sort" : family === "group.clear" ? "group" : "view";
+        if (CLEARS.has(family) || family === "view.reset") targets = targetsFor(thing);
         if (family === "filter.clear") {
           const current = c.state.filters?.children ?? [];
           const flat = c.state.filters?.combinator === "and" && current.every((p) => !("children" in p));
@@ -1152,6 +1179,25 @@ export const compile = (c: CompileInput): ViewPlan => {
           evidence.push({ key: `dropped:${key}.limit`, selectedId: String(clause.limit), confidence: 1, source: "host" });
         }
       }
+      // G2. The provider proposes, code decides (AGENTS.md): a plan is never ready with fewer clears than the clear
+      // verb governs. "Clear filters, grouping" that would clear only the filters asks instead.
+      const governedHere = governedClears(unquoted(namesBlankedOf(clause.text, ownMentions)));
+      const added = operations.slice(opsBefore);
+      const clearedHere: Record<string, boolean> = {
+        filter: added.some((o) => o.type === "filter.clear"),
+        sort: added.some((o) => o.type === "sort.set"),
+        group: added.some((o) => o.type === "group.set"),
+        view: added.some((o) => o.type === "view.reset"),
+      };
+      const missed = [...governedHere.governed].filter((thing) => !clearedHere[thing] && !clearedHere.view);
+      if (missed.length > 0 && !clarifications.some((q) => q.id.startsWith(`${key}.`))) {
+        const words: Record<string, string> = { filter: "the filters", sort: "the sort", group: "the grouping", view: "the view" };
+        clarifications.push({
+          id: `${key}.clear`,
+          prompt: `GridCue couldn't settle clearing ${missed.map((t) => words[t] ?? t).join(" and ")}. Ask to clear it on its own.`,
+          required: true,
+        });
+      }
     }
   }
 
@@ -1216,6 +1262,73 @@ const COMPLEMENT: Partial<Record<FilterPredicate["operator"], FilterPredicate["o
   lt: "gte",
   lte: "gt",
 };
+const namesBlankedOf = (text: string, own: readonly Mention[]) =>
+  own.reduce((t, m) => t.slice(0, m.start) + " ".repeat(m.end - m.start) + t.slice(m.end), text);
+
+/** Whether a name appears in the part only inside quoted text: `advisor containing "restricted"`. */
+const onlyQuoted = (text: string, names: readonly string[]) => {
+  const bare = unquoted(text);
+  const has = (t: string, n: string) => {
+    const at = t.indexOf(n);
+    return at >= 0 && !/[\p{L}\p{N}]/u.test(t[at - 1] ?? "") && !/[\p{L}\p{N}]/u.test(t[at + n.length] ?? "");
+  };
+  const lower = names.map((n) => n.toLowerCase()).filter(Boolean);
+  return lower.some((n) => has(text, n)) && !lower.some((n) => has(bare, n));
+};
+
+/**
+ * Narrows what a provider proposes for one part, before the compiler weighs it. The provider proposes, code decides
+ * (AGENTS.md, "What we never compromise on", 2):
+ * - G1: a column or value the provider picked that no Mention names, and whose names appear in the part only inside
+ *   quoted text, is not something the User named ("advisor containing "restricted"" names no Restricted holdings).
+ * - G3: in a part whose words are only a governed clear or reset, naming no column, value or amount, a family other
+ *   than a clear or reset is not something the User asked for ("clear everything", with a proposed hide).
+ * Each dropped proposal is recorded as `dropped:` evidence.
+ */
+const narrowProposal = (
+  res: ClauseResolution,
+  clause: Clause,
+  own: readonly Mention[],
+  schema: ViewSchema,
+  record: (e: DecisionEvidence) => void,
+): ClauseResolution => {
+  const key = `c${clause.index}`;
+  const named = new Set(own.map((m) => m.columnId));
+  const col = (id: string) => schema.columns.find((c) => c.id === id);
+  const columnNames = (id: string) => [col(id)?.label ?? "", ...(col(id)?.aliases ?? [])];
+  const valueNames = (columnId: string, valueId: string) => {
+    const v = col(columnId)?.enumValues?.find((e) => e.id === valueId);
+    return [...columnNames(columnId), ...(v ? [v.label, ...(v.aliases ?? [])] : [])];
+  };
+  let out = res;
+  if (clause.literals.some((l) => l.kind === "text")) {
+    const quotedColumn = (id: string) => !named.has(id) && onlyQuoted(clause.text, columnNames(id));
+    const columns = out.columns.filter((p) => !quotedColumn(p.id));
+    const values = out.values.filter((v) => named.has(v.columnId) || !onlyQuoted(clause.text, valueNames(v.columnId, v.valueId)));
+    for (const p of out.columns.filter((x) => !columns.includes(x)))
+      record({ key: `dropped:${key}.quoted`, selectedId: p.id, confidence: p.confidence, source: "deterministic" });
+    for (const v of out.values.filter((x) => !values.includes(x)))
+      record({ key: `dropped:${key}.quoted`, selectedId: `${v.columnId}=${v.valueId}`, confidence: v.confidence, source: "deterministic" });
+    out = { ...out, columns, values };
+  }
+  const clears = governedClears(unquoted(namesBlankedOf(clause.text, own)));
+  if (clears.governed.size > 0 && own.length === 0 && clause.literals.length === 0) {
+    const isClear = (f: string) => CLEARS.has(f) || f === "view.reset" || f.startsWith("unsupported.");
+    const families = out.families.filter((f) => isClear(f.id));
+    for (const f of out.families.filter((x) => !isClear(x.id)))
+      record({ key: `dropped:${key}.family`, selectedId: f.id, confidence: f.confidence, source: "deterministic" });
+    // The words decide which clear it is: a clear or reset the verb governs ("clear everything" → the view), proposed
+    // in the clarify band or above, is taken as asked. Nothing the words don't govern is raised.
+    const THING: Record<string, string> = { "filter.clear": "filter", "sort.clear": "sort", "group.clear": "group", "view.reset": "view" };
+    const raised = families.map((f) =>
+      clears.governed.has(THING[f.id] ?? "") && f.confidence >= DEFAULT_CONFIDENCE.clarify ? { ...f, confidence: 1 } : f,
+    );
+    const { roles: _roles, ...rest } = out;
+    out = { ...rest, families: raised };
+  }
+  return out;
+};
+
 const NEGATED_VERB =
   /^(?:don't|dont|do not|never|no longer|not) (?!(?:show|include|display|list|see)\b)(?:hide|unhide|exclude|remove|drop|sort|order|group|ungroup|filter|clear|reset|keep|pin|move|add|put|rank|arrange)\b/;
 const NEGATION_WORD =

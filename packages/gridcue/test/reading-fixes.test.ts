@@ -3,7 +3,8 @@ import { compile } from "../src/core/compile";
 import { createGridCue } from "../src/core/controller";
 import { matchMentions } from "../src/core/mentions";
 import { type Literal, literalText, normalize } from "../src/core/normalize";
-import { emptyViewState, type ViewOperation } from "../src/core/protocol";
+import { emptyViewState, type ViewOperation, type ViewState } from "../src/core/protocol";
+import type { ClauseResolution, IntentProvider } from "../src/core/resolution";
 import { applyView, createRowsAdapter } from "../src/core/rows-adapter";
 import { defineSchema } from "../src/core/schema";
 import { unusedReadings } from "../src/core/unused";
@@ -1262,5 +1263,171 @@ describe("after the sixth round's re-check", () => {
     expect((await propose("market value over $1m")).preview?.lines).toEqual(["Filter Market value above $1,000,000"]);
     expect((await propose("concentration over 29.25%")).preview?.lines).toEqual(["Filter Concentration above 29.25%"]);
     expect((await propose("concentration over 10%")).preview?.lines).toEqual(["Filter Concentration above 10%"]);
+  });
+});
+
+describe("round seven: provider proposals that code narrows (fake provider)", () => {
+  const wealthLike = defineSchema(
+    [
+      { id: "account_number", label: "Account number" },
+      { id: "advisor_name", label: "Advisor" },
+      { id: "custodian", label: "Custodian", kind: "enum" },
+      { id: "household", label: "Household" },
+      { id: "registration_type", label: "Registration type" },
+      { id: "market_value", label: "Market value", kind: "currency" },
+      { id: "unrealized_gain", label: "Unrealized gain", kind: "currency" },
+      { id: "has_restricted_holding", label: "Restricted holdings", kind: "boolean" },
+    ],
+    {
+      rowNoun: "account",
+      columns: {
+        account_number: { aliases: ["account"] },
+        advisor_name: { aliases: ["advisor", "rep"] },
+        custodian: { enumValues: [{ id: "northgate", label: "Northgate" }] },
+        market_value: { aliases: ["value", "balance"] },
+        unrealized_gain: { aliases: ["gain"] },
+        has_restricted_holding: { aliases: ["restricted"] },
+      },
+    },
+  );
+  const fake = (clauses: Array<Partial<ClauseResolution>>): IntentProvider => ({
+    resolve: async () => ({
+      clauses: clauses.map((c, i) => ({ clauseIndex: i, families: [], columns: [], values: [], unmatchedTerms: [], ...c })),
+    }),
+  });
+  const base = emptyViewState(wealthLike.columns.map((c) => c.id));
+  const view: ViewState = {
+    ...base,
+    sorts: [{ columnId: "unrealized_gain", direction: "asc" }],
+    groupBy: ["advisor_name"],
+    filters: {
+      id: "g",
+      type: "group",
+      combinator: "and",
+      children: [{ id: "p1", type: "predicate", columnId: "custodian", operator: "eq", value: "northgate" }],
+    },
+  };
+  const run = async (text: string, provider: IntentProvider, state: ViewState = base) => {
+    const cue = createGridCue({ adapter: createRowsAdapter({ schema: wealthLike, initialState: state }), provider });
+    await cue.propose(text);
+    const st = cue.getState();
+    return st.status === "ready" ? st.plan?.operations : st.status;
+  };
+  const p = (id: string, confidence: number) => ({ id, confidence });
+
+  it("G1: drops a value the provider read from a word inside quoted text", async () => {
+    const provider = fake([
+      {
+        families: [p("filter", 0.98)],
+        columns: [p("advisor_name", 0.8), p("has_restricted_holding", 0.89), p("market_value", 0.53)],
+        values: [{ columnId: "has_restricted_holding", valueId: "true", confidence: 0.98 }],
+        literalColumns: [
+          { literalIndex: 0, columnId: "advisor_name", confidence: 0.61 },
+          { literalIndex: 1, columnId: "market_value", confidence: 1 },
+        ],
+      },
+    ]);
+    expect(filters((await run('advisor containing "restricted" and market value over $2m', provider)) as ViewOperation[])).toEqual([
+      ["advisor_name", "contains", "restricted"],
+      ["market_value", "gt", 2_000_000],
+    ]);
+  });
+
+  it("G1 neighbours: a provider pick with no Mention and no quotes is still accepted", async () => {
+    // "worth" is no declared name: the provider's column pick stands, as before.
+    const column = fake([
+      {
+        families: [p("filter", 0.95)],
+        columns: [p("market_value", 0.95)],
+        literalColumns: [{ literalIndex: 0, columnId: "market_value", confidence: 0.95 }],
+      },
+    ]);
+    expect(filters((await run("accounts worth over $1m", column)) as ViewOperation[])).toEqual([["market_value", "gt", 1_000_000]]);
+    const value = fake([
+      { families: [p("filter", 0.95)], values: [{ columnId: "has_restricted_holding", valueId: "true", confidence: 0.95 }] },
+    ]);
+    expect(filters((await run("show flagged accounts", value)) as ViewOperation[])).toEqual([["has_restricted_holding", "eq", true]]);
+  });
+
+  it("G2: asks when the plan would clear fewer things than the clear verb governs", async () => {
+    // Jev's own answer: its middling grouping clear is confirmed by the words, so both are cleared.
+    const jev = fake([{ families: [p("group", 0.79), p("filter.clear", 0.98), p("group.clear", 0.69), p("view.reset", 0.57)] }]);
+    expect(await run("clear filters, grouping", jev, view)).toEqual([{ type: "filter.clear" }, { type: "group.set", columnIds: [] }]);
+    // A provider that leaves the grouping out entirely: never ready with one clear.
+    const partial = fake([{ families: [p("filter.clear", 0.98), p("group.clear", 0.4)] }]);
+    expect(await run("clear filters, grouping", partial, view)).toBe("needs_clarification");
+    const both = fake([{ families: [p("filter.clear", 0.98), p("group.clear", 0.95)] }]);
+    expect(await run("clear filters, grouping", both, view)).toEqual([{ type: "filter.clear" }, { type: "group.set", columnIds: [] }]);
+  });
+
+  it("G3: drops a column change the provider proposes in a part that only clears", async () => {
+    const provider = fake([
+      {
+        families: [p("columns.hide", 0.85), p("filter.clear", 0.72), p("group.clear", 0.47), p("view.reset", 0.8)],
+        roles: [
+          { columnId: "account_number", family: "columns.hide", confidence: 0.86 },
+          { columnId: "household", family: "columns.hide", confidence: 0.88 },
+        ],
+      },
+      { families: [p("sort", 0.52), p("columns.show", 0.46)] },
+    ]);
+    expect(await run("clear everything but the sort", provider, view)).toEqual([
+      { type: "view.reset" },
+      { type: "sort.set", sorts: [{ columnId: "unrealized_gain", direction: "asc" }] },
+    ]);
+  });
+
+  it("G3 neighbour: a hide the provider proposes in a part that doesn't clear is unchanged", async () => {
+    const provider = fake([{ families: [p("columns.hide", 0.95)], columns: [p("household", 0.95)] }]);
+    expect(await run("tuck away the family name", provider)).toEqual([{ type: "columns.hide", columnIds: ["household"] }]);
+  });
+});
+
+describe("round seven addendum: released readings restored", () => {
+  const tasks = defineSchema(
+    [
+      { id: "task", label: "Task" },
+      { id: "name", label: "Account Name" },
+      { id: "case", label: "Case Type" },
+    ],
+    { rowNoun: "task" },
+  );
+  const filtered: ViewState = {
+    ...emptyViewState(tasks.columns.map((c) => c.id)),
+    sorts: [{ columnId: "case", direction: "asc" }],
+    groupBy: ["case"],
+    filters: {
+      id: "g",
+      type: "group",
+      combinator: "and",
+      children: [{ id: "p1", type: "predicate", columnId: "name", operator: "contains", value: "chen" }],
+    },
+  };
+  const run = async (text: string) => {
+    const cue = createGridCue({ adapter: createRowsAdapter({ schema: tasks, initialState: filtered }), provider: createMockProvider() });
+    await cue.propose(text);
+    const st = cue.getState();
+    return st.status === "ready" ? st.plan?.operations : st.message;
+  };
+
+  it("resets the view on “reset to default” and the plain resets", async () => {
+    for (const text of [
+      "reset to default",
+      "reset back to normal",
+      "reset",
+      "reset view",
+      "reset the view",
+      "reset all",
+      "reset everything",
+    ])
+      expect(await run(text), text).toEqual([{ type: "view.reset" }]);
+  });
+
+  it("reads the grid's own row noun before “view” as the grid", async () => {
+    expect(await run("reset my tasks view")).toEqual([{ type: "view.reset" }]);
+  });
+
+  it("clears one column's filter and the whole sort when both are named", async () => {
+    expect(await run("remove the account name filter and the sort")).toEqual([{ type: "filter.clear" }, { type: "sort.set", sorts: [] }]);
   });
 });

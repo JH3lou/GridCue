@@ -34,6 +34,13 @@
 - A range written high to low is put in order when both bounds carry a scale or neither does ("from $5M to $1M"). With a scale on only one ("between $1M and $2") it is asked about.
 - A possessive before the rows ("the advisor's accounts over $1M") and another record's name before "sorted" or "grouped" ("households sorted by value") describe the rows.
 
+- "Reset to default", "reset my accounts view" and "remove the account name filter and the sort" are read as before.
+
+**Provider proposals** (ADR 0022)
+- A column or value a provider picks from a word that appears only inside quoted text is dropped: `advisor containing "restricted"` added a Restricted holdings filter with Jev.
+- A plan that clears fewer things than the clear verb governs is asked about: "clear filters, grouping" cleared only the filters with Jev. A governed clear the provider scores at or above `clarify` is used.
+- In a part that only clears or resets, any other change a provider proposes is dropped: "clear everything but the sort" previewed a hide of columns nobody named.
+
 **Preview**
 - An amount is stated exactly. "Market value $1.50" previewed "to $2", and a percentage was rounded to one decimal.
 

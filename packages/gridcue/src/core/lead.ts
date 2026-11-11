@@ -105,7 +105,8 @@ export const governedClears = (text: string): { governed: Set<string>; hasClearV
     // stays ("the grouping stays", "the filter alone") is not.
     const kept = items.filter((item) => !STAYS.test(text.slice(item.end)));
     for (const item of kept) if (item.thing) governed.add(item.thing);
-    if (verb === "reset" && items.length === 0 && /^\s*$/.test(text.slice((m.index ?? 0) + m[0].length))) governed.add("view");
+    // "Reset", "reset all", "reset to default", "reset back to normal": the whole view.
+    if (verb === "reset" && items.length === 0 && RESET_ALONE.test(text.slice((m.index ?? 0) + m[0].length))) governed.add("view");
   }
   // Any other layout word must be marked as staying ("don't touch the sort", "leave the grouping as is"); one that is
   // neither governed nor staying is unclear, so the caller asks.
@@ -123,6 +124,7 @@ export const governedClears = (text: string): { governed: Set<string>; hasClearV
   }
   return { governed, hasClearVerb, ungoverned };
 };
+const RESET_ALONE = /^\s*(?:all\s*|(?:back\s+)?to\s+(?:the\s+)?(?:defaults?(?:\s+view)?|normal|original)\s*)?[.!]?\s*$/;
 const LAYOUT_WORD = /\b(?:filters?|filtering|sorts?|sorting|ordering|grouping|groups?)\b/g;
 /** Words that mark what follows them, up to the next comma, as staying. */
 const STAYING_BEFORE =
