@@ -24,6 +24,9 @@ One part of an Utterance that asks for one kind of change. Code splits Clauses d
 | "Grouped by household sorted largest to smallest" | "grouped by household" · "sorted largest to smallest" |
 | "Roth IRAs grouped by rep" | one Clause: a value before another change's verb describes which rows |
 | "Show accounts where value is over $1M" | one Clause: "show" and "where" both choose rows |
+| `Advisor containing "Smith. Jones"` | one Clause: quoted text is never split and never read as an instruction |
+
+Comparisons are read as words or symbols, spaced or not: "over", "under", "at least", "at most", "at or above", "no greater than", "greater than or equal to", "since", `>`, `<`, `>=`, `<=`, `=`, and "$1M or more" or "$1M max" after the amount. A minus sign or "negative" right before an amount makes it negative ("gain below -$50k"); a hyphen between two amounts is a range ("$50k-$100k", "10-20%"). An amount is read only when what follows it is the end of the part or something GridCue reads, such as a name or "grouped by"; "$1M, roughly" and "over $1M or so" are asked about. With no comparison it is "equal to" only when it sits right by its column ("market value $750k", "opened on 2024-01-01"). Otherwise, as with "around $1M", `!= $1M` or "$1M give or take", GridCue asks. Filters always combine with "and", so "over $1M or at Northgate" is asked about too. "Hide taxable accounts" and "exclude accounts over $1M" keep the other rows when they leave out one simple condition; anything more is asked about.
 
 Size words set a sort direction: "largest to smallest", "biggest first", "top" and "largest" sort descending; "smallest to largest", "smallest first" and "smallest" ascending. With no column named, they sort by the schema's [`defaultMeasure`](/docs/api/schema#schemaoptions), or GridCue asks which column. A count after a size word ("top 10", "largest 5") is a count, never a filter value: it becomes [`limit.set`](/docs/api/protocol#viewoperation) where the adapter supports it.
 
@@ -53,8 +56,11 @@ A single focused question GridCue asks when it can't resolve a request without a
 | "Show the big accounts" | "What should “show the big accounts” filter on? Include a value, such as an amount or a category." |
 | "Largest households first" | "Did you mean households as a whole? GridCue can group by Household." |
 | "Accounts over $1 million", when the provider can't tell which column the amount applies to | "Which column should be above $1,000,000?" |
+| "Market value around $1M" | "I'm not sure how to compare with “$1m”. Try “over”, “under”, “at least”, or “exactly”." |
+| "Accounts over $2M or at Northgate" | "GridCue can only show rows that match every condition, not either one. Ask for one at a time." |
+| "Group by custodian over $1M", when nothing in the plan uses the amount | "I'm not sure what to do with “$1m”. Try rephrasing that part." |
 
-GridCue does not invent a threshold for "big" or pick a column for "$1 million" on a guess. Answering is one call:
+GridCue does not invent a threshold for "big" or pick a column for "$1 million" on a guess. Before a plan is ready, GridCue also checks that its operations use every amount, quoted text, date, count and name it read from the request, and asks about anything left over by its words. The check catches a dropped part, not a part read the wrong way, so the comparison and column rules above still matter. Answering is one call:
 
 ```ts
 cue.answer(clarificationId, optionId);

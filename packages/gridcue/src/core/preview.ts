@@ -1,4 +1,5 @@
 import { type ConfidencePolicy, DEFAULT_CONFIDENCE } from "./compile";
+import { formatAmount } from "./format";
 import type { ColumnDescriptor, FilterGroup, FilterPredicate, Scalar, ViewOperation, ViewPlan, ViewSchema, ViewState } from "./protocol";
 
 const OPERATOR_TEXT: Record<FilterPredicate["operator"], string> = {
@@ -16,16 +17,12 @@ const OPERATOR_TEXT: Record<FilterPredicate["operator"], string> = {
   isNotEmpty: "to not empty",
 };
 
-const currency = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
-
 /** Formats a filter value for people, using the column's kind and approved enum labels. */
 export const formatValue = (value: Scalar, column?: ColumnDescriptor): string => {
   if (value === null) return "empty";
   if (column?.kind === "boolean" || typeof value === "boolean") return value ? "Yes" : "No";
   if (column?.kind === "enum") return column.enumValues?.find((e) => e.id === value)?.label ?? String(value);
-  if (typeof value === "number" && column?.kind === "currency") return currency.format(value);
-  if (typeof value === "number" && column?.kind === "percent") return `${Math.round(value * 1000) / 10}%`;
-  if (typeof value === "number") return value.toLocaleString("en-US");
+  if (typeof value === "number") return formatAmount(value, column?.kind);
   return `“${value}”`;
 };
 

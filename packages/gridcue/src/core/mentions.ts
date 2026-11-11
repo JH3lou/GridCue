@@ -1,4 +1,4 @@
-import type { Clause, LiteralKind } from "./normalize";
+import { type Clause, type LiteralKind, unquoted } from "./normalize";
 import type { ColumnKind, EnumValue } from "./protocol";
 import { findMentions, type TextMatch } from "./text-match";
 
@@ -51,18 +51,25 @@ export interface MentionColumn {
 // "accounts with …", "sort households by …", "accounts over $1M" when Account number can't hold an amount.
 // The rules lean toward "the rows": a name wrongly read as the rows falls back to the provider, while one
 // wrongly read as a column overrides it.
-const QUALIFIER_AFTER = /^\s*(?:with|without|where|whose|that|which|at|in|from|having|held|owned)\b/;
+// "At" is a qualifier ("accounts at Northgate") except where it starts a comparison or an amount: "gain at least
+// $100k", "market value at $1m".
+const QUALIFIER_AFTER =
+  /^\s*(?:with|without|where|whose|that|which|at(?!\s+(?:(?:least|most|or\s+(?:above|below))\b|[-−$\d]))|in|from(?!\s+[-−$\d])|having|held|owned)\b/;
 const BY_AFTER = /^\s*by\b/;
 const COMPARISON_AFTER =
-  /^\s*(?:(?:is|are)\s+)?(?:over|under|above|below|exceed(?:s|ing)?|more than|less than|greater than|fewer than|at least|at most|up to|between|>|<)/;
+  /^\s*(?:(?:is|are)\s+)?(?:(?:no|not)\s+)?(?:over|under|above|below|exceed(?:s|ing)?|(?:more|greater|larger|bigger|higher|less|fewer|smaller|lower) than|at least|at most|at or above|at or below|up to|between|from(?=\s+[-−$\d])|[<>=≤≥])/;
 // A superlative ranks rows: "biggest accounts first", "largest households first", "top 10 households" (ADR 0018).
 const SUPERLATIVE_BEFORE =
   /\b(?:biggest|largest|smallest|highest|lowest|greatest|least|most|top|bottom|best|worst|richest|poorest|newest|oldest)\s+(?:(?:\d{1,3}(?:,\d{3})+|\d+)\s+)?(?:[\p{L}-]+\s+)?$/u;
 // These slots always hold a column: "sort by value in descending order", "hide the account column".
 const COLUMN_SLOT_BEFORE = /\b(?:by|on)\s+(?:the\s+)?$/;
 const COLUMN_WORD_AFTER = /^\s*columns?\b/;
+/** Where a quoted name is a column: 'hide "gain"', 'sort by "market value"', 'columns: "gain", "advisor"'. */
+const QUOTED_COLUMN_BEFORE = /(?:\b(?:hide|unhide|show|by|on|keep|only|columns?|and)|,|:) ?(?:the )?$/;
 
-const nameKey = (name: string) => (name.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []).join(" ");
+// A symbol that ends a name ("Available Cash $") is part of it, so "Available Cash $" and "Available Cash %" stay apart.
+const nameKey = (name: string) =>
+  [...(name.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []), ...(/([^\p{L}\p{N}\s])\s*$/u.exec(name)?.slice(1) ?? [])].join(" ");
 
 /** Keeps only names that point at exactly one item. An ambiguous name is left to the provider. */
 const unambiguous = <T>(entries: Array<{ item: T; key: string; names: string[] }>) => {
@@ -81,21 +88,26 @@ const placement = (
   clause: Clause,
   hit: TextMatch<MentionColumn>,
   others: ReadonlyArray<TextMatch<unknown>>,
-): "column" | "rows" | "ranked" | undefined => {
+): "column" | "rows" | "ranked" | "mismatch" | undefined => {
   const before = clause.text.slice(0, hit.start);
   const after = clause.text.slice(hit.end);
-  if (COLUMN_SLOT_BEFORE.test(before) || COLUMN_WORD_AFTER.test(after)) return "column";
-  if (others.some((o) => o !== hit && o.end <= hit.start && /^\s*$/.test(clause.text.slice(o.end, hit.start)))) return "rows";
+  // A name written with its symbol ("account #") is the declared column name, never the rows.
+  if (COLUMN_SLOT_BEFORE.test(before) || COLUMN_WORD_AFTER.test(after) || /[^\p{L}\p{N}\s]/u.test(clause.text.slice(hit.start, hit.end)))
+    return "column";
+  const wordEnd = before.trimEnd().length;
+  if (others.some((o) => o !== hit && o.end <= hit.start && o.end >= wordEnd)) return "rows";
   if (QUALIFIER_AFTER.test(after) || BY_AFTER.test(after)) return "rows";
   // A yes/no column can't be ranked, so "the most restricted accounts" still names Restricted holdings.
   // Ranked by a superlative. For the grid's own row noun that is the rows; for another entity it may be the records.
   if (SUPERLATIVE_BEFORE.test(before) && hit.item.kind !== "boolean") return "ranked";
-  if (COMPARISON_AFTER.test(after)) {
-    // With an amount after it, the kind decides: "value over $1M" is a column, "accounts over $1M" the rows.
-    // With none, the word is a preposition: "accounts under each advisor".
+  // An amount right after the name reads like a comparison: "accounts $500k minimum".
+  const amountNext = clause.literals.some((l) => l.at >= hit.end && l.kind !== "text" && /^\s*$/.test(clause.text.slice(hit.end, l.at)));
+  if (COMPARISON_AFTER.test(after) || amountNext) {
+    // With an amount after it, the kind decides: "value over $1M" is a column, "accounts over $1M" the rows (the
+    // caller decides which, from the noun). With none, the word is a preposition: "accounts under each advisor".
     const literal = clause.literals.filter((l) => l.at >= hit.end).sort((a, b) => a.at - b.at)[0];
     if (!literal) return "rows";
-    return literal.kind !== "unreadable" && !LITERAL_COLUMN_KINDS[literal.kind].includes(hit.item.kind) ? "rows" : undefined;
+    return literal.kind !== "unreadable" && !LITERAL_COLUMN_KINDS[literal.kind].includes(hit.item.kind) ? "mismatch" : undefined;
   }
   return undefined;
 };
@@ -105,7 +117,9 @@ const EACH_BEFORE = /\b(?:each|every|per)\s+$/;
 /** "households" and "household" name the same noun. */
 const singular = (words: string) => nameKey(words).replace(/(?:es|s)$/, "");
 /** A value named after one of these is excluded, not chosen: "non-retirement", "excluding trusts". Left to the provider. */
-const NEGATED_BEFORE = /\b(?:non|not|no|excluding|except|without)(?:\s+(?:at|in|from|with))?[\s-]*$/;
+// "Hide taxable accounts", "exclude the trusts": the rows named are the ones to leave out (filtered to the others).
+const NEGATED_BEFORE =
+  /\b(?:non|not(?: including)?|no|excluding|except|but|other than|apart from|besides|without|hide|exclude|remove|(?:don't|dont|do not|never|no longer) (?:show|include|display|list|see)(?: me)?)(?:\s+(?:at|in|from|with|the|all|any))?[\s-]*$/;
 /** What joins the values of one list: "Northgate or Harborline", "trusts, IRAs, and Roths". */
 const LIST_JOIN = /^\s*(?:,\s*)?(?:(?:or|and|nor)\s+)?(?:(?:at|in|from)\s+)?$/;
 
@@ -135,11 +149,32 @@ export const matchMentions = (
   );
   // A row noun or entity word that grammar leaves undecided may mean the column or the records.
   const nouns = (col: MentionColumn) => [options.rowNoun, col.entity].filter((n): n is string => !!n).map(singular);
-  const columnEntries = unambiguous(columns.map((c) => ({ item: c, key: c.id, names: [c.label, ...(c.aliases ?? [])] })));
+  // A name that ends in a symbol ("Yield %") is also read without it ("yield over 5%"), unless another column's name
+  // reads the same without its symbol ("Cash $" and "Cash %"): then the symbol is needed to tell them apart.
+  const bare = (n: string) => n.replace(/\s*[^\p{L}\p{N}\s]\s*$/u, "");
+  const bareOwners = new Map<string, Set<string>>();
+  for (const c of columns)
+    for (const n of [c.label, ...(c.aliases ?? [])])
+      bareOwners.set(nameKey(bare(n)), (bareOwners.get(nameKey(bare(n))) ?? new Set()).add(c.id));
+  const withBare = (names: string[]) => [
+    ...names,
+    ...names.filter((n) => bare(n) !== n && bare(n) && bareOwners.get(nameKey(bare(n)))?.size === 1).map(bare),
+  ];
+  const columnEntries = unambiguous(columns.map((c) => ({ item: c, key: c.id, names: withBare([c.label, ...(c.aliases ?? [])]) })));
+  const columnNames = new Set(columnEntries.flatMap((e) => e.names.map(nameKey)));
   return clauses.flatMap((clause) => {
-    // Values first, masked out, so "Roth IRA" is not also read as a column name.
-    const values = findMentions(clause.text, valueEntries);
-    const masked = values.reduce((t, h) => t.slice(0, h.start) + " ".repeat(h.end - h.start) + t.slice(h.end), clause.text);
+    // Values first, masked out, so "Roth IRA" is not also read as a column name. Quoted text is a value as written
+    // (`advisor containing "Northgate"`), never one of the Host's values.
+    const values = findMentions(unquoted(clause.text), valueEntries);
+    // A quoted column name in a column slot is still that column ('hide "market value"'). Quoted text anywhere else
+    // is a value as written (`advisor containing "custodian"`), never a name.
+    const quotedColumns = clause.text.replace(/"([^"]+)"/g, (s, inner: string, at: number) =>
+      columnNames.has(nameKey(inner)) &&
+      (QUOTED_COLUMN_BEFORE.test(clause.text.slice(Math.max(0, at - 24), at)) || COLUMN_WORD_AFTER.test(clause.text.slice(at + s.length)))
+        ? s
+        : " ".repeat(s.length),
+    );
+    const masked = values.reduce((t, h) => t.slice(0, h.start) + " ".repeat(h.end - h.start) + t.slice(h.end), quotedColumns);
     const cols = findMentions(masked, columnEntries);
     const all: TextMatch<unknown>[] = [...values, ...cols];
     // A negation covers a list of values of the same column: "not at Northgate or Harborline".
@@ -176,6 +211,14 @@ export const matchMentions = (
         // column (review fix).
         const rankedEntity = place === "ranked" && (isEntity || sized) && !isRowNoun;
         if (place === "rows" || (place === "ranked" && !rankedEntity)) return [];
+        // A name before an amount it can't hold is the rows when it is the grid's row noun or another entity
+        // ("accounts over 10%", "households over $10M"), or when the Host declares no row noun to tell them apart.
+        // Any other column stays named, so the compiler asks about it rather than filter another column: "gain
+        // over 10%".
+        // With no row noun declared, only a column that holds no amount at all can be the rows: "accounts over $1M"
+        // (Account number is text). A column that holds another kind of amount is a measure: "gain over 10%".
+        const holdsAmount = ["number", "currency", "percent", "date", "datetime"].includes(h.item.kind);
+        if (place === "mismatch" && (isEntity || nouns(h.item).includes(singular(text)) || (!options.rowNoun && !holdsAmount))) return [];
         const ambiguous = rankedEntity || (place === undefined && nouns(h.item).includes(singular(text)));
         if (rankedEntity && !sized) {
           return [{ clauseIndex: clause.index, columnId: h.item.id, start: h.start, end: h.end, ambiguous: true, text, records: true }];

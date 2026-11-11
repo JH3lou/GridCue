@@ -15,7 +15,7 @@ export interface EvalCase {
   id: string;
   utterance: string;
   /** Starts the grid from this view instead of the default, e.g. already grouped by custodian. */
-  state?: Partial<Pick<ViewState, "groupBy" | "sorts">>;
+  state?: Partial<Pick<ViewState, "groupBy" | "sorts" | "filters">>;
   expect: {
     status: ViewPlan["status"];
     operations?: unknown[];
