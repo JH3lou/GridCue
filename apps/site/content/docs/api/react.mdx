@@ -36,7 +36,7 @@ interface GridCueBinding extends ControllerState {
 | `status` | `InteractionStatus` | Where the current request is. |
 | `utterance` | `string` | The text of the current request. |
 | `plan` | `ViewPlan \| null` | The compiled View Plan. Read `plan.clarifications` to render a Clarification. |
-| `preview` | `Preview \| null` | What the plan will change: `lines` (one per operation) and `text`. |
+| `preview` | `Preview \| null` | What the plan will change: `lines` (one per operation), `notes` (where the plan differs from the request's words) and `text`. |
 | `message` | `string \| null` | A short, User-facing message for the current status. |
 | `issues` | `Issue[]` | Problems found, each with a stable `code`. |
 | `canUndo` | `boolean` | Whether the last apply can be undone right now. |
@@ -62,6 +62,7 @@ function MyBar({ controller }: { controller: GridCueController }) {
       {cue.status === "ready" && cue.preview && (
         <>
           <ul>{cue.preview.lines.map((line) => <li key={line}>{line}</li>)}</ul>
+          {cue.preview.notes?.map((note) => <p key={note}>{note}.</p>)}
           <button type="button" aria-keyshortcuts={APPLY_SHORTCUT.aria} onClick={() => void cue.apply()}>Apply</button>
         </>
       )}
@@ -168,4 +169,4 @@ The dark defaults apply under `prefers-color-scheme: dark`. The bar's outer radi
 }
 ```
 
-The classes it uses, for finer overrides: `gridcue-bar`, `gridcue-form`, `gridcue-label`, `gridcue-row`, `gridcue-input`, `gridcue-button`, `gridcue-primary`, `gridcue-status` (with a `data-status` attribute set to the current status), `gridcue-status-label`, `gridcue-message`, `gridcue-panel`, `gridcue-fieldset`, `gridcue-heading`, `gridcue-list`, `gridcue-note`, `gridcue-actions` and `gridcue-hint`.
+The classes it uses, for finer overrides: `gridcue-bar`, `gridcue-form`, `gridcue-label`, `gridcue-row`, `gridcue-input`, `gridcue-button`, `gridcue-primary`, `gridcue-status` (with a `data-status` attribute set to the current status), `gridcue-status-label`, `gridcue-message`, `gridcue-panel`, `gridcue-fieldset`, `gridcue-heading`, `gridcue-list`, `gridcue-caveat` (a Preview note), `gridcue-note`, `gridcue-actions` and `gridcue-hint`.

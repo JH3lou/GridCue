@@ -857,6 +857,7 @@ export const compile = (c: CompileInput): ViewPlan => {
           for (const [id, ids] of byColumn) {
             const ops = operatorsFor(column(id) ?? ({ kind: "enum" } as ColumnDescriptor));
             const out = excluded.filter((m) => m.columnId === id).map((m) => m.valueId ?? "");
+            const filtersBefore = predicates.length;
             const chosen = answers[`${key}.value.${id}`];
             if (chosen !== undefined && ids.includes(chosen) && ops.includes("eq")) {
               // The User picked one value from the one-value-at-a-time question below (review fix).
@@ -890,6 +891,12 @@ export const compile = (c: CompileInput): ViewPlan => {
                 options: ids.map((v) => ({ id: v, label: column(id)?.enumValues?.find((e) => e.id === v)?.label ?? v })),
                 required: true,
               });
+            }
+            // Keeping "every value but these" also leaves out rows with no value, which the request didn't name. The
+            // Preview says so (`leftOutEmpty`). "Not equal" keeps those rows.
+            const added = predicates.length > filtersBefore ? predicates.at(-1) : undefined;
+            if (out.length > 0 && added && added.operator !== "neq") {
+              evidence.push({ key: `${key}.leftOutEmpty`, selectedId: id, confidence: 1, source: "deterministic" });
             }
           }
           const used = new Set<string>();
@@ -1009,6 +1016,8 @@ export const compile = (c: CompileInput): ViewPlan => {
               return;
             }
             pred(target.id, kept, operator === "between" ? { min: lit.value, max: lit.upper ?? lit.value } : lit.value);
+            // "At or below $1m" also leaves out rows with no amount, which "exclude accounts over $1m" didn't name.
+            if (excludes) evidence.push({ key: `${key}.leftOutEmpty`, selectedId: target.id, confidence: 1, source: "deterministic" });
           });
           // "Over $1m or at Northgate": filters always combine with "and", so either-or across columns is asked about.
           // "Northgate or Harborline" is one column, and one filter.

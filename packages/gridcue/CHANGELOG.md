@@ -45,6 +45,8 @@
 
 **Preview**
 - An amount is stated exactly, below a cent too ("$0.0004"). "Market value $1.50" previewed "to $2", and a percentage was rounded to one decimal.
+- A request that leaves rows out ("exclude accounts over $1M", "non-retirement accounts") keeps the rest with a filter that also drops rows with no value in that column. `Preview.notes` now says so: "Rows with no Market value are hidden too".
+- The built-in bar and the registry's `PreviewPanel` show `Preview.notes`, under the list of changes. The note for a count the grid can't apply ("top 10") was in `text` only, so neither UI showed it. The bar's new class is `gridcue-caveat`.
 
 **Mock Provider**
 - A yes/no column in a column list ("the advisor and restricted holdings columns", "hide the restricted holdings column") is a column, not a filter. "Hide restricted accounts" hides those rows; "hide restricted households" and "hide restricted accounts at Northgate" are asked about.

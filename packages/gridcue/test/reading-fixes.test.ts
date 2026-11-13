@@ -1290,6 +1290,8 @@ describe("review of the reading fixes", () => {
     ],
     groupBy: ["custodian", "owner"],
   };
+  const filtersOf = (ops: readonly ViewOperation[] | undefined) =>
+    (ops ?? []).flatMap((op) => (op.type === "filter.add" ? [op.predicate] : []));
   // `state` is the view the User is looking at; `defaults` is the view a reset returns to.
   const run = async (text: string, state: Partial<ViewState>, defaults: Partial<ViewState> = {}) => {
     const adapter = createRowsAdapter({ schema, initialState: { ...base, ...defaults } });
@@ -1341,6 +1343,28 @@ describe("review of the reading fixes", () => {
         /A reset brings back the default view's own filters/,
       );
     }
+  });
+
+  it("notes in the Preview that leaving rows out also hides rows with no value there", async () => {
+    const amount = (await propose("exclude accounts over $1m")).preview;
+    expect(amount?.lines).toEqual(["Filter Market value at or below $1,000,000"]);
+    expect(amount?.notes).toEqual(["Rows with no Market value are hidden too"]);
+    expect(amount?.text).toBe(
+      "Filter Market value at or below $1,000,000; rows with no Market value are hidden too. No records will be changed.",
+    );
+    // A named value left out keeps the column's other values, which has the same effect.
+    const value = (await propose("accounts not at northgate")).preview;
+    expect(value?.lines).toEqual(["Filter Custodian to Harborline"]);
+    expect(value?.notes).toEqual(["Rows with no Custodian are hidden too"]);
+    // The rows the request names are the rows the filter keeps: nothing to note.
+    expect((await propose("accounts at or below $1m")).preview?.notes).toEqual([]);
+    expect((await propose("accounts at harborline")).preview?.notes).toEqual([]);
+    // And the rows are in fact hidden: the note is true.
+    const rows = [{ value: 2_000_000 }, { value: 500_000 }, { value: null }, {}];
+    const cue = createGridCue({ adapter: createRowsAdapter({ schema }), provider });
+    const plan = await cue.propose("exclude accounts over $1m");
+    const after: ViewState = { ...base, filters: { id: "g", type: "group", combinator: "and", children: filtersOf(plan?.operations) } };
+    expect(applyView(rows, after, schema).rows).toEqual([{ value: 500_000 }]);
   });
 
   it("asks about keeping the filters through a reset when `compile` isn't told the default view", () => {
