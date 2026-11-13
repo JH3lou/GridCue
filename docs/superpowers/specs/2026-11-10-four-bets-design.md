@@ -115,6 +115,8 @@ const reading = controller.read("roth accounts over $1m by rep desc");
 //  { start: 30, end: 34, kind: "direction", text: "desc",     meaning: "descending" }]
 ```
 
+`read` also takes where the caret is: `controller.read(text, { caret })`, an index into the text as typed. It defaults to the end of the text. Marks never depend on it; only the completion in 5.5 does. It is part of `read` from this PR, so the call does not change when completion arrives.
+
 What gets a mark:
 
 | Read | Mark |
@@ -133,7 +135,7 @@ Two rules stop marks from appearing and then vanishing as the User types:
 
 **The matcher is built once per Controller,** not on every call. `matchMentions` keeps its signature and uses the same matcher.
 
-**React.** `useGridCue` gains `read`. Both UIs call it with the input's text on each change.
+**React.** `useGridCue` gains `read`. Both UIs call it with the input's text and caret on each change, and again when the caret moves in unchanged text.
 
 **UI.** See the design pass in section 7. The marks are an underline in the input and a reading line beneath:
 
@@ -152,7 +154,13 @@ const sentence = describeView(state, schema, { defaultState });
 - **Labels only.** The sentence uses the Host's column and value labels, never IDs and never aliases.
 - **Columns are described against the default view:** "hide Custodian" when some are hidden, "show only A, B and C" when the order changed.
 - **The exact wording is settled by the round-trip test,** not by this spec. The example above is the starting point. Friendlier forms, such as "Taxable accounts", are used only where the test stays at 100% on both schemas.
-- **`roundTrips`** is true when the text, typed on the default view, reproduces the state with no provider. It is false when the view holds something prose can't carry or no request can reach, and `unsaid` names each in plain words: a value containing a quote mark, a label that is an instruction word, an OR filter, a pinned column, a summary, a density.
+- **`roundTrips`** is true when the text, typed on the default view, reproduces the state with no provider. It is false only for a reason on this list, and `unsaid` names each one that applies in plain words:
+  - a value containing a quote mark;
+  - a label that is an instruction word;
+  - an OR filter;
+  - a pinned column, a summary, or a density;
+  - a sentence longer than the Host's input limit.
+- **False is not a failure.** Requests can reach some of these views: several short requests can build one whose sentence is too long to type. False for any reason not on the list is a defect.
 - A sentence can be longer than the default 500-character limit. `proposeView` is the way to bring a view back, so the limit does not change.
 
 **The Controller's state gains `view`,** the sentence for the grid's current view. It updates on every change the Grid Adapter reports, including the User's own clicks (ADR 0009), and is computed once per Revision.
@@ -211,7 +219,7 @@ createGridCue({ adapter, provider });                // as today
 
 - A direction phrase that isn't written after one column ("largest first", "high to low") still applies to its whole part, as today.
 - Short names are the Host's `aliases` (`adv`, `mv`). GridCue adds none of its own.
-- **Tab completes a name.** When the word at the caret starts exactly one declared label or alias, and is at least two characters, `read` returns a `completion`. The reading line shows it, and Tab inserts it. With no completion, Tab moves focus as usual, so the input is never a focus trap.
+- **Tab completes a name.** When the word at the caret (`read`'s `caret`, 5.2) starts exactly one declared label or alias, and is at least two characters, `read` returns a `completion`. The reading line shows it, and Tab inserts it at the caret, leaving the rest of the text as it is. Moving the caret to another word changes the completion without a keystroke. With no completion, Tab moves focus as usual, so the input is never a focus trap.
 - The docs gain a "Terse requests" guide. The agent skill mentions aliases for it.
 
 ## 6. Public API and protocol
@@ -221,7 +229,7 @@ All additive. Nothing is removed or renamed.
 | Addition | Entry | PR |
 | --- | --- | --- |
 | `Clause.source`, spans on directions and counts | root | 2 |
-| `controller.read(text)`, `Reading`, `ReadingMark` | root | 2 |
+| `controller.read(text, { caret? })`, `Reading`, `ReadingMark` | root | 2 |
 | `read` on the `useGridCue` binding | `gridcue/react` | 2 |
 | `describeView`, `ViewSentence` | root | 3 |
 | `ControllerState.view` | root | 3 |
@@ -264,7 +272,7 @@ Every set is synthetic. Every held-out set is written and labelled before the co
 | ADR 0019's check (4.3) | Every labelled case whose expected plan is ready, in all sets | It blocks none of them when given the expected operations |
 | Marks (5.2) | Every labelled request, typed one character at a time; a fresh held-out set of 40 | At the last keystroke, every mark is in the final plan. A mark shown and then withdrawn, while its words are unchanged, in at most 2% of requests (20% today) |
 | Matcher cost (5.2) | A synthetic schema: 200 columns, 20 values each | Median at most 1 ms per call, worst at most 8 ms (12 ms and 73 ms today) |
-| Round trip (5.3) | 1,500 random reachable views on each of two schemas, fixed seeds | 100% identical with the Local Resolver alone, for every view where `roundTrips` is true. `roundTrips` is false for none of the views requests can reach |
+| Round trip (5.3) | 1,500 random reachable views on each of two schemas, fixed seeds | For every view, one of two things holds. `roundTrips` is true and the text reproduces the view exactly with the Local Resolver alone. Or it is false and `unsaid` names a reason listed in 5.3. The test works out for itself whether a view holds a listed reason, and `roundTrips` must agree, so false is never a way around a failed round trip. The share of false views is reported for each schema, by reason, with no bar |
 | `proposeView` (5.3) | The same random views, proposed from random starting views | The applied view equals the proposed one, or the result is unsupported. Never a different view |
 | Local Resolver (5.4) | All existing sets (188), the reading sets, the terse sets, and two fresh sets of at least 60, one on a second schema | 0 wrong views among locally resolved results. The local share is reported for each set, with no bar |
 | Terse (5.5) | The 24 compressed lines from the first test (now seen, so a dev set) and a fresh held-out set of at least 30 | 0 wrong views. At least 90% exact on the held-out set, locally |

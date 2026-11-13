@@ -175,3 +175,16 @@ The spec (`docs/superpowers/specs/2026-11-10-four-bets-design.md`) and the plan 
 | Keep the five older wrong views the review found in the fix PR | Approved |
 
 The owner also asked for the new version to be tested in a representative Host application before it is relied on.
+
+## Review of the spec, and build order (owner, 2026-11-13)
+
+An outside review of the spec raised two points. Each was put to the owner with a recommended change.
+
+| Question | Answer |
+| --- | --- |
+| The round-trip bar said `roundTrips` is false for no reachable view, but 5.3 allows it. Reword the bar so false is allowed only for the reasons 5.3 lists | "whatever is more correct and aligned to the best product" |
+| Tab completion reads "the word at the caret", but `read(text)` takes only the text. Add an optional caret position, or limit completion to the end of the input | "sure implement what is great" |
+
+Both changes are in the spec: 5.3 lists every reason `roundTrips` may be false, the test checks each against the view itself, and `read` takes an optional `caret` from PR 2.
+
+The owner also set the build order: "5 opportunities first then four bets in terms of build priority." The five opportunities are planned in their own grill, spec, and plan. PRs 2 to 5 of this plan wait for them. PR 1 is not affected.
