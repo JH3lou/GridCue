@@ -32,9 +32,11 @@ npm adds a trusted publisher only to a package that already exists, so 0.1.0 is 
 
 1. **Update the version** in `packages/gridcue/package.json` and `.claude-plugin/plugin.json` (`pnpm check:skills` fails when they differ), and add its section to `packages/gridcue/CHANGELOG.md` with the release date. The Site's changelog page renders that file.
 2. **Merge to `main`** through a PR. CI runs `pnpm check`.
-3. **Tag the merge commit and push the tag:**
+3. **Tag the merge commit and push the tag.** The tag is read from that commit's `packages/gridcue/package.json`, so it always matches the version you merged:
    ```bash
-   git fetch origin && git tag v0.2.0 <merge-sha> && git push origin v0.2.0
+   git fetch origin && RELEASE_SHA=<merge-sha>   # the merge commit from step 2
+   VERSION=$(git show "$RELEASE_SHA:packages/gridcue/package.json" | node -p 'JSON.parse(require("fs").readFileSync(0)).version')
+   git tag "v$VERSION" "$RELEASE_SHA" && git push origin "v$VERSION"
    ```
 4. **The Release workflow**:
    - checks that the tag matches the package version;
