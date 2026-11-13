@@ -18,6 +18,8 @@
 - "Or" between conditions on different columns, or at the start of a part, is asked about, since filters combine with "and": "over $1M or at Northgate" filtered both. "Northgate or Harborline" is still one filter.
 - A part that leaves rows out keeps the complement of one simple condition: "hide taxable accounts" keeps the other registration types, "exclude accounts over $1M" keeps at most $1M. Each filtered to the rows named. More than one condition, a second negation, or "except" is asked about.
 - A clear or reset of the view's filters that says what to keep keeps it only when the view already has it: "clear filters except accounts over $1M". "Clear the market value filter" clears only that column's filters when the current filters are one "and" list. Each previewed a plain clear. "Remove northgate accounts except trusts" is no clear and is asked about.
+- A clear of one named column after another change to the same thing in the request ("clear the market value filter and clear the gain filter") is asked about.
+- "Reset everything except the filters" is ready only when the default view has no filters of its own; otherwise the reset would add them to the kept ones, so it is asked about. `compile` takes the view a reset returns to as `defaultState`; the Controller passes it.
 - No filter is read from a part whose first word is unknown and acts on something ("close all trust accounts", "mark the taxable accounts as reviewed"). Verbs GridCue reads only for columns (add, put, move, pin, arrange, bring, place, shift) count as a view request only when their object is columns ("add the custodian column"); on rows ("move the IRA accounts to Harborline") they are asked about.
 - Quoted text is never split by punctuation inside it, and never read as an instruction, one of the Host's values, or a column name outside a column slot (`advisor containing "custodian"`).
 - A name declared with a trailing symbol ("account #") is read whole, and words inside a declared name ("Advisor Group") are never read as a verb.
@@ -38,11 +40,11 @@
 
 **Provider proposals** (ADR 0022)
 - A column or value a provider picks from a word that appears only inside quoted text is dropped: `advisor containing "restricted"` added a Restricted holdings filter with Jev.
-- A plan that clears fewer things than the clear verb governs is asked about: "clear filters, grouping" cleared only the filters with Jev. A governed clear the provider scores at or above `clarify` is used.
+- A plan that clears fewer things than the clear verb governs is asked about: "clear filters, grouping" cleared only the filters with Jev. A governed clear the provider scores at or above the Host's `clarify` band is used.
 - In a part that only clears or resets, any other change a provider proposes is dropped: "clear everything but the sort" previewed a hide of columns nobody named.
 
 **Preview**
-- An amount is stated exactly. "Market value $1.50" previewed "to $2", and a percentage was rounded to one decimal.
+- An amount is stated exactly, below a cent too ("$0.0004"). "Market value $1.50" previewed "to $2", and a percentage was rounded to one decimal.
 
 **Mock Provider**
 - A yes/no column in a column list ("the advisor and restricted holdings columns", "hide the restricted holdings column") is a column, not a filter. "Hide restricted accounts" hides those rows; "hide restricted households" and "hide restricted accounts at Northgate" are asked about.

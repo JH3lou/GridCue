@@ -91,7 +91,9 @@ export const judge = (c: EvalCase, plan: ViewPlan | null, status: string): Verdi
 };
 
 export const runCase = async (c: EvalCase, provider: IntentProvider) => {
-  const adapter = createRowsAdapter({ schema: wealthSchema, initialState: { ...wealthInitialState, ...c.state } });
+  // A case's state is the view the User is looking at. The default view, which a reset returns to, stays the fixture's.
+  const adapter = createRowsAdapter({ schema: wealthSchema, initialState: wealthInitialState });
+  if (c.state) adapter.setState((view) => ({ ...view, ...c.state }));
   const cue: GridCueController = createGridCue({ adapter, provider });
   const plan = await cue.propose(c.utterance);
   const status = cue.getState().status;

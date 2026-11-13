@@ -676,8 +676,11 @@ describe("round six: narrowing", () => {
       children: [{ id: "p1", type: "predicate" as const, columnId: "custodian", operator: "eq" as const, value: "northgate" }],
     },
   };
+  // The state is the view the User is looking at; the default view, which a reset returns to, has no filters.
   const run = async (text: string, state: Partial<typeof base> = view) => {
-    const cue = createGridCue({ adapter: createRowsAdapter({ schema, initialState: { ...base, ...state } }), provider });
+    const adapter = createRowsAdapter({ schema, initialState: base });
+    adapter.setState((current) => ({ ...current, ...state }));
+    const cue = createGridCue({ adapter, provider });
     await cue.propose(text);
     const st = cue.getState();
     return st.status === "ready" ? st.plan?.operations : st.status;
@@ -1263,6 +1266,110 @@ describe("after the sixth round's re-check", () => {
     expect((await propose("market value over $1m")).preview?.lines).toEqual(["Filter Market value above $1,000,000"]);
     expect((await propose("concentration over 29.25%")).preview?.lines).toEqual(["Filter Concentration above 29.25%"]);
     expect((await propose("concentration over 10%")).preview?.lines).toEqual(["Filter Concentration above 10%"]);
+    // Below a cent, and a scaled amount that isn't a whole number in floating point (1.1 × 1,000,000).
+    expect((await propose("market value over $0.0004")).preview?.lines).toEqual(["Filter Market value above $0.0004"]);
+    expect((await propose("market value over $1.1m")).preview?.lines).toEqual(["Filter Market value above $1,100,000"]);
+  });
+});
+
+describe("review of the reading fixes", () => {
+  const base = emptyViewState(schema.columns.map((c) => c.id));
+  const predicate = (id: string, columnId: string, operator: "eq" | "gt", value: string | number) =>
+    ({ id, type: "predicate", columnId, operator, value }) as const;
+  const and = (...children: ReturnType<typeof predicate>[]) => ({ id: "g", type: "group" as const, combinator: "and" as const, children });
+  const three: Partial<ViewState> = {
+    filters: and(
+      predicate("a", "value", "gt", 1_000_000),
+      predicate("b", "gain", "gt", 50_000),
+      predicate("c", "custodian", "eq", "northgate"),
+    ),
+    sorts: [
+      { columnId: "value", direction: "desc" },
+      { columnId: "gain", direction: "desc" },
+      { columnId: "owner", direction: "asc" },
+    ],
+    groupBy: ["custodian", "owner"],
+  };
+  // `state` is the view the User is looking at; `defaults` is the view a reset returns to.
+  const run = async (text: string, state: Partial<ViewState>, defaults: Partial<ViewState> = {}) => {
+    const adapter = createRowsAdapter({ schema, initialState: { ...base, ...defaults } });
+    adapter.setState((current) => ({ ...current, ...state }));
+    const cue = createGridCue({ adapter, provider });
+    await cue.propose(text);
+    const st = cue.getState();
+    return st.status === "ready" ? st.plan?.operations : st.message;
+  };
+
+  it("asks about a second clear of one column from the same thing, instead of bringing the first back", async () => {
+    // One named clear still keeps the rest.
+    expect(filters((await run("clear the market value filter", three)) as ViewOperation[])).toEqual([
+      ["gain", "gt", 50_000],
+      ["custodian", "eq", "northgate"],
+    ]);
+    for (const text of ["clear the market value filter and clear the gain filter", "clear the market value filter, clear the gain filter"])
+      expect(await run(text, three), text).toMatch(/can't clear only Gain from the filters after another change to the filters/);
+    expect(await run("clear the market value sort and clear the gain sort", three)).toMatch(
+      /can't clear only Gain from the sort after another/,
+    );
+    expect(await run("remove the custodian grouping and remove the advisor grouping", three)).toMatch(
+      /can't clear only Advisor from the grouping after another/,
+    );
+    // A new filter or sort earlier in the request is never overwritten by the view the request started with.
+    expect(await run("sort by advisor and clear the market value sort", three)).toMatch(/can't clear only Market value from the sort/);
+    // Clears of different things in one request are unaffected.
+    expect(await run("clear the market value filter and clear the gain sort", three)).toMatchObject([
+      { type: "filter.clear" },
+      { type: "filter.add", predicate: { columnId: "gain" } },
+      { type: "filter.add", predicate: { columnId: "custodian" } },
+      {
+        type: "sort.set",
+        sorts: [
+          { columnId: "value", direction: "desc" },
+          { columnId: "owner", direction: "asc" },
+        ],
+      },
+    ]);
+  });
+
+  it("keeps the filters through a reset only when the default view has none of its own", async () => {
+    const mine = { filters: and(predicate("e", "gain", "gt", 50_000)), groupBy: ["owner"] };
+    const kept = [{ type: "view.reset" }, { type: "filter.add", predicate: { columnId: "gain", operator: "gt", value: 50_000 } }];
+    for (const text of ["reset everything except the filters", "reset the view but keep the filters", "clear everything but the filter"]) {
+      expect(await run(text, mine), text).toMatchObject(kept);
+      // The reset would bring back Custodian: Northgate beside the kept filter, which nobody asked for.
+      expect(await run(text, mine, { filters: and(predicate("d", "custodian", "eq", "northgate")) }), text).toMatch(
+        /A reset brings back the default view's own filters/,
+      );
+    }
+  });
+
+  it("asks about keeping the filters through a reset when `compile` isn't told the default view", () => {
+    const state: ViewState = { ...base, filters: and(predicate("e", "gain", "gt", 50_000)), groupBy: ["owner"] };
+    const text = "reset everything except the filters";
+    const input = normalize(text);
+    const plan = (defaultState?: ViewState) =>
+      compile({
+        input,
+        resolution: {
+          clauses: input.clauses.map((clause) => ({
+            clauseIndex: clause.index,
+            families: clause.index === 0 ? [{ id: "view.reset", confidence: 1 }] : [],
+            columns: [],
+            values: [],
+            unmatchedTerms: [],
+          })),
+        },
+        schema,
+        state,
+        baseRevision: "r1",
+        channel: "typed",
+        text,
+        mentions: matchMentions(input.clauses, schema.columns, { rowNoun: "account" }),
+        ...(defaultState ? { defaultState } : {}),
+        newId: (prefix) => `${prefix}_1`,
+      });
+    expect(plan().status).toBe("needs_clarification");
+    expect(plan(base).status).toBe("ready");
   });
 });
 
@@ -1358,6 +1465,24 @@ describe("round seven: provider proposals that code narrows (fake provider)", ()
     expect(await run("clear filters, grouping", partial, view)).toBe("needs_clarification");
     const both = fake([{ families: [p("filter.clear", 0.98), p("group.clear", 0.95)] }]);
     expect(await run("clear filters, grouping", both, view)).toEqual([{ type: "filter.clear" }, { type: "group.set", columnIds: [] }]);
+  });
+
+  it("G2: raises a governed clear only from the Host's own clarify band", async () => {
+    const at = async (confidence: number, bands?: { clarify: number; ready: number }) => {
+      const adapter = createRowsAdapter({ schema: wealthLike, initialState: view });
+      const cue = createGridCue({
+        adapter,
+        provider: fake([{ families: [p("filter.clear", confidence)] }]),
+        ...(bands ? { confidence: bands } : {}),
+      });
+      await cue.propose("clear filters");
+      const st = cue.getState();
+      return st.status === "ready" ? st.plan?.operations : st.status;
+    };
+    expect(await at(0.7)).toEqual([{ type: "filter.clear" }]);
+    // A stricter Host: 0.7 is below its clarify band, so the proposal is discarded as its policy says.
+    expect(await at(0.7, { clarify: 0.8, ready: 0.95 })).toBe("needs_clarification");
+    expect(await at(0.85, { clarify: 0.8, ready: 0.95 })).toEqual([{ type: "filter.clear" }]);
   });
 
   it("G3: drops a column change the provider proposes in a part that only clears", async () => {

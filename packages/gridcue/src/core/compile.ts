@@ -53,6 +53,12 @@ export interface CompileInput {
   answers?: Record<string, string>;
   confidence?: ConfidencePolicy;
   /**
+   * The view `view.reset` returns to (the adapter's `getDefaultState()`). A reset that keeps the current filters
+   * ("reset everything except the filters") adds them to this view's own, so it is ready only when this is given and
+   * has no filters. Otherwise GridCue asks.
+   */
+  defaultState?: { filters: ViewState["filters"] };
+  /**
    * The operations the grid supports (its adapter's capabilities). A count ("top 10") becomes `limit.set` only where
    * this lists it; otherwise the plan sorts alone and records the count as not applied (ADR 0018).
    */
@@ -297,7 +303,7 @@ export const compile = (c: CompileInput): ViewPlan => {
         unmatchedTerms: [],
       };
       const ownMentions = (c.mentions ?? []).filter((m) => m.clauseIndex === clause.index);
-      const res = narrowProposal(proposed, clause, ownMentions, c.schema, (e) => evidence.push(e));
+      const res = narrowProposal(proposed, clause, ownMentions, c.schema, bands, (e) => evidence.push(e));
       const opsBefore = operations.length;
       // Mentions are deterministic: a named value is used at confidence 1. A named column is too, unless the provider
       // scored that column below MENTION_FLOOR: "biggest accounts first" names the rows, not Account number (ADR 0013).
@@ -329,7 +335,7 @@ export const compile = (c: CompileInput): ViewPlan => {
       // What a clear or reset says to keep ("clear filters except accounts over $1m") is kept only when the view
       // already has it; GridCue never adds a filter the User didn't have in its place.
       if (clause.keeps) {
-        const kept = keepPart(clause, own, c.state, operations, (id) => column(id)?.kind, c.newId);
+        const kept = keepPart(clause, own, c.state, c.defaultState, operations, (id) => column(id)?.kind, c.newId);
         if ("operations" in kept) operations.push(...kept.operations);
         else clarifications.push({ id: `${key}.keep`, prompt: kept.prompt, required: true });
         continue;
@@ -767,6 +773,17 @@ export const compile = (c: CompileInput): ViewPlan => {
           prompt: `GridCue can't clear only ${targets.map((id) => column(id)?.label ?? id).join(" and ")} from the ${what}. Say “clear the ${what}” to clear all of it.`,
           required: true,
         });
+      // A clear of named columns is built from the view the request started with. After an earlier change to the same
+      // thing in this request ("clear the market value filter and clear the gain filter"), that view is out of date:
+      // building from it would bring back what the earlier change removed. GridCue asks.
+      const changedEarlier = (...types: ViewOperation["type"][]) =>
+        operations.some((o) => o.type === "view.reset" || types.includes(o.type));
+      const afterAnother = (what: string) =>
+        clarifications.push({
+          id: `${key}.clear`,
+          prompt: `GridCue can't clear only ${targets.map((id) => column(id)?.label ?? id).join(" and ")} from the ${what} after another change to the ${what} in the same request. Ask for it on its own.`,
+          required: true,
+        });
       for (const family of viewFamilies) {
         const thing = family === "filter.clear" ? "filter" : family === "sort.clear" ? "sort" : family === "group.clear" ? "group" : "view";
         if (CLEARS.has(family) || family === "view.reset") targets = targetsFor(thing);
@@ -774,6 +791,7 @@ export const compile = (c: CompileInput): ViewPlan => {
           const current = c.state.filters?.children ?? [];
           const flat = c.state.filters?.combinator === "and" && current.every((p) => !("children" in p));
           if (targets.length === 0) operations.push({ type: "filter.clear" });
+          else if (changedEarlier("filter.add", "filter.clear")) afterAnother("filters");
           else if (!flat || !current.some((p) => "columnId" in p && targets.includes(p.columnId))) clearOnly("filters");
           else {
             operations.push({ type: "filter.clear" });
@@ -784,10 +802,12 @@ export const compile = (c: CompileInput): ViewPlan => {
           }
         } else if (family === "sort.clear") {
           if (targets.length === 0) operations.push({ type: "sort.set", sorts: [] });
+          else if (changedEarlier("sort.set")) afterAnother("sort");
           else if (!c.state.sorts.some((s) => targets.includes(s.columnId))) clearOnly("sort");
           else operations.push({ type: "sort.set", sorts: c.state.sorts.filter((s) => !targets.includes(s.columnId)) });
         } else if (family === "group.clear") {
           if (targets.length === 0) operations.push({ type: "group.set", columnIds: [] });
+          else if (changedEarlier("group.set")) afterAnother("grouping");
           else if (!c.state.groupBy.some((id) => targets.includes(id))) clearOnly("grouping");
           else operations.push({ type: "group.set", columnIds: c.state.groupBy.filter((id) => !targets.includes(id)) });
         } else if (family === "view.reset") {
@@ -1290,6 +1310,7 @@ const narrowProposal = (
   clause: Clause,
   own: readonly Mention[],
   schema: ViewSchema,
+  bands: ConfidencePolicy,
   record: (e: DecisionEvidence) => void,
 ): ClauseResolution => {
   const key = `c${clause.index}`;
@@ -1318,10 +1339,10 @@ const narrowProposal = (
     for (const f of out.families.filter((x) => !isClear(x.id)))
       record({ key: `dropped:${key}.family`, selectedId: f.id, confidence: f.confidence, source: "deterministic" });
     // The words decide which clear it is: a clear or reset the verb governs ("clear everything" → the view), proposed
-    // in the clarify band or above, is taken as asked. Nothing the words don't govern is raised.
+    // in the Host's clarify band or above, is taken as asked. Nothing the words don't govern is raised.
     const THING: Record<string, string> = { "filter.clear": "filter", "sort.clear": "sort", "group.clear": "group", "view.reset": "view" };
     const raised = families.map((f) =>
-      clears.governed.has(THING[f.id] ?? "") && f.confidence >= DEFAULT_CONFIDENCE.clarify ? { ...f, confidence: 1 } : f,
+      clears.governed.has(THING[f.id] ?? "") && f.confidence >= bands.clarify ? { ...f, confidence: 1 } : f,
     );
     const { roles: _roles, ...rest } = out;
     out = { ...rest, families: raised };
@@ -1388,12 +1409,21 @@ const keepPart = (
   clause: Clause,
   own: readonly Mention[],
   state: ViewState,
+  defaultState: { filters: ViewState["filters"] } | undefined,
   operations: readonly ViewOperation[],
   kindOf: (columnId: string) => ColumnKind | undefined,
   newId: (prefix: string) => string,
 ): { operations: ViewOperation[] } | { prompt: string } => {
   const what = clause.text.replace(/^(?:keep(?:ing)?|leave) /, "");
   const reset = operations.some((o) => o.type === "view.reset");
+  // "Everything but the filters" leaves the filters as they are, and kept filters are added after the reset, to
+  // whatever filters the default view has. With any there, or with the default view unknown, GridCue asks. One
+  // named filter kept through a reset ("reset the view but keep accounts over $1m") is the default view plus it.
+  const resetBringsFilters = reset && (!defaultState || predicatesIn(defaultState.filters) > 0);
+  const throughReset = {
+    prompt:
+      "A reset brings back the default view's own filters, so GridCue can't keep yours through it. Clear the sort and the grouping instead.",
+  };
   // "The sort", "the grouping", or both: "keep the sort and the grouping".
   const LAYOUT = /^(?:the )?(?:(grouping|groups?)|(sort|sorting|sorts|order))$/;
   const items = what.split(/,? and |, /);
@@ -1415,6 +1445,7 @@ const keepPart = (
   if (/^(?:the |my |all (?:the )?)?filters?$/.test(what) && reset) {
     const current = state.filters;
     if (!current || current.children.length === 0) return { prompt: "There are no filters in the view to keep." };
+    if (resetBringsFilters) return throughReset;
     if (current.combinator !== "and" || current.children.some((ch) => "children" in ch)) {
       return { prompt: "GridCue can't keep these filters through a reset. Reset the view, then ask for the filters again." };
     }

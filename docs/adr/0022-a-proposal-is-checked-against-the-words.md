@@ -13,7 +13,7 @@ The checks:
 - **Quoted text names nothing.** A column or value the provider picks is dropped when its name appears in the part only inside quoted text and no Mention supports it. The quoted text still makes its own filter. A pick with no quoted text in play is accepted as before: a provider may still read a synonym the Host never declared.
 - **A clear covers what its verb governs.** Code reads which of the sort, the grouping, and the filters a clear verb governs. A plan that clears fewer of them than that is not ready, and GridCue asks.
 - **A part that only clears changes nothing else.** When a part's words are a clear or a reset and it names no column, value, or amount, a proposed change of any other kind is dropped.
-- **The words can confirm a clear.** A clear or reset that the verb governs, and that the provider scores at or above the `clarify` band, is used as if it were at `ready`. This is the one place a proposal is raised. It follows ADR 0013, where a column named by the Host's own label needs only a low provider score. Nothing the words don't govern is raised, and nothing below `clarify`.
+- **The words can confirm a clear.** A clear or reset that the verb governs, and that the provider scores at or above the Host's `clarify` band, is used as if it were at `ready`. This is the one place a proposal is raised. It follows ADR 0013, where a column named by the Host's own label needs only a low provider score. Nothing the words don't govern is raised, and nothing below `clarify`.
 
 Every drop is recorded as `dropped:` evidence on the plan.
 
