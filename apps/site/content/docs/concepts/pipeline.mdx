@@ -29,7 +29,7 @@ From the **Utterance** to the grid's view, in order:
 
 ### Normalize
 
-The **Utterance**, the raw text of one request, is cleaned up (whitespace, spoken punctuation such as "comma") and split into **Clauses**, one per kind of change. Code also extracts literals that it handles better than a model: amounts such as "$1 million", percentages, dates, comparisons such as "over" and "at least", and directions such as "largest first".
+The **Utterance**, the raw text of one request, is cleaned up (whitespace, spoken punctuation such as "comma") and split into **Clauses**, one per kind of change. Code also extracts literals that it handles better than a model: amounts such as "$1 million" or "-$50k", percentages, dates, comparisons such as "over", "at least", "at or above", `>` and `<=`, and directions such as "largest first". Punctuation inside quoted text never splits a Clause.
 
 "Taxable accounts over $1 million, grouped by advisor" becomes two Clauses: "taxable accounts over $1 million", with a currency literal greater than 1,000,000, and "grouped by advisor".
 

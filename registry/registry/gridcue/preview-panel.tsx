@@ -25,6 +25,11 @@ export function PreviewPanel({ preview, onApply, onCancel }: PreviewPanelProps) 
             <li key={line}>{line}</li>
           ))}
         </ul>
+        {preview.notes?.map((note) => (
+          <p key={note} className="mt-2 text-sm">
+            {note}.
+          </p>
+        ))}
         <p className="text-muted-foreground mt-2 text-xs">No records will be changed.</p>
       </CardContent>
       <CardFooter className="gap-2 px-4">

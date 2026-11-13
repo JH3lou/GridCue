@@ -41,7 +41,7 @@ A deterministic, rule-based Intent Provider for tests, demos and keyless develop
 
 | Name | Type | Default | Description |
 | --- | --- | --- | --- |
-| `defaultColumnForKind` | `Partial<Record<LiteralKind, string>>` | none | Which column a bare amount refers to when the Clause names no column that fits it. For example `{ currency: "market_value" }` makes "accounts over $1 million" filter Market value. |
+| `defaultColumnForKind` | `Partial<Record<LiteralKind, string>>` | none | Which column a bare amount refers to when the Clause names no column that fits it, other than one another change uses ("accounts over $1M sorted by gain"). For example `{ currency: "market_value" }` makes "accounts over $1 million" filter Market value. |
 
 `LiteralKind` is `"number" | "currency" | "percent" | "date" | "text" | "unreadable"`.
 

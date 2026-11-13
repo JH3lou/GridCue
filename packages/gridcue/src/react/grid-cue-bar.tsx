@@ -67,6 +67,11 @@ export const GridCueBar = ({
               <li key={line}>{line}</li>
             ))}
           </ul>
+          {cue.preview.notes?.map((note) => (
+            <p key={note} className="gridcue-caveat">
+              {note}.
+            </p>
+          ))}
           <p className="gridcue-note">No records will be changed.</p>
           <div className="gridcue-actions">
             <button

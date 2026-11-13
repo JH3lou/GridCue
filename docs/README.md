@@ -39,6 +39,7 @@ These explain what the source alone can't: the product boundary, the pipeline, a
 - [0019: A ready plan uses everything GridCue read](./adr/0019-a-ready-plan-uses-everything-it-read.md)
 - [0020: The Local Resolver reads first, and a provider is optional](./adr/0020-local-resolver-and-optional-provider.md), not yet built
 - [0021: The View State is the record](./adr/0021-the-view-state-is-the-record.md), not yet built
+- [0022: What a provider proposes is checked against the request's words](./adr/0022-a-proposal-is-checked-against-the-words.md)
 
 ### Planning
 

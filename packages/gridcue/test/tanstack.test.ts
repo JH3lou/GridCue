@@ -106,6 +106,17 @@ describe("TanStack end to end", () => {
     expect(table.getRowModel().rows).toHaveLength(3);
   });
 
+  it("filters rows by a negative amount", () => {
+    const row = (v: number) => ({ getValue: () => v });
+    const below = {
+      gridcue: 1,
+      kind: "number",
+      predicates: [{ id: "f", type: "predicate", columnId: "value", operator: "lt", value: -50 }],
+    };
+    expect(gridcueFilterFn(row(-60), "value", below)).toBe(true);
+    expect(gridcueFilterFn(row(-40), "value", below)).toBe(false);
+  });
+
   it("lets a column keep its own filter function next to GridCue's", () => {
     const own = withGridCueFilter((row, id, value) => row.getValue(id) === value);
     const row = { getValue: () => "b" };

@@ -60,6 +60,24 @@ export const runAdapterContract = (name: string, make: () => ContractHarness) =>
       expect(after.state.filters?.children).toHaveLength(1);
     });
 
+    it("applies a negative amount as given", async () => {
+      const h = make();
+      const { plan } = validated(h.adapter, [
+        {
+          type: "filter.add",
+          combineWith: "and",
+          predicate: { id: "f1", type: "predicate", columnId: h.numericColumn, operator: "lt", value: -50 },
+        },
+        {
+          type: "filter.add",
+          combineWith: "and",
+          predicate: { id: "f2", type: "predicate", columnId: h.numericColumn, operator: "between", value: { min: -100, max: -1 } },
+        },
+      ]);
+      expect((await h.adapter.apply(plan)).ok).toBe(true);
+      expect(h.adapter.getState().state.filters?.children).toMatchObject([{ value: -50 }, { value: { min: -100, max: -1 } }]);
+    });
+
     it("notifies subscribers once per apply", async () => {
       const h = make();
       let calls = 0;
