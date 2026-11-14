@@ -118,8 +118,8 @@ const EACH_BEFORE = /\b(?:each|every|per)\s+$/;
 const singular = (words: string) => nameKey(words).replace(/(?:es|s)$/, "");
 /** A value named after one of these is excluded, not chosen: "non-retirement", "excluding trusts". Left to the provider. */
 // "Hide taxable accounts", "exclude the trusts": the rows named are the ones to leave out (filtered to the others).
-const NEGATED_BEFORE =
-  /\b(?:non|not(?: including)?|no|excluding|except|but|other than|apart from|besides|without|hide|exclude|remove|(?:don't|dont|do not|never|no longer) (?:show|include|display|list|see)(?: me)?)(?:\s+(?:at|in|from|with|the|all|any))?[\s-]*$/;
+export const LEAVES_OUT = String.raw`(?:non|not(?: including)?|no|excluding|except|but|other than|apart from|besides|without|hide|exclude|remove|(?:don't|dont|do not|never|no longer) (?:show|include|display|list|see)(?: me)?)(?:\s+(?:at|in|from|with|the|all|any))?[\s-]*`;
+const NEGATED_BEFORE = new RegExp(String.raw`\b${LEAVES_OUT}$`);
 /** What joins the values of one list: "Northgate or Harborline", "trusts, IRAs, and Roths". */
 const LIST_JOIN = /^\s*(?:,\s*)?(?:(?:or|and|nor)\s+)?(?:(?:at|in|from)\s+)?$/;
 

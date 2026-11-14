@@ -1,7 +1,16 @@
 import { formatAmount } from "./format";
 import { afterExclusionLead, governedClears, LEAD_IN, leavesRowsOut, viewRequest } from "./lead";
-import { LITERAL_COLUMN_KINDS, type Mention } from "./mentions";
-import { type Clause, type Literal, literalText, type NormalizedInput, SIZE_WORDS, trailingComparison, unquoted } from "./normalize";
+import { LEAVES_OUT, LITERAL_COLUMN_KINDS, type Mention } from "./mentions";
+import {
+  type Clause,
+  directionSpans,
+  type Literal,
+  literalText,
+  type NormalizedInput,
+  SIZE_WORDS,
+  trailingComparison,
+  unquoted,
+} from "./normalize";
 import type { RestrictedMention } from "./policy";
 import {
   type Clarification,
@@ -177,7 +186,9 @@ const PLAIN_GAP = /^\s*(?::\s*)?(?:(?:is|are|was|were|of|at|on) )?$/;
 /** Before an amount whose column follows it: "accounts with 5 positions". */
 const PLAIN_BEFORE_AMOUNT = /(?:^|(?:^|\b(?:with|having|has|have|had|of|and|or|show|only|keep|list|find)) |, ?)$/;
 /** A value named inside one of these phrases limits the rows, wherever it sits: "sort by gain for trusts". */
-const PREPOSITION_BEFORE = /\b(?:for|among|at|in|with|from|of|within)\s+(?:(?:the|all|only|just)\s+)?(?:[\p{L}-]+\s+)?$/u;
+const PREPOSITION = String.raw`(?:for|among|at|in|with|from|of|within)\s+`;
+const PREPOSITION_DETERMINER = String.raw`(?:(?:the|all|only|just)\s+)?`;
+const PREPOSITION_BEFORE = new RegExp(String.raw`\b${PREPOSITION}${PREPOSITION_DETERMINER}(?:[\p{L}-]+\s+)?$`, "u");
 
 /**
  * Decides between competing families (ADR 0012). `accepted` are at or above `ready` or confirmed by the User;
@@ -313,7 +324,12 @@ export const compile = (c: CompileInput): ViewPlan => {
       // Negations GridCue can't be sure about ask, never act: "don't sort by gain", "never hide trusts" (a negation before a
       // view verb other than "show"), "never show never show trusts" (two negations in one part), and "show nothing
       // over $1m" or "show accounts including trusts" (whether the rows are kept or left out is unclear).
-      const unsure = unsureNegation(unquoted(clause.text), own);
+      const unsure = unsureNegation(
+        unquoted(clause.text),
+        own,
+        clause.literals.some((l) => l.kind === "text"),
+        (id) => column(id)?.kind === "boolean",
+      );
       if (unsure) {
         clarifications.push({ id: `${key}.negation`, prompt: unsure, required: true });
         continue;
@@ -335,7 +351,7 @@ export const compile = (c: CompileInput): ViewPlan => {
       // What a clear or reset says to keep ("clear filters except accounts over $1m") is kept only when the view
       // already has it; GridCue never adds a filter the User didn't have in its place.
       if (clause.keeps) {
-        const kept = keepPart(clause, own, c.state, c.defaultState, operations, (id) => column(id)?.kind, c.newId);
+        const kept = keepPart(clause, own, c.state, c.defaultState, operations, column, c.newId, c.schema.rowNoun);
         if ("operations" in kept) operations.push(...kept.operations);
         else clarifications.push({ id: `${key}.keep`, prompt: kept.prompt, required: true });
         continue;
@@ -954,6 +970,30 @@ export const compile = (c: CompileInput): ViewPlan => {
               });
               return;
             }
+            if (lit.kind === "date" && !realDay(String(lit.value))) {
+              clarifications.push({ id: `${key}.literal${j}.date`, prompt: `${lit.value} isn't a date.`, required: true });
+              return;
+            }
+            // Quoted text is "containing" only after words GridCue reads. Any other word between it and its column asks.
+            const quotedAfter = lit.kind === "text" ? columnBeforeText(clause, lit, own, column, c.schema.rowNoun) : undefined;
+            if (quotedAfter && !quotedAfter.read) {
+              clarifications.push({
+                id: `${key}.literal${j}.match`,
+                prompt: `I'm not sure how to match “${lit.value}”. Try “containing”.`,
+                required: true,
+              });
+              return;
+            }
+            // ...and only when GridCue read the words right before the column and right after the text.
+            const beside = quotedAfter ? unreadBesideText(clause, lit, quotedAfter.mention, own, c.schema.rowNoun) : undefined;
+            if (beside !== undefined) {
+              clarifications.push({
+                id: `${key}.literal${j}.beside`,
+                prompt: `I'm not sure what to do with “${beside}”. Try rephrasing that part.`,
+                required: true,
+              });
+              return;
+            }
             if (comparisonUnread(clause, lit, own, readNames)) {
               clarifications.push({
                 id: `${key}.literal${j}.comparison`,
@@ -975,10 +1015,15 @@ export const compile = (c: CompileInput): ViewPlan => {
               .filter((m) => m.valueId === undefined && !m.ambiguous && m.end <= lit.at)
               .sort((a, b) => a.end - b.end)
               .at(-1);
+            // Quoted text belongs to the column named right before it, and to no other: with none, GridCue asks.
             const adjacent =
-              nearest && mentionedColumns.includes(nearest.columnId) && ADJACENT_COMPARISON.test(clause.text.slice(nearest.end, lit.at))
-                ? nearest
-                : undefined;
+              lit.kind === "text"
+                ? quotedAfter && mentionedColumns.includes(quotedAfter.mention.columnId)
+                  ? quotedAfter.mention
+                  : undefined
+                : nearest && mentionedColumns.includes(nearest.columnId) && ADJACENT_COMPARISON.test(clause.text.slice(nearest.end, lit.at))
+                  ? nearest
+                  : undefined;
             const namedCol = adjacent && column(adjacent.columnId);
             // ...and one that can't hold it ("gain over 10%") is asked about, never swapped for another column.
             if (namedCol && !fits.includes(namedCol.kind) && !answered) {
@@ -990,14 +1035,31 @@ export const compile = (c: CompileInput): ViewPlan => {
               return;
             }
             const named = namedCol && fits.includes(namedCol.kind) && !used.has(namedCol.id) ? namedCol : undefined;
-            const target = answered ?? named ?? provided ?? picked.find((col) => fits.includes(col.kind) && !used.has(col.id));
+            // A provider can't see which column holds a name, so for quoted text its pick is offered, never applied,
+            // and one that disagrees with the named column asks.
+            const target =
+              lit.kind === "text"
+                ? (answered ?? (named && (!provided || provided.id === named.id) ? named : undefined))
+                : (answered ?? named ?? provided ?? picked.find((col) => fits.includes(col.kind) && !used.has(col.id)));
             const operator = lit.kind === "text" ? "contains" : (lit.comparator ?? "eq");
+            // A date against a column that holds times of day would keep or drop rows by the hour. GridCue asks.
+            if (lit.kind === "date" && target?.kind === "datetime") {
+              clarifications.push({
+                id: `${key}.literal${j}.datetime`,
+                prompt: `${target.label} holds times of day, so GridCue can't filter it by date yet.`,
+                required: true,
+              });
+              return;
+            }
             if (!target || !operatorsFor(target).includes(operator)) {
-              const options = optionsFor(fits, "filter");
-              const first = pickFits && pick.confidence >= bands.clarify ? pickCol.id : undefined;
+              // A date-and-time column can't take a date yet, so it is never offered for one.
+              const options = optionsFor(lit.kind === "date" ? ["date"] : fits, "filter");
+              const first =
+                pickFits && pick.confidence >= bands.clarify && options.some((o) => o.id === pickCol.id) ? pickCol.id : undefined;
               clarifications.push({
                 id: answerKey,
-                prompt: `Which column should be ${describeLiteral(lit)}?`,
+                prompt:
+                  lit.kind === "text" ? `Which column should contain “${lit.value}”?` : `Which column should be ${describeLiteral(lit)}?`,
                 options: first ? [...options.filter((o) => o.id === first), ...options.filter((o) => o.id !== first)] : options,
                 required: true,
               });
@@ -1363,14 +1425,34 @@ const NEGATED_VERB =
   /^(?:don't|dont|do not|never|no longer|not) (?!(?:show|include|display|list|see)\b)(?:hide|unhide|exclude|remove|drop|sort|order|group|ungroup|filter|clear|reset|keep|pin|move|add|put|rank|arrange)\b/;
 const NEGATION_WORD =
   /\b(?:not|no(?! (?:more|less|greater|fewer|higher|lower|larger|smaller|bigger|over|under|above|below)\b)|never|don't|dont|without|excluding|non)\b/g;
+/**
+ * More ways to say "not", read beside quoted text, before or after it: `advisor isn't "Lane"`, `advisor != "Lane"`,
+ * "other than", "except", `advisor "Lane" excluded`.
+ */
+const TEXT_NEGATION =
+  /\b(?:isn't|aren't|doesn't|other than|apart from|besides|except|exclude[sd]|omit(?:s|ted)?|ignor(?:e|es|ed|ing)|(?:leave|leaving|left) out)\b|!=|=\/=|≠|<>/g;
+/** The negations GridCue reads as "No" for a yes/no name: "not restricted", "non-restricted", "no restricted holdings". */
+const BOOLEAN_NOT = /^(?:not|no|non|without)$/;
+const NOT_THERE = "GridCue can't filter for text that isn't there. Ask for the text to look for instead.";
+const BANG_PROMPT = "GridCue can't tell what “!” leaves out. Say which rows to show.";
 /** What may sit between a negation and the value it belongs to: "not at Northgate", "non-retirement", "no restricted". */
 const ATTACHED_GAP = /^[\s-]+(?:(?:at|in|from|with|the|any) )?$/;
+/** The words the Mentions read as leaving the value after them out (`LEAVES_OUT`), and nothing else. */
+const LEFT_OUT = new RegExp(`^${LEAVES_OUT}$`);
 /**
  * Why a part's negation is unsure, as a question, or `undefined`. `bare` is the part with quoted text blanked;
  * `own` its Mentions. A negation attached to one named value or yes/no name ("non-retirement", "not at Northgate",
  * "no restricted holdings") belongs to that value; any other negation, with a second negation of either kind, asks.
  */
-const unsureNegation = (bare: string, own: readonly Mention[]): string | undefined => {
+const unsureNegation = (
+  bare: string,
+  own: readonly Mention[],
+  quoted = false,
+  isBoolean: (columnId: string) => boolean = () => false,
+): string | undefined => {
+  // A "!" left in a part says "not" (normalize splits on every other one), and nothing reads it as leaving a name out:
+  // `!advisor "Lane"` and `advisor "Lane" !trusts` would show the very rows the User asked to leave out.
+  if (/!(?!=)/.test(bare)) return BANG_PROMPT;
   const text = own.reduce((t, m) => t.slice(0, m.start) + " ".repeat(m.end - m.start) + t.slice(m.end), bare);
   const afterLead = text.slice(LEAD_IN.exec(text)?.[0].length ?? 0);
   if (NEGATED_VERB.test(afterLead)) {
@@ -1388,8 +1470,22 @@ const unsureNegation = (bare: string, own: readonly Mention[]): string | undefin
     return !!m && m.valueId === undefined && !/^(?:no|non|without)$/.test(n[0]);
   });
   if (columnChange && negatedColumn) return "GridCue can't tell what “not” leaves out of that change. Name only the columns you want.";
-  if (/\b(?:not|doesn't|does not|don't|do not|never)\s+contain/.test(text)) {
-    return "GridCue can't filter for text that isn't there. Ask for the text to look for instead.";
+  if (/\b(?:not|doesn't|does not|don't|do not|never)\s+contain/.test(text)) return NOT_THERE;
+  // Beside quoted text, a negation asks unless it belongs to a named value or yes/no name ("non-retirement"):
+  // `advisor is not "Avery Lane"` would otherwise show the very rows the User asked to leave out. It belongs to a value
+  // only when the value is read as left out, and to a yes/no name only when GridCue reads it as "No":
+  // `advisor "Lane" except restricted` asks, since nothing reads "except" as "No".
+  if (quoted) {
+    const owned = (n: RegExpMatchArray) => {
+      const m = attachedTo(n);
+      if (m) return m.valueId !== undefined ? !!m.negated : isBoolean(m.columnId) && BOOLEAN_NOT.test(n[0]);
+      // ...or it is one of the words the Mentions read as leaving the next value out: "not including trusts", "don't
+      // show trusts".
+      const at = n.index ?? 0;
+      const next = own.filter((x) => x.start > at).sort((a, b) => a.start - b.start)[0];
+      return !!next && next.valueId !== undefined && !!next.negated && LEFT_OUT.test(bare.slice(at, next.start));
+    };
+    if ([...negations, ...text.matchAll(TEXT_NEGATION)].some((n) => !owned(n))) return NOT_THERE;
   }
   if (/\bno (?:grouping|groups?|sort|sorting|filters?)\b/.test(text)) {
     return "GridCue can't tell whether “no” there clears something. Ask to clear it on its own.";
@@ -1420,8 +1516,9 @@ const keepPart = (
   state: ViewState,
   defaultState: { filters: ViewState["filters"] } | undefined,
   operations: readonly ViewOperation[],
-  kindOf: (columnId: string) => ColumnKind | undefined,
+  column: (columnId: string) => ColumnDescriptor | undefined,
   newId: (prefix: string) => string,
+  rowNoun: string | undefined,
 ): { operations: ViewOperation[] } | { prompt: string } => {
   const what = clause.text.replace(/^(?:keep(?:ing)?|leave) /, "");
   const reset = operations.some((o) => o.type === "view.reset");
@@ -1488,10 +1585,12 @@ const keepPart = (
     if (lit.kind === "unreadable") return absent;
     const operator = lit.kind === "text" ? "contains" : (lit.comparator ?? "eq");
     const value = lit.comparator === "between" ? { min: lit.value, max: lit.upper ?? lit.value } : lit.value;
+    const quotedAfter = lit.kind === "text" ? columnBeforeText(clause, lit, own, column, rowNoun) : undefined;
+    if (quotedAfter && !quotedAfter.read) return absent;
     // A column named right before the amount must be the filter's; with none, exactly one filter may match.
-    const owner = own
-      .filter((m) => m.valueId === undefined && m.end <= lit.at && ADJACENT_COMPARISON.test(clause.text.slice(m.end, lit.at)))
-      .at(-1);
+    const owner =
+      quotedAfter?.mention ??
+      own.filter((m) => m.valueId === undefined && m.end <= lit.at && ADJACENT_COMPARISON.test(clause.text.slice(m.end, lit.at))).at(-1);
     const matches = preds.filter((p) => p.operator === operator && same(p.value, value) && (!owner || p.columnId === owner.columnId));
     if (matches.length !== 1 || !matches[0]) return absent;
     keep.add(matches[0]);
@@ -1520,9 +1619,9 @@ const keepPart = (
     for (const m of named) {
       const negated = /\b(?:non|not|no|without)[\s-]*$|\bun$/.test(clause.text.slice(0, m.start));
       const on = preds.filter(
-        (p) => p.columnId === m.columnId && (kindOf(m.columnId) !== "boolean" || (p.operator === "eq" && p.value === !negated)),
+        (p) => p.columnId === m.columnId && (column(m.columnId)?.kind !== "boolean" || (p.operator === "eq" && p.value === !negated)),
       );
-      if (on.length === 0 || (negated && kindOf(m.columnId) !== "boolean")) return absent;
+      if (on.length === 0 || (negated && column(m.columnId)?.kind !== "boolean")) return absent;
       for (const p of on) keep.add(p);
     }
   }
@@ -1633,6 +1732,213 @@ const comparisonUnread = (clause: Clause, lit: Literal, own: readonly Mention[],
     return !followedByRead(clause, after.end, own, names);
   }
   return true;
+};
+
+/** Whether an ISO date is a real day: "2026-02-31" and "2026-00-15" are not. */
+const realDay = (iso: string): boolean => {
+  const [y = 0, m = 0, d = 0] = iso.split("-").map(Number);
+  const day = new Date(0);
+  day.setUTCFullYear(y, m - 1, d);
+  return day.getUTCFullYear() === y && day.getUTCMonth() === m - 1 && day.getUTCDate() === d;
+};
+
+/**
+ * What may sit between a column and quoted text read as "containing": nothing, ":", "is", "are", or a containing word,
+ * after a possessive ("advisor's").
+ */
+const CONTAINING_GAP = /^(?:'s)?\s*(?::\s*|(?:is|are|containing|contains|includes|has|like|matching)\s+)?$/;
+/** "Column" after any column's name, and "name" after one that names another record ("advisor name"), are part of it. */
+const COLUMN_WORD_AFTER = /^\s*columns?\b/;
+const NAME_WORD = /^\s*names?\b/;
+/** The Row Noun before "for" is the rows beside quoted text: `accounts for "Avery Lane"` names no column. */
+const FOR_AFTER = /^\s*for\b/;
+const rowNounKey = (words: string) => words.toLowerCase().replace(/(?:es|s)$/, "");
+const isRowNounBeforeFor = (clause: Clause, m: Mention, rowNoun: string | undefined) =>
+  !!rowNoun &&
+  m.valueId === undefined &&
+  rowNounKey(clause.text.slice(m.start, m.end)) === rowNounKey(rowNoun) &&
+  FOR_AFTER.test(clause.text.slice(m.end));
+
+/**
+ * The column named last before quoted text, and whether only words GridCue reads as "containing" sit between them.
+ * `advisor starts with "Av"` and `advisor named "Lane"` are not read: this is a rule, not a list of bad words. The Row
+ * Noun before "for" names no column, so `accounts for "Avery Lane"` asks which column should contain the text.
+ */
+const columnBeforeText = (
+  clause: Clause,
+  lit: Literal,
+  own: readonly Mention[],
+  column: (columnId: string) => ColumnDescriptor | undefined,
+  rowNoun: string | undefined,
+): { mention: Mention; read: boolean } | undefined => {
+  const mention = own
+    .filter((m) => m.valueId === undefined && m.end <= lit.at)
+    .sort((a, b) => a.end - b.end)
+    .at(-1);
+  if (!mention || isRowNounBeforeFor(clause, mention, rowNoun)) return undefined;
+  const gap = clause.text.slice(mention.end, lit.at);
+  const word = COLUMN_WORD_AFTER.exec(gap) ?? (column(mention.columnId)?.entity ? NAME_WORD.exec(gap) : null);
+  return { mention, read: CONTAINING_GAP.test(gap.slice(word?.[0].length ?? 0)) };
+};
+
+/**
+ * A joining word: "and", "or" or "then", with "also" after it ("and also"), or "but" before "only" or a sort or
+ * grouping ("but sorted by value").
+ */
+const JOIN = String.raw`(?:(?:and|or|then)\s+(?:also\s+)?|but\s+(?=only\b|sort|order|group))?(?:only\s+)?`;
+/**
+ * What joins the rows to a column, before it or after quoted text: "with", "where", "whose", "having", "holding", "that
+ * have", "which have", "that are", "which are" or "who are".
+ */
+const ROWS_JOIN = String.raw`(?:with|where|whose|having|holding|(?:that|which) have|(?:that|which|who) (?:are|is))\s+`;
+/** A possessive right after quoted text: `advisor "Lane"'s accounts`. */
+const POSSESSIVE = "(?:'s)?";
+/**
+ * What may sit after quoted text and before the next name: a joining word, then "with", a sort or grouping ("sorted
+ * by", or "by" before a column: "largest by value"), or a view verb. Before a named value, a preposition is read as
+ * it is anywhere ("at Northgate", "in the taxable accounts"). Before a value the Mentions read as left out, so are the
+ * words that left it out ("but trusts", "not including trusts"); before any other name, only "not", "no", "non" or
+ * "without" ("not restricted"). `nounWords` is the Row Noun, read first ("accounts at Northgate").
+ *
+ * Before a column whose own value the next name leaves out ("at every custodian other than Northgate"), only a joining
+ * word, a preposition and "every", "each", "all" or "any" are read: the negation belongs to the named value.
+ */
+const afterText = (next: Mention, nounWords: string, leavesOwnValue = false) => {
+  const value = next.valueId !== undefined;
+  if (!value && leavesOwnValue) return new RegExp(String.raw`^[\s,]*${nounWords}${JOIN}(?:${PREPOSITION})?(?:every|each|all|any)\s+$`);
+  const sort = String.raw`(?:sorted|ordered|grouped|sort|order|group)\s+(?:by\s+)?${value ? "" : String.raw`|by\s+|in\s+order\s+of\s+`}`;
+  const leaves =
+    value && next.negated ? String.raw`(?:(?:but\s+(?!but\b))?${LEAVES_OUT})?` : String.raw`(?:(?:but\s+)?(?:not|no|non|without)[\s-]+)?`;
+  return new RegExp(
+    String.raw`^${POSSESSIVE}[\s,]*${nounWords}${JOIN}(?:${ROWS_JOIN}|${sort}|(?:hide|show|unhide)\s+)?${value ? `(?:${PREPOSITION})?${PREPOSITION_DETERMINER}` : ""}${leaves}$`,
+  );
+};
+/** Thanks at the end of a part, or at the start of a request before a comma. */
+const COURTESY = String.raw`(?:thanks|thank you)\b`;
+const COURTESY_LEAD = new RegExp(String.raw`^\s*${COURTESY}\s*,\s*`);
+/** What may end a part after quoted text: any of "please", "too", "also", "only" and "as well", then "thanks". */
+const afterTextEnd = (nounWords: string) =>
+  new RegExp(String.raw`^${POSSESSIVE}[\s,]*${nounWords}(?:(?:please|too|also|only|as well)\b[\s,]*)*(?:${COURTESY})?[\s.!?]*$`);
+/** The negation words between a column and its own value that the Mentions read as left out: "other than", "except". */
+const LEAVES_OWN_VALUE = new RegExp(String.raw`^\s*${LEAVES_OUT}$`);
+/** What may sit between quoted text and an amount's comparison: a joining word, "with", and "valued" or "worth". */
+const afterTextJoin = (nounWords: string) =>
+  new RegExp(String.raw`^${POSSESSIVE}[\s,]*${nounWords}${JOIN}(?:${ROWS_JOIN})?(?:(?:valued|worth)\s+)?`);
+
+/**
+ * The part's text with the direction and the count GridCue reads blanked ("largest first", "top 10", "sorted
+ * descending", "in descending order"), so the words beside quoted text are checked without them. A direction is
+ * blanked only when nothing but names and the Row Noun sits inside it ("largest value first"): `largest exact first`
+ * and `largest "Lane" first` keep their words, and ask.
+ */
+const withoutDirection = (clause: Clause, own: readonly Mention[], noun: RegExp | undefined): string => {
+  if (clause.direction === undefined && clause.limit === undefined) return clause.text;
+  const bare = unquoted(clause.text);
+  let scan = [...clause.text].map((ch, i) => (bare[i] === ch ? ch : "x")).join("");
+  for (const m of own) scan = scan.slice(0, m.start) + " ".repeat(m.end - m.start) + scan.slice(m.end);
+  if (noun) scan = scan.replace(noun, (s) => " ".repeat(s.length));
+  const { direction, count } = directionSpans(scan);
+  const spans = [];
+  if (
+    direction &&
+    clause.direction !== undefined &&
+    /^\S+(?: to \S+| first)?$/.test(scan.slice(direction.start, direction.end).trim().replace(/\s+/g, " "))
+  ) {
+    const lead = /\b(?:sorted|ordered|sort|order|in|from)\s+$/.exec(scan.slice(0, direction.start));
+    const tail = /^\s+order\b/.exec(scan.slice(direction.end));
+    spans.push({ start: direction.start - (lead?.[0].length ?? 0), end: direction.end + (tail?.[0].length ?? 0) });
+  }
+  if (count && clause.limit !== undefined) spans.push(count);
+  return spans.reduce((t, s) => t.slice(0, s.start) + " ".repeat(s.end - s.start) + t.slice(s.end), clause.text);
+};
+
+/**
+ * The words GridCue didn't read right before the column that owns quoted text, or right after the text, if any. Before
+ * the column, only a verb that chooses rows, "only", "all of", the Row Noun, and "for", what `ROWS_JOIN` lists or a
+ * joining word are read, after "thanks," at the start; "filter" also takes "by", "on", "to" and "rows" or "the grid":
+ * `accounts sans advisor "Lane"` and `the opposite of advisor "Lane"` are not read. After the text, only a possessive,
+ * the Row Noun, then what `afterText` lists before a name, a comparison before an amount (`afterTextJoin`), or what
+ * `afterTextEnd` lists at the end: `advisor "Lane" exactly` and `advisor "Lane" accounts exactly` are not. A direction
+ * or count is read on either side (`withoutDirection`).
+ * Like the words between the column and the text, this is a rule, not a list of bad words.
+ */
+const unreadBesideText = (
+  clause: Clause,
+  lit: Literal,
+  owner: Mention,
+  own: readonly Mention[],
+  rowNoun: string | undefined,
+): string | undefined => {
+  const noun = rowNoun?.toLowerCase().replace(/(?:es|s)$/, "");
+  const nounSource = noun ? String.raw`${noun.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:e?s)?\b` : undefined;
+  const text = withoutDirection(clause, own, nounSource ? new RegExp(String.raw`\b${nounSource}`, "g") : undefined);
+  const isRowNoun = (m: Mention) => !!noun && clause.text.slice(m.start, m.end).replace(/(?:es|s)$/, "") === noun;
+  const literalEnd = (l: Literal) => l.at + literalText(clause.text, l).length;
+  // The words before the column start after the last name or literal GridCue read. The Row Noun left as a name is
+  // not one: it is checked below.
+  const ends = [
+    ...own.filter((m) => m !== owner && m.end <= owner.start && !isRowNoun(m)).map((m) => m.end),
+    ...clause.literals.filter((l) => l.at < owner.start).map(literalEnd),
+  ];
+  const from = Math.max(0, ...ends);
+  let before = text.slice(from, owner.start);
+  if (from === 0) {
+    before = before.slice(COURTESY_LEAD.exec(before)?.[0].length ?? 0);
+    before = before.slice(LEAD_IN.exec(before)?.[0].length ?? 0);
+  }
+  const nounWords = nounSource ? String.raw`(?:${nounSource}[\s,]*)?` : "";
+  // The verbs that choose rows (see `verbFamily`), with "only" or "just" after them as before them (`LEAD_IN`), then
+  // the rows, then a word that joins them to the column: "show all of", "taxable accounts for", "value over $1m for".
+  // "Filter" takes more: "filter by", "filter accounts by", "filter rows with", "filter the grid to".
+  const rows = String.raw`(?:${nounSource ? `${nounSource}|` : ""}rows?|records?|grid|table)[\s,]*`;
+  const filterLead = String.raw`filter\s+(?:(?:the|all|my)\s+)?(?:${rows})?(?:(?:by|on|for|to|with|where|in)\s+)?`;
+  const chooseLead = String.raw`(?:(?:show|filter(?: to)?|find|list|display|see|view|look at|get|keep|include)\s+)?(?:(?:only|just)\s+)?(?:all(?: of)?\s+)?(?:(?:the|my)\s+)?${nounWords}(?:(?:and|or|then|for)\s+|${ROWS_JOIN})?`;
+  const BEFORE = new RegExp(String.raw`^[\s,]*(?:${filterLead}|${chooseLead})(?:(?:but\s+)?only\s+)?(?:(?:the|an?)\s+)?$`);
+  if (!BEFORE.test(before)) return before.trim().replace(/[\s,]+$/, "");
+  // The Row Noun left as a name before the column means GridCue didn't read how the rows and the column join:
+  // `accounts not at Northgate with advisor "Lane"`, `accounts for advisor "Lane"`. Where the Mentions read it as the
+  // rows, it is not a name, and "for" after it is read above: `taxable accounts for advisor "Lane"`.
+  const rowsName = own.find((m) => m !== owner && m.end <= owner.start && isRowNoun(m));
+  if (rowsName)
+    return text
+      .slice(rowsName.start, owner.start)
+      .trim()
+      .replace(/[\s,]+$/, "");
+  // After the text, the check runs to the next name or literal. The Row Noun is not one: `advisor "Lane" accounts
+  // exactly` is checked to its end.
+  const end = literalEnd(lit);
+  const next = [
+    ...own.filter((m) => m.start >= end && !isRowNoun(m)).map((m) => ({ at: m.start, mention: m })),
+    ...clause.literals.filter((l) => l.at >= end).map((l) => ({ at: l.at, mention: undefined })),
+  ].sort((a, b) => a.at - b.at)[0];
+  const after = text.slice(end, next?.at ?? text.length);
+  // A column whose own value the name after it leaves out, with only the negation between them: `at every custodian
+  // other than Northgate`.
+  const column = next?.mention;
+  const ownValue = column
+    ? own.filter((m) => m.start >= column.end && m !== column && !isRowNoun(m)).sort((a, b) => a.start - b.start)[0]
+    : undefined;
+  const leavesOwnValue =
+    !!column &&
+    !!ownValue &&
+    column.valueId === undefined &&
+    ownValue.valueId !== undefined &&
+    !!ownValue.negated &&
+    ownValue.columnId === column.columnId &&
+    !clause.literals.some((l) => l.at >= column.end && l.at < ownValue.start) &&
+    LEAVES_OWN_VALUE.test(text.slice(column.end, ownValue.start));
+  // Before an amount, the amount's own comparison is read with it: `advisor "Lane" and value over $1m`.
+  const read = !next
+    ? afterTextEnd(nounWords).test(after)
+    : next.mention
+      ? afterText(next.mention, nounWords, leavesOwnValue).test(after)
+      : ADJACENT_COMPARISON.test(after.slice(afterTextJoin(nounWords).exec(after)?.[0].length ?? 0));
+  return read
+    ? undefined
+    : clause.text
+        .slice(end, next?.at ?? text.length)
+        .trim()
+        .replace(/^[\s,]+|[\s.!?]+$/g, "");
 };
 
 const describeLiteral = (lit: Literal): string => {
