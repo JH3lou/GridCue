@@ -33,10 +33,15 @@ export const TEXT_MATCH_WORDS: ReadonlyArray<readonly [TextMatchKind, string]> =
 ];
 /** A negation right before the match words reverses them: "not starting with", "isn't exactly". They are left unread. */
 const NEGATED_MATCH = /(?:\b(?:not|never|no)|n't)\s*$/;
+/** The match words at the end of the text before quoted text, compiled once: reading must stay fast. */
+const MATCH_AT_END: ReadonlyArray<readonly [TextMatchKind, RegExp]> = TEXT_MATCH_WORDS.map(
+  ([kind, words]) => [kind, new RegExp(String.raw`${words}\s*$`, "u")] as const,
+);
+/** `text` is the clause with its quoted text blanked (`unquoted`), made once for the whole clause. */
 const matchBefore = (text: string, at: number): TextMatchKind | undefined => {
   const before = text.slice(Math.max(0, at - 32), at);
-  for (const [kind, words] of TEXT_MATCH_WORDS) {
-    const m = new RegExp(String.raw`${words}\s*$`, "u").exec(before);
+  for (const [kind, words] of MATCH_AT_END) {
+    const m = words.exec(before);
     if (m) return NEGATED_MATCH.test(before.slice(0, m.index)) ? undefined : kind;
   }
   return undefined;
@@ -367,11 +372,11 @@ const comparatorAround = (clause: string, at: number, end: number, date = false)
 
 const extractLiterals = (clause: string): Literal[] => {
   const literals: Literal[] = [];
+  const withoutQuotes = unquoted(clause);
   for (const m of clause.matchAll(QUOTED)) {
-    const match = matchBefore(unquoted(clause), m.index ?? 0);
+    const match = matchBefore(withoutQuotes, m.index ?? 0);
     literals.push({ kind: "text", value: m[1] ?? "", at: m.index ?? 0, ...(match ? { match } : {}) });
   }
-  const withoutQuotes = unquoted(clause);
   for (const m of withoutQuotes.matchAll(ISO_DATE)) {
     const comparator = comparatorAround(withoutQuotes, m.index ?? 0, (m.index ?? 0) + m[0].length, true);
     literals.push({ kind: "date", value: m[0], ...(comparator ? { comparator } : {}), at: m.index ?? 0 });
