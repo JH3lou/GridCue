@@ -4,6 +4,7 @@ import { wealthInitialState, wealthSchema } from "@gridcue-internal/wealth-fixtu
 import {
   createGridCue,
   createRowsAdapter,
+  defineSchema,
   type GridCueController,
   type IntentProvider,
   type ViewOperation,
@@ -16,6 +17,8 @@ export interface EvalCase {
   utterance: string;
   /** Starts the grid from this view instead of the default, e.g. already grouped by custodian. */
   state?: Partial<Pick<ViewState, "groupBy" | "sorts" | "filters">>;
+  /** Runs on another schema instead of the wealth fixture: "dated" for cases about dates. */
+  schema?: "dated";
   expect: {
     status: ViewPlan["status"];
     operations?: unknown[];
@@ -23,6 +26,33 @@ export interface EvalCase {
     clarificationPrompt?: string;
   };
 }
+
+/**
+ * The date schema in packages/gridcue/test/reading-fixes.test.ts, plus one date-and-time column. Its rows are never
+ * read: a case judges the plan, not the rows.
+ */
+const datedSchema = defineSchema(
+  [
+    { id: "name", label: "Name" },
+    { id: "opened", label: "Opened" },
+    { id: "closed", label: "Close date" },
+    { id: "last_contact", label: "Last contact" },
+    { id: "positions", label: "Positions" },
+    { id: "value", label: "Value" },
+  ],
+  {
+    id: "ledger",
+    version: "1",
+    rowNoun: "account",
+    columns: {
+      opened: { kind: "date", aliases: ["open date"] },
+      closed: { kind: "date", aliases: ["closed"] },
+      last_contact: { kind: "datetime" },
+      positions: { kind: "number", aliases: ["holdings count"] },
+      value: { kind: "currency" },
+    },
+  },
+);
 
 export type Verdict = "exact" | "safe_abstention" | "rejected" | "mismatch" | "unsafe";
 
@@ -92,7 +122,10 @@ export const judge = (c: EvalCase, plan: ViewPlan | null, status: string): Verdi
 
 export const runCase = async (c: EvalCase, provider: IntentProvider) => {
   // A case's state is the view the User is looking at. The default view, which a reset returns to, stays the fixture's.
-  const adapter = createRowsAdapter({ schema: wealthSchema, initialState: wealthInitialState });
+  const adapter =
+    c.schema === "dated"
+      ? createRowsAdapter({ schema: datedSchema })
+      : createRowsAdapter({ schema: wealthSchema, initialState: wealthInitialState });
   if (c.state) adapter.setState((view) => ({ ...view, ...c.state }));
   const cue: GridCueController = createGridCue({ adapter, provider });
   const plan = await cue.propose(c.utterance);
