@@ -93,6 +93,37 @@ Create the Controller once, with a `useState` initializer. `useTable` returns a 
 
 The adapter holds on to the first table object. That is safe: it reads state through `table.store` and writes through the table's setters, which stay the same for the table's lifetime.
 
+## If your app controls the table's state
+
+Many apps pass `state: { sorting }` and `onSortingChange` to the table, to keep the view in a store or the URL. GridCue works with that, with three rules.
+
+**Every slice you control needs its change handler.** GridCue writes the filters, sorting, grouping, column order, and column visibility, then waits for the table to hold what it wrote. A controlled slice with no handler never changes, so the table can't hold it. After 1,000 ms the apply fails. When the request changed only that slice, nothing is changed and the command bar says "The grid couldn't apply that change. Nothing was changed." When it also changed a slice the table owns, GridCue puts that slice back and says "The grid couldn't apply that change. The previous view is back."
+
+**Store exactly what the handler is given.** GridCue waits for the very value it wrote. A handler that changes it, for example by adding a tiebreaker sort or keeping only one sort, never stores that value. After 1,000 ms the apply fails, and the command bar says the view changed meanwhile. The table keeps the handler's value, and the User can't undo it. Adjust the value where you read it, such as in your fetch, not in the handler.
+
+**Set the state first, and fetch after.** The wait ends when the table renders the new state. A handler that sets state right away, then starts a fetch, is fine:
+
+```tsx
+const [sorting, setSorting] = useState<SortingState>([]);
+
+const table = useTable({
+  features,
+  columns,
+  data,
+  state: { sorting },
+  onSortingChange: (updater) => {
+    setSorting(updater); // 1. set the state now
+    void refetchRows(); // 2. then fetch
+  },
+});
+```
+
+A handler that waits for its fetch before it sets state makes the apply fail. If the state is set later than 1,000 ms, the apply has already failed and the command bar says so, but the table still takes GridCue's change when the state lands. That change isn't undoable, and the message no longer matches the table. Undo waits the same way.
+
+A table that owns its state needs none of this. Apply returns at once, as before.
+
+If the User changes the view while GridCue waits and the apply then fails, GridCue keeps the User's change and doesn't undo it.
+
 ## Pick a command bar
 
 Two UIs sit on the same `useGridCue` hook. Pick one.

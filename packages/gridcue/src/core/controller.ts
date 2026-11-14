@@ -346,19 +346,23 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
       try {
         result = await adapter.apply(recheck.plan);
       } catch {
-        // A write that throws part-way may have changed the grid. The parts of the view this plan writes may hold any
-        // value, since a write can stop between steps (columns reordered but not yet hidden). Put the previous view
-        // back when every other part still holds its old value: then nothing else has changed the grid since, and
-        // restoring can't erase a newer change (review fixes).
+        // A write that throws part-way may have changed the grid, and a grid that updates later may have taken a newer
+        // change while the adapter waited for it (spec 5.1). Each part of the view counts as GridCue's own only when it
+        // holds its old value, or the value this plan wrote there. Put the previous view back only when every part is
+        // GridCue's own: any other value is a newer change, such as the User's header click, and restoring would erase it.
+        // The visible columns are judged as a set. Their order is the column order's, judged on its own, so a write that
+        // stops after the column order but before the visibility still counts as GridCue's own.
         let restored = false;
         let untouched = false;
         try {
           const now = adapter.getState().state;
           const after = resultingState(recheck.plan);
           const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+          const part = (s: typeof now, k: keyof typeof now) => (k === "visibleColumnIds" ? [...s.visibleColumnIds].sort() : s[k]);
           untouched = same(now, before.state);
-          const writes = (k: keyof typeof now) => !same(after[k], before.state[k]);
-          const ours = (Object.keys(now) as Array<keyof typeof now>).every((k) => writes(k) || same(now[k], before.state[k]));
+          const ours = (Object.keys(now) as Array<keyof typeof now>).every(
+            (k) => same(part(now, k), part(before.state, k)) || same(part(now, k), part(after, k)),
+          );
           if (!untouched && ours) restored = (await adapter.restore(before)).ok;
         } catch {
           restored = false;

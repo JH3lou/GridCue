@@ -5,6 +5,7 @@ import {
   emptyViewState,
   type FilterPredicate,
   type GridAdapter,
+  GridCueError,
   isApplicable,
   MVP_OPERATIONS,
   matchesPredicate,
@@ -100,12 +101,17 @@ export interface TanStackAdapterOptions {
   maxGroups?: number;
 }
 
+/**
+ * How long an apply or restore waits for a table whose state the Host controls to render what GridCue wrote.
+ * Past it, the write throws and the Controller's recovery runs (spec 4.2, ADR 0031).
+ */
+const HOLD_WAIT_MS = 1_000;
+
 /** A Grid Adapter over a TanStack Table v9 instance. The Host keeps owning the table and its state. */
 export const createTanStackAdapter = ({ schema, table, maxSorts = 3, maxGroups = 2 }: TanStackAdapterOptions): GridAdapter => {
   let n = 0;
   const leafIds = () => table.getAllLeafColumns().map((c) => c.id);
-  const read = (): ViewState => {
-    const s = table.store.state;
+  const read = (s: TanStackState = table.store.state): ViewState => {
     const leaves = leafIds();
     const order = s.columnOrder?.length ? [...s.columnOrder, ...leaves.filter((id) => !s.columnOrder?.includes(id))] : leaves;
     const predicates = (s.columnFilters ?? []).flatMap((f) => (isGridCueValue(f.value) ? f.value.predicates : []));
@@ -127,17 +133,62 @@ export const createTanStackAdapter = ({ schema, table, maxSorts = 3, maxGroups =
   // such as a BigInt.
   const fingerprint = () => JSON.stringify(read());
   let lastFingerprint = fingerprint();
-  const sub = table.store.subscribe(() => {
+  // While a write is waiting for the table, changes are counted but listeners hear of them once, when it ends:
+  // an apply notifies once, however many renders a controlled table takes to hold it.
+  let writing = 0;
+  let held = false;
+  const notify = () => {
+    const snapshot = current();
+    for (const l of listeners) l(snapshot);
+  };
+  /** Counts a change to the View State the table now holds, if there is one. */
+  const sync = () => {
     const next = fingerprint();
     if (next === lastFingerprint) return;
     lastFingerprint = next;
     n++;
-    const snapshot = current();
-    for (const l of listeners) l(snapshot);
+    if (writing > 0) held = true;
+    else notify();
+  };
+  const waiters = new Set<() => void>();
+  const sub = table.store.subscribe(() => {
+    sync();
+    for (const w of [...waiters]) w();
   });
   void sub;
 
-  const write = (next: ViewState): ApplyResult => {
+  /**
+   * Resolves once the table holds `expected`, checking after each store notification. A table that owns its state
+   * holds it already, so this resolves in the same tick. A controlled table holds it on its next render. Past the
+   * bound it throws: a controlled slice with no change handler never changes.
+   *
+   * It resolves with the Revision read at the moment the table first holds `expected`, not after the await: a change
+   * made between that moment and the caller resuming is newer than the write, so undo must find it and refuse.
+   */
+  const untilHeld = (expected: string): Promise<VersionedViewState> => {
+    sync();
+    if (lastFingerprint === expected) return Promise.resolve(current());
+    return new Promise((resolve, reject) => {
+      const done = () => {
+        clearTimeout(timer);
+        waiters.delete(check);
+      };
+      const check = () => {
+        if (lastFingerprint !== expected) return;
+        done();
+        resolve(current());
+      };
+      const timer = setTimeout(() => {
+        sync();
+        if (lastFingerprint === expected) return check();
+        done();
+        reject(new GridCueError("ADAPTER_FAILED", `The table didn't hold the change within ${HOLD_WAIT_MS} ms.`));
+      }, HOLD_WAIT_MS);
+      waiters.add(check);
+    });
+  };
+
+  const write = async (next: ViewState): Promise<ApplyResult> => {
     const predicates: FilterPredicate[] = [];
     if (next.filters) {
       if (next.filters.combinator !== "and" || next.filters.children.some((c) => c.type !== "predicate")) {
@@ -157,8 +208,8 @@ export const createTanStackAdapter = ({ schema, table, maxSorts = 3, maxGroups =
       if (host !== undefined && !hostByColumn.has(f.id)) hostByColumn.set(f.id, host);
     }
     const kind = (id: string) => schema.columns.find((c) => c.id === id)?.kind ?? "string";
-    table._reactivity.batch(() => {
-      table.setColumnFilters([
+    const slices = {
+      columnFilters: [
         ...[...hostByColumn].filter(([id]) => !byColumn.has(id)).map(([id, host]) => ({ id, value: host })),
         ...[...byColumn].map(([id, preds]) => ({
           id,
@@ -169,13 +220,32 @@ export const createTanStackAdapter = ({ schema, table, maxSorts = 3, maxGroups =
             ...(hostByColumn.has(id) ? { host: hostByColumn.get(id) } : {}),
           } satisfies GridCueFilterValue,
         })),
-      ]);
-      table.setSorting(next.sorts.map((s) => ({ id: s.columnId, desc: s.direction === "desc" })));
-      table.setGrouping([...next.groupBy]);
-      table.setColumnOrder([...next.columnOrder]);
-      table.setColumnVisibility(Object.fromEntries(next.columnOrder.map((id) => [id, next.visibleColumnIds.includes(id)])));
-    });
-    return { ok: true, state: current() };
+      ],
+      sorting: next.sorts.map((s) => ({ id: s.columnId, desc: s.direction === "desc" })),
+      grouping: [...next.groupBy],
+      columnOrder: [...next.columnOrder],
+      columnVisibility: Object.fromEntries(next.columnOrder.map((id) => [id, next.visibleColumnIds.includes(id)])),
+    } satisfies TanStackState;
+    // The View State the table reads as once it holds every slice written here, in the form `read` gives.
+    const expected = JSON.stringify(read({ ...table.store.state, ...slices }));
+    writing++;
+    try {
+      table._reactivity.batch(() => {
+        table.setColumnFilters(slices.columnFilters);
+        table.setSorting(slices.sorting);
+        table.setGrouping(slices.grouping);
+        table.setColumnOrder(slices.columnOrder);
+        table.setColumnVisibility(slices.columnVisibility);
+      });
+      // Done only when the table holds it, with the Revision that change produced (ADR 0031).
+      return { ok: true, state: await untilHeld(expected) };
+    } finally {
+      writing--;
+      if (writing === 0 && held) {
+        held = false;
+        notify();
+      }
+    }
   };
 
   return {

@@ -1,7 +1,5 @@
 # An apply is done when the grid holds it
 
-**Status:** accepted with the more grids spec (2026-11-13). Not yet built.
-
 A Grid Adapter's `apply` and `restore` succeed only once the grid holds the View State that was written. The Revision they return is the one the grid now has.
 
 The adapter interface already promised "every operation or none". It did not say when. On a TanStack table whose state the Host controls, a write only asks the Host to render again, so the adapter returned before the table had changed (more grids grill, 2026-11-13):
