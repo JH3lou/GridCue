@@ -216,7 +216,7 @@ Spec 5.6. ADR 0033. Needs PRs 1, 3, 5.
 
 ### Task 6.3: The adapter (Opus)
 **Files:** new `packages/gridcue/src/ag-grid/index.ts`, `test/ag-grid.test.ts`. Needs 6.1.
-- [ ] Tests first: the contract suite on the Client-Side and Infinite row models; each creation check; an `in` with another filter on its column fails with `ADAPTER_UNSUPPORTED_FILTER` and nothing written; pins and an Enterprise grouping are written back unchanged.
+- [ ] Tests first: the contract suite on the Client-Side and Infinite row models; each creation check; an `in` with another filter on its column fails with `ADAPTER_UNSUPPORTED_FILTER` and nothing written; pins and an Enterprise grouping are written back unchanged; on the Infinite Row Model, a column with the Host's own custom filter set, then a GridCue filter applied on another column: the datasource request still holds the Host's filter, the View State holds only GridCue's, and the example's Data Query returns the rows that pass both.
 - [ ] `AgGridApiLike`, `createAgGridAdapter`, `schemaFromAgGrid`. One apply writes, waits until the grid reads back what was written, then notifies once.
 
 ### Task 6.4: Meanings and the reader (Fable)

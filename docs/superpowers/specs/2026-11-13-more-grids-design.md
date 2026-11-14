@@ -200,7 +200,7 @@ for (const c of check.cases) {
 **The guide, "Rows on a server",** is one Site page:
 
 1. Pick the adapter: TanStack in manual mode keeps the TanStack adapter; any other table uses the Query Adapter; AG Grid's Infinite Row Model uses `gridcue/ag-grid`.
-2. Build the Data Query from `adapter.getState().state` on every change, never from the grid's own model. (TanStack's `columnFilters` wraps GridCue's predicates; AG Grid's model can't carry the meanings in 4.1.)
+2. Build the Data Query from `adapter.getState().state` on every change, never from the grid's own model, for everything the View State holds. (TanStack's `columnFilters` wraps GridCue's predicates; AG Grid's model can't carry the meanings in 4.1.) A filter GridCue can't read is not in the View State (5.6): the Host's own custom filter on AG Grid, or a global filter. It is still the Host's, so the Data Query is the View State's filters and the Host's own, joined with "and". On AG Grid's Infinite Row Model the Host takes its own filter from the datasource request's filter model, for the columns that carry its custom filter, and everything else from the View State. A Data Query built from the View State alone would return rows the grid's own filter icon says are filtered out.
 3. The table in 4.1.
 4. Never put a value or a column name into query text. Values are parameters; column IDs are checked against the schema.
 5. Run the Query Check in your tests.
@@ -248,7 +248,7 @@ const schema = schemaFromAgGrid(columnDefs, { sampleRows: rowData, columns: { /*
 - Each column holds as many conditions as it has declared values (at least 2), so any `in` GridCue validates fits.
 - **Which options use AG Grid's settings and which use a custom option with GridCue's predicate is settled by the row check in section 10, not by this spec.** The list above is the starting point.
 
-**Reading back.** A filter the User sets in AG Grid's menu is read into the View State: each AND condition is a predicate, an OR of conditions on one column is a nested OR group, and equals-OR-equals on one column is `in`. So the Preview, "clear the filters", undo, and later the View Sentence see it. A filter GridCue can't read stays the Host's: it is left out of the View State, kept on every write, and a GridCue filter on that column fails at Apply with `ADAPTER_UNSUPPORTED_FILTER` rather than replace it.
+**Reading back.** A filter the User sets in AG Grid's menu is read into the View State: each AND condition is a predicate, an OR of conditions on one column is a nested OR group, and equals-OR-equals on one column is `in`. So the Preview, "clear the filters", undo, and later the View Sentence see it. A filter GridCue can't read stays the Host's: it is left out of the View State, kept on every write, and a GridCue filter on that column fails at Apply with `ADAPTER_UNSUPPORTED_FILTER` rather than replace it. On the Infinite Row Model the Host's Data Query must still carry that filter, beside the View State's (5.5, step 2).
 
 **Checks at creation, all `INPUT_CONFIG`, each naming what is wrong:**
 
