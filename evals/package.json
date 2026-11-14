@@ -4,6 +4,7 @@
   "type": "module",
   "dependencies": {
     "gridcue": "workspace:*",
+    "@gridcue-internal/ledger-fixtures": "workspace:*",
     "@gridcue-internal/wealth-fixtures": "workspace:*",
     "@typesafe-ai/sdk": "0.6.0"
   },

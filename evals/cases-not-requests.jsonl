@@ -1,0 +1,71 @@
+{"id":"nr-no-advisor-i-trust","utterance":"there is no advisor I trust","expect":{"mustNotBeReady":true}}
+{"id":"nr-no-advisor-moment","utterance":"I have no advisor at the moment","expect":{"mustNotBeReady":true}}
+{"id":"nr-who-has-advisor","utterance":"who has an advisor","expect":{"mustNotBeReady":true}}
+{"id":"nr-what-blank","utterance":"what does it mean when an advisor is blank","expect":{"mustNotBeReady":true}}
+{"id":"nr-good-advisor","utterance":"she has a good advisor","expect":{"mustNotBeReady":true}}
+{"id":"nr-called-back","utterance":"no advisor called me back","expect":{"mustNotBeReady":true}}
+{"id":"nr-felt-lost","utterance":"without an advisor I felt lost","expect":{"mustNotBeReady":true}}
+{"id":"nr-exactly-who","utterance":"the advisor is exactly who I wanted","expect":{"mustNotBeReady":true}}
+{"id":"nr-household-a","utterance":"I wonder if the household starts with an A","expect":{"mustNotBeReady":true}}
+{"id":"nr-no-household-wants","utterance":"there is no household that wants this","expect":{"mustNotBeReady":true}}
+{"id":"nr-why-blank","utterance":"why is the advisor blank","expect":{"mustNotBeReady":true}}
+{"id":"nr-nobody-knows","utterance":"nobody has an advisor I know","expect":{"mustNotBeReady":true}}
+{"id":"nr-assign-advisor","utterance":"assign an advisor to accounts with no advisor","expect":{"mustNotBeReady":true}}
+{"id":"nr-begins-plan","utterance":"my advisor begins with a plan","expect":{"mustNotBeReady":true}}
+{"id":"nr-owner-counterparty-dislike","utterance":"the owner has a counterparty I dislike","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"nr-no-counterparty-story","utterance":"there is no counterparty in this story","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"nr-category-report","utterance":"I was told the category is missing from my report","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"nr-deal-fell-apart","utterance":"without a counterparty the deal fell apart","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"nr-owner-exactly-right","utterance":"she has an owner who is exactly right","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"nr-email-everyone","utterance":"email everyone who has an advisor","expect":{"mustNotBeReady":true}}
+{"id":"nr-missing-from-my-account","utterance":"advisor is missing from my account","expect":{"mustNotBeReady":true}}
+{"id":"nr-missing-for-me","utterance":"advisor is missing for me","expect":{"mustNotBeReady":true}}
+{"id":"nr-missing-for-my-accounts","utterance":"the advisor is missing for my accounts","expect":{"mustNotBeReady":true}}
+{"id":"nr-my-accounts-advisor","utterance":"my accounts' advisor is missing","expect":{"mustNotBeReady":true}}
+{"id":"nr-every-advisor-empty","utterance":"every advisor is empty","expect":{"mustNotBeReady":true}}
+{"id":"nr-each-advisor-blank","utterance":"each advisor is blank","expect":{"mustNotBeReady":true}}
+{"id":"nr-blank-for-us","utterance":"advisor is blank for us","expect":{"mustNotBeReady":true}}
+{"id":"nr-not-empty-for-our-accounts","utterance":"advisor is not empty for our accounts","expect":{"mustNotBeReady":true}}
+{"id":"nr-the-accounts-advisor","utterance":"the account's advisor is missing","expect":{"mustNotBeReady":true}}
+{"id":"nr-any-household-missing","utterance":"any household is missing","expect":{"mustNotBeReady":true}}
+{"id":"nr-every-advisor-starts","utterance":"every advisor starts with \"Av\"","expect":{"mustNotBeReady":true}}
+{"id":"nr-my-advisors-accounts","utterance":"my advisor's accounts with no household","expect":{"mustNotBeReady":true}}
+{"id":"nr-vendor-missing-from-my-entry","utterance":"vendor is missing from my entry","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"nr-vendor-missing-for-me","utterance":"vendor is missing for me","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"nr-vendor-missing-for-my-entries","utterance":"the vendor is missing for my entries","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"nr-my-entries-vendor","utterance":"my entries' vendor is missing","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"nr-every-vendor-empty","utterance":"every vendor is empty","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"nr-each-vendor-empty","utterance":"each vendor is empty","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"nr-any-payee-missing","utterance":"any payee is missing","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"nr-category-missing-for-us","utterance":"category is missing for us","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"nr-booked-empty-in-our-entries","utterance":"booked is empty in our entries","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"nr-the-entrys-vendor","utterance":"the entry's vendor is blank","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"nr-each-booking-date-missing","utterance":"each booking date is missing","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"nr-every-owner-exactly","utterance":"every owner is exactly \"Avery Lane\"","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"nr-include-me-in","utterance":"include me in accounts with no advisor","expect":{"mustNotBeReady":true}}
+{"id":"nr-keep-me-in","utterance":"keep me in accounts with no advisor","expect":{"mustNotBeReady":true}}
+{"id":"nr-see-us-for","utterance":"see us for accounts with no advisor","expect":{"mustNotBeReady":true}}
+{"id":"nr-show-me-in","utterance":"show me in accounts with no advisor","expect":{"mustNotBeReady":true}}
+{"id":"nr-that-advisor-missing","utterance":"that advisor is missing","expect":{"mustNotBeReady":true}}
+{"id":"nr-show-me-that-advisor","utterance":"show me that advisor is missing","expect":{"mustNotBeReady":true}}
+{"id":"nr-were-without-advisor","utterance":"accounts which were without an advisor","expect":{"mustNotBeReady":true}}
+{"id":"nr-include-me-in-entries","utterance":"include me in entries with no vendor","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"nr-see-me-for-entries","utterance":"see me for entries with no vendor","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"nr-that-vendor-missing","utterance":"that vendor is missing","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"nr-were-without-vendor","utterance":"entries which were without a vendor","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"nr-r4-accounts-are-without-an-advisor","utterance":"accounts are without an advisor","expect":{"mustNotBeReady":true}}
+{"id":"nr-r4-the-account-is-without-an-advisor","utterance":"the account is without an advisor","expect":{"mustNotBeReady":true}}
+{"id":"nr-r4-that-account-is-with-no-advisor","utterance":"that account is with no advisor","expect":{"mustNotBeReady":true}}
+{"id":"nr-r4-my-accounts-are-without-an-advisor","utterance":"my accounts are without an advisor","expect":{"mustNotBeReady":true}}
+{"id":"nr-r4-every-account-is-without-an-advisor","utterance":"every account is without an advisor","expect":{"mustNotBeReady":true}}
+{"id":"nr-r4-that-account-has-no-advisor","utterance":"that account has no advisor","expect":{"mustNotBeReady":true}}
+{"id":"nr-r4-that-account-has-an-advisor","utterance":"that account has an advisor","expect":{"mustNotBeReady":true}}
+{"id":"nr-r4-which-advisor-is-missing","utterance":"which advisor is missing","expect":{"mustNotBeReady":true}}
+{"id":"nr-r4-which-household-is-empty","utterance":"which household is empty","expect":{"mustNotBeReady":true}}
+{"id":"nr-r4-show-me-which-vendor-is-blank-ledger","utterance":"show me which vendor is blank","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"nr-r4-advisor-is-empty-for-every-account","utterance":"advisor is empty for every account","expect":{"mustNotBeReady":true}}
+{"id":"nr-r4-advisor-is-empty-for-all-accounts","utterance":"advisor is empty for all accounts","expect":{"mustNotBeReady":true}}
+{"id":"nr-r4-advisor-is-missing-from-the-account","utterance":"advisor is missing from the account","expect":{"mustNotBeReady":true}}
+{"id":"nr-r4-advisor-is-blank-in-those-accounts","utterance":"advisor is blank in those accounts","expect":{"mustNotBeReady":true}}
+{"id":"nr-r4-vendor-is-empty-for-these-entries-ledger","utterance":"vendor is empty for these entries","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"nr-r4-advisor-is-empty-for-all","utterance":"advisor is empty for all","expect":{"mustNotBeReady":true}}

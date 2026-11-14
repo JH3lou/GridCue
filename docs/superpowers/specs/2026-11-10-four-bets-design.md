@@ -53,7 +53,7 @@ Success means:
 - **A symbol grammar** (`/adv -mv !trust`).
 - **Storing, naming, or sharing views.** The Host does that with the View State. GridCue gives it `describeView` and `proposeView`.
 - **Editing the View Sentence's text in place.** A part of the current view can still be removed, through a Preview: the command bar builds that (ADR 0039).
-- **New view operations.** OR filters, "starts with", empty and not empty, pinning, aggregations, and density stay unreachable by request. The sentence words them for reading and says they can't be typed back.
+- **New view operations.** OR filters, pinning, aggregations, and density stay unreachable by request. "Starts with", empty and not empty are now read by code (named filters spec, 5.2). The sentence words them for reading and says they can't be typed back.
 - **A completion menu.** Tab completes only when one name fits.
 - **`limit.set` in the TanStack Table adapter.**
 

@@ -1,0 +1,108 @@
+{"id":"r3-r1-w01","utterance":"Show only household where advisor is empty.","expect":{"mustNotBeReady":true}}
+{"id":"r3-r1-w02","utterance":"Just household for accounts with no advisor.","expect":{"mustNotBeReady":true}}
+{"id":"r3-r1-w03","utterance":"Display custodian for accounts with no advisor assigned.","expect":{"mustNotBeReady":true}}
+{"id":"r3-r1-w04","utterance":"Just the market value where advisor starts with \"Bl\".","expect":{"mustNotBeReady":true}}
+{"id":"r3-r1-w05","utterance":"Keep only value for accounts that have an advisor.","expect":{"mustNotBeReady":true}}
+{"id":"r3-r1-w06","utterance":"Show only advisor where household starts with \"Alder\".","expect":{"mustNotBeReady":true}}
+{"id":"r3-r1-w07","utterance":"Display advisor where household is blank.","expect":{"mustNotBeReady":true}}
+{"id":"r3-r1-w08","utterance":"See only household where custodian is exactly \"northgate\".","expect":{"mustNotBeReady":true}}
+{"id":"r3-r1-w09","utterance":"List advisor for accounts with no household.","expect":{"mustNotBeReady":true}}
+{"id":"r3-r1-w10","utterance":"Show acct where advisor is empty.","expect":{"mustNotBeReady":true}}
+{"id":"r3-r1-w11","utterance":"Show only gain for accounts with no advisor.","expect":{"mustNotBeReady":true}}
+{"id":"r3-r1-w12","utterance":"Add the concentration column, accounts without an advisor.","alsoAcceptsAsk":true,"expect":{"status":"ready","operations":[{"type":"columns.show","columnIds":["concentration"]},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"isEmpty"}}]}}
+{"id":"r3-r1-w13","utterance":"Keep only household, accounts that have an advisor.","expect":{"mustNotBeReady":true}}
+{"id":"r3-r1-w14","utterance":"Show only advisor for households with no custodian.","expect":{"mustNotBeReady":true}}
+{"id":"r3-r1-w15","utterance":"Show household, advisor is blank.","expect":{"mustNotBeReady":true}}
+{"id":"r3-r1-w16","utterance":"Hide custodian and show accounts with no advisor.","alsoAcceptsAsk":true,"expect":{"status":"ready","operations":[{"type":"columns.hide","columnIds":["custodian"]},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"isEmpty"}}]}}
+{"id":"r3-r1-l01","schema":"ledger","utterance":"Show only owner where vendor is empty.","expect":{"mustNotBeReady":true}}
+{"id":"r3-r1-l02","schema":"ledger","utterance":"Just amount for entries with no category.","expect":{"mustNotBeReady":true}}
+{"id":"r3-r1-l03","schema":"ledger","utterance":"Display payee where category is blank.","expect":{"mustNotBeReady":true}}
+{"id":"r3-r1-l04","schema":"ledger","utterance":"Keep only booked, entries without a vendor.","expect":{"mustNotBeReady":true}}
+{"id":"r3-r1-l05","schema":"ledger","utterance":"Show total where counterparty starts with \"Ced\".","expect":{"mustNotBeReady":true}}
+{"id":"r3-r1-l06","schema":"ledger","utterance":"Show only units for entries where vendor is exactly \"cedar works\".","expect":{"mustNotBeReady":true}}
+{"id":"r3-r1-l07","schema":"ledger","utterance":"Display only reference where payee is missing.","expect":{"mustNotBeReady":true}}
+{"id":"r3-r1-l08","schema":"ledger","utterance":"Show only timestamp for entries with no booking date.","expect":{"mustNotBeReady":true}}
+{"id":"r3-r1-l09","schema":"ledger","utterance":"Show the owner column, entries that have a category.","alsoAcceptsAsk":true,"expect":{"status":"ready","operations":[{"type":"columns.show","columnIds":["owner"]},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"category","operator":"isNotEmpty"}}]}}
+{"id":"r3-r1-l10","schema":"ledger","utterance":"Hide rate and show entries with no category.","alsoAcceptsAsk":true,"expect":{"status":"ready","operations":[{"type":"columns.hide","columnIds":["rate"]},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"category","operator":"isEmpty"}}]}}
+{"id":"r3-r1c-w01","utterance":"Households with no advisor.","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"isEmpty"}}]}}
+{"id":"r3-r1c-w02","utterance":"Show accounts where advisor is empty.","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"isEmpty"}}]}}
+{"id":"r3-r1c-w03","utterance":"Show households that have an advisor.","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"isNotEmpty"}}]}}
+{"id":"r3-r1c-w04","utterance":"Accounts without an advisor.","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"isEmpty"}}]}}
+{"id":"r3-r1c-w05","utterance":"List accounts where advisor starts with \"Dana\".","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"startsWith","value":"dana"}}]}}
+{"id":"r3-r1c-w06","utterance":"Households where advisor starts with \"Em\".","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"startsWith","value":"em"}}]}}
+{"id":"r3-r1c-w07","utterance":"Advisors with no household.","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"household","operator":"isEmpty"}}]}}
+{"id":"r3-r1c-l01","schema":"ledger","utterance":"List entries with no category.","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"category","operator":"isEmpty"}}]}}
+{"id":"r3-r1c-l02","schema":"ledger","utterance":"Show entries where vendor is blank.","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"counterparty","operator":"isEmpty"}}]}}
+{"id":"r3-r1c-l03","schema":"ledger","utterance":"Entries that have a payee.","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"counterparty","operator":"isNotEmpty"}}]}}
+{"id":"r3-r1c-l04","schema":"ledger","utterance":"Display entries without a counterparty.","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"counterparty","operator":"isEmpty"}}]}}
+{"id":"r3-r1c-l05","schema":"ledger","utterance":"Entries where vendor starts with \"Hol\".","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"counterparty","operator":"startsWith","value":"hol"}}]}}
+{"id":"r3-r2-w01","utterance":"Advisor is missing from my account.","expect":{"mustNotBeReady":true}}
+{"id":"r3-r2-w02","utterance":"The advisor is missing for me.","expect":{"mustNotBeReady":true}}
+{"id":"r3-r2-w03","utterance":"The advisor is missing for my accounts.","expect":{"mustNotBeReady":true}}
+{"id":"r3-r2-w04","utterance":"My accounts' advisor is missing.","expect":{"mustNotBeReady":true}}
+{"id":"r3-r2-w05","utterance":"Every advisor is empty.","expect":{"mustNotBeReady":true}}
+{"id":"r3-r2-w06","utterance":"Each household is blank.","expect":{"mustNotBeReady":true}}
+{"id":"r3-r2-w07","utterance":"Any advisor is empty.","expect":{"mustNotBeReady":true}}
+{"id":"r3-r2-w08","utterance":"The client's advisor is blank.","expect":{"mustNotBeReady":true}}
+{"id":"r3-r2-w09","utterance":"My household's advisor is empty.","expect":{"mustNotBeReady":true}}
+{"id":"r3-r2-w10","utterance":"Advisor is blank for us.","expect":{"mustNotBeReady":true}}
+{"id":"r3-r2-w11","utterance":"Advisor is empty in our accounts.","expect":{"mustNotBeReady":true}}
+{"id":"r3-r2-w12","utterance":"Advisor is not empty for me.","expect":{"mustNotBeReady":true}}
+{"id":"r3-r2-w13","utterance":"The household is blank for our accounts.","expect":{"mustNotBeReady":true}}
+{"id":"r3-r2-w14","utterance":"Advisor starts with \"Av\" for my accounts.","expect":{"mustNotBeReady":true}}
+{"id":"r3-r2-w15","utterance":"Advisor is exactly \"Avery Lane\" for me.","expect":{"mustNotBeReady":true}}
+{"id":"r3-r2-w16","utterance":"The advisor is missing and the accounts are mine.","expect":{"mustNotBeReady":true}}
+{"id":"r3-r2-l01","schema":"ledger","utterance":"Vendor is missing from my entry.","expect":{"mustNotBeReady":true}}
+{"id":"r3-r2-l02","schema":"ledger","utterance":"Each vendor is blank.","expect":{"mustNotBeReady":true}}
+{"id":"r3-r2-l03","schema":"ledger","utterance":"Every category is empty.","expect":{"mustNotBeReady":true}}
+{"id":"r3-r2-l04","schema":"ledger","utterance":"The owner's category is blank.","expect":{"mustNotBeReady":true}}
+{"id":"r3-r2-l05","schema":"ledger","utterance":"My entries' category is missing.","expect":{"mustNotBeReady":true}}
+{"id":"r3-r2-l06","schema":"ledger","utterance":"Category is missing for me.","expect":{"mustNotBeReady":true}}
+{"id":"r3-r2-l07","schema":"ledger","utterance":"The payee is blank for our entries.","expect":{"mustNotBeReady":true}}
+{"id":"r3-r2-l08","schema":"ledger","utterance":"Any vendor is empty.","expect":{"mustNotBeReady":true}}
+{"id":"r3-r2-l09","schema":"ledger","utterance":"Booked is blank for us.","expect":{"mustNotBeReady":true}}
+{"id":"r3-r2-l10","schema":"ledger","utterance":"Our entries' vendor is empty.","expect":{"mustNotBeReady":true}}
+{"id":"r3-r2-l11","schema":"ledger","utterance":"Vendor is exactly \"cedar works\" for me.","expect":{"mustNotBeReady":true}}
+{"id":"r3-r2-l12","schema":"ledger","utterance":"The firm's category is missing.","expect":{"mustNotBeReady":true}}
+{"id":"r3-r2c-w01","utterance":"My accounts with no advisor.","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"isEmpty"}}]}}
+{"id":"r3-r2c-w02","utterance":"Show me accounts where advisor is blank.","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"isEmpty"}}]}}
+{"id":"r3-r2c-w03","utterance":"Show my accounts that have an advisor.","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"isNotEmpty"}}]}}
+{"id":"r3-r2c-w04","utterance":"Give me accounts without an advisor.","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"isEmpty"}}]}}
+{"id":"r3-r2c-w05","utterance":"Accounts with no advisor, sorted by market value largest first.","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"isEmpty"}},{"type":"sort.set","sorts":[{"columnId":"market_value","direction":"desc"}]}]}}
+{"id":"r3-r2c-w06","utterance":"Trust accounts with no advisor assigned.","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"registration_type","operator":"eq","value":"trust"}},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"isEmpty"}}]}}
+{"id":"r3-r2c-w07","utterance":"Let me see accounts that have an advisor assigned.","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"isNotEmpty"}}]}}
+{"id":"r3-r2c-w08","utterance":"The advisor is missing.","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"isEmpty"}}]}}
+{"id":"r3-r2c-w09","utterance":"Advisor starts with \"Ca\" and market value over $500k.","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"startsWith","value":"ca"}},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"market_value","operator":"gt","value":500000}}]}}
+{"id":"r3-r2c-w10","utterance":"I want to see accounts without any advisor.","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"isEmpty"}}]}}
+{"id":"r3-r2c-w11","utterance":"Advisor is blank and custodian is northgate.","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"isEmpty"}},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"custodian","operator":"eq","value":"northgate"}}]}}
+{"id":"r3-r2c-l01","schema":"ledger","utterance":"My entries with no category.","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"category","operator":"isEmpty"}}]}}
+{"id":"r3-r2c-l02","schema":"ledger","utterance":"Show me entries where vendor is blank.","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"counterparty","operator":"isEmpty"}}]}}
+{"id":"r3-r2c-l03","schema":"ledger","utterance":"Show my entries that have a category.","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"category","operator":"isNotEmpty"}}]}}
+{"id":"r3-r2c-l04","schema":"ledger","utterance":"Entries without a counterparty set.","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"counterparty","operator":"isEmpty"}}]}}
+{"id":"r3-r2c-l05","schema":"ledger","utterance":"The vendor is missing.","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"counterparty","operator":"isEmpty"}}]}}
+{"id":"r3-r2c-l06","schema":"ledger","utterance":"Category is not blank.","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"category","operator":"isNotEmpty"}}]}}
+{"id":"r3-r2c-l07","schema":"ledger","utterance":"Entries with no vendor, sorted by amount largest first.","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"counterparty","operator":"isEmpty"}},{"type":"sort.set","sorts":[{"columnId":"amount","direction":"desc"}]}]}}
+{"id":"r3-r2c-l08","schema":"ledger","utterance":"Vendor begins with \"Ell\".","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"counterparty","operator":"startsWith","value":"ell"}}]}}
+{"id":"r3-r2c-l09","schema":"ledger","utterance":"Owner equals \"Casey Ortiz\".","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"owner","operator":"eq","value":"casey ortiz"}}]}}
+{"id":"r3-r2c-l10","schema":"ledger","utterance":"Entries where counterparty is exactly \"Cedar Works\".","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"counterparty","operator":"eq","value":"cedar works"}}]}}
+{"id":"r3-r2c-l11","schema":"ledger","utterance":"Payee is not empty and amount over $5,000.","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"counterparty","operator":"isNotEmpty"}},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"amount","operator":"gt","value":5000}}]}}
+{"id":"r3-r3-l01","schema":"ledger","utterance":"Booked is empty after 2026-03-01.","expect":{"mustNotBeReady":true}}
+{"id":"r3-r3-l02","schema":"ledger","utterance":"Entries with no booking date before 2026-06-30.","expect":{"mustNotBeReady":true}}
+{"id":"r3-r3-l03","schema":"ledger","utterance":"Booked is missing since 2026-01-01.","expect":{"mustNotBeReady":true}}
+{"id":"r3-r3-l04","schema":"ledger","utterance":"No vendor over $10,000.","expect":{"mustNotBeReady":true}}
+{"id":"r3-r3-l05","schema":"ledger","utterance":"Entries with no category above $500.","expect":{"mustNotBeReady":true}}
+{"id":"r3-r3-l06","schema":"ledger","utterance":"Vendor is blank under $2,000.","expect":{"mustNotBeReady":true}}
+{"id":"r3-r3-w01","utterance":"Accounts with no advisor above $750k.","expect":{"mustNotBeReady":true}}
+{"id":"r3-r3-w02","utterance":"Advisor is empty below $2 million.","expect":{"mustNotBeReady":true}}
+{"id":"r3-plain-w01","utterance":"Show accounts over $2 million.","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"market_value","operator":"gt","value":2000000}}]}}
+{"id":"r3-plain-w02","utterance":"Sort by market value largest first.","expect":{"status":"ready","operations":[{"type":"sort.set","sorts":[{"columnId":"market_value","direction":"desc"}]}]}}
+{"id":"r3-plain-w03","utterance":"Hide custodian.","expect":{"status":"ready","operations":[{"type":"columns.hide","columnIds":["custodian"]}]}}
+{"id":"r3-plain-w04","utterance":"Show only household, advisor and market value.","expect":{"status":"ready","operations":[{"type":"columns.show","columnIds":["household","advisor_name","market_value"]},{"type":"columns.hide","columnIds":["account_number","registration_type","custodian","concentration","unrealized_gain","has_restricted_holding"]},{"type":"columns.order","columnIds":["household","advisor_name","market_value"]}]}}
+{"id":"r3-plain-w05","utterance":"Only taxable accounts.","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"registration_type","operator":"eq","value":"taxable"}}]}}
+{"id":"r3-plain-w06","utterance":"Group by custodian.","expect":{"status":"ready","operations":[{"type":"group.set","columnIds":["custodian"]}]}}
+{"id":"r3-plain-w07","utterance":"Show the advisor column.","expect":{"status":"ready","operations":[{"type":"columns.show","columnIds":["advisor_name"]}]}}
+{"id":"r3-plain-l01","schema":"ledger","utterance":"Entries over $5,000.","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"amount","operator":"gt","value":5000}}]}}
+{"id":"r3-plain-l02","schema":"ledger","utterance":"Sort entries by amount largest first.","expect":{"status":"ready","operations":[{"type":"sort.set","sorts":[{"columnId":"amount","direction":"desc"}]}]}}
+{"id":"r3-plain-l03","schema":"ledger","utterance":"Hide rate and units.","expect":{"status":"ready","operations":[{"type":"columns.hide","columnIds":["rate","units"]}]}}
+{"id":"r3-plain-l04","schema":"ledger","utterance":"Show category and amount only.","expect":{"status":"ready","operations":[{"type":"columns.show","columnIds":["category","amount"]},{"type":"columns.hide","columnIds":["entry_number","owner","counterparty","booked","posted_at","units","rate","cleared"]},{"type":"columns.order","columnIds":["category","amount"]}]}}
+{"id":"r3-plain-l05","schema":"ledger","utterance":"Cleared entries.","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"cleared","operator":"eq","value":true}}]}}

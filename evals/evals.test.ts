@@ -2,7 +2,7 @@ import { readdirSync } from "node:fs";
 import { wealthMockOptions } from "@gridcue-internal/wealth-fixtures";
 import { createMockProvider } from "gridcue/mock";
 import { describe, expect, it } from "vitest";
-import { judge, loadCases, onGridWithoutGrouping, runCase, runWithoutGrouping } from "./run";
+import { judge, loadCases, mockOptionsFor, onGridWithoutGrouping, runCase, runWithoutGrouping } from "./run";
 
 const provider = createMockProvider(wealthMockOptions);
 
@@ -30,7 +30,9 @@ describe("reading evals with the Mock Provider", () => {
 // Quoted text and dates that showed rows the User didn't ask for (named filters spec, 5.1). Each now asks, so with the
 // Mock Provider every case must match: the controls exactly, the rest with the expected question. The held-out set was
 // labelled from the spec alone, before the fixes, and first run after them (2026-11-13): 16 exact, 37 asked as
-// labelled, 0 wrong views, of 53. 31 of its requests showed a wrong view before the fixes and now ask.
+// labelled, 0 wrong views, of 53. 31 of its requests showed a wrong view before the fixes and now ask. The text forms
+// these sets asked about are read since spec 5.2 (2026-11-14), and their cases now expect the spec's reading: 7 in the
+// dev set, 6 in this held-out set and 7 in the second.
 describe("named-filter fixes with the Mock Provider", () => {
   for (const file of ["cases-named-fixes.jsonl", "cases-named-fixes-heldout.jsonl"]) {
     for (const c of loadCases(new URL(`./${file}`, import.meta.url))) {
@@ -156,9 +158,126 @@ describe("a grid that can't group, fourth held-out set, with the Mock Provider",
   }
 });
 
+// Text forms (named filters spec, 5.2; ADR 0023), labelled before the code on the wealth and ledger fixtures, each case
+// with the Mock Provider set up for its fixture. Every case must match. First run after the code (2026-11-14):
+// - the form set: 31 exact, 9 asked as labelled, of 40. Before the code, 1 wrong view ("accounts with no advisor over
+//   $1m" filtered Market value and dropped "no advisor");
+// - sentences that hold a form and are not view requests: 19 asked, 1 refused, none ready, of 20;
+// - the limit on a provider's picks, each case with a scripted answer that proposes a sort, a column or a value for the
+//   form's words: 14 exact, 6 asked as labelled, of 20. Before the code, 8 wrong views.
+// Two classes a review found joined the first two sets with their fixes (2026-11-14). These cases were written beside
+// the fix, from the lead's rulings, so they are regression cases and not a held-out measure:
+// - a column asked for beside a form ("show only household where advisor is empty"): 22 cases that must not be ready,
+//   and 10 controls that must stay ready ("households with no advisor", "my accounts with no advisor"). Before the fix,
+//   13 of the 22 were ready with the form's filter alone;
+// - statements made only of words GridCue places ("advisor is missing from my account", "every advisor is empty"): 24
+//   cases. Before the fix all 24 were ready.
+// The review's next fixes added 19 more, written the same way:
+// - 5 columns asked for beside a form after any verb that chooses rows, after "a" or "an", or after "my" ("show me an
+//   advisor where household is empty", "my household with no advisor"), all 5 ready with the form's filter alone
+//   before, and 3 controls that must be ready ("show every household with no advisor", "my restricted accounts with no
+//   advisor", "my settled entries with no vendor"), 2 of which asked before. The form set is now 44 exact, 36 asked as
+//   labelled, of 80;
+// - 11 statements ("include me in accounts with no advisor", "that advisor is missing", "accounts which were without
+//   an advisor"), all 11 ready before. That set is now 54 asked, 1 refused, none ready, of 55.
+// The lead's rulings on statements around a form (round 4) added 27 more, written the same way:
+// - 16 statements: a form of "be" before "without" or "no" ("accounts are without an advisor"), "has" after "that" and
+//   the rows ("that account has no advisor"), a question word before the column ("which advisor is missing"), and only
+//   a preposition and the rows after the form ("advisor is empty for every account"). All 16 were ready before. That
+//   set is now 70 asked, 1 refused, none ready, of 71;
+// - 10 controls with the plans they had before ("accounts whose advisor is empty", "advisor is empty for taxable
+//   accounts"), and "advisor is empty for accounts over $1m", which asks as before. The form set is now 54 exact, 37
+//   asked as labelled, of 91.
+describe("text forms, with the Mock Provider", () => {
+  const ledgerProvider = createMockProvider(mockOptionsFor({ schema: "ledger" }));
+  for (const file of ["cases-text-forms.jsonl", "cases-not-requests.jsonl", "cases-provider-picks.jsonl"]) {
+    for (const c of loadCases(new URL(`./${file}`, import.meta.url))) {
+      it(`${file}: ${c.id}`, async () => {
+        const result = await runCase(c, c.schema === "ledger" ? ledgerProvider : provider);
+        expect(result.verdict, JSON.stringify(result.plan, null, 1)).toMatch(/^(exact|safe_abstention|rejected)$/);
+      });
+    }
+  }
+});
+
+// The held-out sets for the text forms, labelled before the code and first run after it (2026-11-14), each case with
+// the Mock Provider set up for its fixture:
+// - the form set, from spec 5.2 alone: 43 exact, 42 asked as labelled, 1 refused as labelled, 1 safe miss (h2f-23 asks
+//   whether "hide custodian" leaves out rows), 2 wrong views (h2f-54 "Cleared is empty" filters Cleared to Yes, as it
+//   did before the code; h2f-59 "Advisor is empty and over 5%" is ready where an empty form followed by an amount
+//   asks), of 89;
+// - the natural set, by a labeller who saw only the product definition and the schemas: 6 exact, 8 asked as labelled,
+//   22 safe misses, 2 wrong views, both as before the code (n1-led-ambig-blanks-last drops "with the blanks last";
+//   n1-wea-advisor-exact shows only the Advisor column for "just the accounts where the advisor is exactly …"), of 38.
+// A safe miss is reported by `pnpm eval`; a wrong view fails.
+describe("text forms, held-out sets, with the Mock Provider", () => {
+  const ledgerProvider = createMockProvider(mockOptionsFor({ schema: "ledger" }));
+  for (const file of ["cases-text-forms-heldout.jsonl", "cases-text-forms-natural-heldout.jsonl"]) {
+    for (const c of loadCases(new URL(`./${file}`, import.meta.url))) {
+      it(`${file}: ${c.id}`, async () => {
+        const result = await runCase(c, c.schema === "ledger" ? ledgerProvider : provider);
+        expect(result.verdict, JSON.stringify(result.plan, null, 1)).not.toBe("unsafe");
+      });
+    }
+  }
+});
+
+// A second held-out set for the text forms, labelled from the spec and first run after the fixes for the first sets'
+// wrong views (2026-11-14), each case with the Mock Provider set up for its fixture: an empty form on a yes/no column,
+// an empty form followed by an amount with no name of its own, a word for empty values in a sort, a change to show only
+// some columns beside other words, each form alone and beside other parts, and plain controls. With the Mock Provider
+// 16 exact, 30 asked as labelled, 1 refused as labelled, no safe miss, no wrong view, of 47, after two labels were
+// corrected to the spec's reading (r2-text-starts-with-and-amount: an amount after a text form takes its column as
+// today; r2-just-the-advisor: "just" and a column show only that column, as today). 15 of its requests showed a wrong
+// view before the code and now ask. A safe miss is reported by `pnpm eval`; a wrong view fails.
+describe("text forms, second held-out set, with the Mock Provider", () => {
+  const ledgerProvider = createMockProvider(mockOptionsFor({ schema: "ledger" }));
+  for (const c of loadCases(new URL("./cases-text-forms-heldout-r2.jsonl", import.meta.url))) {
+    it(`cases-text-forms-heldout-r2.jsonl: ${c.id}`, async () => {
+      const result = await runCase(c, c.schema === "ledger" ? ledgerProvider : provider);
+      expect(result.verdict, JSON.stringify(result.plan, null, 1)).not.toBe("unsafe");
+    });
+  }
+});
+
+// A third held-out set for the text forms, labelled from the spec and the lead's rulings for a column asked for beside
+// a form ("show only household where advisor is empty"), for statements that are not requests ("advisor is missing
+// from my account", "every advisor is empty"), and for the question after an empty form ("the date", "the amount"),
+// first run after the fixes for them (2026-11-14), each case with the Mock Provider set up for its fixture. With the
+// Mock Provider 49 exact, 58 asked as labelled, 1 safe miss (r3-plain-l04 "Show category and amount only", which has
+// no form and asks as it did before the code), no wrong view, of 108, after 11 labels were corrected: r3-r1-w12 and
+// r3-r1-l09 name the column with "column" and the plan shows it beside the form's filter, as spec 4.2 reads them, and
+// 9 plain controls said only "ready". 13 of its requests showed a wrong view before the code and now ask. A safe miss
+// is reported by `pnpm eval`; a wrong view fails.
+describe("text forms, third held-out set, with the Mock Provider", () => {
+  const ledgerProvider = createMockProvider(mockOptionsFor({ schema: "ledger" }));
+  for (const c of loadCases(new URL("./cases-text-forms-heldout-r3.jsonl", import.meta.url))) {
+    it(`cases-text-forms-heldout-r3.jsonl: ${c.id}`, async () => {
+      const result = await runCase(c, c.schema === "ledger" ? ledgerProvider : provider);
+      expect(result.verdict, JSON.stringify(result.plan, null, 1)).not.toBe("unsafe");
+    });
+  }
+});
+
+// Held-out sentences that hold a form and are not view requests, and held-out scripted provider picks, labelled before
+// the code and first run after it (2026-11-14). Every case must match: of 25 sentences, 20 asked and 5 refused, none
+// ready; of 25 picks, 25 exact, each pick the words don't name dropped. Before the code, 9 picks showed a wrong view.
+describe("not requests and provider picks, held-out sets, with the Mock Provider", () => {
+  const ledgerProvider = createMockProvider(mockOptionsFor({ schema: "ledger" }));
+  for (const file of ["cases-not-requests-heldout.jsonl", "cases-provider-picks-heldout.jsonl"]) {
+    for (const c of loadCases(new URL(`./${file}`, import.meta.url))) {
+      it(`${file}: ${c.id}`, async () => {
+        const result = await runCase(c, c.schema === "ledger" ? ledgerProvider : provider);
+        expect(result.verdict, JSON.stringify(result.plan, null, 1)).toMatch(/^(exact|safe_abstention|rejected)$/);
+      });
+    }
+  }
+});
+
 // Every existing set, run again on a grid without `group.set` (more grids spec, 10). A case whose expected plan groups
 // or ungroups must end not applied; every other case must keep the verdict it has on the Rows Adapter. A case that
-// starts grouped is left out, since a grid that can't group never holds a grouping.
+// starts grouped is left out, since a grid that can't group never holds a grouping, and so is a case with a scripted
+// provider answer, written for a grid that can.
 describe("every existing set on a grid without group.set, with the Mock Provider", () => {
   const dir = new URL("./", import.meta.url);
   const files = readdirSync(dir)
@@ -166,7 +285,7 @@ describe("every existing set on a grid without group.set, with the Mock Provider
     .sort();
   for (const file of files) {
     for (const c of loadCases(new URL(file, dir))) {
-      if (c.grid || (c.state?.groupBy?.length ?? 0) > 0) continue;
+      if (!onGridWithoutGrouping(c)) continue;
       it(`${file}: ${c.id}`, async () => {
         const result = await runWithoutGrouping(c, provider);
         expect(result?.pass, JSON.stringify({ before: result?.before.verdict, after: result?.after.plan }, null, 1)).toBe(true);

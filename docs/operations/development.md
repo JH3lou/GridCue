@@ -21,6 +21,7 @@ pnpm install
 | `pnpm eval` | Runs `evals/cases.jsonl` against the Mock Provider and prints the verdict table |
 | `pnpm eval:live`, `pnpm test:live` | The same against real Jev. Requires `JEV_API_KEY` |
 | `pnpm eval:payloads` | Records the request sent to the Intent Provider for every labelled request in `evals/payloads.jsonl`. `pnpm test` fails when one differs from its record. Run it after `pnpm build`, only when a change means to alter the request or adds a labelled set, and say why in the pull request |
+| `pnpm eval:unplaced` | After `pnpm build`, counts per labelled set how many ready plans hold a word the placed-words lists (`core/placed.ts`) don't place, in any part, and lists the twenty most common. A report with no bar; it only reads results. `--verbose` lists each request |
 | `pnpm dev:vite`, `pnpm dev:next` | Rebuild the package and start an example |
 | `pnpm registry:build` | Writes the shadcn registry JSON to `registry/dist/r` |
 

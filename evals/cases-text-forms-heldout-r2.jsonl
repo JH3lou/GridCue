@@ -1,0 +1,47 @@
+{"id":"r2-yn-wealth-empty","utterance":"Restricted holdings is empty","expect":{"mustNotBeReady":true}}
+{"id":"r2-yn-wealth-missing","utterance":"show accounts where restricted holdings is missing","expect":{"mustNotBeReady":true}}
+{"id":"r2-yn-wealth-notempty","utterance":"restricted holdings is not empty","expect":{"mustNotBeReady":true}}
+{"id":"r2-yn-ledger-empty","utterance":"Cleared is empty","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"r2-yn-ledger-blank","utterance":"Cleared is blank","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"r2-yn-ledger-notempty","utterance":"Cleared is not empty","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"r2-yn-ledger-rows-missing","utterance":"rows where cleared is missing","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"r2-yn-no-restricted-unchanged","utterance":"no restricted holdings","expect":{"status":"ready","operations":[{"type":"filter.add","predicate":{"columnId":"has_restricted_holding","operator":"eq","value":false},"combineWith":"and"}]},"alsoAcceptsAsk":true}
+{"id":"r2-ea-and-pct","utterance":"Advisor is empty and over 5%","expect":{"mustNotBeReady":true}}
+{"id":"r2-ea-no-advisor-above","utterance":"no advisor and above 20%","expect":{"mustNotBeReady":true}}
+{"id":"r2-ea-accounts-no-advisor-1m","utterance":"accounts with no advisor and over $1m","expect":{"mustNotBeReady":true}}
+{"id":"r2-ea-comma-pct","utterance":"Advisor is blank, over 5%","expect":{"mustNotBeReady":true}}
+{"id":"r2-ea-ledger-counterparty","utterance":"Counterparty is empty and over $500","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"r2-ea-ledger-comma-below","utterance":"rows with no counterparty, below $200","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"r2-ea-missing-under","utterance":"advisor is missing and under $250k","expect":{"mustNotBeReady":true}}
+{"id":"r2-ea-no-advisor-over-1m-spec","utterance":"accounts with no advisor over $1m","expect":{"mustNotBeReady":true}}
+{"id":"r2-ea-named-amount-ready","utterance":"advisor is empty and market value over $1m","expect":{"status":"ready","operations":[{"type":"filter.add","predicate":{"columnId":"advisor_name","operator":"isEmpty"},"combineWith":"and"},{"type":"filter.add","predicate":{"columnId":"market_value","operator":"gt","value":1000000},"combineWith":"and"}]},"alsoAcceptsAsk":true}
+{"id":"r2-ea-named-column-ready","utterance":"no advisor and custodian is Northgate","expect":{"status":"ready","operations":[{"type":"filter.add","predicate":{"columnId":"advisor_name","operator":"isEmpty"},"combineWith":"and"},{"type":"filter.add","predicate":{"columnId":"custodian","operator":"eq","value":"northgate"},"combineWith":"and"}]},"alsoAcceptsAsk":true}
+{"id":"r2-ea-no-accounts-unchanged","utterance":"no accounts over $1m","expect":{"status":"ready","operations":[{"type":"filter.add","predicate":{"columnId":"market_value","operator":"lte","value":1000000},"combineWith":"and"}]},"alsoAcceptsAsk":true}
+{"id":"r2-sort-blanks-last","utterance":"sort by counterparty with the blanks last","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"r2-sort-empty-first","utterance":"sort by advisor with empty ones first","expect":{"mustNotBeReady":true}}
+{"id":"r2-sort-nulls-last","utterance":"sort by market value, nulls last","expect":{"mustNotBeReady":true}}
+{"id":"r2-sort-missing-at-end","utterance":"order by advisor, missing ones at the end","expect":{"mustNotBeReady":true}}
+{"id":"r2-sort-plain-ready","utterance":"sort by market value, largest first","expect":{"status":"ready","operations":[{"type":"sort.set","sorts":[{"columnId":"market_value","direction":"desc"}]}]},"alsoAcceptsAsk":true}
+{"id":"r2-just-advisor-exactly","utterance":"just the accounts where the advisor is exactly Blake Moreno","expect":{"mustNotBeReady":true}}
+{"id":"r2-just-advisor-is","utterance":"just the accounts where the advisor is Blake Moreno","expect":{"mustNotBeReady":true}}
+{"id":"r2-just-the-advisor","utterance":"just the advisor","expect":{"status":"ready","operations":[{"type":"columns.show","columnIds":["advisor_name"]},{"type":"columns.hide","columnIds":["account_number","household","registration_type","custodian","market_value","concentration","unrealized_gain","has_restricted_holding"]},{"type":"columns.order","columnIds":["advisor_name"]}]},"alsoAcceptsAsk":true}
+{"id":"r2-just-ledger-counterparty","utterance":"just the rows where the counterparty is exactly Harbor Supply","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"r2-just-custodian-ready","utterance":"just the accounts where the custodian is Northgate","expect":{"status":"ready","operations":[{"type":"filter.add","predicate":{"columnId":"custodian","operator":"eq","value":"northgate"},"combineWith":"and"}]},"alsoAcceptsAsk":true}
+{"id":"r2-text-starts-with","utterance":"advisors starting with \"Bl\"","expect":{"status":"ready","operations":[{"type":"filter.add","predicate":{"columnId":"advisor_name","operator":"startsWith","value":"bl"},"combineWith":"and"}]},"alsoAcceptsAsk":true}
+{"id":"r2-text-begins-ledger","utterance":"counterparty begins with \"Har\"","schema":"ledger","expect":{"status":"ready","operations":[{"type":"filter.add","predicate":{"columnId":"counterparty","operator":"startsWith","value":"har"},"combineWith":"and"}]},"alsoAcceptsAsk":true}
+{"id":"r2-text-equals","utterance":"advisor equals \"Blake Moreno\"","expect":{"status":"ready","operations":[{"type":"filter.add","predicate":{"columnId":"advisor_name","operator":"eq","value":"blake moreno"},"combineWith":"and"}]},"alsoAcceptsAsk":true}
+{"id":"r2-text-ends-with","utterance":"advisor ends with \"Moreno\"","expect":{"mustNotBeReady":true}}
+{"id":"r2-text-starts-with-and-amount","utterance":"advisor starts with \"Bl\" and over $1m","expect":{"status":"ready","operations":[{"type":"filter.add","predicate":{"columnId":"advisor_name","operator":"startsWith","value":"bl"},"combineWith":"and"},{"type":"filter.add","predicate":{"columnId":"market_value","operator":"gt","value":1000000},"combineWith":"and"}]},"alsoAcceptsAsk":true}
+{"id":"r2-text-unplaced-word","utterance":"advisor starts with \"Bl\" handled by the new team","expect":{"mustNotBeReady":true}}
+{"id":"r2-text-negated","utterance":"advisor is not exactly \"Blake Moreno\"","expect":{"mustNotBeReady":true}}
+{"id":"r2-text-plain-quoted-unchanged","utterance":"advisor \"Moreno\"","expect":{"status":"ready","operations":[{"type":"filter.add","predicate":{"columnId":"advisor_name","operator":"contains","value":"moreno"},"combineWith":"and"}]},"alsoAcceptsAsk":true}
+{"id":"r2-empty-advisor-blank","utterance":"advisor is blank","expect":{"status":"ready","operations":[{"type":"filter.add","predicate":{"columnId":"advisor_name","operator":"isEmpty"},"combineWith":"and"}]},"alsoAcceptsAsk":true}
+{"id":"r2-empty-has-advisor","utterance":"accounts that have an advisor assigned","expect":{"status":"ready","operations":[{"type":"filter.add","predicate":{"columnId":"advisor_name","operator":"isNotEmpty"},"combineWith":"and"}]},"alsoAcceptsAsk":true}
+{"id":"r2-empty-taxable-no-advisor","utterance":"taxable accounts without an advisor","expect":{"status":"ready","operations":[{"type":"filter.add","predicate":{"columnId":"registration_type","operator":"eq","value":"taxable"},"combineWith":"and"},{"type":"filter.add","predicate":{"columnId":"advisor_name","operator":"isEmpty"},"combineWith":"and"}]},"alsoAcceptsAsk":true}
+{"id":"r2-empty-ledger-no-counterparty","utterance":"rows with no counterparty set","schema":"ledger","expect":{"status":"ready","operations":[{"type":"filter.add","predicate":{"columnId":"counterparty","operator":"isEmpty"},"combineWith":"and"}]},"alsoAcceptsAsk":true}
+{"id":"r2-empty-number-column","utterance":"market value is empty","expect":{"mustNotBeReady":true}}
+{"id":"r2-empty-ledger-amount-blank","utterance":"amount is blank","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"r2-empty-no-gain","utterance":"no gain","expect":{"mustNotBeReady":true}}
+{"id":"r2-notreq-there-is-no-advisor","utterance":"there is no advisor I would call reliable","expect":{"mustNotBeReady":true}}
+{"id":"r2-notreq-who-is","utterance":"who is the advisor starting with \"Bl\"","expect":{"mustNotBeReady":true}}
+{"id":"r2-notreq-assign","utterance":"assign an advisor to the accounts that have no advisor","expect":{"mustNotBeReady":true}}

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { Mention } from "./mentions";
-import type { NormalizedInput } from "./normalize";
+import type { Clause, Literal, NormalizedInput } from "./normalize";
 import type { ColumnCapability, OperationType, ViewCapabilities, ViewSchema, ViewState } from "./protocol";
 import { ColumnKind, EnumValue, FilterOperator, PROTOCOL_VERSION, SortSpec } from "./protocol";
 import { isExposed, operatorsFor } from "./schema";
@@ -174,6 +174,24 @@ export const buildCandidates = (schema: ViewSchema, capabilities: ViewCapabiliti
   return { families: [...families, ...UNSUPPORTED_FAMILIES], columns, ...(schema.rowNoun ? { rowNoun: schema.rowNoun } : {}) };
 };
 
+/**
+ * The fields of a Literal and of a Clause the provider is sent: the ones every request has carried so far. Each is
+ * picked, so a field core adds for its own reading, such as how quoted text is matched (`Literal.match`), is never
+ * sent by accident (named filters spec, 4.3). The fields keep the order they are written in, so a request is the same,
+ * byte for byte, as before.
+ */
+const SENT_LITERAL: ReadonlySet<string> = new Set(["kind", "value", "upper", "comparator", "at"] satisfies Array<keyof Literal>);
+const SENT_CLAUSE: ReadonlySet<string> = new Set(["index", "text", "literals", "direction", "continues", "limit", "keeps"] satisfies Array<
+  keyof Clause
+>);
+const picked = <T extends object>(from: T, fields: ReadonlySet<string>): Partial<T> =>
+  Object.fromEntries(Object.entries(from).filter(([field, value]) => fields.has(field) && value !== undefined)) as Partial<T>;
+const sentClause = (clause: Clause): ResolutionRequest["clauses"][number] =>
+  ({
+    ...picked(clause, SENT_CLAUSE),
+    literals: clause.literals.map((lit) => picked(lit, SENT_LITERAL)),
+  }) as ResolutionRequest["clauses"][number];
+
 export const buildResolutionRequest = (
   input: NormalizedInput,
   schema: ViewSchema,
@@ -189,7 +207,7 @@ export const buildResolutionRequest = (
       .map(({ columnId, valueId, ambiguous, text }) =>
         valueId !== undefined ? { columnId, valueId } : ambiguous ? { columnId, ambiguous, ...(text ? { text } : {}) } : { columnId },
       );
-    return own.length > 0 ? { ...clause, mentions: own } : clause;
+    return own.length > 0 ? { ...sentClause(clause), mentions: own } : sentClause(clause);
   }),
   candidates: buildCandidates(schema, capabilities),
   view: {
