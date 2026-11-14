@@ -113,28 +113,28 @@ Spec 5.2. Needs PR 1.
 Spec 5.3.
 
 ### Task 3.1: Label (Sonnet)
-- [ ] 25 dev requests on an adapter without `group.set`: grouping alone, grouping with a filter or sort, "ungroup", and controls where "group" is a value or a column label.
-- [ ] 25 held-out requests of the same classes, outside the repo, written before any code.
-- [ ] An eval mode that runs every existing set on an adapter without `group.set`, with expected results derived: a case whose expected plan groups must end not applied.
+- [x] 25 dev requests on an adapter without `group.set`: grouping alone, grouping with a filter or sort, "ungroup", and controls where "group" is a value or a column label.
+- [x] 25 held-out requests of the same classes, outside the repo, written before any code.
+- [x] An eval mode that runs every existing set on an adapter without `group.set`, with expected results derived: a case whose expected plan groups must end not applied.
 
 ### Task 3.2: The prompt and the hint (Opus)
 **Files:** `packages/gridcue/src/core/compile.ts`, tests, `evals/run.ts`, `evals/evals.test.ts`.
-- [ ] Tests first, one per row of the table in spec 5.3.
-- [ ] A grouping verb read by code, on a grid without `group.set`, ends in the required Clarification "This grid can't group rows." with no options. Nothing in the request applies.
-- [ ] The result comes from one function that takes the operation the grid doesn't list, so the operation set's pins, density and totals reuse it (order plan). The count question the operation set's PR 1 asks on a grid without `limit.set` moves onto it.
-- [ ] The Clarification's ID starts with its Clause's index, as the compiler's other questions do, so the command bar can show it beside its part (command bar spec).
-- [ ] The hint at `compile.ts:661` lists only the grid's families.
-- [ ] Bars on the dev set: 0 wrong views; on the Rows Adapter, every existing verdict unchanged.
+- [x] Tests first, one per row of the table in spec 5.3.
+- [x] A grouping verb read by code, on a grid without `group.set`, ends in the required Clarification "This grid can't group rows." with no options. Nothing in the request applies.
+- [x] The result comes from one function that takes the operation the grid doesn't list, so the operation set's pins, density and totals reuse it (order plan). The count question the operation set's PR 1 asks on a grid without `limit.set` moves onto it.
+- [x] The Clarification's ID starts with its Clause's index, as the compiler's other questions do, so the command bar can show it beside its part (command bar spec).
+- [x] The hint at `compile.ts:661` lists only the grid's families.
+- [x] Bars on the dev set: 0 wrong views; on the Rows Adapter, every existing verdict unchanged.
 
 ### Task 3.3: Held-out run (lead)
-- [ ] Run once. Report wrong views, exact, and safe misses. A wrong view goes back as a class.
+- [x] Run once. Report wrong views, exact, and safe misses. A wrong view goes back as a class.
 
 ### Task 3.4: Docs (Sonnet), changelog (Haiku)
-- [ ] Site: `concepts/requests` (what a grid that can't group says).
-- [ ] `packages/gridcue/CHANGELOG.md`.
+- [x] Site: `concepts/requests` (what a grid that can't group says).
+- [x] `packages/gridcue/CHANGELOG.md`.
 
 ### Task 3.5: Review (Opus), gate
-- [ ] Both UIs show the new prompt in the status row: the Vite example on a test adapter without `group.set`, and the registry command bar. Light and dark.
+- [x] Both UIs show the new prompt in the status row: the Vite example on a test adapter without `group.set`, and the registry command bar. Light and dark.
 
 ## PR 4: The Query Adapter (`feat/query-adapter`)
 

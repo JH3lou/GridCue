@@ -1,0 +1,31 @@
+{"id":"h-group-by-custodian","grid":"no-group","utterance":"Group by custodian.","expect":{"status":"needs_clarification","clarificationPrompt":"This grid can't group rows."}}
+{"id":"h-grouped-by-registration","grid":"no-group","utterance":"Show the accounts grouped by registration type.","expect":{"status":"needs_clarification","clarificationPrompt":"This grid can't group rows."}}
+{"id":"h-group-these-by-household","grid":"no-group","utterance":"Group these by household please.","expect":{"status":"needs_clarification","clarificationPrompt":"This grid can't group rows."}}
+{"id":"h-can-you-group","grid":"no-group","utterance":"Can you group everything by advisor?","expect":{"status":"needs_clarification","clarificationPrompt":"This grid can't group rows."}}
+{"id":"h-group-two-columns","grid":"no-group","utterance":"Group by advisor, then custodian.","expect":{"status":"needs_clarification","clarificationPrompt":"This grid can't group rows."}}
+{"id":"h-grouping-noun","grid":"no-group","utterance":"I want grouping by registration type.","expect":{"status":"needs_clarification","clarificationPrompt":"This grid can't group rows."}}
+{"id":"h-group-upper","grid":"no-group","utterance":"GROUP BY ADVISOR","expect":{"status":"needs_clarification","clarificationPrompt":"This grid can't group rows."}}
+{"id":"h-group-alias-column","grid":"no-group","utterance":"Group the accounts by rep.","expect":{"status":"needs_clarification","clarificationPrompt":"This grid can't group rows."}}
+{"id":"h-group-unknown-column","grid":"no-group","utterance":"Group by region.","expect":{"mustNotBeReady":true}}
+{"id":"h-bucket","grid":"no-group","utterance":"Bucket the accounts by custodian.","expect":{"mustNotBeReady":true}}
+{"id":"h-organize-by","grid":"no-group","utterance":"Organize the rows by advisor.","expect":{"mustNotBeReady":true}}
+{"id":"h-break-down-by","grid":"no-group","utterance":"Break this down by custodian.","expect":{"mustNotBeReady":true}}
+{"id":"h-cluster","grid":"no-group","utterance":"Cluster accounts by registration.","expect":{"mustNotBeReady":true}}
+{"id":"h-filter-and-group","grid":"no-group","utterance":"Taxable accounts grouped by custodian.","expect":{"status":"needs_clarification","clarificationPrompt":"This grid can't group rows."}}
+{"id":"h-filter-then-group","grid":"no-group","utterance":"Show accounts over $1 million and group them by advisor.","expect":{"status":"needs_clarification","clarificationPrompt":"This grid can't group rows."}}
+{"id":"h-sort-and-group","grid":"no-group","utterance":"Sort market value largest first and group by registration type.","expect":{"status":"needs_clarification","clarificationPrompt":"This grid can't group rows."}}
+{"id":"h-hide-and-group","grid":"no-group","utterance":"Hide custodian and group by advisor.","expect":{"status":"needs_clarification","clarificationPrompt":"This grid can't group rows."}}
+{"id":"h-count-and-group","grid":"no-group","utterance":"Top 5 accounts by market value, grouped by advisor.","expect":{"status":"needs_clarification","clarificationPrompt":"This grid can't group rows."}}
+{"id":"h-three-parts-with-group","grid":"no-group","utterance":"Only IRAs, sorted by gain, grouped by household.","expect":{"status":"needs_clarification","clarificationPrompt":"This grid can't group rows."}}
+{"id":"h-ungroup","grid":"no-group","utterance":"Ungroup.","expect":{"status":"needs_clarification","clarificationPrompt":"This grid can't group rows."}}
+{"id":"h-ungroup-the-rows","grid":"no-group","utterance":"Ungroup the rows.","expect":{"status":"needs_clarification","clarificationPrompt":"This grid can't group rows."}}
+{"id":"h-remove-grouping","grid":"no-group","utterance":"Remove the grouping.","expect":{"mustNotBeReady":true}}
+{"id":"h-clear-grouping-with-filter","grid":"no-group","utterance":"Ungroup and show only Northgate accounts.","expect":{"status":"needs_clarification","clarificationPrompt":"This grid can't group rows."}}
+{"id":"h-no-group-filter","grid":"no-group","utterance":"Show accounts over $1 million.","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"market_value","operator":"gt","value":1000000}}]}}
+{"id":"h-no-group-hide","grid":"no-group","utterance":"Hide custodian and account number.","expect":{"status":"ready","operations":[{"type":"columns.hide","columnIds":["custodian","account_number"]}]}}
+{"id":"h-no-group-sort","grid":"no-group","utterance":"Sort by market value, largest first.","expect":{"status":"ready","operations":[{"type":"sort.set","sorts":[{"columnId":"market_value","direction":"desc"}]}]}}
+{"id":"h-no-group-vague","grid":"no-group","utterance":"Make it look better.","expect":{"status":"needs_clarification"}}
+{"id":"h-value-group-in-household","grid":"no-group","utterance":"Show households whose name contains Group.","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"household","operator":"contains","value":"group"}}],"neverApplies":"group.set"}}
+{"id":"h-quoted-group","grid":"no-group","utterance":"Show accounts with household \"group by advisor\".","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"household","operator":"contains","value":"group by advisor"}}],"neverApplies":"group.set"}}
+{"id":"h-group-as-noun-label","grid":"no-group","utterance":"Show the Hedge Group household.","expect":{"mustNotBeReady":true,"neverApplies":"group.set"}}
+{"id":"h-groupwise-word","grid":"no-group","utterance":"Show accounts in the Northgate group.","expect":{"mustNotBeReady":true,"neverApplies":"group.set"}}

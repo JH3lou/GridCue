@@ -1,9 +1,10 @@
+import { readdirSync } from "node:fs";
 import { wealthMockOptions } from "@gridcue-internal/wealth-fixtures";
 import { TypeSafeClient } from "@typesafe-ai/sdk";
 import type { IntentProvider, ResolutionRequest, ResolutionResult } from "gridcue";
 import { createMockProvider } from "gridcue/mock";
 import { createJevProvider, JEV_SIGNALS, type JevClient, type JevSignal, type JevStrategy } from "gridcue/server";
-import { loadCases, runCase, type Verdict } from "./run";
+import { loadCases, runCase, runWithoutGrouping, type Verdict } from "./run";
 
 const live = process.argv.includes("--live");
 const verbose = process.argv.includes("--verbose");
@@ -105,6 +106,42 @@ const run = async (file: URL, label: string) => {
   return counts;
 };
 
+// `--grid=no-group` runs every existing set on a grid that doesn't list `group.set` instead (more grids spec, 10).
+// A case whose expected plan groups must end not applied; every other case must keep its verdict on the Rows Adapter.
+if (flag("grid") === "no-group") {
+  const dir = new URL("./", import.meta.url);
+  const files = readdirSync(dir)
+    .filter((name) => /^cases.*\.jsonl$/.test(name))
+    .sort();
+  let failed = 0;
+  for (const file of files) {
+    const counts = { grouping: 0, "grouping, ready": 0, other: 0, "other, verdict changed": 0, "starts grouped, left out": 0 };
+    for (const c of loadCases(new URL(file, dir))) {
+      if (c.grid) continue;
+      const result = await runWithoutGrouping(c, provider);
+      if (!result) {
+        counts["starts grouped, left out"]++;
+        continue;
+      }
+      counts[result.groups ? "grouping" : "other"]++;
+      if (!result.pass) {
+        failed++;
+        counts[result.groups ? "grouping, ready" : "other, verdict changed"]++;
+        const { before, after } = result;
+        const got = after.plan?.clarifications.map((q) => q.prompt).join(" | ") || JSON.stringify(after.plan?.operations);
+        console.log(
+          `${result.groups ? "READY" : "CHANGED"}: ${file}: ${c.id} (${before.verdict} -> ${after.verdict}, ${after.status}: ${got})`,
+        );
+      } else if (verbose) console.log(`ok ${result.groups ? "grouping" : "other"} ${file}: ${c.id} (${result.after.verdict})`);
+    }
+    // A set labelled for a grid without group.set already runs there.
+    if (Object.values(counts).every((n) => n === 0)) continue;
+    console.log(`GridCue evals on a grid without group.set: ${file} (${live ? "Jev" : "Mock Provider"})`);
+    console.table(counts);
+  }
+  process.exit(failed > 0 ? 1 : 0);
+}
+
 const core = await run(new URL("./cases.jsonl", import.meta.url), "cases.jsonl");
 // Live-only cases need common sense the Mock doesn't have. They are findings, with no pass bar, except that none may be unsafe.
 const extra = live ? await run(new URL("./cases-live.jsonl", import.meta.url), "cases-live.jsonl") : undefined;
@@ -136,10 +173,54 @@ const count = await run(new URL("./cases-count.jsonl", import.meta.url), "cases-
 // 19 exact, 26 asked as labelled, 3 safe misses, 0 wrong views, of 48. Its safe misses are reported, not failed; a
 // wrong view fails.
 const countHeldOut = await run(new URL("./cases-count-heldout.jsonl", import.meta.url), "cases-count-heldout.jsonl");
+// A grid that can't group says so (more grids spec, 5.3), on a grid without group.set. With the Mock Provider each case
+// must match: 6 exact, 19 asked as labelled, of 25. `--grid=no-group` runs every other set on that grid.
+const cantGroup = await run(new URL("./cases-cant-group.jsonl", import.meta.url), "cases-cant-group.jsonl");
+// The same classes in other words, labelled before the code and first run after it (2026-11-13). With the Mock Provider:
+// 4 exact, 24 asked as labelled, 2 safe misses, 1 wrong view (h-groupwise-word), of 31. After the fix for that class
+// ("group" after a name), 4 exact, 25 asked as labelled, 2 safe misses, no wrong view. After the fix for any word built
+// on "group" (third set), 4 exact, 26 asked as labelled, 1 safe miss (h-value-group-in-household asks), no wrong view.
+// Its safe misses are reported, not failed; a wrong view fails.
+const cantGroupHeldOut = await run(new URL("./cases-cant-group-heldout.jsonl", import.meta.url), "cases-cant-group-heldout.jsonl");
+// A second held-out set of the same classes, first run after that fix (2026-11-13). With the Mock Provider: 35 asked as
+// labelled, 1 refused as labelled, 1 safe miss (r2-unsupported-edit asks instead of refusing), 1 wrong view
+// (r2-noun-a-group-of), of 38. After the fix for that class ("group" as a noun after an article, before a name), 36
+// asked as labelled, 1 refused as labelled, 1 safe miss, no wrong view. Its safe misses are reported, not failed; a
+// wrong view fails.
+const cantGroupHeldOut2 = await run(new URL("./cases-cant-group-heldout-r2.jsonl", import.meta.url), "cases-cant-group-heldout-r2.jsonl");
+// A third held-out set of the same classes, first run after that fix (2026-11-13). With the Mock Provider: 34 asked as
+// labelled, 1 refused as labelled, 1 safe miss (r3-verb-stop-grouping asks the general question), 1 wrong view
+// (r3-noun-groups-of: "groups of" before a name, with no article, read as a filter), of 37. After the fix for that
+// class (any word built on "group", with or without an article: "groups", "grouping", "regroup by"), 36 asked as
+// labelled, 1 refused as labelled, no safe miss, no wrong view. Its safe misses are reported, not failed; a wrong view
+// fails.
+const cantGroupHeldOut3 = await run(new URL("./cases-cant-group-heldout-r3.jsonl", import.meta.url), "cases-cant-group-heldout-r3.jsonl");
+// A fourth held-out set of the same classes, with the lead's ruling on grouping words said to stay or left out, first
+// run after that fix (2026-11-14). With the Mock Provider: 13 exact, 39 asked as labelled, 3 safe misses
+// (r4-keep-nothing-after, r4-keep-and-join and r4-quoted-household ask, as they do on a grid that can group), no wrong
+// view, of 55. Its safe misses are reported, not failed; a wrong view fails.
+const cantGroupHeldOut4 = await run(new URL("./cases-cant-group-heldout-r4.jsonl", import.meta.url), "cases-cant-group-heldout-r4.jsonl");
 
 // Applying a view the user did not ask for is release-blocking with any provider.
 // With the Mock Provider every core case must match exactly, because its answers are deterministic.
-const all = [core, extra, fanout, chassis, reading, readingHeldOut, namedFixes, namedFixesHeldOut, namedFixesHeldOut2, count, countHeldOut];
-const mockMustMatch = [core, namedFixes, namedFixesHeldOut, count];
+const all = [
+  core,
+  extra,
+  fanout,
+  chassis,
+  reading,
+  readingHeldOut,
+  namedFixes,
+  namedFixesHeldOut,
+  namedFixesHeldOut2,
+  count,
+  countHeldOut,
+  cantGroup,
+  cantGroupHeldOut,
+  cantGroupHeldOut2,
+  cantGroupHeldOut3,
+  cantGroupHeldOut4,
+];
+const mockMustMatch = [core, namedFixes, namedFixesHeldOut, count, cantGroup];
 if (all.some((counts) => (counts?.unsafe ?? 0) > 0) || (!live && mockMustMatch.some((counts) => counts.mismatch > 0))) process.exit(1);
 if (strict && all.some((counts) => (counts?.mismatch ?? 0) > 0)) process.exit(1);
