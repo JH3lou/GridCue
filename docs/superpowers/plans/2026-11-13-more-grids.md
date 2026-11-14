@@ -134,7 +134,7 @@ Spec 5.3.
 - [x] `packages/gridcue/CHANGELOG.md`.
 
 ### Task 3.5: Review (Opus), gate
-- [ ] Both UIs show the new prompt in the status row: the Vite example on a test adapter without `group.set`, and the registry command bar. Light and dark.
+- [x] Both UIs show the new prompt in the status row: the Vite example on a test adapter without `group.set`, and the registry command bar. Light and dark.
 
 ## PR 4: The Query Adapter (`feat/query-adapter`)
 
