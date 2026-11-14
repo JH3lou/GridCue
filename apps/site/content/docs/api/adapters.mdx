@@ -31,8 +31,8 @@ type ApplyResult =
 | `getCapabilities()` | Which operations and limits this grid supports. See [ViewCapabilities](#viewcapabilities). |
 | `getState()` | The current view and its revision. The revision must change whenever the view changes. |
 | `getDefaultState()` | The view `view.reset` returns to. |
-| `apply(plan)` | Applies every operation or none. Rejects plans that did not come from `validatePlan`. |
-| `restore(snapshot)` | Puts a saved view back. Used by undo, and to recover when `apply` throws part-way. |
+| `apply(plan)` | Applies every operation or none. Rejects plans that did not come from `validatePlan`. Resolves with `ok: true` only once the grid holds the state written, with the Revision the grid has at that moment. A grid that updates later is waited for within a bound, and `apply` throws when the bound runs out. |
+| `restore(snapshot)` | Puts a saved view back. Used by undo, and to recover when `apply` throws part-way. Done, like `apply`, only once the grid holds it. |
 | `subscribe(listener)` | Fires on every view change, including the User's own clicks. Returns an unsubscribe function. |
 
 An adapter should check `isApplicable(plan)` before applying and return `ADAPTER_NOT_APPLICABLE` when it is false, and should refuse a plan whose `baseRevision` is not the current revision. `resultingState(plan)` gives the view a validated plan produces, so the adapter only has to write that state to its grid.
@@ -195,6 +195,8 @@ Behavior to know:
 - The revision (`tanstack:0`, `tanstack:1`, ...) changes only when the View State changes. Pagination, row selection, expanded rows and column sizing don't count.
 - TanStack column filters combine with AND only. A plan that needs OR, or a nested filter group, fails with `ADAPTER_UNSUPPORTED_FILTER` and nothing changes.
 - A column can hold a Host filter and a GridCue filter at once. GridCue stores its predicates in the column's filter value and keeps the Host's value alongside, so neither replaces the other.
+- `apply` and `restore` are done only when the table holds what GridCue wrote. A table that owns its state holds it at once, so they resolve in the same tick. A table whose state the Host controls holds it on its next render, so they wait for it, up to 1,000 ms.
+- A controlled slice needs a change handler that sets state at once, to exactly the value it is given. With no handler, or a handler that sets state later than 1,000 ms or stores a different value, the apply fails. See [If your app controls the table's state](/docs/guides/vite-tanstack#if-your-app-controls-the-tables-state).
 
 ```tsx
 import { createGridCue } from "gridcue";

@@ -87,6 +87,7 @@
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "0.18.5",
+    "@tanstack/react-table": "9.2.4",
     "@tanstack/table-core": "9.2.4",
     "@testing-library/react": "16.3.3",
     "@testing-library/user-event": "14.6.7",

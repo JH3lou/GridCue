@@ -50,11 +50,13 @@ Return a new object on every call, so a caller can't change your capabilities by
 1. Refuse any plan that didn't come from `validatePlan`. Check with `isApplicable(plan)` and return `ADAPTER_NOT_APPLICABLE`.
 2. Refuse a stale plan: if `plan.baseRevision` isn't the current Revision, return `ADAPTER_STALE_REVISION` and change nothing.
 3. Write `resultingState(plan)`, the full View State the plan produces, in one step. Don't interpret `plan.operations` yourself.
-4. Notify subscribers once, and return the new `{ revision, state }`.
+4. Notify subscribers once, and return the `{ revision, state }` the grid now has.
+
+An apply is done when the grid holds the state, not when you asked it to. A grid that updates at once returns at once. A grid that updates later, such as a table whose state the Host controls, needs a wait: check that the grid holds what you wrote, and read its Revision at that moment, before any later change can land. Bound the wait, and throw when it runs out, so the Controller can recover and tell the User. The TanStack adapter waits up to 1,000 ms (ADR 0031).
 
 If the grid can't represent the result, return a failure and change nothing. The TanStack adapter, for example, refuses OR and nested filter groups with `ADAPTER_UNSUPPORTED_FILTER`.
 
-**`restore(snapshot)`** writes `snapshot.state` back, for undo. It bumps the Revision like any other change.
+**`restore(snapshot)`** writes `snapshot.state` back, for undo. It bumps the Revision like any other change, and, like `apply`, is done only when the grid holds the snapshot.
 
 **`subscribe(listener)`** calls `listener` with the new `{ revision, state }` on every view change, including the User's own clicks on column headers. It returns a function that unsubscribes.
 
@@ -141,6 +143,7 @@ Make sure a batched write fires `onViewChange` once, not once per setting, or su
 Every Grid Adapter in GridCue passes the same contract suite: `packages/gridcue/test/adapter-contract.ts` in the GridCue repo. It checks that an adapter:
 
 - applies a multi-operation plan and bumps the Revision;
+- applies, then undoes: after `apply`, `getState()` holds the state written and the very Revision `apply` returned, and after `restore` it holds the earlier state under a new Revision;
 - notifies subscribers once per apply;
 - rejects plans that were not validated, and leaves the view unchanged;
 - reports manual changes, so a stale plan is refused;

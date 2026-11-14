@@ -60,6 +60,37 @@ export const runAdapterContract = (name: string, make: () => ContractHarness) =>
       expect(after.state.filters?.children).toHaveLength(1);
     });
 
+    it("applies, then undoes", async () => {
+      const h = make();
+      const snapshot = h.adapter.getState();
+      const { plan } = validated(h.adapter, [
+        {
+          type: "filter.add",
+          combineWith: "and",
+          predicate: { id: "f1", type: "predicate", columnId: h.numericColumn, operator: "gt", value: 10 },
+        },
+        { type: "sort.set", sorts: [{ columnId: h.numericColumn, direction: "desc" }] },
+      ]);
+      const applied = await h.adapter.apply(plan);
+      expect(applied.ok).toBe(true);
+      if (!applied.ok) return;
+      // An apply is done when the grid holds it: the state written, and the very Revision apply returned.
+      const held = h.adapter.getState();
+      expect(held.state).toEqual(applied.state.state);
+      expect(held.revision).toBe(applied.state.revision);
+      expect(held.state.sorts).toEqual([{ columnId: h.numericColumn, direction: "desc" }]);
+      expect(held.state.filters?.children).toHaveLength(1);
+
+      const restored = await h.adapter.restore(snapshot);
+      expect(restored.ok).toBe(true);
+      if (!restored.ok) return;
+      const back = h.adapter.getState();
+      expect(back.state).toEqual(snapshot.state);
+      expect(back.revision).toBe(restored.state.revision);
+      expect(back.revision).not.toBe(snapshot.revision);
+      expect(back.revision).not.toBe(held.revision);
+    });
+
     it("applies a negative amount as given", async () => {
       const h = make();
       const { plan } = validated(h.adapter, [
