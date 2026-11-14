@@ -171,10 +171,14 @@ The typed name must be exactly a name on the Host's list, ignoring letter case, 
 | What matched | Result |
 | --- | --- |
 | One name exactly, and nothing on this grid reads the same way | Ready: the plan from `proposeView`, with the message "From your saved view “Exceptions”." |
-| One name exactly, and it is also a column, value, Value Group, Row Noun, House Term or Local Value here (the last two from named filters), or a declared grid's name | Asked, with two choices: "Open your saved view “Taxable”" and "Change this view instead" |
+| One name exactly, and it is also a column, value, Value Group, Row Noun, House Term or Local Value here (the last two from named filters) | Asked, with two choices: "Open your saved view “Taxable”" and "Change this view instead" |
+| One name exactly, and it is also a declared grid's name (PR 3) | Asked, with both as choices: "Open your saved view “Households”" and "Open the Households grid". "Change this view instead" is a third choice when the name also reads as something on this grid |
 | Two saved views with the same name | Asked, no choices: "You have two saved views called “Exceptions”. Open one from your saved views." |
 | No name on the list is exactly the typed one, after "show" | Today's reading, unchanged |
-| No name on the list is exactly the typed one, after any other verb | Asked, no choices: "You have no saved view called “archive”." |
+| No name on the list is exactly the typed one, after any other verb, and the typed name is a declared grid's name (PR 3) | The request is the move frame's (5.3): "open households" offers the Households grid |
+| No name on the list is exactly the typed one, after any other verb, and it names no declared grid | Asked, no choices: "You have no saved view called “archive”." |
+
+- **The open frame and the move frame share verbs** ("open", "switch to", "go back to"). With both `savedViews` and `grids` set, the typed name is checked against the saved views first and the declared grids second, and the table above says what each outcome gives. The saved-view check never ends a request that names a declared grid.
 
 - **A near name is not matched.** A typed name that is one letter off a saved one, or has its words in another order, is a name that is not on the list. It is never opened and never offered as a choice.
 - **"Show" needs "view" and an exact name,** because "show my taxable view" is a ready filter today. Without a matching saved view, it stays one.
