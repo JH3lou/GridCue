@@ -1113,24 +1113,13 @@ export const compile = (c: CompileInput): ViewPlan => {
               clarifications.push({ id: `${key}.literal${j}.date`, prompt: `${lit.value} isn't a date.`, required: true });
               return;
             }
-            // Quoted text is "containing" only after words GridCue reads. Any other word between it and its column asks.
+            // Quoted text is "containing" only after words GridCue reads. Any other word between it and its column asks,
+            // and so does one GridCue didn't read right before the column, right after the text, or, with no column,
+            // right before the text: an answer to which column holds it can't drop them.
             const quotedAfter = lit.kind === "text" ? columnBeforeText(clause, lit, own, column, c.schema.rowNoun) : undefined;
-            if (quotedAfter && !quotedAfter.read) {
-              clarifications.push({
-                id: `${key}.literal${j}.match`,
-                prompt: `I'm not sure how to match “${lit.value}”. Try “containing”.`,
-                required: true,
-              });
-              return;
-            }
-            // ...and only when GridCue read the words right before the column and right after the text.
-            const beside = quotedAfter ? unreadBesideText(clause, lit, quotedAfter.mention, own, c.schema.rowNoun) : undefined;
-            if (beside !== undefined) {
-              clarifications.push({
-                id: `${key}.literal${j}.beside`,
-                prompt: `I'm not sure what to do with “${beside}”. Try rephrasing that part.`,
-                required: true,
-              });
+            const unread = lit.kind === "text" ? textWordsQuestion(clause, lit, quotedAfter, own, c.schema.rowNoun) : undefined;
+            if (unread) {
+              clarifications.push({ id: `${key}.literal${j}.${unread.id}`, prompt: unread.prompt, required: true });
               return;
             }
             if (comparisonUnread(clause, lit, own, readNames)) {
@@ -1785,6 +1774,9 @@ const keepPart = (
     const value = lit.comparator === "between" ? { min: lit.value, max: lit.upper ?? lit.value } : lit.value;
     const quotedAfter = lit.kind === "text" ? columnBeforeText(clause, lit, own, column, rowNoun) : undefined;
     if (quotedAfter && !quotedAfter.read) return absent;
+    // The words beside the text are checked as they are for a new filter: `advisor "Lane" exactly` keeps nothing.
+    const unread = lit.kind === "text" ? textWordsQuestion(clause, lit, quotedAfter, own, rowNoun) : undefined;
+    if (unread) return { prompt: unread.prompt };
     // A column named right before the amount must be the filter's; with none, exactly one filter may match.
     const owner =
       quotedAfter?.mention ??
@@ -2032,7 +2024,11 @@ const afterTextJoin = (nounWords: string) =>
 const withoutDirection = (clause: Clause, own: readonly Mention[], noun: RegExp | undefined): string => {
   if (clause.direction === undefined && clause.limit === undefined) return clause.text;
   const bare = unquoted(clause.text);
-  let scan = [...clause.text].map((ch, i) => (bare[i] === ch ? ch : "x")).join("");
+  // By UTF-16 code unit, as every stored position counts: spreading the text would count an emoji as one.
+  let scan = clause.text
+    .split("")
+    .map((ch, i) => (bare[i] === ch ? ch : "x"))
+    .join("");
   for (const m of own) scan = scan.slice(0, m.start) + " ".repeat(m.end - m.start) + scan.slice(m.end);
   if (noun) scan = scan.replace(noun, (s) => " ".repeat(s.length));
   const { direction, count } = directionSpans(scan);
@@ -2059,14 +2055,18 @@ const withoutDirection = (clause: Clause, own: readonly Mention[], noun: RegExp 
  * `afterTextEnd` lists at the end: `advisor "Lane" exactly` and `advisor "Lane" accounts exactly` are not. A direction
  * or count is read on either side (`withoutDirection`).
  * Like the words between the column and the text, this is a rule, not a list of bad words.
+ *
+ * Text no column owns is checked the same way, up to the text itself, where a containing word may also sit right
+ * before it (`containing "Lane"`, `accounts for "Avery Lane"`): `starts with "Av"`, `filter to "Lane"` and
+ * `"Avery Lane" exactly` are not read, so the User's answer to which column holds the text can't drop them.
  */
 const unreadBesideText = (
   clause: Clause,
   lit: Literal,
-  owner: Mention,
+  owner: Mention | undefined,
   own: readonly Mention[],
   rowNoun: string | undefined,
-): string | undefined => {
+): { before: boolean; words: string } | undefined => {
   const noun = rowNoun?.toLowerCase().replace(/(?:es|s)$/, "");
   const nounSource = noun ? String.raw`${noun.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:e?s)?\b` : undefined;
   const text = withoutDirection(clause, own, nounSource ? new RegExp(String.raw`\b${nounSource}`, "g") : undefined);
@@ -2074,12 +2074,13 @@ const unreadBesideText = (
   const literalEnd = (l: Literal) => l.at + literalText(clause.text, l).length;
   // The words before the column start after the last name or literal GridCue read. The Row Noun left as a name is
   // not one: it is checked below.
+  const start = owner?.start ?? lit.at;
   const ends = [
-    ...own.filter((m) => m !== owner && m.end <= owner.start && !isRowNoun(m)).map((m) => m.end),
-    ...clause.literals.filter((l) => l.at < owner.start).map(literalEnd),
+    ...own.filter((m) => m !== owner && m.end <= start && !isRowNoun(m)).map((m) => m.end),
+    ...clause.literals.filter((l) => l.at < start).map(literalEnd),
   ];
   const from = Math.max(0, ...ends);
-  let before = text.slice(from, owner.start);
+  let before = text.slice(from, start);
   if (from === 0) {
     before = before.slice(COURTESY_LEAD.exec(before)?.[0].length ?? 0);
     before = before.slice(LEAD_IN.exec(before)?.[0].length ?? 0);
@@ -2091,17 +2092,23 @@ const unreadBesideText = (
   const rows = String.raw`(?:${nounSource ? `${nounSource}|` : ""}rows?|records?|grid|table)[\s,]*`;
   const filterLead = String.raw`filter\s+(?:(?:the|all|my)\s+)?(?:${rows})?(?:(?:by|on|for|to|with|where|in)\s+)?`;
   const chooseLead = String.raw`(?:(?:show|filter(?: to)?|find|list|display|see|view|look at|get|keep|include)\s+)?(?:(?:only|just)\s+)?(?:all(?: of)?\s+)?(?:(?:the|my)\s+)?${nounWords}(?:(?:and|or|then|for)\s+|${ROWS_JOIN})?`;
-  const BEFORE = new RegExp(String.raw`^[\s,]*(?:${filterLead}|${chooseLead})(?:(?:but\s+)?only\s+)?(?:(?:the|an?)\s+)?$`);
-  if (!BEFORE.test(before)) return before.trim().replace(/[\s,]+$/, "");
+  // Right before text no column owns, a containing word (`CONTAINING_GAP`) may sit too. "To" there may mean "equal to",
+  // as it may between a column and its text.
+  const containing = owner ? "" : String.raw`(?:(?::|is|are|containing|contains|includes|has|like|matching)\s*)?`;
+  const BEFORE = new RegExp(String.raw`^[\s,]*(?:${filterLead}|${chooseLead})(?:(?:but\s+)?only\s+)?(?:(?:the|an?)\s+)?${containing}$`);
+  if (!BEFORE.test(before) || (!owner && /\bto\s*$/.test(before))) return { before: true, words: before.trim().replace(/[\s,]+$/, "") };
   // The Row Noun left as a name before the column means GridCue didn't read how the rows and the column join:
   // `accounts not at Northgate with advisor "Lane"`, `accounts for advisor "Lane"`. Where the Mentions read it as the
   // rows, it is not a name, and "for" after it is read above: `taxable accounts for advisor "Lane"`.
-  const rowsName = own.find((m) => m !== owner && m.end <= owner.start && isRowNoun(m));
-  if (rowsName)
-    return text
-      .slice(rowsName.start, owner.start)
-      .trim()
-      .replace(/[\s,]+$/, "");
+  const rowsName = owner && own.find((m) => m !== owner && m.end <= owner.start && isRowNoun(m));
+  if (owner && rowsName)
+    return {
+      before: true,
+      words: text
+        .slice(rowsName.start, owner.start)
+        .trim()
+        .replace(/[\s,]+$/, ""),
+    };
   // After the text, the check runs to the next name or literal. The Row Noun is not one: `advisor "Lane" accounts
   // exactly` is checked to its end.
   const end = literalEnd(lit);
@@ -2133,10 +2140,32 @@ const unreadBesideText = (
       : ADJACENT_COMPARISON.test(after.slice(afterTextJoin(nounWords).exec(after)?.[0].length ?? 0));
   return read
     ? undefined
-    : clause.text
-        .slice(end, next?.at ?? text.length)
-        .trim()
-        .replace(/^[\s,]+|[\s.!?]+$/g, "");
+    : {
+        before: false,
+        words: clause.text
+          .slice(end, next?.at ?? text.length)
+          .trim()
+          .replace(/^[\s,]+|[\s.!?]+$/g, ""),
+      };
+};
+
+/**
+ * The question for the words around quoted text, if GridCue didn't read them: "how to match" for a word between the
+ * text and its column, or before text no column owns; "what to do with" for any other.
+ */
+const textWordsQuestion = (
+  clause: Clause,
+  lit: Literal,
+  quotedAfter: { mention: Mention; read: boolean } | undefined,
+  own: readonly Mention[],
+  rowNoun: string | undefined,
+): { id: "match" | "beside"; prompt: string } | undefined => {
+  const match = { id: "match", prompt: `I'm not sure how to match “${lit.value}”. Try “containing”.` } as const;
+  if (quotedAfter && !quotedAfter.read) return match;
+  const beside = unreadBesideText(clause, lit, quotedAfter?.mention, own, rowNoun);
+  if (!beside) return undefined;
+  if (!quotedAfter && beside.before) return match;
+  return { id: "beside", prompt: `I'm not sure what to do with “${beside.words}”. Try rephrasing that part.` };
 };
 
 const describeLiteral = (lit: Literal): string => {
