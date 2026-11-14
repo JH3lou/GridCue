@@ -1,9 +1,11 @@
 import { type Mention, matchMentions } from "./mentions";
-import { type Clause, literalText, type NormalizedInput, TEXT_MATCH_WORDS, unquoted } from "./normalize";
-import type { CodeReadSpan, UnplacedWord } from "./placed";
+import { type Clause, type Literal, literalText, type NormalizedInput, TEXT_MATCH_WORDS, unquoted } from "./normalize";
+import { type CodeReadSpan, QUANTIFIERS, type UnplacedWord } from "./placed";
 import type { ColumnDescriptor, FilterOperator, ViewSchema } from "./protocol";
 import { isExposed } from "./schema";
 import { findMentions } from "./text-match";
+
+type Span = { start: number; end: number };
 
 /**
  * Code-read filters (named filters spec, 4.1 and 5.2; ADR 0023). A code-read filter is a filter whose meaning GridCue
@@ -29,8 +31,12 @@ import { findMentions } from "./text-match";
  *   gain over $50k" keeps today's reading);
  * - an empty form followed by quoted text, which is its column's own (`accounts without advisor "Lane"` asks, as
  *   before).
- * - a form said as a statement: "my" or "our" before its column ("my advisor is missing"), or "has" or "have" with no
- *   "that", "which" or "who" before it ("every account has an advisor", "my accounts have no advisor").
+ * - a form said as a statement: "my" or "our" before its column ("my advisor is missing"); a possessive before its
+ *   column ("my accounts' advisor is missing"); "every", "each", "all" or "any", or "this", "that", "these" or "those",
+ *   before the column of a form that says something of it ("every advisor is empty", `each advisor starts with "Av"`,
+ *   "that advisor is missing"); "was" or "were" right before a form's words ("accounts which were without an
+ *   advisor"); or "has" or "have" with no "that", "which" or "who" before it ("every account has an advisor", "my
+ *   accounts have no advisor").
  * `advisor is "Lane"` is not a text form: it stays "containing".
  */
 
@@ -56,21 +62,60 @@ const EMPTY_AFTER = /^ (?:(is (?:empty|blank|missing))|(is not (?:empty|blank)|i
 /** An empty form before its column. */
 const EMPTY_BEFORE = /(?<![\p{L}\p{N}'])(?:(no|without(?: (?:a|an|any))?)|((?:has|have|having) (?:a|an))) $/u;
 /** "My" or "our" right before a column: "my advisor is missing" says something about the User's own advisor. */
-const OWN_BEFORE = /(?<![\p{L}\p{N}'])(?:my|our)\s+$/u;
+const OWN_BEFORE = /(?<![\p{L}\p{N}'])(my|our)\s+$/u;
+/** A possessive right before a column: "my accounts' advisor is missing", "the client's advisor is blank". */
+const POSSESSIVE_BEFORE = /(?<![\p{L}\p{N}'])([\p{L}\p{N}]+(?:'s|s'))\s+$/u;
+/** "This", "that", "these" and "those": they pick out which ones, as a quantifier does. */
+const DEMONSTRATIVES = ["this", "that", "these", "those"] as const;
+/**
+ * "Every", "each", "all" or "any", or "this", "that", "these" or "those", right before a column, with or without "of" or
+ * "the": "every advisor is empty", "all the advisor is empty" and "that advisor is missing" say something of the
+ * advisors they pick out.
+ */
+const PICKS_BEFORE = new RegExp(
+  String.raw`(?<![\p{L}\p{N}'])((?:${[...QUANTIFIERS, ...DEMONSTRATIVES].join("|")})(?:\s+of)?(?:\s+the)?)\s+$`,
+  "u",
+);
+/**
+ * "Was" or "were" right before a form's words, or before the "with" that leads to them: "accounts which were without an
+ * advisor" and "accounts that were with no advisor" say what the rows were.
+ */
+const PAST_BEFORE = /(?<![\p{L}\p{N}'])(was|were)(?:\s+with)?\s+$/u;
+/**
+ * A verb that says something of the column before it: "is" and "isn't" ("advisor is empty", `advisor is exactly "x"`),
+ * "starts", "begins" and "equals". "Starting with", "beginning with", "exactly" and "equal to" describe the rows
+ * instead: `all advisors starting with "Av"`.
+ */
+const SAYS_OF_COLUMN = /^ ?(?:is|isn't|starts|begins|equals)(?![\p{L}\p{N}'])/u;
 /** "Has" or "have" right before an empty form's words: "accounts have no advisor". */
 const HAS_BEFORE = /(?<![\p{L}\p{N}'])(?:has|have)\s+$/u;
 /** A relative word, which makes "has" or "have" describe the rows asked for: "accounts that have an advisor". */
 const RELATIVE = /(?<![\p{L}\p{N}'])(?:that|which|who)(?![\p{L}\p{N}'])/u;
 /**
- * Whether the words before a form make it a statement rather than a request: "my advisor is missing" is about the
- * User's own advisor, and "every account has an advisor" or "my accounts have no advisor" says something about the
- * rows. A "has" or "have" with "that", "which" or "who" before it describes the rows asked for, and is read.
- * `formStart` is where the form's words start in the part's text, and `columnStart` where its column's name does.
+ * The words around a form that make it a statement rather than a request, if any:
+ * - "my advisor is missing" is about the User's own advisor;
+ * - "my accounts' advisor is missing" and "the client's advisor is blank" are about someone's advisor;
+ * - "every advisor is empty" says something of every advisor, and "that advisor is missing" of one. A quantifier or
+ *   "those" before the rows ("every account with no advisor", "those accounts with no advisor") or inside a form's own
+ *   words ("without any advisor") is read;
+ * - "accounts which were without an advisor" says what the rows were;
+ * - "every account has an advisor" or "my accounts have no advisor" says something about the rows. A "has" or "have"
+ *   with "that", "which" or "who" before it describes the rows asked for, and is read.
+ * `formStart` is where the form's words start in the part's text, `columnStart` where its column's name does, and
+ * `afterColumn` the form's words after its column, if it has any there.
  */
-const statement = (text: string, formStart: number, columnStart: number): boolean => {
-  if (OWN_BEFORE.test(text.slice(0, columnStart))) return true;
-  const verb = /^(?:has|have)\b/.test(text.slice(formStart)) ? formStart : HAS_BEFORE.exec(text.slice(0, formStart))?.index;
-  return verb !== undefined && !RELATIVE.test(text.slice(0, verb));
+const statement = (text: string, formStart: number, columnStart: number, afterColumn = ""): string | undefined => {
+  const before = text.slice(0, columnStart);
+  const own = OWN_BEFORE.exec(before) ?? POSSESSIVE_BEFORE.exec(before);
+  if (own) return own[1];
+  const picks = SAYS_OF_COLUMN.test(afterColumn) ? PICKS_BEFORE.exec(before) : null;
+  if (picks) return picks[1];
+  const past = PAST_BEFORE.exec(text.slice(0, formStart));
+  if (past) return past[1];
+  const has = /^(?:has|have)\b/.exec(text.slice(formStart));
+  const verb = has ? formStart : HAS_BEFORE.exec(text.slice(0, formStart))?.index;
+  if (verb === undefined || RELATIVE.test(text.slice(0, verb))) return undefined;
+  return /^\S+/.exec(text.slice(verb))?.[0];
 };
 /** What may end an empty form written before its column. */
 const ASSIGNED = /^ (?:assigned|set)(?![\p{L}\p{N}'])/u;
@@ -118,15 +163,26 @@ const firstAmount = (clause: Clause, from: number): number | undefined => {
  * past "and" and a comma, and past the end of the part into the next one: "no advisor; over 5%". A name between them
  * gives the amount its own subject: "no advisor and market value over $1m", "no advisor and trusts over $1m".
  * `mentions` are the request's Mentions; `next` is the part after this one, if any.
+ *
+ * It returns what follows, for the question: `"date"` when it is a date ("no vendor after 2026-01-01"), and `"amount"`
+ * for anything else, a comparison with nothing after it included.
  */
-export const amountWithoutName = (clause: Clause, end: number, mentions: readonly Mention[], next?: Clause): boolean => {
+export const amountWithoutName = (
+  clause: Clause,
+  end: number,
+  mentions: readonly Mention[],
+  next?: Clause,
+): "amount" | "date" | undefined => {
   const named = (part: Clause, from: number, to: number) =>
     mentions.some((m) => m.clauseIndex === part.index && m.start >= from && m.start < to);
+  // The first amount or date from the comparison on. A comparison word comes before what it compares with.
+  const kindAt = (part: Clause, at: number) =>
+    part.literals.filter((lit) => lit.kind !== "text" && lit.at >= at).sort((a, b) => a.at - b.at)[0]?.kind === "date" ? "date" : "amount";
   const at = firstAmount(clause, end);
-  if (at !== undefined) return !named(clause, end, at);
-  if (!next || named(clause, end, clause.text.length)) return false;
+  if (at !== undefined) return named(clause, end, at) ? undefined : kindAt(clause, at);
+  if (!next || named(clause, end, clause.text.length)) return undefined;
   const nextAt = firstAmount(next, 0);
-  return nextAt !== undefined && !named(next, 0, nextAt);
+  return nextAt !== undefined && !named(next, 0, nextAt) ? kindAt(next, nextAt) : undefined;
 };
 
 /** Words for no value: the empty forms' own ("empty", "blank", "missing"), their plurals, and "null". */
@@ -144,6 +200,23 @@ export const emptyWordsOutside = (clause: Clause, mentions: readonly Mention[]):
   return [...bare.matchAll(NO_VALUE_WORDS)].map((m) => ({ start: m.index, end: m.index + m[0].length, text: m[0] }));
 };
 
+/** Whether a text form's own words, and nothing else, join a column to its quoted text: `advisor starts with "Av"`. */
+const joinsTextForm = (clause: Clause, lit: Literal, column: Span): boolean => {
+  if (lit.kind !== "text" || !lit.match || column.end > lit.at) return false;
+  const words = TEXT_MATCH_WORDS.find(([kind]) => kind === lit.match)?.[1] ?? "$^";
+  return new RegExp(`^ ?(?:${words}) ?$`, "u").test(clause.text.slice(column.end, lit.at));
+};
+
+/**
+ * The words that make a text form a statement and not a request, if its words join this column to this quoted text:
+ * "every" in `every advisor starts with "Av"`, "my" in `my advisor starts with "Av"`. The compiler asks about them,
+ * rather than how to match the text: the form's own words are read elsewhere.
+ */
+export const textFormStatement = (clause: Clause, lit: Literal, column: Span): string | undefined =>
+  joinsTextForm(clause, lit, column)
+    ? statement(clause.text, column.start, column.start, clause.text.slice(column.end, lit.at))
+    : undefined;
+
 /** The text form joined to its column by exactly its words, if any: `advisor starts with "Av"`. */
 const textForm = (clause: Clause, columns: readonly Mention[]): CodeReadFilter[] =>
   clause.literals.flatMap((lit) => {
@@ -152,10 +225,9 @@ const textForm = (clause: Clause, columns: readonly Mention[]): CodeReadFilter[]
       .filter((m) => m.end <= lit.at)
       .sort((a, b) => a.end - b.end)
       .at(-1);
-    if (!column) return [];
-    const words = TEXT_MATCH_WORDS.find(([kind]) => kind === lit.match)?.[1] ?? "$^";
-    if (!new RegExp(`^ ?(?:${words}) ?$`, "u").test(clause.text.slice(column.end, lit.at))) return [];
-    if (statement(clause.text, column.start, column.start)) return [];
+    if (!column || !joinsTextForm(clause, lit, column)) return [];
+    // `my advisor starts with "Av"`, `every advisor is exactly "Avery Lane"`: a statement, not a request.
+    if (textFormStatement(clause, lit, column)) return [];
     return [
       {
         clauseIndex: clause.index,
@@ -182,8 +254,8 @@ const emptyForms = (clause: Clause, columns: readonly Mention[], column: (id: st
     const tail = before ? (ASSIGNED.exec(clause.text.slice(m.end))?.[0].length ?? 0) : 0;
     const start = before ? before.index : m.start;
     const end = after ? m.end + after[0].length : m.end + tail;
-    // "My advisor is missing", "every account has an advisor": a statement, not a request.
-    if (statement(clause.text, start, m.start)) return [];
+    // "My advisor is missing", "every advisor is empty", "every account has an advisor": a statement, not a request.
+    if (statement(clause.text, start, m.start, after?.[0])) return [];
     // "Accounts with no gain over $50k" is today's comparison on Unrealized gain.
     if (AMOUNT_KINDS.has(kind) && amountAfter(clause, end)) return [];
     // Quoted text right after is the column's own (`accounts without advisor "Lane"`): no empty form, and the part asks

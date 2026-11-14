@@ -239,8 +239,9 @@ describe("a placed word: a row verb", () => {
 
 describe("a placed word: a small word", () => {
   it("places each small word", () => {
+    // "My", "our", "me" and "us" are placed only where the words make them part of a request: see "a first-person word".
     const small =
-      "the a an all any every each my our me us those these that which whose where with for of at in from under is are was were has have having held owned and or also too";
+      "the a an all any every each those these that which whose where with for of at in from under is are was were has have having held owned and or also too";
     for (const word of small.split(" ")) expect(unplaced(`flagged accounts ${word} trust`), word).toEqual([]);
     expect(unplaced("flagged accounts as well")).toEqual([]);
     expect(unplaced("the advisor's flagged accounts")).toEqual([]);
@@ -250,6 +251,184 @@ describe("a placed word: a small word", () => {
   it("places “as well” only as one phrase", () => {
     expect(unplaced("flagged accounts as trusts")).toEqual(["as"]);
     expect(unplaced("flagged accounts well")).toEqual(["well"]);
+  });
+});
+
+// A statement is not a request (review finding): "advisor is missing from my account" is made only of words the
+// spec's list places. A first-person word is placed only where it belongs to a request.
+describe("a placed word: a first-person word", () => {
+  const empty = { filters: ["no advisor", "advisor is missing", "advisor is empty", "have an advisor"] };
+
+  it("places “my” and “our” right before the noun for the rows, when the noun comes before the code-read filter", () => {
+    expect(unplaced("my accounts with no advisor", empty)).toEqual([]);
+    expect(unplaced("show our accounts that have an advisor", empty)).toEqual([]);
+    expect(unplaced("my households with no advisor", empty)).toEqual([]);
+    expect(unplaced("my rows with no advisor", empty)).toEqual([]);
+    expect(unplaced("our records with no advisor", empty)).toEqual([]);
+    expect(unplaced("my entries with no counterparty", { filters: ["no counterparty"], schema: ledger })).toEqual([]);
+  });
+
+  it("places them before named values that describe the rows, or stand for them", () => {
+    expect(unplaced("my trust accounts with no advisor", empty)).toEqual([]);
+    expect(unplaced("our roth ira accounts at northgate with no advisor", empty)).toEqual([]);
+    expect(unplaced("my trusts with no advisor", empty)).toEqual([]);
+  });
+
+  it("places them before a yes/no column named for the rows, which can't stand for them alone", () => {
+    expect(unplaced("my restricted accounts with no advisor", empty)).toEqual([]);
+    expect(unplaced("our restricted trust accounts where advisor is empty", empty)).toEqual([]);
+    expect(unplaced("my restricted with no advisor", empty)).toContain("my");
+  });
+
+  it("does not place them before an entity word in the singular: “my household” is one household of the User's", () => {
+    expect(unplaced("my household with no advisor", empty)).toEqual(["my"]);
+    expect(unplaced("our advisor with no household", { filters: ["no household"] })).toEqual(["our"]);
+    expect(unplaced("my households with no advisor", empty)).toEqual([]);
+    expect(unplaced("my account with no advisor", empty)).toEqual([]);
+  });
+
+  it("places them before the direction and count words a sort reads, and before a noun the Mentions left undecided", () => {
+    expect(unplaced("my top 10 accounts with no advisor by market value", empty)).toEqual([]);
+    expect(unplaced("our largest accounts with no advisor", empty)).toEqual([]);
+    // With no sort in the plan, "top 10" is not placed, and nothing joins "my" to the rows.
+    expect(unplaced("my top 10 accounts with no advisor", { ...empty, operations: [filter] })).toEqual(["my", "top", "10"]);
+    // "Accounts," is a Mention the Mentions left undecided: the Row Noun, or Account number.
+    expect(unplaced("my accounts, with no advisor", empty)).toEqual([]);
+  });
+
+  it("does not place them before a possessive: “my advisor's accounts” are not rows GridCue can find", () => {
+    expect(unplaced("my advisor's accounts with no household", { filters: ["no household"] })).toEqual(["my"]);
+    expect(unplaced("our household's accounts with no advisor", empty)).toEqual(["our"]);
+  });
+
+  it("does not place them before a noun that follows another one for the rows", () => {
+    // The rows are the accounts. "Our household" is one household, which GridCue can't know.
+    expect(unplaced("the accounts of our household with no advisor", empty)).toEqual(["our"]);
+    expect(unplaced("accounts in my households with no advisor", empty)).toEqual(["my"]);
+    expect(unplaced("all of our accounts with no advisor", empty)).toEqual([]);
+  });
+
+  it("does not place them anywhere else", () => {
+    expect(unplaced("advisor is missing from my account", empty)).toEqual(["my"]);
+    expect(unplaced("the advisor is missing for my accounts", empty)).toEqual(["my"]);
+    expect(unplaced("advisor is empty in our household", empty)).toEqual(["our"]);
+    expect(unplaced("accounts with no advisor in my trusts", empty)).toEqual(["my"]);
+    expect(unplaced("my custodian accounts with no advisor", empty)).toEqual(["my"]);
+    expect(unplaced("my flagged accounts")).toEqual(["my"]);
+    expect(unplaced("flagged accounts my trust")).toEqual(["my"]);
+    expect(unplaced("flagged accounts our trust")).toEqual(["our"]);
+  });
+
+  it("places “me” and “us” in a lead-in, or right after a verb that chooses rows", () => {
+    for (const text of [
+      "show me flagged accounts",
+      "give me flagged accounts",
+      "let me see flagged accounts",
+      "show us flagged accounts",
+      "give us flagged accounts",
+      "list me flagged accounts",
+      "find us flagged accounts",
+    ])
+      expect(unplaced(text), text).toEqual([]);
+  });
+
+  it("does not place “me” or “us” with a preposition right after it, in a lead-in or not", () => {
+    expect(unplaced("include me in flagged accounts")).toEqual(["me"]);
+    expect(unplaced("keep us with flagged accounts")).toEqual(["us"]);
+    expect(unplaced("show me in flagged accounts")).toEqual(["me"]);
+    expect(unplaced("find me for flagged accounts")).toEqual(["me"]);
+    expect(unplaced("give us of flagged accounts")).toEqual(["us"]);
+    // A preposition after the rows' noun changes nothing.
+    expect(unplaced("show me accounts with no advisor", { filters: ["no advisor"] })).toEqual([]);
+  });
+
+  it("does not place “me” or “us” anywhere else, or “I”, “mine” or “ours” outside a lead-in", () => {
+    expect(unplaced("flagged accounts for me")).toEqual(["me"]);
+    expect(unplaced("flagged accounts for us")).toEqual(["us"]);
+    expect(unplaced("advisor is missing for me", empty)).toEqual(["me"]);
+    expect(unplaced("only me flagged accounts")).toEqual(["me"]);
+    expect(unplaced("flagged accounts i trust")).toEqual(["i"]);
+    expect(unplaced("flagged accounts of mine")).toEqual(["mine"]);
+    expect(unplaced("flagged accounts of ours")).toEqual(["ours"]);
+  });
+});
+
+// A column asked for beside a code-read filter is never dropped (review finding). In the singular, right after a word
+// that chooses columns, a column's name stands where a column would: the plan holds a change for it, or it is unplaced.
+describe("a column asked for beside a code-read filter", () => {
+  const empty = { filters: ["no advisor", "advisor is empty"] };
+  const showHousehold: ViewOperation = { type: "columns.show", columnIds: ["household"] };
+
+  it("does not place an entity word in the singular right after a word that chooses columns", () => {
+    // Any verb that chooses rows, and "give": a column with no entity word asks after each of them too (review finding).
+    for (const word of ["show", "display", "see", "list", "only", "just", "keep", "hide", "view", "find", "get", "filter", "include"])
+      expect(unplaced(`${word} household with no advisor`, empty), word).toEqual(["household"]);
+    for (const lead of [
+      "show the",
+      "show only",
+      "show just the",
+      "keep only the",
+      "just the",
+      "show me",
+      "show me the",
+      "give me",
+      "give us the",
+      "show a",
+      "find me an",
+      "show that",
+    ])
+      expect(unplaced(`${lead} household where advisor is empty`, empty), lead).toEqual(["household"]);
+    // "My" or "our" between them is not placed either: the name it would own is no noun for the rows.
+    for (const lead of ["show my", "show only our"])
+      expect(unplaced(`${lead} household where advisor is empty`, empty), lead).toEqual([lead.split(" ").at(-1), "household"]);
+    expect(unplaced("add household with no advisor", empty)).toEqual(["add", "household"]);
+    expect(unplaced("show advisor with flagged accounts")).toEqual(["advisor"]);
+  });
+
+  it("places it in the plural, after “every”, “each” or “all”, with another word before it, with none, or as a possessive", () => {
+    for (const text of [
+      "show households with no advisor",
+      "show only households where advisor is empty",
+      "household with no advisor",
+      "the household with no advisor",
+      "show every household with no advisor",
+      "list each household with no advisor",
+      "show all households with no advisor",
+      "show trust household with no advisor",
+      "show the household's accounts with no advisor",
+    ])
+      expect(unplaced(text, empty), text).toEqual([]);
+  });
+
+  it("places the Row Noun, in the singular too", () => {
+    expect(unplaced("show account with no advisor", empty)).toEqual([]);
+    expect(unplaced("show only the account where advisor is empty", empty)).toEqual([]);
+    expect(unplaced("show entry with no counterparty", { filters: ["no counterparty"], schema: ledger })).toEqual([]);
+  });
+
+  it("waits for the plan when the Mentions hold the name, then needs a change that names its column", () => {
+    // "Household for …" is a Mention: the plan may yet hold a change for it.
+    expect(unplaced("show household for accounts with no advisor", empty)).toEqual([]);
+    expect(unplaced("show household for accounts with no advisor", { ...empty, operations: [] })).toEqual(["household"]);
+    expect(unplaced("show household for accounts with no advisor", { ...empty, operations: [filter, sort] })).toEqual(["household"]);
+    expect(unplaced("show household for accounts with no advisor", { ...empty, operations: [showHousehold] })).toEqual([]);
+    expect(unplaced("show only market value for accounts with no advisor", { ...empty, operations: [filter] })).toEqual(["market value"]);
+    expect(unplaced("show only market value for accounts with no advisor", { ...empty, operations: [sort] })).toEqual([]);
+    // In the plural the name may be the rows, so the plan need not hold it.
+    expect(unplaced("show households for accounts with no advisor", { ...empty, operations: [] })).toEqual([]);
+  });
+
+  it("does not count the code-read filter's own filter as a change for the column", () => {
+    const part = partOf("show advisor for accounts with no advisor", ["no advisor"]);
+    const codeRead = part.codeRead.map((r) => ({ ...r, predicate: { columnId: "advisor_name", operator: "isEmpty" } }));
+    const own: ViewOperation = {
+      type: "filter.add",
+      predicate: { id: "f2", type: "predicate", columnId: "advisor_name", operator: "isEmpty" },
+      combineWith: "and",
+    };
+    const words = (operations: readonly ViewOperation[]) => unplacedWords({ ...part, codeRead, operations }).map((w) => w.text);
+    expect(words([own])).toEqual(["advisor"]);
+    expect(words([own, { type: "columns.show", columnIds: ["advisor_name"] }])).toEqual([]);
   });
 });
 
@@ -328,7 +507,8 @@ describe("a placed word: another change's own words, when the plan holds that ch
   it("places “hide” only beside a hide, and “column” only beside a change to columns, a sort or a grouping", () => {
     const text = "hide the custodian column for flagged accounts";
     expect(unplaced(text, { operations: [filter, hide] })).toEqual([]);
-    expect(unplaced(text, { operations: [filter] })).toEqual(["hide", "column"]);
+    // With no hide in the plan, the column it asks for is in no change either.
+    expect(unplaced(text, { operations: [filter] })).toEqual(["hide", "custodian", "column"]);
     expect(unplaced("flagged accounts sorted by the value column", { operations: [sort] })).toEqual([]);
     expect(unplaced("flagged accounts with the custodian columns", { operations: [show] })).toEqual([]);
   });
@@ -380,12 +560,14 @@ describe("a verb read only for columns", () => {
     // The Advisor filter uses the name, so ADR 0019's check alone would pass this with the pin dropped.
     expect(unplaced("pin advisor for flagged accounts", { operations: [filter] })).toEqual(["pin"]);
     expect(unplaced("pin advisor for flagged accounts", { operations: [filter, show] })).toEqual(["pin"]);
-    expect(unplaced("add custodian for flagged accounts", { operations: [filter] })).toEqual(["add"]);
+    // "Add custodian" asks for the Custodian column: with no change that names it, the name is unplaced too.
+    expect(unplaced("add custodian for flagged accounts", { operations: [filter] })).toEqual(["add", "custodian"]);
     expect(unplaced("add custodian for flagged accounts", { operations: [filter, hide] })).toEqual(["add"]);
     expect(unplaced("move custodian for flagged accounts", { operations: [filter, show] })).toEqual(["move"]);
     // The change is for another column.
     expect(unplaced("add custodian for flagged accounts", { operations: [{ type: "columns.show", columnIds: ["household"] }] })).toEqual([
       "add",
+      "custodian",
     ]);
   });
 

@@ -35,6 +35,7 @@ const NEW_SETS = new Set([
   "cases-text-forms-heldout.jsonl",
   "cases-text-forms-natural-heldout.jsonl",
   "cases-text-forms-heldout-r2.jsonl",
+  "cases-text-forms-heldout-r3.jsonl",
   "cases-not-requests-heldout.jsonl",
   "cases-provider-picks-heldout.jsonl",
 ]);

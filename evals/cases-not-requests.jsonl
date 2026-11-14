@@ -18,3 +18,38 @@
 {"id":"nr-deal-fell-apart","utterance":"without a counterparty the deal fell apart","schema":"ledger","expect":{"mustNotBeReady":true}}
 {"id":"nr-owner-exactly-right","utterance":"she has an owner who is exactly right","schema":"ledger","expect":{"mustNotBeReady":true}}
 {"id":"nr-email-everyone","utterance":"email everyone who has an advisor","expect":{"mustNotBeReady":true}}
+{"id":"nr-missing-from-my-account","utterance":"advisor is missing from my account","expect":{"mustNotBeReady":true}}
+{"id":"nr-missing-for-me","utterance":"advisor is missing for me","expect":{"mustNotBeReady":true}}
+{"id":"nr-missing-for-my-accounts","utterance":"the advisor is missing for my accounts","expect":{"mustNotBeReady":true}}
+{"id":"nr-my-accounts-advisor","utterance":"my accounts' advisor is missing","expect":{"mustNotBeReady":true}}
+{"id":"nr-every-advisor-empty","utterance":"every advisor is empty","expect":{"mustNotBeReady":true}}
+{"id":"nr-each-advisor-blank","utterance":"each advisor is blank","expect":{"mustNotBeReady":true}}
+{"id":"nr-blank-for-us","utterance":"advisor is blank for us","expect":{"mustNotBeReady":true}}
+{"id":"nr-not-empty-for-our-accounts","utterance":"advisor is not empty for our accounts","expect":{"mustNotBeReady":true}}
+{"id":"nr-the-accounts-advisor","utterance":"the account's advisor is missing","expect":{"mustNotBeReady":true}}
+{"id":"nr-any-household-missing","utterance":"any household is missing","expect":{"mustNotBeReady":true}}
+{"id":"nr-every-advisor-starts","utterance":"every advisor starts with \"Av\"","expect":{"mustNotBeReady":true}}
+{"id":"nr-my-advisors-accounts","utterance":"my advisor's accounts with no household","expect":{"mustNotBeReady":true}}
+{"id":"nr-vendor-missing-from-my-entry","utterance":"vendor is missing from my entry","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"nr-vendor-missing-for-me","utterance":"vendor is missing for me","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"nr-vendor-missing-for-my-entries","utterance":"the vendor is missing for my entries","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"nr-my-entries-vendor","utterance":"my entries' vendor is missing","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"nr-every-vendor-empty","utterance":"every vendor is empty","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"nr-each-vendor-empty","utterance":"each vendor is empty","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"nr-any-payee-missing","utterance":"any payee is missing","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"nr-category-missing-for-us","utterance":"category is missing for us","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"nr-booked-empty-in-our-entries","utterance":"booked is empty in our entries","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"nr-the-entrys-vendor","utterance":"the entry's vendor is blank","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"nr-each-booking-date-missing","utterance":"each booking date is missing","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"nr-every-owner-exactly","utterance":"every owner is exactly \"Avery Lane\"","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"nr-include-me-in","utterance":"include me in accounts with no advisor","expect":{"mustNotBeReady":true}}
+{"id":"nr-keep-me-in","utterance":"keep me in accounts with no advisor","expect":{"mustNotBeReady":true}}
+{"id":"nr-see-us-for","utterance":"see us for accounts with no advisor","expect":{"mustNotBeReady":true}}
+{"id":"nr-show-me-in","utterance":"show me in accounts with no advisor","expect":{"mustNotBeReady":true}}
+{"id":"nr-that-advisor-missing","utterance":"that advisor is missing","expect":{"mustNotBeReady":true}}
+{"id":"nr-show-me-that-advisor","utterance":"show me that advisor is missing","expect":{"mustNotBeReady":true}}
+{"id":"nr-were-without-advisor","utterance":"accounts which were without an advisor","expect":{"mustNotBeReady":true}}
+{"id":"nr-include-me-in-entries","utterance":"include me in entries with no vendor","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"nr-see-me-for-entries","utterance":"see me for entries with no vendor","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"nr-that-vendor-missing","utterance":"that vendor is missing","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"nr-were-without-vendor","utterance":"entries which were without a vendor","schema":"ledger","expect":{"mustNotBeReady":true}}

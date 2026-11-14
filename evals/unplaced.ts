@@ -2,7 +2,7 @@ import { createGridCue, type ViewSchema } from "gridcue";
 import { createMockProvider } from "gridcue/mock";
 // The placed-words lists are internal to the compiler, so this report reads them from the package source, as
 // `placed.test.ts` does. It runs outside the compiler and only reads: it can't change a result.
-import { readCodeFilters } from "../packages/gridcue/src/core/code-read";
+import { namesAfterCodeRead, readCodeFilters } from "../packages/gridcue/src/core/code-read";
 import { matchMentions } from "../packages/gridcue/src/core/mentions";
 import { normalize, withoutNamedSizes } from "../packages/gridcue/src/core/normalize";
 import { type PlacedPart, unplacedWords } from "../packages/gridcue/src/core/placed";
@@ -60,12 +60,14 @@ for (const { file, id, case: c } of labelledRequests()) {
       : [];
   const input = withoutNamedSizes(normalized, mentions);
   const codeRead = readCodeFilters(input, mentions, schema);
+  // A column named right after a form is a name too, as the compiler reads it ("no vendor booked after …").
+  const names = [...mentions, ...namesAfterCodeRead(input, mentions, codeRead, schema)];
   const found: string[] = [];
   let beside = false;
   for (const clause of input.clauses) {
     const part: PlacedPart = {
       clause,
-      mentions: mentions.filter((m) => m.clauseIndex === clause.index),
+      mentions: names.filter((m) => m.clauseIndex === clause.index),
       codeRead: codeRead.filter((r) => r.clauseIndex === clause.index),
       schema,
       operations: plan.operations,

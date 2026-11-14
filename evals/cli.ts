@@ -212,11 +212,21 @@ const cantGroupHeldOut3 = await run(new URL("./cases-cant-group-heldout-r3.jsonl
 // view, of 55. Its safe misses are reported, not failed; a wrong view fails.
 const cantGroupHeldOut4 = await run(new URL("./cases-cant-group-heldout-r4.jsonl", import.meta.url), "cases-cant-group-heldout-r4.jsonl");
 // Text forms (named filters spec, 5.2): "starts with", "exactly", empty and not empty, on the wealth and ledger
-// fixtures, labelled before the code. With the Mock Provider each case must match: 31 exact, 9 asked as labelled, of 40
-// (2026-11-14). Before the code, 1 showed a wrong view ("accounts with no advisor over $1m").
+// fixtures. With the Mock Provider each case must match. The first 40 were labelled before the code: 31 exact, 9 asked
+// as labelled (2026-11-14). Before the code, 1 showed a wrong view ("accounts with no advisor over $1m"). 32 more
+// joined with the fix for a column asked for beside a form ("show only household where advisor is empty"), written
+// beside that fix: 22 that must not be ready, of which 13 were ready with the form's filter alone before it, and 10
+// controls that stay ready ("households with no advisor"). 8 more joined with the review's next fixes: 5 that must not
+// be ready ("show me an advisor where household is empty", "my household with no advisor"), all 5 ready with the
+// form's filter alone before them, and 3 controls that must be ready ("show every household with no advisor", "my
+// restricted accounts with no advisor"), 2 of which asked before them. Now: 44 exact, 36 asked as labelled, of 80.
 const textForms = await run(new URL("./cases-text-forms.jsonl", import.meta.url), "cases-text-forms.jsonl");
-// Sentences that hold a text or empty form and are not view requests (spec 4.2). None may be ready: 19 asked and 1
-// refused, of 20 (2026-11-14).
+// Sentences that hold a text or empty form and are not view requests (spec 4.2). None may be ready. The first 20 were
+// labelled before the code: 19 asked and 1 refused (2026-11-14). 24 more joined with the fix for statements made only
+// of words GridCue places ("advisor is missing from my account", "every advisor is empty"), written beside that fix:
+// all 24 were ready before it. 11 more joined with the review's next fixes ("include me in accounts with no advisor",
+// "that advisor is missing", "accounts which were without an advisor"): all 11 were ready before them. Now: 54 asked
+// and 1 refused, of 55.
 const notRequests = await run(new URL("./cases-not-requests.jsonl", import.meta.url), "cases-not-requests.jsonl");
 // The limit on a provider's picks (spec 4.2): requests that hold a code-read filter, each with a scripted provider answer
 // that proposes a sort, a column or a value for words the filter took, written before the code. Each case must match:
@@ -246,6 +256,14 @@ const textFormsNatural = await run(
 // r2-just-the-advisor). 15 of its requests showed a wrong view before the code and now ask. Its safe misses are
 // reported, not failed; a wrong view fails.
 const textFormsHeldOut2 = await run(new URL("./cases-text-forms-heldout-r2.jsonl", import.meta.url), "cases-text-forms-heldout-r2.jsonl");
+// A third held-out set for the text forms, labelled from the spec and the lead's rulings (a column asked for beside a
+// form, statements that are not requests, the question after an empty form), first run after the fixes for them
+// (2026-11-14). With the Mock Provider: 49 exact, 58 asked as labelled, 1 safe miss (r3-plain-l04, no form, asks as
+// before the code), no wrong view, of 108, after 11 labels were corrected (r3-r1-w12 and r3-r1-l09 show the column
+// they name with "column" beside the form's filter, as spec 4.2 reads them; 9 plain controls said only "ready"). 13
+// of its requests showed a wrong view before the code and now ask. Its safe misses are reported, not failed; a wrong
+// view fails.
+const textFormsHeldOut3 = await run(new URL("./cases-text-forms-heldout-r3.jsonl", import.meta.url), "cases-text-forms-heldout-r3.jsonl");
 // Held-out sentences that hold a form and are not view requests (2026-11-14). None may be ready: 20 asked and 5 refused,
 // of 25.
 const notRequestsHeldOut = await run(new URL("./cases-not-requests-heldout.jsonl", import.meta.url), "cases-not-requests-heldout.jsonl");
@@ -281,6 +299,7 @@ const all = [
   textFormsHeldOut,
   textFormsNatural,
   textFormsHeldOut2,
+  textFormsHeldOut3,
   notRequestsHeldOut,
   providerPicksHeldOut,
 ];

@@ -5,6 +5,7 @@ import type { Clarification, DecisionEvidence, ViewOperation, ViewSchema } from 
 import type { ClauseResolution } from "./resolution";
 import { isExposed } from "./schema";
 import { escapeRegExp } from "./text-match";
+import { namesOf } from "./unused";
 import { readViewWords } from "./view-words";
 
 /**
@@ -20,8 +21,15 @@ import { readViewWords } from "./view-words";
  * through `readViewWords` (`core/view-words.ts`). The compiler's checks beside quoted text build their patterns from the
  * lists exported here, so a word of one kind is written once.
  *
- * This checks which words a part holds, not where they sit. It is the first slice of the closed grammar in ADR 0020;
- * the Local Resolver checks both and replaces it.
+ * Two kinds of word are placed by where they sit, not by a list alone, because a list would pass a part that is no
+ * request or would drop something the User asked for:
+ * - a first-person word ("my", "our", "me", "us") is placed only where it belongs to a request, so "advisor is missing
+ *   from my account" asks (see `OWNERS`);
+ * - a column's name in the singular right after a word that chooses columns asks for that column, so it is placed only
+ *   when the plan holds a change for it: "show only household where advisor is empty" asks (see `askedColumns`).
+ *
+ * Apart from those two, this checks which words a part holds, not where they sit. It is the first slice of the closed
+ * grammar in ADR 0020; the Local Resolver checks both and replaces it.
  */
 
 type Span = { start: number; end: number };
@@ -37,15 +45,16 @@ export interface PlacedPart {
   /** The part's own Mentions. */
   mentions: readonly Mention[];
   /**
-   * Where the part's code-read filters sit in its text, with the column each filters on when it is known. Their words
-   * are placed, whatever they are.
+   * Where the part's code-read filters sit in its text, with the column each filters on and how, when that is known.
+   * Their words are placed, whatever they are.
    */
-  codeRead: readonly (Span & { predicate?: { columnId: string } })[];
+  codeRead: readonly (Span & { predicate?: { columnId: string; operator?: string } })[];
   schema: ViewSchema;
   /**
-   * The operations the plan holds for this part. Another change's own words ("sorted by", "hide") and a verb read only
-   * for columns ("add") are placed only when these hold that change. Left out, those words count as placed: the first
-   * check runs before the plan is built, and the caller checks again once it is.
+   * The operations the plan holds for this part. Another change's own words ("sorted by", "hide"), a verb read only
+   * for columns ("add") and a column the part asks for ("show household where …") are placed only when these hold that
+   * change. Left out, those words count as placed where the plan may yet hold the change: the first check runs before
+   * the plan is built, and the caller checks again once it is.
    */
   operations?: readonly ViewOperation[];
 }
@@ -66,13 +75,23 @@ const within = (inner: Span, outer: Span) => inner.start >= outer.start && inner
 export const CHOOSING_VERBS = ["show", "display", "list", "see", "view", "find", "get", "filter", "keep", "include"] as const;
 /** "Only" and "just" choose rows too, alone or after a verb: "only trusts", "show just the trusts". */
 export const ONLY_WORDS = ["only", "just"] as const;
+/** The verbs that choose rows, and "give": "give us the trusts". */
+const GIVING_VERBS: readonly string[] = [...CHOOSING_VERBS, "give"];
 /** The row verbs: the verbs that choose rows, "give", and "only" and "just". */
-const ROW_VERBS: readonly string[] = [...CHOOSING_VERBS, "give", ...ONLY_WORDS];
+const ROW_VERBS: readonly string[] = [...GIVING_VERBS, ...ONLY_WORDS];
 
 /** A sort's own verbs, and a grouping's. */
 export const SORT_VERBS = ["sort", "sorted", "order", "ordered"] as const;
 export const GROUP_VERBS = ["group", "grouped"] as const;
-const HIDE_VERBS: readonly string[] = ["hide", "hidden"];
+const HIDE = "hide";
+const HIDE_VERBS: readonly string[] = [HIDE, "hidden"];
+/** "Add" shows a column. It is one of the verbs read only for columns (`core/lead.ts`). */
+const ADD = "add";
+/**
+ * The words that choose what shows, columns or rows: after one, a column's name in the singular stands where a column
+ * would, and asks for that column ("show household", "only the advisor", "hide custodian", "find advisor where …").
+ */
+const COLUMN_CHOOSING: readonly string[] = [...GIVING_VERBS, ...ONLY_WORDS, ADD, HIDE];
 /** "By" belongs to a sort or a grouping. */
 const BY = "by";
 /** "Column" belongs to any change that names a column: a sort, a grouping, or a change to which columns show. */
@@ -87,16 +106,33 @@ export const PREPOSITIONS = ["with", "for", "of", "at", "in", "from"] as const;
 export const QUANTIFIERS = ["all", "any", "every", "each"] as const;
 /** "Also", "too" and "as well". */
 export const ALSO_WORDS = ["also", "too", "as well"] as const;
-/** The small words: the lists above, and the rest of the spec's row. "'s" is read apart, as it is no word of its own. */
+/** Other words for the rows. */
+const ROW_WORDS: readonly string[] = ["rows", "records", "ones"];
+/**
+ * The first-person words. None is placed for being on a list: a part that says something about the User ("advisor is
+ * missing from my account", "advisor is missing for me") is a statement, not a request for a view. Each is placed only
+ * where the words make it part of a request:
+ * - "my" and "our" right before the noun for the rows, when that noun comes before the part's code-read filters ("my
+ *   accounts with no advisor"). What describes the rows may sit between ("my taxable accounts", "my restricted
+ *   accounts", "my top 10 accounts"), and a named value may stand for them ("my trusts"). An entity word in the singular
+ *   is no noun for the rows here: "my household" is one household of the User's, which GridCue can't know. `ownsRows` in
+ *   `read` holds the rule;
+ * - "me" and "us" in a lead-in ("show me", "let me see"), or right after a verb that chooses rows ("show us", "list me"),
+ *   but never with a preposition right after it: in "include me in accounts …" the User is the verb's object, not the
+ *   one the rows are shown to (`SELF_OBJECT`).
+ * "I", "mine" and "ours" are placed only inside a lead-in ("I want to see"), like any other word no list holds.
+ */
+const OWNERS: readonly string[] = ["my", "our"];
+const SELVES: readonly string[] = ["me", "us"];
+/**
+ * The small words: the lists above, and the rest of the spec's row but its first-person words. "'s" is read apart, as
+ * it is no word of its own.
+ */
 const SMALL_WORDS: readonly string[] = [
   "the",
   "a",
   "an",
   ...QUANTIFIERS,
-  "my",
-  "our",
-  "me",
-  "us",
   "those",
   "these",
   "that",
@@ -117,9 +153,7 @@ const SMALL_WORDS: readonly string[] = [
   "and",
   "or",
   ...ALSO_WORDS,
-  "rows",
-  "records",
-  "ones",
+  ...ROW_WORDS,
 ];
 
 const ALWAYS_PLACED: ReadonlySet<string> = new Set([...ROW_VERBS, ...SMALL_WORDS].filter((w) => !w.includes(" ")));
@@ -133,7 +167,7 @@ const LEAD_INS = new RegExp(String.raw`(?<![\p{L}\p{N}'])(?:${LEAD_IN_WORDS})(?!
 const COLUMN_VERB_WORDS: ReadonlySet<string> = new Set(COLUMN_VERBS.split("|"));
 /** The column change each verb read only for columns makes. "Add" shows a column, "pin" pins one, the rest move one. */
 const changeOf = (verb: string): ViewOperation["type"] =>
-  verb === "add" ? "columns.show" : verb === "pin" ? "columns.pin" : "columns.order";
+  verb === ADD ? "columns.show" : verb === "pin" ? "columns.pin" : "columns.order";
 /** A possessive: "the advisor's accounts". */
 const POSSESSIVE = /'s(?![\p{L}\p{N}])/gu;
 /** A containing word right before quoted text: `household containing "Alder"`. */
@@ -197,23 +231,101 @@ const DIRECTION_LEAD = new RegExp(String.raw`\b(?:${alt([...SORT_VERBS, "in", "f
 export const outsideCodeRead = <T extends Span>(mentions: readonly T[], codeRead: readonly Span[]): T[] =>
   mentions.filter((m) => !codeRead.some((r) => within(m, r)));
 
+/** A name's words in lower case, with one space between and no symbols: "Market  Value" and "market value" are equal. */
+const wordsOf = (text: string) => (text.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []).join(" ");
+
+/** A noun the Mentions may have read as the rows. The Row Noun names no column here; an entity word names its own. */
+interface Noun extends Span {
+  columnId?: string;
+  /** Written as the schema declares it, not in the plural. */
+  singular: boolean;
+}
+
 /**
  * Where the Row Noun and the entity words sit: names the Mentions may have read as the rows. The entity word of a
  * code-read filter's own column is left out: "advisors with no advisor" and "show advisor where advisor starts with …"
- * name that column again, and nothing reads it.
+ * name that column again, and nothing reads it. An entity word that is also the Row Noun is the Row Noun.
  */
-const nounSpans = (text: string, schema: PlacedPart["schema"], filtered: ReadonlySet<string>): Span[] => {
-  const nouns = [
-    schema.rowNoun,
-    ...schema.columns.filter((col) => isExposed(col) && !filtered.has(col.id)).map((col) => col.entity),
-  ].filter((n): n is string => !!n?.trim());
-  return nouns.flatMap((noun) =>
+const nounSpans = (text: string, schema: PlacedPart["schema"], filtered: ReadonlySet<string>): Noun[] => {
+  const rowNoun = schema.rowNoun?.trim() ? schema.rowNoun : undefined;
+  const entities = schema.columns.filter(
+    (col) => isExposed(col) && !filtered.has(col.id) && !!col.entity?.trim() && wordsOf(col.entity) !== wordsOf(rowNoun ?? ""),
+  );
+  const nouns: Array<{ noun: string; columnId?: string }> = [
+    ...(rowNoun ? [{ noun: rowNoun }] : []),
+    ...entities.map((col) => ({ noun: col.entity ?? "", columnId: col.id })),
+  ];
+  return nouns.flatMap(({ noun, columnId }) =>
     [...text.matchAll(new RegExp(String.raw`(?<![\p{L}\p{N}])${nounPattern(noun)}(?![\p{L}\p{N}])`, "gu"))].map((m) => ({
       start: m.index,
       end: m.index + m[0].length,
+      singular: wordsOf(m[0]) === wordsOf(noun),
+      ...(columnId === undefined ? {} : { columnId }),
     })),
   );
 };
+
+/** A column the part asks for: where its name sits, and its column. */
+interface AskedColumn extends Span {
+  columnId: string;
+}
+/** The words that pick out one thing, as a name in the singular does: "the", "a", "an", "this" and "that". */
+const ONE_OF: readonly string[] = ["the", "a", "an", "this", "that"];
+/**
+ * A word that chooses columns right before a name, with only "the", "a", "an", "this", "that", "only", "just" or a
+ * first-person word between: "show household", "show only the advisor", "show me an advisor", "show my advisor".
+ * "Every", "each" and "all" are not among them: "show every household" means the households, as the plural does.
+ */
+const CHOOSES_COLUMN = new RegExp(
+  String.raw`(?<![\p{L}\p{N}'])(?:${alt(COLUMN_CHOOSING)})(?: (?:${alt([...ONE_OF, ...ONLY_WORDS, ...SELVES, ...OWNERS])}))* $`,
+  "u",
+);
+/** A possessive mark right after a name: "the advisor's accounts" describes the rows. */
+const POSSESSIVE_AFTER = /^'s?(?![\p{L}\p{N}])/u;
+
+/**
+ * The columns a part asks for, outside its code-read filters: a column's name (its label, an alias or its entity word)
+ * in the singular right after a word that chooses columns or rows (`CHOOSES_COLUMN`). A column with no entity word
+ * asks there anyway, as the plan holds no change for it; an entity word behaves the same. "Show only household where
+ * advisor is empty" asks for the
+ * Household column and for the rows with no advisor. The Mentions read "household" before "where" as the rows, which is
+ * right for "households with no advisor" and for the Row Noun, and wrong there. A name in the plural, a possessive
+ * ("show the advisor's accounts") and the Row Noun are the rows.
+ *
+ * `scan` is the part with its names and code-read filters blanked, `names` its Mentions outside the code-read
+ * filters, and `nouns` the entity words the Mentions left unread.
+ */
+const askedColumns = (
+  clause: Pick<Clause, "text">,
+  scan: string,
+  names: readonly Mention[],
+  nouns: readonly Noun[],
+  schema: ViewSchema,
+) => {
+  const rowNoun = wordsOf(schema.rowNoun ?? "");
+  // Said as the schema declares it, so not in the plural, and not the Row Noun ("account" is also Account number's alias).
+  const declared = (m: Mention) => {
+    const col = schema.columns.find((c) => c.id === m.columnId);
+    const said = clause.text.slice(m.start, m.end);
+    if (wordsOf(said) === rowNoun && !/[^\p{L}\p{N}\s]/u.test(said)) return false;
+    return [col?.label, ...(col?.aliases ?? []), col?.entity].some((name) => !!name && wordsOf(name) === wordsOf(said));
+  };
+  const named: AskedColumn[] = [
+    ...names.filter((m) => m.valueId === undefined && declared(m)).map((m) => ({ start: m.start, end: m.end, columnId: m.columnId })),
+    ...nouns.flatMap((n) => (n.columnId !== undefined && n.singular ? [{ start: n.start, end: n.end, columnId: n.columnId }] : [])),
+  ];
+  return named.filter((s) => CHOOSES_COLUMN.test(scan.slice(0, s.start)) && !POSSESSIVE_AFTER.test(clause.text.slice(s.end)));
+};
+
+/** "Rows", "records" or "ones", where a text starts. */
+const ROWS_NEXT = new RegExp(String.raw`^(?:${alt(ROW_WORDS)})(?![\p{L}\p{N}'])`, "u");
+/** A verb that chooses rows, or "give", right before "me" or "us": "show us", "list me". */
+const GIVES = new RegExp(String.raw`(?<![\p{L}\p{N}'])(?:${alt(GIVING_VERBS)}) $`, "u");
+/**
+ * "Me" or "us" with a preposition right after it, in a lead-in or not: in "include me in accounts …" and "show me in
+ * accounts …" the User is the verb's object, and the part asks for something done to the User, not for a view.
+ */
+const SELF_OBJECT = new RegExp(String.raw`(?<![\p{L}\p{N}'])(?:${alt(SELVES)})(?= (?:${alt(PREPOSITIONS)})(?![\p{L}\p{N}']))`, "gu");
 
 /** What the part's words are checked against: its text with the names, the quoted text and the code-read filters gone. */
 const read = (part: PlacedPart) => {
@@ -221,13 +333,59 @@ const read = (part: PlacedPart) => {
   const names = outsideCodeRead(part.mentions, codeRead);
   let scan = withoutNames(clause.text, [...names, ...codeRead]);
   const filtered = new Set(codeRead.flatMap((r) => (r.predicate ? [r.predicate.columnId] : [])));
-  scan = blank(scan, nounSpans(scan, part.schema, filtered));
+  const nouns = nounSpans(scan, part.schema, filtered);
+  const asked = askedColumns(clause, scan, names, nouns, part.schema);
+  // A noun the part asks for as a column is not the rows, so it is left in for the check.
+  const rows = nouns.filter((n) => !asked.some((a) => a.start === n.start));
+  scan = blank(scan, rows);
   /** The column a verb read only for columns acts on: named right after it, after "the". */
   const objectOf = (verbEnd: number): string | undefined => {
     const at = verbEnd + (/^ (?:the )?/.exec(clause.text.slice(verbEnd))?.[0].length ?? 0);
     return at > verbEnd ? names.find((m) => m.valueId === undefined && m.start === at)?.columnId : undefined;
   };
-  return { names, scan, objectOf };
+  /**
+   * Whether "my" or "our", ending at `end`, sits right before the noun for the rows, with that noun before every
+   * code-read filter in the part: "my accounts with no advisor". What describes the rows may sit between: named values
+   * ("our taxable accounts"), which may also stand for the rows ("my trusts"), and `ranking`, the direction and count
+   * words a sort reads ("my top 10 accounts", "our largest accounts"), and a yes/no column named for the rows ("my
+   * restricted accounts"), which can't stand for them. The noun is the Row Noun, an entity word in the plural, or
+   * "rows", "records" or "ones", whether the Mentions read it as the rows or left it undecided ("my accounts, with no
+   * advisor"). An entity word in the singular is no noun for the rows: "my household" is one household of the User's,
+   * which GridCue can't know. Nor is a possessive ("my advisor's accounts"), or a noun that follows another one for the
+   * rows: in "the accounts of our household", the rows are the accounts.
+   */
+  const yesNo = (m: Mention) => m.valueId === undefined && part.schema.columns.find((c) => c.id === m.columnId)?.kind === "boolean";
+  const oneEntity = (n: Span) => {
+    const said = wordsOf(clause.text.slice(n.start, n.end));
+    return (
+      said !== wordsOf(part.schema.rowNoun ?? "") &&
+      part.schema.columns.some((c) => isExposed(c) && !!c.entity?.trim() && wordsOf(c.entity) === said)
+    );
+  };
+  const ownsRows = (end: number, ranking: readonly Span[]): boolean => {
+    if ([...rows, ...names.filter((m) => m.ambiguous)].some((n) => n.end <= end)) return false;
+    let at = end;
+    let values = 0;
+    for (;;) {
+      if (clause.text[at] !== " ") break;
+      const value = names.find((m) => m.start === at + 1 && (m.valueId !== undefined || yesNo(m)));
+      // "Top" and "top 10" start at the same place: the longer one is the whole of it.
+      const described = value ?? ranking.filter((s) => s.start === at + 1).sort((a, b) => b.end - a.end)[0];
+      if (!described) break;
+      at = described.end;
+      if (value?.valueId !== undefined) values++;
+    }
+    const next = clause.text[at] === " " ? at + 1 : undefined;
+    const said =
+      next === undefined ? undefined : (rows.find((n) => n.start === next) ?? names.find((m) => m.ambiguous && m.start === next));
+    const noun = said && !oneEntity(said) ? said : undefined;
+    const word = next === undefined ? null : ROWS_NEXT.exec(clause.text.slice(next));
+    const rowsEnd = noun ? noun.end : word && next !== undefined ? next + word[0].length : values > 0 ? at : undefined;
+    // "My advisor's accounts" are the accounts of the User's own advisor, whom GridCue can't know: no noun for the rows.
+    if (rowsEnd === undefined || POSSESSIVE_AFTER.test(clause.text.slice(rowsEnd))) return false;
+    return codeRead.every((r) => r.start >= rowsEnd);
+  };
+  return { names, scan, objectOf, asked, ownsRows };
 };
 
 const tokens = (text: string): UnplacedWord[] =>
@@ -238,17 +396,25 @@ const tokens = (text: string): UnplacedWord[] =>
  * - a name: a Mention of a column or a value, the Row Noun, an entity word, or a code-read filter's own words;
  * - an amount, a date or quoted text, with its comparison as read today. Quoted text is skipped;
  * - a lead-in, a row verb or a small word;
+ * - a first-person word where it belongs to a request: "my" or "our" right before the noun for the rows, when that noun
+ *   comes before the part's code-read filters, and "me" or "us" in a lead-in or right after a verb that chooses rows,
+ *   with no preposition right after it;
  * - another change's own words, when the plan holds that change: a sort's ("sorted", "by", the direction and the count
  *   read today), a grouping's ("grouped", "by"), a hide's, and "column" beside any of them or a change to columns;
  * - a verb read only for columns ("add", "put", "move", "pin"), when its object is a column and the plan holds that
  *   change for that column.
+ *
+ * A column the part asks for (`askedColumns`) is a name of another kind: it is placed only when the plan holds a change
+ * that names its column, other than a code-read filter's own filter. So "show only household where advisor is empty" is
+ * never ready with the Advisor filter alone. Before the plan is built, it counts as placed when the Mentions hold it,
+ * since the plan may yet; a name the Mentions read as the rows can be in no change, and is returned at once.
  *
  * A part read whole as view words (ADR 0028) has every word placed. Any other word is returned, in the order written.
  * This is a pure function of the part. The compiler calls it only for a part that holds a code-read filter.
  */
 export const unplacedWords = (part: PlacedPart): UnplacedWord[] => {
   const { clause, operations } = part;
-  const { scan, objectOf } = read(part);
+  const { names, scan, objectOf, asked, ownsRows } = read(part);
   const text = clause.text;
   const placed: Span[] = [];
   for (const lit of clause.literals) {
@@ -257,18 +423,36 @@ export const unplacedWords = (part: PlacedPart): UnplacedWord[] => {
     const lead = lit.kind === "text" ? CONTAINING_BEFORE.exec(before) : lit.kind === "date" ? ON_BEFORE.exec(before) : null;
     if (lead) placed.push({ start: lead.index, end: lit.at });
   }
-  placed.push(...(readViewWords(clause, part.mentions, part.schema)?.spans ?? []));
+  const whole = readViewWords(clause, part.mentions, part.schema)?.spans ?? [];
+  placed.push(...whole);
   const holds = (test: (op: ViewOperation) => boolean) => operations === undefined || operations.some(test);
   const sorts = holds((op) => op.type === "sort.set" && op.sorts.length > 0);
   const groups = holds((op) => op.type === "group.set" && op.columnIds.length > 0);
   const hides = holds((op) => op.type === "columns.hide");
   const columns = sorts || groups || holds((op) => op.type.startsWith("columns."));
-  if (sorts) placed.push(...directionWords(clause, scan));
-  let rest = blank(scan, placed);
+  const ranking = sorts ? directionWords(clause, scan) : [];
+  placed.push(...ranking);
+  // The columns the plan's changes name. A code-read filter's own filter is no change for a column asked for beside it.
+  const own = (op: ViewOperation) =>
+    op.type === "filter.add" &&
+    part.codeRead.some(
+      (r) => r.predicate?.columnId === op.predicate.columnId && (r.predicate.operator ?? op.predicate.operator) === op.predicate.operator,
+    );
+  const changed = operations && new Set(operations.filter((op) => !own(op)).flatMap(namesOf));
+  const dropped = asked.filter(
+    (a) => !whole.some((s) => within(a, s)) && !(changed ? changed.has(a.columnId) : names.some((m) => m.start === a.start)),
+  );
+  // "Me" or "us" before a preposition is never placed, not even in a lead-in: "show me in accounts with no advisor".
+  const selves = [...filled(text).matchAll(SELF_OBJECT)]
+    .map((m) => ({ start: m.index, end: m.index + m[0].length, text: text.slice(m.index, m.index + m[0].length) }))
+    .filter((s) => scan.slice(s.start, s.end).trim() !== "" && !whole.some((w) => within(s, w)));
+  let rest = blank(scan, [...placed, ...asked, ...selves]);
   for (const pattern of [LEAD_INS, PHRASES, POSSESSIVE]) rest = rest.replace(pattern, (s) => " ".repeat(s.length));
-  return tokens(rest).filter(({ text: word, start, end }) => {
+  const stray = tokens(rest).filter(({ text: word, start, end }) => {
     if (ALWAYS_PLACED.has(word)) return false;
     if (HYPHEN.test(word)) return !joinsWords(text, start);
+    if (OWNERS.includes(word)) return !ownsRows(end, ranking);
+    if (SELVES.includes(word)) return !GIVES.test(scan.slice(0, start));
     if ((SORT_VERBS as readonly string[]).includes(word)) return !sorts;
     if ((GROUP_VERBS as readonly string[]).includes(word)) return !groups;
     if (word === BY) return !sorts && !groups;
@@ -281,6 +465,8 @@ export const unplacedWords = (part: PlacedPart): UnplacedWord[] => {
     }
     return true;
   });
+  const unasked = dropped.map((a) => ({ start: a.start, end: a.end, text: text.slice(a.start, a.end) }));
+  return [...stray, ...unasked, ...selves].sort((a, b) => a.start - b.start);
 };
 
 /**

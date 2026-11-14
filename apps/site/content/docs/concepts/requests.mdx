@@ -73,7 +73,7 @@ What the forms mean:
 - **The grid's `rowNoun` is never the column of an empty form.** "No accounts over $1m" is about the rows, as before.
 - **`advisor is "Lane"` is still "containing".** Use "exactly" or "=" for an exact match.
 - **A Host can turn a form off.** A column whose [`allowedOperators`](/docs/api/schema#columnoverride) leaves out `startsWith`, `eq`, `isEmpty` or `isNotEmpty` asks instead: "GridCue can't filter Advisor to exact text here."
-- **Other words ask.** "Ends with", "matches", a negated form (`advisor is not exactly "Avery Lane"`, `advisor doesn't start with "Av"`), an empty form followed by an amount ("accounts with no advisor over $1m"), and a form with a second condition joined by "or" all ask.
+- **Other words ask.** "Ends with", "matches", a negated form (`advisor is not exactly "Avery Lane"`, `advisor doesn't start with "Av"`), an empty form followed by an amount or a date that names no column of its own ("accounts with no advisor over $1m", "accounts with no advisor before 2026-01-01"), and a form with a second condition joined by "or" all ask.
 
 **A part with one of these forms is ready only when every word in it is one GridCue places.** Quoted text is skipped. A word is placed when it is:
 
@@ -82,12 +82,16 @@ What the forms mean:
 - a lead-in ("please", "can you", "show me", "I want to see");
 - a verb that chooses rows: "show", "display", "list", "see", "view", "find", "get", "give", "filter", "keep", "only", "just", "include";
 - the words of another change the part holds: "sort", "group", "hide", "by", "then", "column", "first", and a direction or count;
-- a small word: "the", "a", "an", "all", "any", "every", "each", "my", "our", "me", "us", "those", "these", "that", "which", "whose", "where", "with", "for", "of", "at", "in", "from", "under", "is", "are", "was", "were", "has", "have", "having", "held", "owned", "and", "or", "also", "too", "as well", "'s", "rows", "records", "ones".
+- a small word: "the", "a", "an", "all", "any", "every", "each", "those", "these", "that", "which", "whose", "where", "with", "for", "of", "at", "in", "from", "under", "is", "are", "was", "were", "has", "have", "having", "held", "owned", "and", "or", "also", "too", "as well", "'s", "rows", "records", "ones";
+- "my" or "our" right before the noun for the rows, when that noun comes before the form: "my accounts with no advisor". Named values, a yes/no column and a direction or count may sit between ("our taxable accounts that have an advisor", "my restricted accounts with no advisor", "my top 10 accounts with no advisor by market value"), and a named value can stand for the rows ("my trusts with no advisor"). An entity in the singular is not the rows here: "my household with no advisor" asks about “my”, and "my households with no advisor" is read;
+- "me" or "us" in a lead-in, or right after a verb that chooses rows, with no "with", "for", "of", "at", "in" or "from" right after it: "show us accounts with no advisor" is read, and "include me in accounts with no advisor" asks about “me”.
 
 Any other word asks, and the question names it. These all ask, where the form alone would be ready:
 
 | Request | Question |
 | --- | --- |
+| "Show only household where advisor is empty" | "I'm not sure what to do with “household”. Try rephrasing that part." |
+| "Advisor is missing from my account" | "I'm not sure what to do with “my”. Try rephrasing that part." |
 | "Accounts with no advisor assigned to the new team" | "I'm not sure what to do with “to” and “new team”. Try rephrasing that part." |
 | "Accounts with no advisor handled by the new team" | "I'm not sure what to do with “handled” and “new team”. Try rephrasing that part." |
 | `Advisor is exactly "Avery Lane" about retirement` | "I'm not sure what to do with “about”. Try rephrasing that part." |
@@ -101,7 +105,8 @@ Any other word asks, and the question names it. These all ask, where the form al
 The same rule limits a provider's picks in such a part. A column or value that no name in the part supports is dropped, and a sort, group, show or hide is kept only when the part holds that change's own words.
 
 - **A form's filter uses its own words only.** The same column named again outside them asks, unless another change in the request uses it: "show only advisor for accounts with no advisor" and `show advisor where advisor starts with "Av"` ask "I'm not sure what to do with “advisor”. Try rephrasing that part.", and "accounts with no advisor sorted by advisor" is ready.
-- **A form said as a statement is not read.** "My" or "our" right before its column ("my advisor is missing"), or "has" or "have" with no "that", "which" or "who" before it ("every account has an advisor", "my accounts have no advisor"), says something rather than asks for rows, so the part asks. "Accounts that have an advisor", "which accounts have no advisor?" and "my accounts with no advisor" are read.
+- **A column asked for beside a form is never dropped.** A column's name in the singular right after a verb that chooses rows, "only", "just", "add" or "hide" asks for that column. "The", "a", "an", "this", "that", "only", "just", "me", "us", "my" or "our" may sit between them. The plan must hold a change for that column, or the part asks: "show only household where advisor is empty" asks about “household”, and "show the advisor with no household", "find advisor where household is empty" and "show me an advisor where household is empty" about “advisor”. An entity in the plural names the rows, as the grid's `rowNoun` does, and so does one after "every", "each" or "all": "households with no advisor", "show households where advisor is empty" and "show every household with no advisor" are ready. To change the columns too, say it as its own part or with the word "column": "accounts with no advisor, show only household", "show the household column for accounts with no advisor", `hide advisor where advisor is exactly "Avery Lane"`.
+- **A statement is not a request.** A form is not read with "my" or "our" right before its column ("my advisor is missing"), with a possessive right before it ("my accounts' advisor is missing", "the account's advisor is blank"), or with "has" or "have" with no "that", "which" or "who" before it ("every account has an advisor", "my accounts have no advisor"). Nor is a form that says something of the values its column holds, with "every", "each", "all", "any", "this", "that", "these" or "those" before the column and "is", "isn't", "starts", "begins" or "equals" after it ("every advisor is empty", "that advisor is missing", `each advisor starts with "Av"`), or a form right after "was" or "were" ("accounts which were without an advisor"). A text form said as a statement asks about the words that make it one: `every advisor starts with "Av"` asks "I'm not sure what to do with “every”. Try rephrasing that part." A first-person word anywhere but the two places above asks too: "advisor is missing from my account" asks about “my”, "advisor is missing for me" about “me”, and "my advisor's accounts with no household" about “my”. "Accounts that have an advisor", "which accounts have no advisor?", "my accounts with no advisor", "every account with no advisor", "accounts without any advisor" and `all advisors starting with "Av"` are read.
 - **A column named right after a form is that column.** "Entries with no counterparty booked after 2026-01-01" filters Booked and Counterparty, as "entries booked after 2026-01-01 with no counterparty" does.
 
 A part with none of these forms is read as before, plain quoted text included: `advisor "Lane"` stays "containing", and `advisor "Lane" sorted by market value` is read as it was. Two checks make such a part ask, and neither adds a reading:
@@ -134,6 +139,7 @@ A single focused question GridCue asks when it can't resolve a request without a
 | "Market value around $1M" | "I'm not sure how to compare with “$1m”. Try “over”, “under”, “at least”, or “exactly”." |
 | `Advisor ends with "Lane"` | "I'm not sure how to match “lane”. Try “containing”." |
 | "Accounts with no advisor over $1m" | "I'm not sure what the amount after “no advisor” applies to. Name its column, or split it into separate parts." |
+| "Accounts with no advisor before 2026-01-01" | "I'm not sure what the date after “no advisor” applies to. Name its column, or split it into separate parts." |
 | "Accounts with no advisor assigned to the new team" | "I'm not sure what to do with “to” and “new team”. Try rephrasing that part." |
 | "No gain" | "GridCue can't tell whether “no gain” means Unrealized gain is empty or zero. Ask for an amount instead." |
 | `Advisor is exactly "Avery Lane"`, on a grid that turns `eq` off for Advisor | "GridCue can't filter Advisor to exact text here." |

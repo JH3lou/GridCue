@@ -34,7 +34,11 @@ const possessiveOfRows = (text: string, at: number, rowNoun: string, values: rea
 };
 const singular = (words: string) => (words.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []).join(" ").replace(/(?:es|s)$/, "");
 
-const namesOf = (op: ViewOperation): string[] => {
+/**
+ * The columns an operation names. A filter names the column it filters on. The placed-words check (`core/placed.ts`)
+ * reads it too: a column a part asks for is placed only when one of the plan's changes names it.
+ */
+export const namesOf = (op: ViewOperation): string[] => {
   switch (op.type) {
     case "filter.add":
       return [op.predicate.columnId];

@@ -7,7 +7,10 @@ import { loadPreviews, previewOf } from "./previews";
 // lists each request whose Preview the text forms changed, with its Preview now, so the pull request can say what
 // changed line by line. `null` means the request has no Preview now: it asks. The four held-out sets for the text forms
 // joined after the code, so their Previews were recorded then, as the code gave them, the four wrong views' Previews
-// included; the fix for those four lists them here as asking.
+// included; the fix for those four lists them here as asking. So were the Previews of the ten controls that joined
+// `cases-text-forms.jsonl` with the fix for a column asked for beside a form ("households with no advisor"), and of
+// the three that joined it with the review's next fixes ("show every household with no advisor", "my restricted
+// accounts with no advisor", "my settled entries with no vendor").
 //
 // None of the changes rewords a Preview line a request had before. Each is one of:
 // - a new Preview for a request that holds a text or empty form, which asked before (spec 5.2, and section 9's lines

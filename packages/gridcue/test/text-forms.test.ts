@@ -85,12 +85,44 @@ const ledger = defineSchema(
   },
 );
 
+// The ledger with the other names its columns go by ("vendor", "payee", "booking date"). `people` says whether Owner
+// and Counterparty declare an entity word, as Household and Advisor do on the wealth grid: "owners", "vendors".
+const ledgerWith = (people: boolean) =>
+  defineSchema(
+    ledger.columns.map(({ id, label }) => ({ id, label })),
+    {
+      rowNoun: "entry",
+      columns: {
+        entry_number: { aliases: ["entry"] },
+        owner: people ? { entity: "owner" } : {},
+        counterparty: { aliases: ["vendor", "payee"], ...(people ? { entity: "vendor" } : {}) },
+        booked: { kind: "date", aliases: ["booking date"] },
+        posted_at: { kind: "datetime" },
+        units: { kind: "number" },
+        amount: { kind: "currency" },
+        rate: { kind: "percent" },
+        category: {
+          kind: "enum",
+          enumValues: [
+            { id: "fees", label: "Fees" },
+            { id: "travel", label: "Travel" },
+            { id: "services", label: "Services" },
+          ],
+        },
+        cleared: { kind: "boolean" },
+      },
+    },
+  );
+const vendors = ledgerWith(false);
+const vendorPeople = ledgerWith(true);
+const LEDGERS: ReadonlySet<ViewSchema> = new Set([ledger, vendors, vendorPeople]);
+
 const mock = createMockProvider({ defaultColumnForKind: { currency: "market_value", percent: "concentration" } });
 const ledgerMock = createMockProvider({ defaultColumnForKind: { currency: "amount", percent: "rate" } });
 const propose = async (text: string, schema: ViewSchema = wealth, provider?: IntentProvider) => {
   const cue = createGridCue({
     adapter: createRowsAdapter({ schema }),
-    provider: provider ?? (schema === ledger ? ledgerMock : mock),
+    provider: provider ?? (LEDGERS.has(schema) ? ledgerMock : mock),
   });
   await cue.propose(text);
   return cue.getState();
@@ -358,7 +390,24 @@ describe("where an empty form is read", () => {
     await asks("accounts that have an advisor and over 5%", amountQuestion("have an advisor"));
     await asks("no advisor; over 5%", amountQuestion("no advisor"));
     await asks("Counterparty is empty and over $500", amountQuestion("counterparty is empty"), ledger);
-    await asks("Counterparty is empty and after 2026-01-01", amountQuestion("counterparty is empty"), ledger);
+  });
+
+  it("says “the date” in that question when a date follows, and “the amount” when an amount does", async () => {
+    const dateQuestion = (words: string) =>
+      `I'm not sure what the date after “${words}” applies to. Name its column, or split it into separate parts.`;
+    await asks("Counterparty is empty and after 2026-01-01", dateQuestion("counterparty is empty"), ledger);
+    await asks("entries with no counterparty before 2026-01-01", dateQuestion("no counterparty"), ledger);
+    await asks("no counterparty; since 2026-01-01", dateQuestion("no counterparty"), ledger);
+    await asks("category is blank, 2026-03-31 or later", dateQuestion("category is blank"), ledger);
+    await asks(
+      "entries with no counterparty over $10k",
+      "I'm not sure what the amount after “no counterparty” applies to. Name its column, or split it into separate parts.",
+      ledger,
+    );
+    await asks(
+      "Advisor is empty and over 5%",
+      "I'm not sure what the amount after “advisor is empty” applies to. Name its column, or split it into separate parts.",
+    );
   });
 
   it("reads a change after the form that holds no amount", async () => {
@@ -620,6 +669,526 @@ describe("a form said as a statement", () => {
     await reads("the advisor is missing", [["advisor_name", "isEmpty"]]);
     await reads("which accounts have no advisor", [["advisor_name", "isEmpty"]]);
     await reads("my accounts with no advisor", [["advisor_name", "isEmpty"]]);
+  });
+});
+
+/** The plan's operations in short: "filter advisor_name isEmpty", "sort advisor_name asc", "columns.hide advisor_name". */
+const planOf = async (text: string, schema: ViewSchema = wealth) => {
+  const state = await propose(text, schema);
+  expect(state.status, `${text}: ${state.message}`).toBe("ready");
+  return (state.plan?.operations ?? []).map((op) =>
+    op.type === "filter.add"
+      ? ["filter", op.predicate.columnId, op.predicate.operator, ...(op.predicate.value === undefined ? [] : [op.predicate.value])].join(
+          " ",
+        )
+      : op.type === "sort.set"
+        ? `sort ${op.sorts.map((s) => `${s.columnId} ${s.direction}`).join(", ")}`
+        : "columnIds" in op
+          ? `${op.type} ${op.columnIds.join(", ")}`
+          : op.type,
+  );
+};
+
+// A column asked for beside a form is never dropped (review finding). "Show only household where advisor is empty" asks
+// for the Household column and for the rows with no advisor. The Mentions read an entity word before "where" or "with"
+// as the rows, which is right for "households with no advisor" and wrong here: in the singular, right after a word that
+// chooses columns, the name stands where a column would. The plan holds a change for that column, or the part asks.
+describe("a column asked for beside a form", () => {
+  it("asks about an entity word in the singular right after a word that chooses columns", async () => {
+    for (const text of [
+      'show only household where advisor starts with "Av"',
+      'just household where advisor starts with "Av"',
+      "only household where advisor is empty",
+      'show household where advisor is exactly "Avery Lane"',
+      "show household with no advisor",
+      "display the household where advisor is blank",
+      "keep only household where advisor is missing",
+      "show me the household that has an advisor",
+      "just the household with no advisor assigned",
+      "hide household with no advisor",
+      "can you list household where advisor isn't empty",
+    ])
+      await asks(text, placed("“household”"));
+    for (const text of [
+      "show only advisor where household is empty",
+      "show only advisor with no household",
+      "show advisor where household is empty",
+      "list advisor where household is not empty",
+      'see just the advisor where household begins with "Al"',
+      "show the advisor without a household",
+      'let me see advisor where household equals "Hale"',
+    ])
+      await asks(text, placed("“advisor”"));
+    // "My" and "our" between the word and the name change nothing: the User's own advisor is no rows GridCue can find.
+    await asks("show my advisor where household is empty", placed("“my advisor”"));
+    await asks("show our household with no advisor", placed("“our household”"));
+  });
+
+  it("asks on a ledger whose name columns declare an entity word, and on one whose columns declare none", async () => {
+    for (const schema of [vendorPeople, vendors]) {
+      for (const text of [
+        "show only owner where vendor is empty",
+        'just owner where vendor starts with "Al"',
+        "show owner with no vendor",
+        "list owner where booked is missing",
+        "show the owner that has a vendor",
+        "only owner where category is blank",
+      ])
+        await asks(text, placed("“owner”"), schema);
+      for (const text of [
+        'keep only the vendor where owner is exactly "Avery Lane"',
+        "display vendor where category is blank",
+        "show just vendor where booking date is missing",
+      ])
+        await asks(text, placed("“vendor”"), schema);
+    }
+  });
+
+  it("keeps asking where it already did", async () => {
+    await notReady('show only household and advisor where advisor starts with "Av"');
+    await asks("show household for accounts with no advisor", placed("“household”"));
+    await asks('show market value where advisor starts with "Av"', placed("“market value”"));
+    await asks("show only vendor for entries with no vendor", placed("“vendor”"), vendors);
+    await asks('show payee where vendor starts with "Al"', placed("“payee”"), vendors);
+    await asks("show category where vendor is empty", placed("“category”"), vendors);
+  });
+
+  // A column with no entity word asks in these places already ("view custodian where advisor is empty", "show me a
+  // custodian where …"). An entity word behaves the same (review finding).
+  it("asks after any verb that chooses rows, after “give”, and after “a”, “an”, “this” or “that”", async () => {
+    for (const text of [
+      "show me an advisor where household is empty",
+      "find me an advisor with no household",
+      "show an advisor where household is empty",
+      "view advisor where household is empty",
+      "find advisor where household is empty",
+      "get the advisor where household is empty",
+      "give me the advisor with no household",
+      "show that advisor where household is empty",
+    ])
+      await asks(text, placed("“advisor”"));
+    for (const text of [
+      "view household where advisor is empty",
+      "get household where advisor is empty",
+      "find household where advisor is empty",
+      "include household where advisor is empty",
+      "give me household where advisor is empty",
+      "show me a household where advisor is empty",
+    ])
+      await asks(text, placed("“household”"));
+    await asks("find owner where vendor is empty", placed("“owner”"), vendorPeople);
+    await asks("give me an owner with no vendor", placed("“owner”"), vendorPeople);
+    // The controls: a column with no entity word.
+    for (const text of [
+      "view custodian where advisor is empty",
+      "get custodian where advisor is empty",
+      "show me a custodian where advisor is empty",
+    ])
+      await notReady(text);
+  });
+
+  it("still reads an entity word after “every”, “each” or “all” as the rows, as it reads the plural", async () => {
+    for (const text of [
+      "show every household with no advisor",
+      "list each household with no advisor",
+      "find every household with no advisor",
+    ])
+      expect(await planOf(text), text).toEqual(["filter advisor_name isEmpty"]);
+    expect(await planOf("show all advisors where household is empty")).toEqual(["filter household isEmpty"]);
+    // And the Row Noun and named values after any of these verbs, and a yes/no column the plan filters on.
+    for (const text of ["find accounts with no advisor", "get the accounts where advisor is empty", "view an account with no advisor"])
+      expect(await planOf(text), text).toEqual(["filter advisor_name isEmpty"]);
+    expect(await planOf("find taxable accounts with no advisor")).toEqual([
+      "filter registration_type eq taxable",
+      "filter advisor_name isEmpty",
+    ]);
+    expect(await planOf("get restricted accounts with no advisor")).toEqual([
+      "filter has_restricted_holding eq true",
+      "filter advisor_name isEmpty",
+    ]);
+  });
+
+  it("still reads an entity word in the plural, or with no word that chooses columns before it, as the rows", async () => {
+    for (const text of [
+      "households with no advisor",
+      "show households with no advisor",
+      "show only households where advisor is empty",
+      "show every household with no advisor",
+      "show my households with no advisor",
+      "household with no advisor",
+      "the household with no advisor",
+      "show taxable households with no advisor",
+    ])
+      expect(await planOf(text), text).toContain("filter advisor_name isEmpty");
+    expect(await planOf('households where advisor starts with "Av"')).toEqual(["filter advisor_name startsWith av"]);
+    expect(await planOf("show advisors where household is empty")).toEqual(["filter household isEmpty"]);
+    expect(await planOf("owners with no vendor", vendorPeople)).toEqual(["filter counterparty isEmpty"]);
+    expect(await planOf("show owners where vendor is blank", vendorPeople)).toEqual(["filter counterparty isEmpty"]);
+  });
+
+  it("still reads the Row Noun as the rows, in the singular too", async () => {
+    for (const text of [
+      "accounts with no advisor",
+      "show accounts where advisor is empty",
+      "show me accounts where advisor is blank",
+      "show account where advisor is empty",
+      "show only the accounts with no advisor",
+    ])
+      expect(await planOf(text), text).toEqual(["filter advisor_name isEmpty"]);
+    for (const schema of [vendors, vendorPeople])
+      for (const text of [
+        "entries with no vendor",
+        "show entries where vendor is empty",
+        "show me entries where vendor is blank",
+        "show entry where vendor is empty",
+        "show only entries where vendor is empty",
+      ])
+        expect(await planOf(text, schema), text).toEqual(["filter counterparty isEmpty"]);
+  });
+
+  it("is ready when the plan holds a change for the column", async () => {
+    // The hide is a part of its own, and holds its column.
+    expect(await planOf('hide advisor where advisor is exactly "Avery Lane"')).toEqual([
+      "columns.hide advisor_name",
+      "filter advisor_name eq avery lane",
+    ]);
+    expect(await planOf('hide owner where owner is exactly "Avery Lane"', vendorPeople)).toEqual([
+      "columns.hide owner",
+      "filter owner eq avery lane",
+    ]);
+    expect(await planOf('hide owner where owner is exactly "Avery Lane"', vendors)).toEqual([
+      "columns.hide owner",
+      "filter owner eq avery lane",
+    ]);
+    // "Show gain over $50k" chooses rows by Unrealized gain: the plan filters on it.
+    expect(await planOf("show gain over $50k where advisor is empty")).toEqual([
+      "filter unrealized_gain gt 50000",
+      "filter advisor_name isEmpty",
+    ]);
+    // With the word "column", the Mentions hold the name and the plan shows it.
+    expect(await planOf("show the advisor column where household is empty")).toEqual([
+      "filter household isEmpty",
+      "columns.show advisor_name",
+    ]);
+  });
+
+  it("asks when a provider's answer would drop the column", async () => {
+    // "Household" is a Mention here, and this provider reads it as the rows: the plan would be the filter alone.
+    const rows: IntentProvider = {
+      resolve: async () => ({
+        clauses: [
+          {
+            clauseIndex: 0,
+            families: [{ id: "filter", confidence: 0.95 }],
+            columns: [{ id: "household", confidence: 0.2 }],
+            values: [],
+            unmatchedTerms: [],
+            readings: [{ columnId: "household", reading: "rows", confidence: 0.95 }],
+          },
+        ],
+      }),
+    };
+    for (const text of ["show household for accounts with no advisor", "show only household, no advisor"]) {
+      const state = await propose(text, wealth, rows);
+      expect(state.status, `${text}: ${JSON.stringify(state.plan?.operations)}`).toBe("needs_clarification");
+      expect(state.message, text).toBe(placed("“household”"));
+    }
+    // The same answer for the plural is the rows, and ready.
+    const plural = await propose("show households for accounts with no advisor", wealth, rows);
+    expect(plural.status, `${plural.message}`).toBe("ready");
+    expect(filters(plural.plan?.operations)).toEqual([["advisor_name", "isEmpty"]]);
+  });
+});
+
+// A statement is not a request (review finding). "Advisor is missing from my account" says something about the User's
+// own account, and "every advisor is empty" about every advisor. Each is made only of words GridCue places, so the
+// placed-words check alone would pass it.
+describe("a statement made only of placed words", () => {
+  it("asks about a first-person word that is not in a lead-in or right before the rows' noun before the form", async () => {
+    await asks("advisor is missing from my account", placed("“my”"));
+    await asks("advisor is missing for me", placed("“me”"));
+    await asks("the advisor is missing for my accounts", placed("“my”"));
+    await asks("advisor is blank for us", placed("“us”"));
+    await asks("advisor is not empty for our accounts", placed("“our”"));
+    await asks("household is empty in our accounts", placed("“our”"));
+    await asks("accounts with no advisor for me", placed("“me”"));
+    await asks("advisor is missing from mine", placed("“mine”"));
+    // The accounts of the User's own advisor are not rows GridCue can find.
+    await asks("my advisor's accounts with no household", placed("“my”"));
+    // Nor is one household of the User's: the rows are the accounts.
+    await asks("the accounts of our household with no advisor", placed("“our”"));
+    await asks("vendor is missing from my entry", placed("“my”"), vendors);
+    await asks("vendor is missing for me", placed("“me”"), vendors);
+    await asks("the vendor is missing for my entries", placed("“my”"), vendors);
+    await asks("category is missing for us", placed("“us”"), vendors);
+    await asks("booked is empty in our entries", placed("“our”"), vendors);
+    await asks("the payee is blank for me", placed("“me”"), vendors);
+    await asks("entries without a vendor for us", placed("“us”"), vendorPeople);
+  });
+
+  it("does not read a form after a possessive", async () => {
+    for (const text of [
+      "my accounts' advisor is missing",
+      "the account's advisor is missing",
+      "the household's advisor is empty",
+      "the client's advisor is blank",
+      'the account\'s advisor starts with "Av"',
+    ]) {
+      expect(found(text), text).toEqual([]);
+      await notReady(text);
+    }
+    for (const text of ["my entries' vendor is missing", "the entry's vendor is blank", "entries' category is missing"]) {
+      expect(found(text, vendors), text).toEqual([]);
+      await notReady(text, vendors);
+    }
+  });
+
+  it("does not read a form that says something of every one of its column", async () => {
+    for (const text of [
+      "every advisor is empty",
+      "each advisor is blank",
+      "any household is missing",
+      "all advisor is empty",
+      "every household isn't empty",
+      "all the advisor is empty",
+      "each of the advisor is blank",
+      "any of the household is missing",
+      "all accounts where every advisor is empty",
+      'every advisor is exactly "Avery Lane"',
+      'every advisor starts with "Av"',
+      'each household begins with "Al"',
+      'any advisor equals "Avery Lane"',
+    ]) {
+      expect(found(text), text).toEqual([]);
+      await notReady(text);
+    }
+    for (const text of [
+      "every vendor is empty",
+      "each vendor is empty",
+      "each vendor is blank",
+      "any payee is missing",
+      "each booking date is missing",
+      "every category is not empty",
+      'every owner is exactly "Avery Lane"',
+    ]) {
+      expect(found(text, vendors), text).toEqual([]);
+      await notReady(text, vendors);
+    }
+  });
+
+  it("does not read a form after “this”, “that”, “these” or “those” on its column", async () => {
+    for (const text of [
+      "that advisor is missing",
+      "show me that advisor is missing",
+      "this advisor is empty",
+      "those household is blank",
+      'that advisor starts with "Av"',
+      'this household is exactly "Hale"',
+    ]) {
+      expect(found(text), text).toEqual([]);
+      await notReady(text);
+    }
+    for (const text of ["that vendor is missing", 'that owner is exactly "Avery Lane"']) {
+      expect(found(text, vendors), text).toEqual([]);
+      await notReady(text, vendors);
+    }
+    // Before the rows, or as the relative word, they are read as before.
+    await reads("those accounts with no advisor", [["advisor_name", "isEmpty"]]);
+    await reads("accounts that have an advisor", [["advisor_name", "isNotEmpty"]]);
+  });
+
+  it("does not read a form right after “was” or “were”: it says what the rows were", async () => {
+    for (const text of [
+      "accounts which were without an advisor",
+      "accounts that were without a household",
+      "accounts that were with no advisor",
+      "the account was without an advisor",
+    ]) {
+      expect(found(text), text).toEqual([]);
+      await notReady(text);
+    }
+    expect(found("entries which were without a vendor", vendors)).toEqual([]);
+    await notReady("entries which were without a vendor", vendors);
+  });
+
+  // A text form not read as a statement asked "how to match" its text and offered "containing", as if "starts with" and
+  // "exactly" were not read anywhere (review finding). It asks about the words that make it a statement.
+  it("asks about the words that make a text form a statement, not how to match its text", async () => {
+    await asks('every advisor starts with "Av"', placed("“every”"));
+    await asks('each advisor starts with "Av"', placed("“each”"));
+    await asks('any advisor is exactly "Avery Lane"', placed("“any”"));
+    await asks('my advisor starts with "Av"', placed("“my”"));
+    await asks('our household is exactly "Hale"', placed("“our”"));
+    await asks('the client\'s advisor starts with "Av"', placed("“client's”"));
+    await asks('that advisor starts with "Av"', placed("“that”"));
+    await asks('show entries where every vendor starts with "Ce"', placed("“every”"), vendors);
+    await asks('the entry\'s vendor starts with "Ce"', placed("“entry's”"), vendors);
+    // The other words that join no column to its text still ask how to match it.
+    await asks('advisor ends with "Lane"', match("lane"));
+  });
+
+  it("still reads the spec's own forms, and “any” inside one", async () => {
+    await reads("advisor is blank", [["advisor_name", "isEmpty"]]);
+    await reads("the advisor is missing", [["advisor_name", "isEmpty"]]);
+    await reads("accounts with no advisor assigned", [["advisor_name", "isEmpty"]]);
+    await reads("accounts that have an advisor", [["advisor_name", "isNotEmpty"]]);
+    await reads("accounts without any advisor", [["advisor_name", "isEmpty"]]);
+    await reads("without any advisor", [["advisor_name", "isEmpty"]]);
+    await reads("taxable accounts with no advisor", [
+      ["registration_type", "eq", "taxable"],
+      ["advisor_name", "isEmpty"],
+    ]);
+    await reads("vendor is blank", [["counterparty", "isEmpty"]], undefined, vendors);
+    await reads("the vendor is missing", [["counterparty", "isEmpty"]], undefined, vendors);
+    await reads("entries with no vendor assigned", [["counterparty", "isEmpty"]], undefined, vendors);
+    await reads("entries that have a vendor", [["counterparty", "isNotEmpty"]], undefined, vendors);
+    await reads(
+      "travel entries with no vendor",
+      [
+        ["category", "eq", "travel"],
+        ["counterparty", "isEmpty"],
+      ],
+      undefined,
+      vendors,
+    );
+  });
+
+  it("still reads a quantifier before the rows, or before a form that describes them", async () => {
+    await reads("every account with no advisor", [["advisor_name", "isEmpty"]]);
+    await reads("all accounts where advisor is empty", [["advisor_name", "isEmpty"]]);
+    await reads("each entry without a vendor", [["counterparty", "isEmpty"]], undefined, vendors);
+    await reads('all advisors starting with "Av"', [["advisor_name", "startsWith", "av"]]);
+    await reads('any advisor beginning with "Av"', [["advisor_name", "startsWith", "av"]]);
+    await reads('all vendors starting with "Al"', [["counterparty", "startsWith", "al"]], undefined, vendors);
+  });
+
+  // "Include me in accounts with no advisor" asks for something done to the User, not for a view (review finding).
+  it("asks about “me” or “us” with a preposition after it: the User is the verb's object, not the one shown the rows", async () => {
+    for (const text of [
+      "include me in accounts with no advisor",
+      "keep me in accounts with no advisor",
+      "keep me with accounts with no advisor",
+      "see me for accounts with no advisor",
+      "list me for accounts with no advisor",
+      "find me in accounts with no advisor",
+      "show me in accounts with no advisor",
+      "give me for accounts with no advisor",
+    ])
+      await asks(text, placed("“me”"));
+    await asks("see us for accounts with no advisor", placed("“us”"));
+    await asks("show us in accounts where advisor is empty", placed("“us”"));
+    for (const schema of [vendors, vendorPeople]) {
+      await asks("include me in entries with no vendor", placed("“me”"), schema);
+      await asks("keep us in entries where vendor is empty", placed("“us”"), schema);
+    }
+  });
+
+  // "My household" is one household of the User's, which GridCue can't know; "my households" are rows (review finding).
+  it("asks about “my” or “our” before an entity word in the singular", async () => {
+    await asks("my household with no advisor", placed("“my”"));
+    await asks("our household where advisor is empty", placed("“our”"));
+    await asks("my advisor with no household", placed("“my”"));
+    await asks("my household, with no advisor", placed("“my”"));
+    await asks("my owner with no vendor", placed("“my”"), vendorPeople);
+    await reads("my households with no advisor", [["advisor_name", "isEmpty"]]);
+    await reads("my account with no advisor", [["advisor_name", "isEmpty"]]);
+  });
+
+  // A yes/no column named as a word for the rows ("restricted accounts") describes them, as a named value does.
+  it("still reads “my” or “our” with a yes/no column between it and the noun for the rows", async () => {
+    const restricted = ["has_restricted_holding", "eq", true];
+    await reads("my restricted accounts with no advisor", [restricted, ["advisor_name", "isEmpty"]]);
+    await reads("our restricted accounts where advisor is empty", [restricted, ["advisor_name", "isEmpty"]]);
+    await reads('my restricted accounts where advisor starts with "Av"', [restricted, ["advisor_name", "startsWith", "av"]]);
+    await reads("show my restricted accounts with no household", [restricted, ["household", "isEmpty"]]);
+    await reads("my restricted taxable accounts with no advisor", [
+      restricted,
+      ["registration_type", "eq", "taxable"],
+      ["advisor_name", "isEmpty"],
+    ]);
+    await reads(
+      "my cleared entries with no vendor",
+      [
+        ["cleared", "eq", true],
+        ["counterparty", "isEmpty"],
+      ],
+      undefined,
+      vendors,
+    );
+    await reads(
+      'our cleared entries where vendor starts with "Ce"',
+      [
+        ["cleared", "eq", true],
+        ["counterparty", "startsWith", "ce"],
+      ],
+      undefined,
+      vendors,
+    );
+  });
+
+  it("still reads a first-person word in a lead-in, after a verb that chooses rows, or before the rows' noun", async () => {
+    for (const text of [
+      "my accounts with no advisor",
+      "our accounts with no advisor",
+      "show my accounts where advisor is empty",
+      "show me accounts where advisor is blank",
+      "give me accounts with no advisor",
+      "let me see accounts where advisor is empty",
+      "I want to see accounts with no advisor",
+      "show us accounts with no advisor",
+      "list me accounts with no advisor",
+      "my households with no advisor",
+      "my rows where advisor is empty",
+    ])
+      await reads(text, [["advisor_name", "isEmpty"]]);
+    await reads("show my accounts that have an advisor", [["advisor_name", "isNotEmpty"]]);
+    await reads("give us the accounts that have an advisor", [["advisor_name", "isNotEmpty"]]);
+    await reads("our records with no household", [["household", "isEmpty"]]);
+    // Named values between "my" and the noun describe the rows too, and a value can stand for them: "my trusts".
+    for (const text of ["my taxable accounts with no advisor", "show my taxable accounts with no advisor"])
+      await reads(text, [
+        ["registration_type", "eq", "taxable"],
+        ["advisor_name", "isEmpty"],
+      ]);
+    await reads("my trusts with no advisor", [
+      ["registration_type", "eq", "trust"],
+      ["advisor_name", "isEmpty"],
+    ]);
+    // So do the direction and count words a sort reads, and a comma after the noun changes nothing.
+    expect(await planOf("my top 10 accounts with no advisor by market value")).toEqual([
+      "filter advisor_name isEmpty",
+      "sort market_value desc",
+      "limit.set",
+    ]);
+    await reads("my accounts, with no advisor", [["advisor_name", "isEmpty"]]);
+    for (const schema of [vendors, vendorPeople]) {
+      for (const text of ["my entries with no vendor", "show my entries where vendor is empty", "show us entries with no vendor"])
+        await reads(text, [["counterparty", "isEmpty"]], undefined, schema);
+      await reads("show my entries that have a vendor", [["counterparty", "isNotEmpty"]], undefined, schema);
+      await reads(
+        "my travel entries with no vendor",
+        [
+          ["category", "eq", "travel"],
+          ["counterparty", "isEmpty"],
+        ],
+        undefined,
+        schema,
+      );
+    }
+  });
+
+  it("reads the forms beside another change as before", async () => {
+    expect(await planOf("accounts with no advisor sorted by advisor")).toEqual(["filter advisor_name isEmpty", "sort advisor_name asc"]);
+    for (const schema of [vendors, vendorPeople]) {
+      expect(await planOf("entries with no vendor sorted by vendor", schema)).toEqual([
+        "filter counterparty isEmpty",
+        "sort counterparty asc",
+      ]);
+      expect(await planOf("entries with no vendor booked after 2026-01-01", schema)).toEqual([
+        "filter booked gt 2026-01-01",
+        "filter counterparty isEmpty",
+      ]);
+    }
   });
 });
 

@@ -165,6 +165,21 @@ describe("a grid that can't group, fourth held-out set, with the Mock Provider",
 // - sentences that hold a form and are not view requests: 19 asked, 1 refused, none ready, of 20;
 // - the limit on a provider's picks, each case with a scripted answer that proposes a sort, a column or a value for the
 //   form's words: 14 exact, 6 asked as labelled, of 20. Before the code, 8 wrong views.
+// Two classes a review found joined the first two sets with their fixes (2026-11-14). These cases were written beside
+// the fix, from the lead's rulings, so they are regression cases and not a held-out measure:
+// - a column asked for beside a form ("show only household where advisor is empty"): 22 cases that must not be ready,
+//   and 10 controls that must stay ready ("households with no advisor", "my accounts with no advisor"). Before the fix,
+//   13 of the 22 were ready with the form's filter alone;
+// - statements made only of words GridCue places ("advisor is missing from my account", "every advisor is empty"): 24
+//   cases. Before the fix all 24 were ready.
+// The review's next fixes added 19 more, written the same way:
+// - 5 columns asked for beside a form after any verb that chooses rows, after "a" or "an", or after "my" ("show me an
+//   advisor where household is empty", "my household with no advisor"), all 5 ready with the form's filter alone
+//   before, and 3 controls that must be ready ("show every household with no advisor", "my restricted accounts with no
+//   advisor", "my settled entries with no vendor"), 2 of which asked before. The form set is now 44 exact, 36 asked as
+//   labelled, of 80;
+// - 11 statements ("include me in accounts with no advisor", "that advisor is missing", "accounts which were without
+//   an advisor"), all 11 ready before. That set is now 54 asked, 1 refused, none ready, of 55.
 describe("text forms, with the Mock Provider", () => {
   const ledgerProvider = createMockProvider(mockOptionsFor({ schema: "ledger" }));
   for (const file of ["cases-text-forms.jsonl", "cases-not-requests.jsonl", "cases-provider-picks.jsonl"]) {
@@ -211,6 +226,25 @@ describe("text forms, second held-out set, with the Mock Provider", () => {
   const ledgerProvider = createMockProvider(mockOptionsFor({ schema: "ledger" }));
   for (const c of loadCases(new URL("./cases-text-forms-heldout-r2.jsonl", import.meta.url))) {
     it(`cases-text-forms-heldout-r2.jsonl: ${c.id}`, async () => {
+      const result = await runCase(c, c.schema === "ledger" ? ledgerProvider : provider);
+      expect(result.verdict, JSON.stringify(result.plan, null, 1)).not.toBe("unsafe");
+    });
+  }
+});
+
+// A third held-out set for the text forms, labelled from the spec and the lead's rulings for a column asked for beside
+// a form ("show only household where advisor is empty"), for statements that are not requests ("advisor is missing
+// from my account", "every advisor is empty"), and for the question after an empty form ("the date", "the amount"),
+// first run after the fixes for them (2026-11-14), each case with the Mock Provider set up for its fixture. With the
+// Mock Provider 49 exact, 58 asked as labelled, 1 safe miss (r3-plain-l04 "Show category and amount only", which has
+// no form and asks as it did before the code), no wrong view, of 108, after 11 labels were corrected: r3-r1-w12 and
+// r3-r1-l09 name the column with "column" and the plan shows it beside the form's filter, as spec 4.2 reads them, and
+// 9 plain controls said only "ready". 13 of its requests showed a wrong view before the code and now ask. A safe miss
+// is reported by `pnpm eval`; a wrong view fails.
+describe("text forms, third held-out set, with the Mock Provider", () => {
+  const ledgerProvider = createMockProvider(mockOptionsFor({ schema: "ledger" }));
+  for (const c of loadCases(new URL("./cases-text-forms-heldout-r3.jsonl", import.meta.url))) {
+    it(`cases-text-forms-heldout-r3.jsonl: ${c.id}`, async () => {
       const result = await runCase(c, c.schema === "ledger" ? ledgerProvider : provider);
       expect(result.verdict, JSON.stringify(result.plan, null, 1)).not.toBe("unsafe");
     });

@@ -640,6 +640,19 @@
 {"file":"cases-text-forms.jsonl","id":"tf-spec-no-restricted","lines":["Show only rows where Restricted holdings is No"],"notes":[]}
 {"file":"cases-text-forms.jsonl","id":"tf-spec-no-accounts-over","lines":["Filter Market value at or below $1,000,000"],"notes":["Rows with no Market value are hidden too"]}
 {"file":"cases-text-forms.jsonl","id":"tf-spec-no-gain-over","lines":["Filter Unrealized gain at or below $50,000"],"notes":["Rows with no Unrealized gain are hidden too"]}
+{"file":"cases-text-forms.jsonl","id":"tf-rows-households-no-advisor","lines":["Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms.jsonl","id":"tf-rows-show-only-households","lines":["Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms.jsonl","id":"tf-rows-my-accounts","lines":["Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms.jsonl","id":"tf-rows-show-my-accounts-have","lines":["Show only rows where Advisor is not empty"],"notes":[]}
+{"file":"cases-text-forms.jsonl","id":"tf-rows-show-me-accounts","lines":["Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms.jsonl","id":"tf-beside-sort-same-column","lines":["Show only rows where Advisor is empty","Sort by Advisor, ascending"],"notes":[]}
+{"file":"cases-text-forms.jsonl","id":"tf-beside-hide-same-column","lines":["Hide Advisor","Filter Advisor to exactly “avery lane”"],"notes":[]}
+{"file":"cases-text-forms.jsonl","id":"tf-rows-my-entries-ledger","lines":["Show only rows where Counterparty is empty"],"notes":[]}
+{"file":"cases-text-forms.jsonl","id":"tf-rows-show-us-entries-ledger","lines":["Show only rows where Counterparty is empty"],"notes":[]}
+{"file":"cases-text-forms.jsonl","id":"tf-beside-date-after-form-ledger","lines":["Filter Booked above “2026-01-01”","Show only rows where Counterparty is empty"],"notes":[]}
+{"file":"cases-text-forms.jsonl","id":"tf-rows-show-every-household","lines":["Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms.jsonl","id":"tf-rows-my-restricted-accounts","lines":["Show only rows where Restricted holdings is Yes","Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms.jsonl","id":"tf-rows-my-settled-entries-ledger","lines":["Show only rows where Cleared is Yes","Show only rows where Counterparty is empty"],"notes":[]}
 {"file":"cases.jsonl","id":"accounts-over-1m","lines":["Filter Market value above $1,000,000"],"notes":[]}
 {"file":"cases.jsonl","id":"taxable-concentration","lines":["Filter Registration type to Taxable","Filter Concentration above 10%"],"notes":[]}
 {"file":"cases.jsonl","id":"group-and-sort","lines":["Group by Advisor","Sort by Market value, descending"],"notes":[]}
@@ -826,3 +839,52 @@
 {"file":"cases-text-forms-heldout-r2.jsonl","id":"r2-empty-has-advisor","lines":["Show only rows where Advisor is not empty"],"notes":[]}
 {"file":"cases-text-forms-heldout-r2.jsonl","id":"r2-empty-taxable-no-advisor","lines":["Filter Registration type to Taxable","Show only rows where Advisor is empty"],"notes":[]}
 {"file":"cases-text-forms-heldout-r2.jsonl","id":"r2-empty-ledger-no-counterparty","lines":["Show only rows where Counterparty is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r1-w12","lines":["Show only rows where Advisor is empty","Show Concentration"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r1-w16","lines":["Hide Custodian","Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r1-l09","lines":["Show only rows where Category is not empty","Show Owner"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r1-l10","lines":["Hide Rate","Show only rows where Category is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r1c-w01","lines":["Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r1c-w02","lines":["Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r1c-w03","lines":["Show only rows where Advisor is not empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r1c-w04","lines":["Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r1c-w05","lines":["Filter Advisor starting with “dana”"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r1c-w06","lines":["Filter Advisor starting with “em”"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r1c-w07","lines":["Show only rows where Household is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r1c-l01","lines":["Show only rows where Category is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r1c-l02","lines":["Show only rows where Counterparty is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r1c-l03","lines":["Show only rows where Counterparty is not empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r1c-l04","lines":["Show only rows where Counterparty is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r1c-l05","lines":["Filter Counterparty starting with “hol”"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r2c-w01","lines":["Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r2c-w02","lines":["Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r2c-w03","lines":["Show only rows where Advisor is not empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r2c-w04","lines":["Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r2c-w05","lines":["Show only rows where Advisor is empty","Sort by Market value, descending"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r2c-w06","lines":["Filter Registration type to Trust","Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r2c-w07","lines":["Show only rows where Advisor is not empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r2c-w08","lines":["Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r2c-w09","lines":["Filter Market value above $500,000","Filter Advisor starting with “ca”"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r2c-w10","lines":["Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r2c-w11","lines":["Filter Custodian to Northgate","Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r2c-l01","lines":["Show only rows where Category is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r2c-l02","lines":["Show only rows where Counterparty is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r2c-l03","lines":["Show only rows where Category is not empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r2c-l04","lines":["Show only rows where Counterparty is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r2c-l05","lines":["Show only rows where Counterparty is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r2c-l06","lines":["Show only rows where Category is not empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r2c-l07","lines":["Show only rows where Counterparty is empty","Sort by Amount, descending"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r2c-l08","lines":["Filter Counterparty starting with “ell”"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r2c-l09","lines":["Filter Owner to exactly “casey ortiz”"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r2c-l10","lines":["Filter Counterparty to exactly “cedar works”"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r2c-l11","lines":["Filter Amount above $5,000","Show only rows where Counterparty is not empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-plain-w01","lines":["Filter Market value above $2,000,000"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-plain-w02","lines":["Sort by Market value, descending"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-plain-w03","lines":["Hide Custodian"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-plain-w04","lines":["Show Household, Advisor and Market value","Hide Account number, Registration type, Custodian, Concentration, Unrealized gain and Restricted holdings","Put Household, Advisor and Market value first"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-plain-w05","lines":["Filter Registration type to Taxable"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-plain-w06","lines":["Group by Custodian"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-plain-w07","lines":["Show Advisor"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-plain-l01","lines":["Filter Amount above $5,000"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-plain-l02","lines":["Sort by Amount, descending"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-plain-l03","lines":["Hide Rate and Units"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-plain-l05","lines":["Show only rows where Cleared is Yes"],"notes":[]}

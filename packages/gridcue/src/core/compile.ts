@@ -1,5 +1,5 @@
 import { MVP_OPERATIONS } from "./adapter";
-import { amountWithoutName, type CodeReadFilter, emptyWordsOutside, namesAfterCodeRead } from "./code-read";
+import { amountWithoutName, type CodeReadFilter, emptyWordsOutside, namesAfterCodeRead, textFormStatement } from "./code-read";
 import { formatAmount } from "./format";
 import { afterExclusionLead, governedClears, LEAD_IN, leavesRowsOut, nothingAfter, saidToStay, viewRequest } from "./lead";
 import { LEAVES_OUT, LITERAL_COLUMN_KINDS, type Mention } from "./mentions";
@@ -1822,7 +1822,8 @@ const FORM_WORDS: Record<CodeReadFilter["predicate"]["operator"], string> = {
  * and empty forms on text, category, date and date-and-time columns. The Host's `allowedOperators` can turn any of
  * them off. An empty form followed by an amount or a comparison that names no column of its own ("accounts with no
  * advisor over $1m", "Advisor is empty and over 5%") asks too: the amount may belong to the empty column, which has
- * none. An empty form after a yes/no column ("cleared is empty") asks: today's reading drops "empty" and shows Yes.
+ * none. That question says "the date" when a date follows ("no vendor after 2026-01-01"), and "the amount" otherwise.
+ * An empty form after a yes/no column ("cleared is empty") asks: today's reading drops "empty" and shows Yes.
  */
 const codeReadQuestion = (
   r: CodeReadFilter,
@@ -1842,9 +1843,8 @@ const codeReadQuestion = (
   if (r.kind === "empty" && !EMPTY_KINDS.has(col.kind)) {
     return `GridCue can't tell whether “${words}” means ${label} is empty or zero. Ask for an amount instead.`;
   }
-  if (r.kind === "empty" && amountWithoutName(clause, r.end, mentions, next)) {
-    return `I'm not sure what the amount after “${words}” applies to. Name its column, or split it into separate parts.`;
-  }
+  const follows = r.kind === "empty" ? amountWithoutName(clause, r.end, mentions, next) : undefined;
+  if (follows) return `I'm not sure what the ${follows} after “${words}” applies to. Name its column, or split it into separate parts.`;
   if (!operatorsFor(col).includes(r.predicate.operator)) return `GridCue can't filter ${label} ${FORM_WORDS[r.predicate.operator]} here.`;
   return undefined;
 };
@@ -2463,7 +2463,9 @@ const unreadBesideText = (
 
 /**
  * The question for the words around quoted text, if GridCue didn't read them: "how to match" for a word between the
- * text and its column, or before text no column owns; "what to do with" for any other.
+ * text and its column, or before text no column owns; "what to do with" for any other. A text form said as a statement
+ * (`every advisor starts with "Av"`) asks about the words that make it one: "starts with" is read, so offering
+ * "containing" instead would mislead.
  */
 const textWordsQuestion = (
   clause: Clause,
@@ -2473,6 +2475,8 @@ const textWordsQuestion = (
   rowNoun: string | undefined,
 ): { id: "match" | "beside"; prompt: string } | undefined => {
   const match = { id: "match", prompt: `I'm not sure how to match “${lit.value}”. Try “containing”.` } as const;
+  const said = quotedAfter ? textFormStatement(clause, lit, quotedAfter.mention) : undefined;
+  if (said) return { id: "beside", prompt: `I'm not sure what to do with “${said}”. Try rephrasing that part.` };
   if (quotedAfter && !quotedAfter.read) return match;
   const beside = unreadBesideText(clause, lit, quotedAfter?.mention, own, rowNoun);
   if (!beside) return undefined;

@@ -38,3 +38,43 @@
 {"id":"tf-ask-extra-word","utterance":"advisor really starts with \"Av\"","expect":{"mustNotBeReady":true}}
 {"id":"tf-ask-row-noun-wealth","utterance":"no account","expect":{"mustNotBeReady":true}}
 {"id":"tf-ask-row-noun-ledger","utterance":"entries with no entry","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"tf-column-show-only-household-starts","utterance":"show only household where advisor starts with \"Av\"","expect":{"mustNotBeReady":true}}
+{"id":"tf-column-just-household-starts","utterance":"just household where advisor starts with \"Av\"","expect":{"mustNotBeReady":true}}
+{"id":"tf-column-only-household-empty","utterance":"only household where advisor is empty","expect":{"mustNotBeReady":true}}
+{"id":"tf-column-show-only-advisor-empty","utterance":"show only advisor where household is empty","expect":{"mustNotBeReady":true}}
+{"id":"tf-column-show-only-advisor-no-household","utterance":"show only advisor with no household","expect":{"mustNotBeReady":true}}
+{"id":"tf-column-show-household-exactly","utterance":"show household where advisor is exactly \"Avery Lane\"","expect":{"mustNotBeReady":true}}
+{"id":"tf-column-show-household-no-advisor","utterance":"show household with no advisor","expect":{"mustNotBeReady":true}}
+{"id":"tf-column-show-advisor-empty","utterance":"show advisor where household is empty","expect":{"mustNotBeReady":true}}
+{"id":"tf-column-two-columns-starts","utterance":"show only household and advisor where advisor starts with \"Av\"","expect":{"mustNotBeReady":true}}
+{"id":"tf-column-household-for-accounts","utterance":"show household for accounts with no advisor","expect":{"mustNotBeReady":true}}
+{"id":"tf-column-market-value-starts","utterance":"show market value where advisor starts with \"Av\"","expect":{"mustNotBeReady":true}}
+{"id":"tf-column-display-the-household","utterance":"display the household where advisor is blank","expect":{"mustNotBeReady":true}}
+{"id":"tf-column-list-advisor-not-empty","utterance":"list advisor where household is not empty","expect":{"mustNotBeReady":true}}
+{"id":"tf-column-keep-only-household","utterance":"keep only household where advisor is missing","expect":{"mustNotBeReady":true}}
+{"id":"tf-column-see-just-the-advisor","utterance":"see just the advisor where household begins with \"Al\"","expect":{"mustNotBeReady":true}}
+{"id":"tf-column-show-me-the-household","utterance":"show me the household that has an advisor","expect":{"mustNotBeReady":true}}
+{"id":"tf-column-show-only-owner-ledger","utterance":"show only owner where vendor is empty","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"tf-column-just-owner-starts-ledger","utterance":"just owner where vendor starts with \"Al\"","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"tf-column-show-owner-no-vendor-ledger","utterance":"show owner with no vendor","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"tf-column-keep-only-the-payee-ledger","utterance":"keep only the payee where owner is exactly \"Avery Lane\"","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"tf-column-display-vendor-ledger","utterance":"display vendor where category is blank","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"tf-column-vendor-for-entries-ledger","utterance":"show only vendor for entries with no vendor","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"tf-rows-households-no-advisor","utterance":"households with no advisor","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"isEmpty"}}]}}
+{"id":"tf-rows-show-only-households","utterance":"show only households where advisor is empty","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"isEmpty"}}]}}
+{"id":"tf-rows-my-accounts","utterance":"my accounts with no advisor","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"isEmpty"}}]}}
+{"id":"tf-rows-show-my-accounts-have","utterance":"show my accounts that have an advisor","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"isNotEmpty"}}]}}
+{"id":"tf-rows-show-me-accounts","utterance":"show me accounts where advisor is blank","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"isEmpty"}}]}}
+{"id":"tf-beside-sort-same-column","utterance":"accounts with no advisor sorted by advisor","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"isEmpty"}},{"type":"sort.set","sorts":[{"columnId":"advisor_name","direction":"asc"}]}]}}
+{"id":"tf-beside-hide-same-column","utterance":"hide advisor where advisor is exactly \"Avery Lane\"","expect":{"status":"ready","operations":[{"type":"columns.hide","columnIds":["advisor_name"]},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"eq","value":"avery lane"}}]}}
+{"id":"tf-rows-my-entries-ledger","utterance":"my entries with no vendor","schema":"ledger","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"counterparty","operator":"isEmpty"}}]}}
+{"id":"tf-rows-show-us-entries-ledger","utterance":"show us entries where vendor is blank","schema":"ledger","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"counterparty","operator":"isEmpty"}}]}}
+{"id":"tf-beside-date-after-form-ledger","utterance":"entries with no vendor booked after 2026-01-01","schema":"ledger","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"booked","operator":"gt","value":"2026-01-01"}},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"counterparty","operator":"isEmpty"}}]}}
+{"id":"tf-column-show-me-an-advisor","utterance":"show me an advisor where household is empty","expect":{"mustNotBeReady":true}}
+{"id":"tf-column-find-advisor","utterance":"find advisor where household is empty","expect":{"mustNotBeReady":true}}
+{"id":"tf-column-view-household","utterance":"view household where advisor is empty","expect":{"mustNotBeReady":true}}
+{"id":"tf-column-give-me-the-advisor","utterance":"give me the advisor with no household","expect":{"mustNotBeReady":true}}
+{"id":"tf-column-my-household","utterance":"my household with no advisor","expect":{"mustNotBeReady":true}}
+{"id":"tf-rows-show-every-household","utterance":"show every household with no advisor","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"isEmpty"}}]}}
+{"id":"tf-rows-my-restricted-accounts","utterance":"my restricted accounts with no advisor","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"has_restricted_holding","operator":"eq","value":true}},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"isEmpty"}}]}}
+{"id":"tf-rows-my-settled-entries-ledger","utterance":"my settled entries with no vendor","schema":"ledger","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"cleared","operator":"eq","value":true}},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"counterparty","operator":"isEmpty"}}]}}
