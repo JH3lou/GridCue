@@ -57,9 +57,12 @@ interface Row extends AccountRow {
   opened: string;
   last_contact: string;
 }
+// Opened sits right after the Advisor, where it shows without scrolling the table sideways; Last contact is last.
+const OPENED_AT = wealthColumns.findIndex((c) => c.id === "advisor_name") + 1;
 const columns: Array<ColumnDef<typeof features, Row>> = [
-  ...wealthColumns,
+  ...wealthColumns.slice(0, OPENED_AT),
   { id: "opened", label: "Opened" },
+  ...wealthColumns.slice(OPENED_AT),
   { id: "last_contact", label: "Last contact" },
 ].map((c) => ({
   accessorKey: c.id as keyof Row,
