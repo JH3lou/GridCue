@@ -129,6 +129,39 @@ const LAYOUT_WORD = /\b(?:filters?|filtering|sorts?|sorting|ordering|grouping|gr
 /** Words that mark what follows them, up to the next comma, as staying. */
 const STAYING_BEFORE =
   /\b(?:don't touch|do not touch|not|without changing|without touching|leave|leaving|keep|keeping|except|apart from|other than)\b/;
+/** "The", "my current" and the like, between a staying word and the word it governs. */
+const ARTICLES = String.raw`\s+(?:(?:the|my|this|that|its|their|our|your|any|current|existing)\s+)*$`;
+/**
+ * A word right before a word that says it stays, with only "the" and the like between: "keep the", "leave my current",
+ * "don't change the", "retain". Further back it may govern another word: "keep the sort and add the grouping".
+ */
+const KEPT_JUST_BEFORE = new RegExp(
+  String.raw`\b(?:(?:don't|dont|do not) (?:touch|change)|no changes? to|without changing|without touching|leave|leaving|keep|keeping|retain|retaining|preserve|preserving|maintain|maintaining)${ARTICLES}`,
+);
+/**
+ * A word right before a word that leaves it out: "not", "without", "w/o", "everything but the", "excluding". Words that
+ * may mean dropping it ("ignore", "forget") are not here, so they ask.
+ */
+const LEFT_OUT_JUST_BEFORE = new RegExp(
+  String.raw`(?:\b(?:not|no|without|except|excluding|apart from|other than|(?:all|everything|anything) but)|\bw\/o)${ARTICLES}`,
+);
+/**
+ * Whether the word at `start` to `end` of `text` is said to stay (`"kept"`: "the group stays", "keep the grouping",
+ * "leave the groups alone", "don't change the grouping") or not asked for (`"left out"`: "without grouping",
+ * "everything but the grouping").
+ */
+export const saidToStay = (text: string, start: number, end: number): "kept" | "left out" | undefined => {
+  if (STAYS.test(text.slice(end)) || KEPT_JUST_BEFORE.test(text.slice(0, start))) return "kept";
+  return LEFT_OUT_JUST_BEFORE.test(text.slice(0, start)) ? "left out" : undefined;
+};
+/** After a word and any staying phrase, only punctuation and joining words to the end: "stays.", "as is, and". */
+const NOTHING_AFTER =
+  /^(?:\s*(?:stays?|remains?|as is|alone|unchanged|untouched|intact)\b)?(?:[\s\p{P}]|(?:and|but|or|then|also|plus)\b)*$/u;
+/**
+ * Whether nothing follows the word ending at `end` in its part but a staying phrase, punctuation or a joining word:
+ * true for "the grouping stays" and "keep the grouping, and", false for "the grouping stays on advisor".
+ */
+export const nothingAfter = (text: string, end: number): boolean => NOTHING_AFTER.test(text.slice(end));
 
 /** A part that leaves rows out: "hide taxable accounts", "can you exclude accounts over $1m". */
 const EXCLUDE =

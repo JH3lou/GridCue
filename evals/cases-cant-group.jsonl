@@ -1,0 +1,25 @@
+{"id":"cg-alone-advisor","grid":"no-group","utterance":"group by advisor","expect":{"status":"needs_clarification","clarificationPrompt":"This grid can't group rows."}}
+{"id":"cg-alone-grouped-custodian","grid":"no-group","utterance":"grouped by custodian","expect":{"status":"needs_clarification","clarificationPrompt":"This grid can't group rows."}}
+{"id":"cg-alone-capital","grid":"no-group","utterance":"Group by custodian.","expect":{"status":"needs_clarification","clarificationPrompt":"This grid can't group rows."}}
+{"id":"cg-alone-nested","grid":"no-group","utterance":"Group by account type, then by advisor.","expect":{"status":"needs_clarification","clarificationPrompt":"This grid can't group rows."}}
+{"id":"cg-alone-unknown-column","grid":"no-group","utterance":"Group by region.","expect":{"status":"needs_clarification","clarificationPrompt":"This grid can't group rows."}}
+{"id":"cg-alone-household","grid":"no-group","utterance":"Group the accounts by household.","expect":{"status":"needs_clarification","clarificationPrompt":"This grid can't group rows."}}
+{"id":"cg-filter-spec-row","grid":"no-group","utterance":"taxable accounts grouped by custodian","expect":{"status":"needs_clarification","clarificationPrompt":"This grid can't group rows."}}
+{"id":"cg-filter-roth-rep","grid":"no-group","utterance":"Only Roth accounts, grouped by rep.","expect":{"status":"needs_clarification","clarificationPrompt":"This grid can't group rows."}}
+{"id":"cg-filter-restricted","grid":"no-group","utterance":"Accounts with restricted holdings, grouped by advisor.","expect":{"status":"needs_clarification","clarificationPrompt":"This grid can't group rows."}}
+{"id":"cg-filter-after","grid":"no-group","utterance":"Group by advisor, only trust accounts.","expect":{"status":"needs_clarification","clarificationPrompt":"This grid can't group rows."}}
+{"id":"cg-sort-with","grid":"no-group","utterance":"Group by advisor and sort market value largest first.","expect":{"status":"needs_clarification","clarificationPrompt":"This grid can't group rows."}}
+{"id":"cg-sort-before","grid":"no-group","utterance":"Sort market value largest first, grouped by custodian.","expect":{"status":"needs_clarification","clarificationPrompt":"This grid can't group rows."}}
+{"id":"cg-filter-sort-group","grid":"no-group","utterance":"Only taxable accounts, largest market value first, grouped by advisor.","expect":{"status":"needs_clarification","clarificationPrompt":"This grid can't group rows."}}
+{"id":"cg-clear-ungroup","grid":"no-group","utterance":"ungroup","expect":{"status":"needs_clarification","clarificationPrompt":"This grid can't group rows."}}
+{"id":"cg-clear-ungroup-everything","grid":"no-group","utterance":"Ungroup everything.","expect":{"status":"needs_clarification","clarificationPrompt":"This grid can't group rows."}}
+{"id":"cg-clear-the-grouping","grid":"no-group","utterance":"Clear the grouping.","expect":{"status":"needs_clarification","clarificationPrompt":"This grid can't group rows."}}
+{"id":"cg-clear-with-filter","grid":"no-group","utterance":"Show taxable accounts and ungroup.","expect":{"status":"needs_clarification","clarificationPrompt":"This grid can't group rows."}}
+{"id":"cg-none-filter","grid":"no-group","utterance":"Show taxable accounts.","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"registration_type","operator":"eq","value":"taxable"}}]}}
+{"id":"cg-none-sort","grid":"no-group","utterance":"Sort market value largest first.","expect":{"status":"ready","operations":[{"type":"sort.set","sorts":[{"columnId":"market_value","direction":"desc"}]}]}}
+{"id":"cg-none-filter-sort","grid":"no-group","utterance":"Only Roth accounts, largest market value first.","expect":{"status":"needs_clarification"}}
+{"id":"cg-none-restricted","grid":"no-group","utterance":"Accounts with restricted holdings.","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"has_restricted_holding","operator":"eq","value":true}}]}}
+{"id":"cg-none-value-group","grid":"no-group","utterance":"Show retirement accounts.","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"registration_type","operator":"in","value":["ira","roth_ira"]}}]}}
+{"id":"cg-hint-risky","grid":"no-group","utterance":"whatever looks risky","expect":{"status":"needs_clarification","clarificationPrompt":"I'm not sure what to change for “whatever looks risky”. Try asking to filter, sort, or show or hide columns."}}
+{"id":"cg-ctl-value-has-group","grid":"no-group","schema":"group-names","utterance":"Show Group Annuity accounts.","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"product","operator":"eq","value":"group_annuity"}}]}}
+{"id":"cg-ctl-label-has-group","grid":"no-group","schema":"group-names","utterance":"Sort by group name, largest first.","expect":{"status":"ready","operations":[{"type":"sort.set","sorts":[{"columnId":"group_name","direction":"desc"}]}]}}

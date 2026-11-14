@@ -4,7 +4,7 @@ export interface TextMatch<T> {
   end: number;
 }
 
-const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+export const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /**
  * Finds whole-word mentions of any name (optionally plural) in `text`.

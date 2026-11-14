@@ -7,6 +7,7 @@ import {
   defineSchema,
   type GridCueController,
   type IntentProvider,
+  type RowsAdapter,
   type ViewOperation,
   type ViewPlan,
   type ViewState,
@@ -17,13 +18,23 @@ export interface EvalCase {
   utterance: string;
   /** Starts the grid from this view instead of the default, e.g. already grouped by custodian, or showing a count. */
   state?: Partial<Pick<ViewState, "groupBy" | "sorts" | "filters" | "limit">>;
-  /** Runs on another schema instead of the wealth fixture: "dated" for cases about dates. */
-  schema?: "dated";
+  /**
+   * Runs on another schema instead of the wealth fixture: "dated" for cases about dates, "group-names" for a schema
+   * where "group" is part of a value and of a column's label.
+   */
+  schema?: "dated" | "group-names";
+  /** "no-group" runs on a grid that doesn't list `group.set` (more grids spec, 5.3). */
+  grid?: "no-group";
   expect: {
-    status: ViewPlan["status"];
+    /** Left out with `mustNotBeReady`. */
+    status?: ViewPlan["status"];
     operations?: unknown[];
     category?: string;
     clarificationPrompt?: string;
+    /** Any question or refusal passes; only a ready plan fails. For a case the spec doesn't settle beyond that. */
+    mustNotBeReady?: boolean;
+    /** A ready plan holding this operation is a wrong view, whatever else the case expects. */
+    neverApplies?: string;
   };
 }
 
@@ -53,6 +64,44 @@ const datedSchema = defineSchema(
     },
   },
 );
+
+/** Plans whose names hold the word "group": a product called "Group Annuity" and a "Group name" column. */
+const groupNamesSchema = defineSchema(
+  [
+    { id: "plan_number", label: "Plan number" },
+    { id: "group_name", label: "Group name" },
+    { id: "product", label: "Product" },
+    { id: "premium", label: "Premium" },
+  ],
+  {
+    id: "group-plans",
+    version: "1",
+    rowNoun: "account",
+    columns: {
+      product: {
+        kind: "enum",
+        enumValues: [
+          { id: "group_annuity", label: "Group Annuity" },
+          { id: "individual_annuity", label: "Individual Annuity" },
+          { id: "term_life", label: "Term Life" },
+        ],
+      },
+      premium: { kind: "currency" },
+    },
+  },
+);
+
+/**
+ * A grid that can't group rows, built as a Host would build one: the Rows Adapter with `group.set` taken out of the
+ * operations it lists. Everything else, the rows and the View State included, is the Rows Adapter's own.
+ */
+const withoutGrouping = (adapter: RowsAdapter): RowsAdapter => ({
+  ...adapter,
+  getCapabilities: () => {
+    const capabilities = adapter.getCapabilities();
+    return { ...capabilities, operations: capabilities.operations.filter((op) => op !== "group.set") };
+  },
+});
 
 export type Verdict = "exact" | "safe_abstention" | "rejected" | "mismatch" | "unsafe";
 
@@ -110,7 +159,9 @@ const sameView = (got: readonly unknown[], want: readonly unknown[]) => {
  */
 export const judge = (c: EvalCase, plan: ViewPlan | null, status: string): Verdict => {
   if (!plan) return "mismatch";
+  if (status === "ready" && c.expect.neverApplies && plan.operations.some((op) => op.type === c.expect.neverApplies)) return "unsafe";
   if (c.expect.status !== "ready" && status === "ready") return "unsafe";
+  if (c.expect.mustNotBeReady) return status === "unsupported" ? "rejected" : "safe_abstention";
   if (c.expect.status !== status) return "mismatch";
   if (status === "ready") {
     return sameView(stripIds(plan.operations), c.expect.operations ?? []) ? "exact" : "unsafe";
@@ -122,13 +173,50 @@ export const judge = (c: EvalCase, plan: ViewPlan | null, status: string): Verdi
 
 export const runCase = async (c: EvalCase, provider: IntentProvider) => {
   // A case's state is the view the User is looking at. The default view, which a reset returns to, stays the fixture's.
-  const adapter =
+  const rows =
     c.schema === "dated"
       ? createRowsAdapter({ schema: datedSchema })
-      : createRowsAdapter({ schema: wealthSchema, initialState: wealthInitialState });
+      : c.schema === "group-names"
+        ? createRowsAdapter({ schema: groupNamesSchema })
+        : createRowsAdapter({ schema: wealthSchema, initialState: wealthInitialState });
+  const adapter = c.grid === "no-group" ? withoutGrouping(rows) : rows;
   if (c.state) adapter.setState((view) => ({ ...view, ...c.state }));
   const cue: GridCueController = createGridCue({ adapter, provider });
   const plan = await cue.propose(c.utterance);
   const status = cue.getState().status;
   return { id: c.id, verdict: judge(c, plan, status), plan, status };
+};
+
+/** "group", "grouped", "grouping", "ungroup", in any case. */
+const GROUPING_WORD = /\b(?:un)?group/i;
+
+/**
+ * An existing case, moved to a grid without `group.set`, with its expected result derived (more grids spec, 10).
+ * A case whose expected plan groups, or clears the grouping, must end not applied. So must a question or refusal
+ * whose words name grouping, since its labelled prompt may now say the grid can't group. Every other case keeps its
+ * label, and must keep the verdict it has on the Rows Adapter. A case that starts grouped is left out: a grid that
+ * can't group never holds a grouping. Returns `undefined` for those.
+ */
+export const onGridWithoutGrouping = (c: EvalCase): { case: EvalCase; groups: boolean } | undefined => {
+  if (c.grid || (c.state?.groupBy?.length ?? 0) > 0) return undefined;
+  const groups =
+    (c.expect.operations ?? []).some((op) => (op as { type: string }).type === "group.set") ||
+    (c.expect.status !== "ready" && GROUPING_WORD.test(c.utterance));
+  return {
+    case: { ...c, grid: "no-group", expect: groups ? { mustNotBeReady: true, neverApplies: "group.set" } : c.expect },
+    groups,
+  };
+};
+
+/**
+ * Runs an existing case on the Rows Adapter and on a grid without `group.set`. A case that groups passes when it
+ * isn't ready on the second grid; any other case passes when its verdict there is the one it has on the Rows Adapter.
+ */
+export const runWithoutGrouping = async (c: EvalCase, provider: IntentProvider) => {
+  const moved = onGridWithoutGrouping(c);
+  if (!moved) return undefined;
+  const before = await runCase(c, provider);
+  const after = await runCase(moved.case, provider);
+  const pass = moved.groups ? after.verdict !== "unsafe" : after.verdict === before.verdict;
+  return { id: c.id, groups: moved.groups, pass, before, after };
 };
