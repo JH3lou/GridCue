@@ -792,3 +792,153 @@ describe("more words GridCue reads beside quoted text, as before the fixes", () 
     await asks('reset, advisor "Whitfield"');
   });
 });
+
+// Round-4 review. Text no column owns asked which column should contain it, and the User's answer then showed a ready
+// Preview that dropped the words beside it: `"Avery Lane" exactly`, answered with Advisor, filtered Advisor containing.
+describe("the words beside quoted text no column owns, through the answer", () => {
+  const unread = (words: string) => `I'm not sure what to do with “${words}”. Try rephrasing that part.`;
+  // Proposes, then answers Advisor to the question that offers it, or to the one that used to.
+  const answerAdvisor = async (text: string) => {
+    const cue = createGridCue({ adapter: createRowsAdapter({ schema: wealth }), provider: mock });
+    await cue.propose(text);
+    const asked = cue.getState();
+    const offered = asked.plan?.clarifications.find((q) => q.options?.some((o) => o.id === "advisor_name"));
+    const answered = cue.answer(offered?.id ?? "c0.literal0.column", "advisor_name");
+    return { asked, offered, answered, state: cue.getState() };
+  };
+
+  it("asks how to match where a word that isn't a containing word sits before the text, and offers no column", async () => {
+    for (const [text, value] of [
+      ['starts with "Av"', "av"],
+      ['exactly "Avery Lane"', "avery lane"],
+      ['= "Lane"', "lane"],
+      ['ends with "Lane"', "lane"],
+      ['named "Lane"', "lane"],
+      ['filter to "Lane"', "lane"],
+      ['trusts starting with "Av"', "av"],
+      ['trusts exactly "Lane"', "lane"],
+    ] as const) {
+      const { asked, offered, answered, state } = await answerAdvisor(text);
+      expect(asked.message, text).toBe(match(value));
+      expect(offered, text).toBeUndefined();
+      expect(answered, text).toBeNull();
+      expect(state.status, text).toBe("needs_clarification");
+    }
+  });
+
+  it("asks what to do with a word GridCue doesn't read after the text, and offers no column", async () => {
+    for (const [text, words] of [
+      ['"Avery Lane" exactly', "exactly"],
+      ['"Avery Lane", exactly', "exactly"],
+      ['"Avery Lane" roughly', "roughly"],
+      ['"Avery Lane" accounts exactly', "accounts exactly"],
+      ['trusts containing "Lane" exactly', "exactly"],
+    ] as const) {
+      const { asked, offered, answered, state } = await answerAdvisor(text);
+      expect(asked.message, text).toBe(unread(words));
+      expect(offered, text).toBeUndefined();
+      expect(answered, text).toBeNull();
+      expect(state.status, text).toBe("needs_clarification");
+    }
+  });
+
+  it("still asks which column, and reads the answer as before (controls)", async () => {
+    const lane = ["advisor_name", "contains", "lane"];
+    const avery = ["advisor_name", "contains", "avery lane"];
+    for (const [text, value, want] of [
+      ['containing "Lane"', "lane", [lane]],
+      ['accounts for "Avery Lane"', "avery lane", [avery]],
+      ['"Avery Lane"', "avery lane", [avery]],
+      ['show "Avery Lane"', "avery lane", [avery]],
+      ['"Avery Lane" please', "avery lane", [avery]],
+      ['"Avery Lane" at Northgate', "avery lane", [["custodian", "eq", "northgate"], avery]],
+      ['trusts containing "Lane"', "lane", [["registration_type", "eq", "trust"], lane]],
+      [
+        'non-retirement accounts containing "trust"',
+        "trust",
+        [
+          ["registration_type", "in", ["taxable", "trust"]],
+          ["advisor_name", "contains", "trust"],
+        ],
+      ],
+    ] as const) {
+      const { asked, offered, state } = await answerAdvisor(text);
+      expect(asked.message, text).toBe(whichColumn(value));
+      expect(offered, text).toBeDefined();
+      expect(state.status, `${text}: ${state.message}`).toBe("ready");
+      expect(filters(state.plan?.operations), text).toEqual(want);
+    }
+  });
+});
+
+// Round-4 review. What a clear says to keep skipped the words beside quoted text: `clear filters except advisor "Lane"
+// exactly` kept Advisor containing “lane”.
+describe("the words beside quoted text in a filter a clear keeps", () => {
+  const unread = (words: string) => `I'm not sure what to do with “${words}”. Try rephrasing that part.`;
+  const view = {
+    filters: {
+      id: "g",
+      type: "group" as const,
+      combinator: "and" as const,
+      children: [
+        { id: "f1", type: "predicate" as const, columnId: "advisor_name", operator: "contains" as const, value: "lane" },
+        { id: "f2", type: "predicate" as const, columnId: "market_value", operator: "gt" as const, value: 1_000_000 },
+      ],
+    },
+  };
+  const fromFiltered = async (text: string) => {
+    const adapter = createRowsAdapter({ schema: wealth });
+    adapter.setState((current) => ({ ...current, ...view }));
+    const cue = createGridCue({ adapter, provider: mock });
+    await cue.propose(text);
+    return cue.getState();
+  };
+
+  it("asks for a word GridCue doesn't read after the text", async () => {
+    for (const [text, words] of [
+      ['clear filters except advisor "Lane" as prefix', "as prefix"],
+      ['clear filters except advisor "Lane" exactly', "exactly"],
+      ['clear filters except advisor "Lane" roughly', "roughly"],
+      ['clear filters except "Lane" exactly', "exactly"],
+      ['remove all filters except advisor "Lane" as prefix', "as prefix"],
+    ] as const) {
+      const state = await fromFiltered(text);
+      expect(state.status, text).toBe("needs_clarification");
+      expect(state.message, text).toBe(unread(words));
+    }
+  });
+
+  it("still keeps the filter the words name (controls)", async () => {
+    for (const text of ['clear filters except advisor "Lane"', 'clear filters except advisor "Lane" please']) {
+      const state = await fromFiltered(text);
+      expect(state.status, `${text}: ${state.message}`).toBe("ready");
+      expect(state.plan?.operations[0], text).toEqual({ type: "filter.clear" });
+      expect(filters(state.plan?.operations), text).toEqual([["advisor_name", "contains", "lane"]]);
+    }
+  });
+});
+
+// Round-4 review. The direction check counted an emoji as one character where every stored position counts two, so
+// `advisor "😀 Lane", largest value first` asked about “largest” where `advisor "Lane", largest value first` is read.
+describe("a character outside the Basic Multilingual Plane in quoted text", () => {
+  const byValue = { type: "sort.set", sorts: [{ columnId: "market_value", direction: "desc" }] };
+  it("leaves the direction read, as without it", async () => {
+    for (const [text, value] of [
+      ['advisor "Lane", largest value first', "lane"],
+      ['advisor "😀 Lane", largest value first', "😀 lane"],
+      ['advisor "Lane 😀", largest value first', "lane 😀"],
+      ['advisor "😀😀 Lane" largest value first', "😀😀 lane"],
+    ] as const) {
+      const state = await propose(text);
+      expect(state.status, `${text}: ${state.message}`).toBe("ready");
+      expect(filters(state.plan?.operations), text).toEqual([["advisor_name", "contains", value]]);
+      expect(state.plan?.operations, text).toContainEqual(byValue);
+    }
+  });
+
+  it("still asks for a word GridCue doesn't read beside the direction (controls)", async () => {
+    await asks('advisor "😀 Lane", largest exact first', "I'm not sure what to do with “largest exact first”. Try rephrasing that part.");
+    for (const text of ['advisor "😀 Lane" exactly, largest value first', 'advisor "Lane" exactly, largest value first'])
+      await asks(text, "I'm not sure what to do with “exactly, largest”. Try rephrasing that part.");
+  });
+});
