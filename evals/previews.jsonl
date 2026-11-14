@@ -653,6 +653,16 @@
 {"file":"cases-text-forms.jsonl","id":"tf-rows-show-every-household","lines":["Show only rows where Advisor is empty"],"notes":[]}
 {"file":"cases-text-forms.jsonl","id":"tf-rows-my-restricted-accounts","lines":["Show only rows where Restricted holdings is Yes","Show only rows where Advisor is empty"],"notes":[]}
 {"file":"cases-text-forms.jsonl","id":"tf-rows-my-settled-entries-ledger","lines":["Show only rows where Cleared is Yes","Show only rows where Counterparty is empty"],"notes":[]}
+{"file":"cases-text-forms.jsonl","id":"tf-r4-which-accounts-have-no-advisor","lines":["Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms.jsonl","id":"tf-r4-accounts-whose-advisor-is-empty","lines":["Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms.jsonl","id":"tf-r4-advisor-is-empty-for-taxable-accounts","lines":["Filter Registration type to Taxable","Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms.jsonl","id":"tf-r4-advisor-is-blank-for-accounts-at-northgate","lines":["Filter Custodian to Northgate","Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms.jsonl","id":"tf-r4-accounts-without-an-advisor","lines":["Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms.jsonl","id":"tf-r4-show-me-accounts-with-no-advisor","lines":["Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms.jsonl","id":"tf-r4-those-accounts-with-no-advisor","lines":["Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms.jsonl","id":"tf-r4-accounts-where-the-advisor-is-missing","lines":["Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms.jsonl","id":"tf-r4-the-advisor-is-missing","lines":["Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms.jsonl","id":"tf-r4-entries-that-have-a-category-ledger","lines":["Show only rows where Category is not empty"],"notes":[]}
 {"file":"cases.jsonl","id":"accounts-over-1m","lines":["Filter Market value above $1,000,000"],"notes":[]}
 {"file":"cases.jsonl","id":"taxable-concentration","lines":["Filter Registration type to Taxable","Filter Concentration above 10%"],"notes":[]}
 {"file":"cases.jsonl","id":"group-and-sort","lines":["Group by Advisor","Sort by Market value, descending"],"notes":[]}

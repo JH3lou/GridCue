@@ -180,6 +180,14 @@ describe("a grid that can't group, fourth held-out set, with the Mock Provider",
 //   labelled, of 80;
 // - 11 statements ("include me in accounts with no advisor", "that advisor is missing", "accounts which were without
 //   an advisor"), all 11 ready before. That set is now 54 asked, 1 refused, none ready, of 55.
+// The lead's rulings on statements around a form (round 4) added 27 more, written the same way:
+// - 16 statements: a form of "be" before "without" or "no" ("accounts are without an advisor"), "has" after "that" and
+//   the rows ("that account has no advisor"), a question word before the column ("which advisor is missing"), and only
+//   a preposition and the rows after the form ("advisor is empty for every account"). All 16 were ready before. That
+//   set is now 70 asked, 1 refused, none ready, of 71;
+// - 10 controls with the plans they had before ("accounts whose advisor is empty", "advisor is empty for taxable
+//   accounts"), and "advisor is empty for accounts over $1m", which asks as before. The form set is now 54 exact, 37
+//   asked as labelled, of 91.
 describe("text forms, with the Mock Provider", () => {
   const ledgerProvider = createMockProvider(mockOptionsFor({ schema: "ledger" }));
   for (const file of ["cases-text-forms.jsonl", "cases-not-requests.jsonl", "cases-provider-picks.jsonl"]) {

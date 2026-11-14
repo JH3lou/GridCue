@@ -10,7 +10,9 @@ import { loadPreviews, previewOf } from "./previews";
 // included; the fix for those four lists them here as asking. So were the Previews of the ten controls that joined
 // `cases-text-forms.jsonl` with the fix for a column asked for beside a form ("households with no advisor"), and of
 // the three that joined it with the review's next fixes ("show every household with no advisor", "my restricted
-// accounts with no advisor", "my settled entries with no vendor").
+// accounts with no advisor", "my settled entries with no vendor"), and of the ten ready controls that joined it with the
+// lead's rulings on statements around a form ("accounts whose advisor is empty", "advisor is empty for taxable
+// accounts"), each the Preview it had before those rulings.
 //
 // None of the changes rewords a Preview line a request had before. Each is one of:
 // - a new Preview for a request that holds a text or empty form, which asked before (spec 5.2, and section 9's lines

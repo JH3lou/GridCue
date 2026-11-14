@@ -109,7 +109,7 @@ Spec 4.1, 4.2, 4.4, 4.6, 5.2, and the PR 2 rows of section 9. ADR 0023.
 - [x] One pure function that returns the unplaced words of a part, given its names, literals and code-read filters. The lists live in this module and nowhere else, except the operation set's form words, which it imports from `core/view-words.ts`.
 - [x] The limit on a provider's picks in a part that passed: a column or value no Mention names is dropped; a sort, group, show or hide needs its own words. Tests use a fake provider.
 - [x] In the compiler, a part with no code-read filter never reaches this function. A test runs every existing labelled request through the compiler and finds the function is not called. Task 2.5's report calls it from `evals/`, outside the compiler, so the report can't change a result.
-- [x] Where this module and the first PR's checks beside quoted text (`unreadBesideText`, `afterText` in `core/compile.ts`) hold the same kind of word, they share one list. A part with no code-read filter is still read exactly as before, plain quoted text included (spec 4.2). The wrong views the wave 1 reviews found in such parts are not this PR's: the order plan's section 12 lists them for the owner.
+- [x] Where this module and the first PR's checks beside quoted text (`unreadBesideText`, `afterText` in `core/compile.ts`) hold the same kind of word, they share one list. The placed-words check never runs on a part with no code-read filter, plain quoted text included (spec 4.2). Such a part changes only through the two D4 narrowings the natural held-out set called for (order plan, section 11). The other wrong views the wave 1 reviews found in such parts are not this PR's: the order plan's section 12 lists them for the owner.
 
 ### Task 2.4: The forms (Opus)
 **Files:** `core/normalize.ts`, new `core/code-read.ts`, `core/compile.ts`, `core/resolution.ts`, `core/unused.ts`, `core/preview.ts`, `index.ts`, tests. Needs 2.3.
@@ -125,8 +125,8 @@ Spec 4.1, 4.2, 4.4, 4.6, 5.2, and the PR 2 rows of section 9. ADR 0023.
 ### Task 2.5: Held-out run (lead)
 - [x] One run of each held-out set. Bar: 0 wrong views on all of them; none of the not-a-request sentences is ready; no provider pick the words don't name survives.
 - [x] A wrong view in the natural set from a word nothing reads, in a part with no code-read filter, still fails the bar. It goes back as a class and is narrowed to a question; no reading is added (order plan, D4).
-- [ ] Report the form set's exact share, the natural set's ask rate, and each word that was unplaced in a request labelled ready.
-- [ ] Report how many ready plans on every set, old and new, hold a word the lists don't place, whether or not the part holds a code-read filter (order plan, D4). No bar; the number says how large the class left for the Local Resolver is. The report runs in `evals/`, not in the compiler.
+- [x] Report the form set's exact share, the natural set's ask rate, and each word that was unplaced in a request labelled ready.
+- [x] Report how many ready plans on every set, old and new, hold a word the lists don't place, whether or not the part holds a code-read filter (order plan, D4). No bar; the number says how large the class left for the Local Resolver is. The report runs in `evals/`, not in the compiler.
 - [x] The sets join the repo.
 
 ### Task 2.6: Docs and skill (Sonnet)
@@ -135,7 +135,7 @@ Spec 4.1, 4.2, 4.4, 4.6, 5.2, and the PR 2 rows of section 9. ADR 0023.
 - [x] `skills/gridcue`: the forms, and a House Term as the way to name a placeholder such as "Unassigned" once PR 3 lands. `pnpm check:skills`. Changelog (Haiku).
 
 ### Task 2.7: Review (Opus), then gate
-- [ ] The reviewer hunts for a part with a form that is ready with a word GridCue didn't place.
+- [x] The reviewer hunts for a part with a form that is ready with a word GridCue didn't place.
 - [ ] One live run, on the owner's command. `pnpm lint`, `pnpm check`.
 
 **Owner sees before code:** the words table in spec section 9. It covers PR 2 to PR 5.

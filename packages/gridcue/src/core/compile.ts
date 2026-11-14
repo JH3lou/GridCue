@@ -699,7 +699,7 @@ export const compile = (c: CompileInput): ViewPlan => {
       // What a clear or reset says to keep ("clear filters except accounts over $1m") is kept only when the view
       // already has it; GridCue never adds a filter the User didn't have in its place.
       if (clause.keeps) {
-        const kept = keepPart(clause, own, c.state, c.defaultState, operations, column, c.newId, c.schema.rowNoun);
+        const kept = keepPart(clause, own, c.state, c.defaultState, operations, column, c.newId, c.schema);
         // What is kept is all the plan holds for this part, so another change's words in it are asked about (ADR 0023).
         const unplaced = beside && "operations" in kept ? unplacedWords({ ...beside, operations: kept.operations }) : [];
         if (unplaced.length > 0) clarifications.push(unplacedQuestion(clause, unplaced));
@@ -1361,7 +1361,7 @@ export const compile = (c: CompileInput): ViewPlan => {
             // and so does one GridCue didn't read right before the column, right after the text, or, with no column,
             // right before the text: an answer to which column holds it can't drop them.
             const quotedAfter = lit.kind === "text" ? columnBeforeText(clause, lit, own, column, c.schema.rowNoun) : undefined;
-            const unread = lit.kind === "text" ? textWordsQuestion(clause, lit, quotedAfter, own, c.schema.rowNoun) : undefined;
+            const unread = lit.kind === "text" ? textWordsQuestion(clause, lit, quotedAfter, own, c.schema) : undefined;
             if (unread) {
               clarifications.push({ id: `${key}.literal${j}.${unread.id}`, prompt: unread.prompt, required: true });
               return;
@@ -2021,8 +2021,9 @@ const keepPart = (
   operations: readonly ViewOperation[],
   column: (columnId: string) => ColumnDescriptor | undefined,
   newId: (prefix: string) => string,
-  rowNoun: string | undefined,
+  schema: ViewSchema,
 ): { operations: ViewOperation[] } | { prompt: string } => {
+  const { rowNoun } = schema;
   const what = clause.text.replace(/^(?:keep(?:ing)?|leave) /, "");
   const reset = operations.some((o) => o.type === "view.reset");
   // "Everything but the filters" leaves the filters as they are, and kept filters are added after the reset, to
@@ -2091,7 +2092,7 @@ const keepPart = (
     const quotedAfter = lit.kind === "text" ? columnBeforeText(clause, lit, own, column, rowNoun) : undefined;
     if (quotedAfter && !quotedAfter.read) return absent;
     // The words beside the text are checked as they are for a new filter: `advisor "Lane" exactly` keeps nothing.
-    const unread = lit.kind === "text" ? textWordsQuestion(clause, lit, quotedAfter, own, rowNoun) : undefined;
+    const unread = lit.kind === "text" ? textWordsQuestion(clause, lit, quotedAfter, own, schema) : undefined;
     if (unread) return { prompt: unread.prompt };
     // A column named right before the amount must be the filter's; with none, exactly one filter may match.
     const owner =
@@ -2472,13 +2473,13 @@ const textWordsQuestion = (
   lit: Literal,
   quotedAfter: { mention: Mention; read: boolean } | undefined,
   own: readonly Mention[],
-  rowNoun: string | undefined,
+  schema: ViewSchema,
 ): { id: "match" | "beside"; prompt: string } | undefined => {
   const match = { id: "match", prompt: `I'm not sure how to match “${lit.value}”. Try “containing”.` } as const;
-  const said = quotedAfter ? textFormStatement(clause, lit, quotedAfter.mention) : undefined;
+  const said = quotedAfter ? textFormStatement(clause, lit, quotedAfter.mention, own, schema) : undefined;
   if (said) return { id: "beside", prompt: `I'm not sure what to do with “${said}”. Try rephrasing that part.` };
   if (quotedAfter && !quotedAfter.read) return match;
-  const beside = unreadBesideText(clause, lit, quotedAfter?.mention, own, rowNoun);
+  const beside = unreadBesideText(clause, lit, quotedAfter?.mention, own, schema.rowNoun);
   if (!beside) return undefined;
   if (!quotedAfter && beside.before) return match;
   return { id: "beside", prompt: `I'm not sure what to do with “${beside.words}”. Try rephrasing that part.` };

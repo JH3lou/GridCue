@@ -339,6 +339,16 @@ The review of each planning record left these to the lead. None changes an appro
 | 1 | Wrong views in the TanStack Table adapter that the v8 guide's review found (G2) | Not fixed: G2 adds no code to the package, and no plan covers them. The guide and the skill give the workaround. They need the owner's ruling and their own fix PR. On a column with `invertSorting: true`, the table shows the opposite order to the Preview. On a column or table with `enableSorting: false`, and on a table with no grouped row model, GridCue says "View updated." and the rows don't change. A column that names a built-in filter function shows no rows for a GridCue filter. All but the last hold on `useTable` too |
 | 2 | The code for a `now` that throws (N5) | `INPUT_CLOCK` |
 | 2 | The words table in named filters' spec, section 9 | The lead shows it to the owner when wave 1 clears. Wave 2 does not wait for an answer |
+| 2 | An empty form on a yes/no column (N2) | Said before the column ("no restricted holdings"), it keeps today's reading, as spec 5.2 says. Said after the column ("Cleared is empty"), it asks: today's reading of that was Cleared is Yes, a wrong view the held-out form set found |
+| 2 | An empty form, then an amount with no column of its own (N2) | Asks across "and", a comma and the next part too ("Advisor is empty and over 5%"). The spec's rule was only enforced inside one part. An amount with its column named stays ready |
+| 2 | A column asked for beside a form on another column (N2) | A column named in the singular right after a column-choosing word must end up in a change the plan holds, or the part asks ("show only household where advisor is empty"). "Every", "each", "all" or "any" before an entity word names the rows, as the plural does |
+| 2 | A statement that holds a form (N2) | It asks. "My", "our", "me" and "us" are placed only where they belong to the request. A form is not read after a quantifier, a possessive or a demonstrative before its column, after "is" or "are" before "without", after "has" with no relative word right before it, after a question word before its column, or before a trailing phrase that only names the rows. This is narrower than spec 4.2's small-word row and ADR 0023's "which words, not where they sit". Each sentence asked before this PR. Some such sentences are still ready: section 12 C lists them for the owner |
+| 2 | The two D4 narrowings the natural set called for (N2) | In a part with no form, a word for empty values ("sort by counterparty with the blanks last") asks, and so does a "show only these columns" part that holds other words ("just the accounts where the advisor is exactly Blake Moreno"). Both were wrong views in the release |
+| 2 | A column named right after a form (N2) | Read as the same words in the other order are: "entries with no vendor booked after 2026-01-01" is ready with both filters. Before, the question named the column as an unknown word |
+| 2 | The Row Noun and a text form (N2) | The Row Noun is never the column of a text form either, which goes past spec 5.2: `account starts with "AC"` asks, and `account number starts with "AC"` reads |
+| 2 | Twenty cases N1 labelled to ask how to match (N2) | Relabelled to the reading spec 5.2 gives, in the three named-fixes sets. Only their expected result changed |
+| 2 | Letter case in the exact-text Preview line (N2) | Lower case, "Filter Advisor to exactly “avery lane”", as spec 5.2 and today's "containing" lines have it, for text the User quotes. Section 9's "Avery Lane" is the line for a Local Value (N4), which shows the value as the Host stores it. The spec is unchanged |
+| 2 | "Thanks" beside a form (N2) | Asks: it is not on spec 4.2's list. The list grows one word at a time on held-out evidence, as the spec says |
 | 3 | Totals an adapter doesn't apply (O3) | O3 settles how an adapter says which functions it applies, before its code, and the lead checks it |
 | 3 | Where a row with no value sits in a sort | Out of scope, as the spec says. The rendered-rows bar is 100% on which rows show, the groups and the totals. Views that differ only in this are counted and reported |
 | 4 | An operation a Query Adapter's `without` removes (G4) | G4 wires each one to the shared "this grid can't" result, and labels a set for it |
@@ -353,9 +363,9 @@ The review of each planning record left these to the lead. None changes an appro
 
 Live Jev runs wait for the owner's command each time. So does every merge.
 
-## 12. Wrong views found while building wave 1, not yet planned
+## 12. Wrong views found while building, not yet planned
 
-The wave 1 reviews and held-out rounds found these. Each is in the release too. None is in an approved plan, and no wave 1 PR could fix them inside its one concern. The lead recommends two fix PRs, each with its own labelled sets, built the way the wave 1 fixes were: every change asks, and none adds a reading. They wait for the owner.
+The reviews and held-out rounds of wave 1, and of wave 2's text-forms PR, found these. Each is in the release too. None is in an approved plan, and no wave 1 PR could fix them inside its one concern. For A and B the lead recommends two fix PRs, each with its own labelled sets, built the way the wave 1 fixes were: every change asks, and none adds a reading. They wait for the owner.
 
 **A. Reading: a word or symbol GridCue drops, in a part with no code-read filter.** Named filters' every-word rule does not reach these parts (its spec 4.2), and the Local Resolver that would is in the four bets.
 
@@ -373,6 +383,13 @@ The wave 1 reviews and held-out rounds found these. Each is in the release too. 
 | "sort by value, groups by advisor" | Sorts by Advisor |
 | "households named group" | Groups by Household |
 | "accounts over $1m, top 5 by gain" | Filters Unrealized gain and sorts by Market value |
+| "show only household where custodian is Northgate" | Filters Custodian and drops the column change |
+| "just the advisor where value is over $1m" | Filters and drops the column change |
+| "show only advisor and household columns, in that order" | Sorts by Advisor, then Household |
+| "cleared is no", "restricted holdings is no" | Shows the Yes rows |
+| "sort by advisor, unassigned last" | Sorts and drops "unassigned last" |
+
+The last five were found by the text-forms PR's reviews (wave 2). That PR also found that the plural "entries" is not read as the ledger's Row Noun "entry" outside a part with a form: a miss, not a wrong view.
 
 With this fix in, the can't-group question can narrow back to the grouping verb (more grids spec 5.3).
 
@@ -384,5 +401,16 @@ With this fix in, the can't-group question can narrow back to the grouping verb 
 | A column or table with `enableSorting: false` | "View updated."; the rows don't move |
 | No grouped row model | "View updated."; the rows are not grouped |
 | A column that names a built-in filter function | A GridCue filter on it shows no rows |
+
+**C. A statement read as a request, in a part that holds a form.** The text-forms PR reads a form by which words a part holds, not where they sit (named filters spec 4.2). Four rounds narrowed the statements its reviews found, and its three held-out rounds ended with none ready. The last independent check still found these ready as "Show only rows where Advisor is empty"; each asked in the release:
+
+| Sentence | Why it slips through |
+| --- | --- |
+| "accounts are all without an advisor" | "All" sits between "are" and "without" |
+| "which of the advisors is missing", "which accounts advisor is missing" | The question word is not right before the column |
+| "for every account, advisor is empty" | The phrase about the rows comes before the form |
+| "advisor is empty for every account please", "advisor is empty, for every account" | A word or a comma sits around the phrase about the rows |
+
+The release reads statements this way where no form is involved: "the accounts are at Northgate" previews "Filter Custodian to Northgate". The owner decides between leaving these until the Local Resolver's grammar (ADR 0020), as the spec has it, and a stricter rule in a fix PR: read "C is empty" and "has a C" only in the shapes spec 5.2 lists, and ask on anything else around them.
 
 **Costs to win back.** Requests the wave 1 fixes made ask, which read correctly before: `advisor "Lane" in descending order of value`, `advisor "Lane" is trusts`, `advisor's name is "Lane"`, `advisor containing the text "Lane"`, and, on a grid that can't group, "clear the sort, leave the grouping and the filter alone".

@@ -1192,6 +1192,196 @@ describe("a statement made only of placed words", () => {
   });
 });
 
+// Each of these was ready with an empty filter, though it states something instead of asking for a view (the lead's
+// rulings R4a to R4d, round 4). None adds a ready reading.
+describe("a statement around a form, read as a request", () => {
+  const each = async (texts: readonly string[], schema: ViewSchema = wealth) => {
+    for (const text of texts) {
+      expect(found(text, schema), text).toEqual([]);
+      await notReady(text, schema);
+    }
+  };
+
+  it("is not read after “is”, “are”, “was”, “were”, “isn't” or “aren't” right before “without”, “with no” or “no”", async () => {
+    await each([
+      "accounts are without an advisor",
+      "the account is without an advisor",
+      "that account is with no advisor",
+      "my accounts are without an advisor",
+      "every account is without an advisor",
+      "taxable accounts are without an advisor",
+      "accounts at Northgate are with no advisor",
+      "these accounts are no advisor",
+      "the trust is without a household",
+      "every trust is with no advisor",
+    ]);
+    await each(
+      [
+        "entries are without a vendor",
+        "the entry is without a category",
+        "that entry is with no counterparty",
+        "every entry is without an owner",
+        "travel entries are without a vendor",
+      ],
+      vendors,
+    );
+  });
+
+  it("is not read after “has” or “have” when “that” picks out the rows rather than describing them", async () => {
+    await each([
+      "that account has no advisor",
+      "that account has an advisor",
+      "that account has no household",
+      "that trust has an advisor",
+      "that taxable account has no advisor",
+      "this account has an advisor",
+      "the accounts have no advisor",
+      // A name before the "that" does not make it a relative word.
+      "for taxable, that account has no advisor",
+      "at Northgate, that account has no advisor",
+      "for trusts that account has an advisor",
+      "for taxable accounts, that account has no advisor",
+      "that account having no advisor",
+      "those trusts having no advisor",
+    ]);
+    await each(
+      [
+        "that entry has no vendor",
+        "that entry has a category",
+        "this entry has no owner",
+        "that travel entry has a vendor",
+        "the entries have no vendor",
+        "for travel, that entry has no vendor",
+        "that entry having no vendor",
+      ],
+      vendors,
+    );
+  });
+
+  it("is not read after a question word right before its column, with no name for the rows before it", async () => {
+    await each([
+      "which advisor is missing",
+      "which household is empty",
+      "which advisor is blank",
+      "whose advisor is missing",
+      "show me which household is blank",
+      "which custodian is not empty",
+      'which advisor starts with "Av"',
+    ]);
+    await each(
+      [
+        "show me which vendor is blank",
+        "which vendor is missing",
+        "which owner is blank",
+        "whose vendor is empty",
+        "which category is not empty",
+        'which vendor starts with "Ce"',
+      ],
+      vendors,
+    );
+    await asks('which advisor starts with "Av"', placed("“which”"));
+  });
+
+  it("is not read with only a preposition and the rows after a form that says something of its column", async () => {
+    await each([
+      "advisor is empty for every account",
+      "advisor is empty for all accounts",
+      "advisor is missing from the account",
+      "advisor is blank in those accounts",
+      "advisor is empty for all",
+      "the advisor is blank for every account",
+      "advisor is not empty for all accounts",
+      "household is missing in the accounts",
+      "advisor is empty for each account",
+      'advisor starts with "Av" for all accounts',
+    ]);
+    await each(
+      [
+        "vendor is empty for these entries",
+        "vendor is empty for every entry",
+        "category is blank for all entries",
+        "vendor is missing from the entry",
+        "owner is empty in those entries",
+        'vendor starts with "Ce" for every entry',
+      ],
+      vendors,
+    );
+    await asks('advisor starts with "Av" for all accounts', placed("“for all accounts”"));
+  });
+
+  it("is still read where the words ask for rows", async () => {
+    // Before this round's rulings these were ready, with these plans, and they stay so.
+    await reads("accounts without an advisor", [["advisor_name", "isEmpty"]]);
+    await reads("accounts with no advisor", [["advisor_name", "isEmpty"]]);
+    await reads("show me accounts with no advisor", [["advisor_name", "isEmpty"]]);
+    await reads("those accounts with no advisor", [["advisor_name", "isEmpty"]]);
+    await reads("accounts where the advisor is missing", [["advisor_name", "isEmpty"]]);
+    await reads("accounts whose advisor is empty", [["advisor_name", "isEmpty"]]);
+    await reads("taxable accounts with no advisor", [
+      ["registration_type", "eq", "taxable"],
+      ["advisor_name", "isEmpty"],
+    ]);
+    await reads("advisor is blank", [["advisor_name", "isEmpty"]]);
+    await reads("the advisor is missing", [["advisor_name", "isEmpty"]]);
+    await reads("households with no advisor", [["advisor_name", "isEmpty"]]);
+    await reads("show every household with no advisor", [["advisor_name", "isEmpty"]]);
+    await reads("accounts that have an advisor", [["advisor_name", "isNotEmpty"]]);
+    await reads("which accounts have no advisor?", [["advisor_name", "isEmpty"]]);
+    await reads("accounts which have no advisor", [["advisor_name", "isEmpty"]]);
+    await reads("which taxable accounts have no advisor", [
+      ["registration_type", "eq", "taxable"],
+      ["advisor_name", "isEmpty"],
+    ]);
+    await reads("trusts that have an advisor", [
+      ["registration_type", "eq", "trust"],
+      ["advisor_name", "isNotEmpty"],
+    ]);
+    await reads("accounts that also have an advisor", [["advisor_name", "isNotEmpty"]]);
+    await reads("those that have no advisor", [["advisor_name", "isEmpty"]]);
+    await reads("accounts having no advisor", [["advisor_name", "isEmpty"]]);
+    await reads("accounts having an advisor", [["advisor_name", "isNotEmpty"]]);
+    await reads("those accounts that have no advisor", [["advisor_name", "isEmpty"]]);
+    await asks("who has an advisor", placed("“who”"));
+    await reads("which accounts at Northgate have no advisor", [
+      ["custodian", "eq", "northgate"],
+      ["advisor_name", "isEmpty"],
+    ]);
+    await asks("accounts that don't have an advisor", placed("“don't”"));
+    await reads("advisor is empty for taxable accounts", [
+      ["registration_type", "eq", "taxable"],
+      ["advisor_name", "isEmpty"],
+    ]);
+    await reads("advisor is blank for accounts at Northgate", [
+      ["custodian", "eq", "northgate"],
+      ["advisor_name", "isEmpty"],
+    ]);
+    // Narrowed by an amount: it asked before the rulings, as an amount after an empty form does, and still asks.
+    await asks("advisor is empty for accounts over $1m");
+    await reads("entries that have a category", [["category", "isNotEmpty"]], undefined, vendors);
+    await reads(
+      "entries with no vendor booked after 2026-01-01",
+      [
+        ["booked", "gt", "2026-01-01"],
+        ["counterparty", "isEmpty"],
+      ],
+      undefined,
+      vendors,
+    );
+    await reads("which entries have no vendor?", [["counterparty", "isEmpty"]], undefined, vendors);
+    await reads("entries whose vendor is empty", [["counterparty", "isEmpty"]], undefined, vendors);
+    await reads(
+      "vendor is empty for travel entries",
+      [
+        ["category", "eq", "travel"],
+        ["counterparty", "isEmpty"],
+      ],
+      undefined,
+      vendors,
+    );
+    expect(found("entries that aren't cleared and have no category", ledger)).toEqual(["no category: category isEmpty"]);
+  });
+});
+
 // The Mentions read a name right after another as the rows ("Northgate accounts"). After a form's column, that name is
 // a column: "no vendor booked after …" names Booked, as "booked after … with no vendor" does (review finding).
 describe("a column named right after a form", () => {

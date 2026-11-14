@@ -265,6 +265,19 @@ const nounSpans = (text: string, schema: PlacedPart["schema"], filtered: Readonl
   );
 };
 
+/** "Rows", "records" and "ones", wherever they sit. */
+const ROW_WORD = new RegExp(String.raw`(?<![\p{L}\p{N}'])(?:${alt(ROW_WORDS)})(?![\p{L}\p{N}'])`, "gu");
+
+/**
+ * Where a text names rows by a noun: the Row Noun and the entity words, in either number, and "rows", "records" and
+ * "ones". The entity words of the columns in `except` are left out. The checks for a form said as a statement read them
+ * (`core/code-read.ts`).
+ */
+export const rowNouns = (text: string, schema: ViewSchema, except: ReadonlySet<string> = new Set()): Span[] => [
+  ...nounSpans(text, schema, except).map(({ start, end }) => ({ start, end })),
+  ...[...text.matchAll(ROW_WORD)].map((m) => ({ start: m.index, end: m.index + m[0].length })),
+];
+
 /** A column the part asks for: where its name sits, and its column. */
 interface AskedColumn extends Span {
   columnId: string;

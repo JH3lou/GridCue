@@ -219,14 +219,19 @@ const cantGroupHeldOut4 = await run(new URL("./cases-cant-group-heldout-r4.jsonl
 // controls that stay ready ("households with no advisor"). 8 more joined with the review's next fixes: 5 that must not
 // be ready ("show me an advisor where household is empty", "my household with no advisor"), all 5 ready with the
 // form's filter alone before them, and 3 controls that must be ready ("show every household with no advisor", "my
-// restricted accounts with no advisor"), 2 of which asked before them. Now: 44 exact, 36 asked as labelled, of 80.
+// restricted accounts with no advisor"), 2 of which asked before them. 11 more joined with the lead's rulings on
+// statements around a form (round 4): controls that keep the plan they had before ("accounts whose advisor is empty",
+// "advisor is empty for taxable accounts"), and "advisor is empty for accounts over $1m", which asks as before. Now: 54
+// exact, 37 asked as labelled, of 91.
 const textForms = await run(new URL("./cases-text-forms.jsonl", import.meta.url), "cases-text-forms.jsonl");
 // Sentences that hold a text or empty form and are not view requests (spec 4.2). None may be ready. The first 20 were
 // labelled before the code: 19 asked and 1 refused (2026-11-14). 24 more joined with the fix for statements made only
 // of words GridCue places ("advisor is missing from my account", "every advisor is empty"), written beside that fix:
 // all 24 were ready before it. 11 more joined with the review's next fixes ("include me in accounts with no advisor",
-// "that advisor is missing", "accounts which were without an advisor"): all 11 were ready before them. Now: 54 asked
-// and 1 refused, of 55.
+// "that advisor is missing", "accounts which were without an advisor"): all 11 were ready before them. 16 more joined
+// with the lead's rulings on statements around a form (round 4: "accounts are without an advisor", "that account has
+// no advisor", "which advisor is missing", "advisor is empty for every account"): all 16 were ready before them. Now:
+// 70 asked and 1 refused, of 71.
 const notRequests = await run(new URL("./cases-not-requests.jsonl", import.meta.url), "cases-not-requests.jsonl");
 // The limit on a provider's picks (spec 4.2): requests that hold a code-read filter, each with a scripted provider answer
 // that proposes a sort, a column or a value for words the filter took, written before the code. Each case must match:
