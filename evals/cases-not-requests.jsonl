@@ -1,0 +1,20 @@
+{"id":"nr-no-advisor-i-trust","utterance":"there is no advisor I trust","expect":{"mustNotBeReady":true}}
+{"id":"nr-no-advisor-moment","utterance":"I have no advisor at the moment","expect":{"mustNotBeReady":true}}
+{"id":"nr-who-has-advisor","utterance":"who has an advisor","expect":{"mustNotBeReady":true}}
+{"id":"nr-what-blank","utterance":"what does it mean when an advisor is blank","expect":{"mustNotBeReady":true}}
+{"id":"nr-good-advisor","utterance":"she has a good advisor","expect":{"mustNotBeReady":true}}
+{"id":"nr-called-back","utterance":"no advisor called me back","expect":{"mustNotBeReady":true}}
+{"id":"nr-felt-lost","utterance":"without an advisor I felt lost","expect":{"mustNotBeReady":true}}
+{"id":"nr-exactly-who","utterance":"the advisor is exactly who I wanted","expect":{"mustNotBeReady":true}}
+{"id":"nr-household-a","utterance":"I wonder if the household starts with an A","expect":{"mustNotBeReady":true}}
+{"id":"nr-no-household-wants","utterance":"there is no household that wants this","expect":{"mustNotBeReady":true}}
+{"id":"nr-why-blank","utterance":"why is the advisor blank","expect":{"mustNotBeReady":true}}
+{"id":"nr-nobody-knows","utterance":"nobody has an advisor I know","expect":{"mustNotBeReady":true}}
+{"id":"nr-assign-advisor","utterance":"assign an advisor to accounts with no advisor","expect":{"mustNotBeReady":true}}
+{"id":"nr-begins-plan","utterance":"my advisor begins with a plan","expect":{"mustNotBeReady":true}}
+{"id":"nr-owner-counterparty-dislike","utterance":"the owner has a counterparty I dislike","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"nr-no-counterparty-story","utterance":"there is no counterparty in this story","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"nr-category-report","utterance":"I was told the category is missing from my report","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"nr-deal-fell-apart","utterance":"without a counterparty the deal fell apart","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"nr-owner-exactly-right","utterance":"she has an owner who is exactly right","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"nr-email-everyone","utterance":"email everyone who has an advisor","expect":{"mustNotBeReady":true}}

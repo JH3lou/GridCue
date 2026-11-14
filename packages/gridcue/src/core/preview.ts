@@ -33,6 +33,18 @@ const list = (items: string[]): string =>
 const predicatesOf = (group: FilterGroup | null | undefined): FilterPredicate[] =>
   (group?.children ?? []).flatMap((child) => ("children" in child ? predicatesOf(child) : [child]));
 
+/**
+ * A filter that reads as a sentence about the rows, without "Filter": a yes/no column's value ("Restricted holdings is
+ * Yes"), and an empty or not empty column ("Advisor is empty"). `undefined` for any other filter.
+ */
+const rowsWhere = (p: FilterPredicate, c: ColumnDescriptor | undefined): string | undefined => {
+  const label = c?.label ?? p.columnId;
+  if (c?.kind === "boolean" && p.operator === "eq") return `${label} is ${formatValue(p.value as Scalar, c)}`;
+  if (p.operator === "isEmpty") return `${label} is empty`;
+  if (p.operator === "isNotEmpty") return `${label} is not empty`;
+  return undefined;
+};
+
 const describe = (op: ViewOperation, schema: ViewSchema, current?: Pick<ViewState, "filters">): string => {
   const col = (id: string) => schema.columns.find((c) => c.id === id);
   const label = (id: string) => col(id)?.label ?? id;
@@ -40,8 +52,11 @@ const describe = (op: ViewOperation, schema: ViewSchema, current?: Pick<ViewStat
     case "filter.add": {
       const p = op.predicate;
       const c = col(p.columnId);
-      if (c?.kind === "boolean" && p.operator === "eq") return `Show only rows where ${c.label} is ${formatValue(p.value as Scalar, c)}`;
+      const where = rowsWhere(p, c);
+      if (where) return `Show only rows where ${where}`;
       const v = p.value;
+      // Exact text on a text column, without letter case: "to" alone can't be told from "containing" at a glance.
+      if (c?.kind === "string" && p.operator === "eq" && typeof v === "string") return `Filter ${c.label} to exactly ${formatValue(v, c)}`;
       const shown =
         v === undefined
           ? ""
@@ -55,8 +70,8 @@ const describe = (op: ViewOperation, schema: ViewSchema, current?: Pick<ViewStat
     case "filter.clear": {
       // Name what goes, so a new filter never silently drops an old one (user feedback on the live demo).
       const removed = predicatesOf(current?.filters).map((predicate) => {
-        const c = col(predicate.columnId);
-        if (c?.kind === "boolean" && predicate.operator === "eq") return `${c.label} is ${formatValue(predicate.value as Scalar, c)}`;
+        const where = rowsWhere(predicate, col(predicate.columnId));
+        if (where) return where;
         return describe({ type: "filter.add", predicate, combineWith: "and" }, schema).replace(/^Filter /, "");
       });
       if (removed.length === 0) return "Clear all filters";

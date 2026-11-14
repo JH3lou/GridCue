@@ -58,7 +58,9 @@ export const providerRequest = async (c: EvalCase, run: Run = runCase): Promise<
       return { clauses: [] };
     },
   };
-  await run(c, provider);
+  // A case's scripted answer would stand in for this provider, so it is left out: it can't change the request.
+  const { providerAnswer: _answer, ...asked } = c;
+  await run(asked, provider);
   return seen;
 };
 

@@ -121,14 +121,20 @@ describe("“without” beside quoted text", () => {
 });
 
 describe("a word GridCue doesn't read between a column and quoted text", () => {
-  it("asks for “starts with”, “ends with”, “is exactly” and “=”", async () => {
-    await asks('advisor starts with "Av"', match("av"));
+  it("asks for “ends with” and “==”", async () => {
     await asks('advisor ends with "Lane"', match("lane"));
-    await asks('advisor is exactly "Avery Lane"', match("avery lane"));
-    await asks('advisor = "Avery Lane"', match("avery lane"));
     await asks('advisor == "Avery Lane"', match("avery lane"));
-    await asks('account number starts with "AC-1"', match("ac-1"));
-    await asks('Accounts where advisor starts with "Av" and market value over $1m', match("av"));
+  });
+
+  it("no longer asks for “starts with”, “is exactly” and “=”, which spec 5.2 reads", async () => {
+    await reads('advisor starts with "Av"', [["advisor_name", "startsWith", "av"]]);
+    await reads('advisor is exactly "Avery Lane"', [["advisor_name", "eq", "avery lane"]]);
+    await reads('advisor = "Avery Lane"', [["advisor_name", "eq", "avery lane"]]);
+    await reads('account number starts with "AC-1"', [["account_number", "startsWith", "ac-1"]]);
+    await reads('Accounts where advisor starts with "Av" and market value over $1m', [
+      ["market_value", "gt", 1_000_000],
+      ["advisor_name", "startsWith", "av"],
+    ]);
   });
 
   it("asks for any other word, since this is a rule and not a list of bad words", async () => {

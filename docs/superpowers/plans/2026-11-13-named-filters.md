@@ -91,51 +91,48 @@ Spec 4.1, 4.2, 4.4, 4.6, 5.2, and the PR 2 rows of section 9. ADR 0023.
 
 ### Task 2.1: The ledger fixture (Sonnet)
 **Files:** new `fixtures/ledger/`, `evals/run.ts`.
-- [ ] A ledger schema from spec 4.6 alone, with seeded synthetic rows: two text columns of names, a date column, a date-and-time column, a number, a currency, a percent, a category and a yes/no column.
-- [ ] `evals/run.ts` runs a case file against the schema it names. This PR owns the ledger (order plan). More grids, the operation set, routing, the command bar and the four bets reuse it and add no second schema of their own.
+- [x] A ledger schema from spec 4.6 alone, with seeded synthetic rows: two text columns of names, a date column, a date-and-time column, a number, a currency, a percent, a category and a yes/no column.
+- [x] `evals/run.ts` runs a case file against the schema it names. This PR owns the ledger (order plan). More grids, the operation set, routing, the command bar and the four bets reuse it and add no second schema of their own.
 
 ### Task 2.2: Label the text-form cases (Sonnet, two separate agents)
 **Files:** new `evals/cases-text-forms.jsonl`, new `evals/cases-not-requests.jsonl`; held-out sets outside the repo.
-- [ ] Form dev set, 40, on both schemas: each form in spec 5.2, each with a filter beside it, and each on a column kind that must ask.
-- [ ] Form held-out set, 40, from spec 5.2 alone.
-- [ ] Not-a-request sets, 20 dev and 20 held-out: sentences that hold an empty form or a text form and are not view requests ("there is no advisor I trust"). Labelled ask or refused.
-- [ ] Natural held-out set, 30, by the second labeller, who sees only the product definition and the two schemas.
-- [ ] Provider-pick sets, 20 dev and 20 held-out: requests that hold a code-read filter, each with a scripted provider answer that proposes a sort, a column or a value for words the filter took. Written before the code. Each of PR 3 to PR 5 adds 10 to both.
-- [ ] Baseline with the Mock Provider on all of them, before any code.
+- [x] Form dev set, 40, on both schemas: each form in spec 5.2, each with a filter beside it, and each on a column kind that must ask.
+- [x] Form held-out set, 40, from spec 5.2 alone.
+- [x] Not-a-request sets, 20 dev and 20 held-out: sentences that hold an empty form or a text form and are not view requests ("there is no advisor I trust"). Labelled ask or refused.
+- [x] Natural held-out set, 30, by the second labeller, who sees only the product definition and the two schemas.
+- [x] Provider-pick sets, 20 dev and 20 held-out: requests that hold a code-read filter, each with a scripted provider answer that proposes a sort, a column or a value for words the filter took. Written before the code. Each of PR 3 to PR 5 adds 10 to both.
+- [x] Baseline with the Mock Provider on all of them, before any code.
 
 ### Task 2.3: Every word is placed (Fable)
 **Files:** new `core/placed.ts`, `core/lead.ts`, tests.
-- [ ] Tests first: each kind of placed word in spec 4.2; each word the spec names as off the list; a verb for columns with and without a column as its object, and with a column but no column change in the plan ("pin advisor for Avery Lane's accounts"), which must ask.
-- [ ] One pure function that returns the unplaced words of a part, given its names, literals and code-read filters. The lists live in this module and nowhere else, except the operation set's form words, which it imports from `core/view-words.ts`.
-- [ ] The limit on a provider's picks in a part that passed: a column or value no Mention names is dropped; a sort, group, show or hide needs its own words. Tests use a fake provider.
-- [ ] In the compiler, a part with no code-read filter never reaches this function. A test runs every existing labelled request through the compiler and finds the function is not called. Task 2.5's report calls it from `evals/`, outside the compiler, so the report can't change a result.
-- [ ] The first PR's review left one class for this rule: unread words after the next name in a part with quoted text (`advisor "Lane" and restricted removed` previews Restricted holdings is Yes). Its cases join this PR's dev set. The allow-lists the first PR added in `core/compile.ts` (`unreadBesideText`, `afterText`) move into `core/placed.ts` or are replaced by it.
-- [ ] The first PR's reviews also found wrong views with no quoted text, which the release has too. Each joins this PR's dev set and must ask: `!=`, `≠` or `not=` before a named value reads as equal (`custodian != Northgate` shows Northgate); a full-width "！" before a name is dropped; "reversed", "backwards" or "inverted" after a sort is dropped; "all but restricted" shows the restricted rows; "reset and trusts" on a filtered view drops the reset; "account first for trusts" drops the column move.
-- [ ] The can't-group PR's held-out rounds found the same class on a grid that can group, where that PR may change nothing. Each joins this PR's dev set and must ask: "show accounts in the Northgate group" filters Custodian and drops "group"; "Northgate group accounts" also groups by Account number; "sort by value, groups by advisor" sorts by Advisor; "households named group" groups by Household. Once this rule asks about the unplaced word on every grid, the can't-group question narrows back to the grouping verb (more grids spec 5.3).
-- [ ] Requests the first PR made ask and this rule should read again, once every word in them is placed: `advisor "Lane" in descending order of value`, `advisor "Lane" is trusts`, `advisor "Lane" also not trusts`, `advisor's name is "Lane"`, `advisor containing the text "Lane"`.
+- [x] Tests first: each kind of placed word in spec 4.2; each word the spec names as off the list; a verb for columns with and without a column as its object, and with a column but no column change in the plan ("pin advisor for Avery Lane's accounts"), which must ask.
+- [x] One pure function that returns the unplaced words of a part, given its names, literals and code-read filters. The lists live in this module and nowhere else, except the operation set's form words, which it imports from `core/view-words.ts`.
+- [x] The limit on a provider's picks in a part that passed: a column or value no Mention names is dropped; a sort, group, show or hide needs its own words. Tests use a fake provider.
+- [x] In the compiler, a part with no code-read filter never reaches this function. A test runs every existing labelled request through the compiler and finds the function is not called. Task 2.5's report calls it from `evals/`, outside the compiler, so the report can't change a result.
+- [x] Where this module and the first PR's checks beside quoted text (`unreadBesideText`, `afterText` in `core/compile.ts`) hold the same kind of word, they share one list. A part with no code-read filter is still read exactly as before, plain quoted text included (spec 4.2). The wrong views the wave 1 reviews found in such parts are not this PR's: the order plan's section 12 lists them for the owner.
 
 ### Task 2.4: The forms (Opus)
 **Files:** `core/normalize.ts`, new `core/code-read.ts`, `core/compile.ts`, `core/resolution.ts`, `core/unused.ts`, `core/preview.ts`, `index.ts`, tests. Needs 2.3.
-- [ ] Tests first, one per row of both tables in spec 5.2, and each form with one extra word, which must ask.
-- [ ] `Literal.match` for "starts with" and "exactly". `readCodeFilters` with the empty forms.
-- [ ] `buildResolutionRequest` picks the fields it sends, so `Literal.match` is not sent. The payload pin test from the operation set's count fix passes unchanged. The command bar and the four bets reuse this and don't repeat it.
-- [ ] The compiler writes `startsWith`, `eq`, `isEmpty` and `isNotEmpty`, only where the column's kind and the Host's `allowedOperators` allow.
-- [ ] ADR 0019's check counts both forms. The expected-plan test: 0 blocked.
-- [ ] The Preview lines in spec section 9 for exact text and the two empty filters. A test pins every Preview line the evals produce before the change, and lists each one that changes. This PR owns that pin test; later PRs update it and say what changed.
-- [ ] PR 1's "I'm not sure how to match" question no longer fires for the forms now read.
-- [ ] Bars: 0 wrong views on the dev sets and on every existing set; no existing verdict worse.
+- [x] Tests first, one per row of both tables in spec 5.2, and each form with one extra word, which must ask.
+- [x] `Literal.match` for "starts with" and "exactly". `readCodeFilters` with the empty forms.
+- [x] `buildResolutionRequest` picks the fields it sends, so `Literal.match` is not sent. The payload pin test from the operation set's count fix passes unchanged. The command bar and the four bets reuse this and don't repeat it.
+- [x] The compiler writes `startsWith`, `eq`, `isEmpty` and `isNotEmpty`, only where the column's kind and the Host's `allowedOperators` allow.
+- [x] ADR 0019's check counts both forms. The expected-plan test: 0 blocked.
+- [x] The Preview lines in spec section 9 for exact text and the two empty filters. A test pins every Preview line the evals produce before the change, and lists each one that changes. This PR owns that pin test; later PRs update it and say what changed.
+- [x] PR 1's "I'm not sure how to match" question no longer fires for the forms now read.
+- [x] Bars: 0 wrong views on the dev sets and on every existing set; no existing verdict worse.
 
 ### Task 2.5: Held-out run (lead)
-- [ ] One run of each held-out set. Bar: 0 wrong views on all of them; none of the not-a-request sentences is ready; no provider pick the words don't name survives.
-- [ ] A wrong view in the natural set from a word nothing reads, in a part with no code-read filter, still fails the bar. It goes back as a class and is narrowed to a question; no reading is added (order plan, D4).
+- [x] One run of each held-out set. Bar: 0 wrong views on all of them; none of the not-a-request sentences is ready; no provider pick the words don't name survives.
+- [x] A wrong view in the natural set from a word nothing reads, in a part with no code-read filter, still fails the bar. It goes back as a class and is narrowed to a question; no reading is added (order plan, D4).
 - [ ] Report the form set's exact share, the natural set's ask rate, and each word that was unplaced in a request labelled ready.
 - [ ] Report how many ready plans on every set, old and new, hold a word the lists don't place, whether or not the part holds a code-read filter (order plan, D4). No bar; the number says how large the class left for the Local Resolver is. The report runs in `evals/`, not in the compiler.
-- [ ] The sets join the repo.
+- [x] The sets join the repo.
 
 ### Task 2.6: Docs and skill (Sonnet)
-- [ ] Site: `concepts/requests` (the four forms, what "empty" means, what asks), `api/schema` (`allowedOperators` turns a form off), `guides/build-an-adapter` (empty, and exact text without letter case).
-- [ ] The four bets spec (`docs/superpowers/specs/2026-11-10-four-bets-design.md`), line 56: "starts with", empty and not empty leave the list of what a request can't reach. OR filters stay on it. This edit lands here, not in PR 0 (order plan, section 5; signed off as D2). The operation set's PRs change the same line later for pins, density and totals.
-- [ ] `skills/gridcue`: the forms, and a House Term as the way to name a placeholder such as "Unassigned" once PR 3 lands. `pnpm check:skills`. Changelog (Haiku).
+- [x] Site: `concepts/requests` (the four forms, what "empty" means, what asks), `api/schema` (`allowedOperators` turns a form off), `guides/build-an-adapter` (empty, and exact text without letter case).
+- [x] The four bets spec (`docs/superpowers/specs/2026-11-10-four-bets-design.md`), line 56: "starts with", empty and not empty leave the list of what a request can't reach. OR filters stay on it. This edit lands here, not in PR 0 (order plan, section 5; signed off as D2). The operation set's PRs change the same line later for pins, density and totals.
+- [x] `skills/gridcue`: the forms, and a House Term as the way to name a placeholder such as "Unassigned" once PR 3 lands. `pnpm check:skills`. Changelog (Haiku).
 
 ### Task 2.7: Review (Opus), then gate
 - [ ] The reviewer hunts for a part with a form that is ready with a word GridCue didn't place.

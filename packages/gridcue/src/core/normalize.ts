@@ -10,7 +10,37 @@ export interface Literal {
   comparator?: Comparator;
   /** Character offset of the literal within its clause. */
   at: number;
+  /**
+   * Quoted text only: how the words right before it say to match it. "startsWith" after "starts with", "starting
+   * with", "begins with" or "beginning with"; "exact" after "is exactly", "exactly", "=", "equals" or "equal to"
+   * (named filters spec, 5.2). Core reads it; it is never sent to an Intent Provider.
+   */
+  match?: TextMatchKind;
 }
+
+/** How quoted text is matched when the words before it say so. Without one, quoted text is "containing". */
+export type TextMatchKind = "startsWith" | "exact";
+
+/**
+ * The words that ask for a match other than "containing", right before quoted text. Each is the whole phrase: a word
+ * before it that changes it ("not starting with", "doesn't equal") leaves the text with no match. Exported for the
+ * code-read filters (`core/code-read.ts`), which read a text form only when exactly these words join it to its column.
+ */
+export const TEXT_MATCH_WORDS: ReadonlyArray<readonly [TextMatchKind, string]> = [
+  ["startsWith", String.raw`(?<![\p{L}\p{N}'])(?:starts|starting|begins|beginning) with`],
+  // "=" alone: "==", "!=", "<=" and ">=" are other comparisons.
+  ["exact", String.raw`(?:(?<![\p{L}\p{N}'])(?:is exactly|exactly|equals|equal to)|(?<![<>=!/~])=)`],
+];
+/** A negation right before the match words reverses them: "not starting with", "isn't exactly". They are left unread. */
+const NEGATED_MATCH = /(?:\b(?:not|never|no)|n't)\s*$/;
+const matchBefore = (text: string, at: number): TextMatchKind | undefined => {
+  const before = text.slice(Math.max(0, at - 32), at);
+  for (const [kind, words] of TEXT_MATCH_WORDS) {
+    const m = new RegExp(String.raw`${words}\s*$`, "u").exec(before);
+    if (m) return NEGATED_MATCH.test(before.slice(0, m.index)) ? undefined : kind;
+  }
+  return undefined;
+};
 
 export interface Clause {
   index: number;
@@ -208,6 +238,34 @@ export const trailingComparison = (after: string, date = false): { comparator: C
 /** A negation right before a comparison word reverses it ("not over"). GridCue asks rather than reverse it. */
 const NEGATED_COMPARISON = /\b(?:not|no|isn't|aren't|never)\s*$/;
 
+/**
+ * Where the comparison words read for an amount or a date sit in its part: before it ("over", "at least", "between"),
+ * after it ("or more", "at most"), or both. They are the words `extractLiterals` read, found the same way; nothing is
+ * read anew. Empty for quoted text, and for an amount read with no comparison.
+ */
+export const comparisonSpans = (text: string, lit: Literal): Array<{ start: number; end: number }> => {
+  if (lit.kind === "text" || lit.kind === "unreadable") return [];
+  const bare = unquoted(text);
+  const spans: Array<{ start: number; end: number }> = [];
+  const from = Math.max(0, lit.at - 40);
+  const before = bare.slice(from, lit.at);
+  if (lit.comparator === "between") {
+    const range = /\b(?:between|from)\s*$/.exec(before);
+    if (range) spans.push({ start: from + range.index, end: lit.at });
+  } else {
+    for (const [re] of COMPARATORS) {
+      const m = re.exec(before);
+      if (!m) continue;
+      if (!NEGATED_COMPARISON.test(before.slice(0, m.index))) spans.push({ start: from + m.index, end: lit.at });
+      break;
+    }
+  }
+  const end = lit.at + literalText(text, lit).length;
+  const trailing = trailingComparison(bare.slice(end, end + 40), lit.kind === "date");
+  if (trailing) spans.push({ start: end, end: end + trailing.length });
+  return spans;
+};
+
 const MULTIPLIERS: Record<string, number> = {
   k: 1e3,
   thousand: 1e3,
@@ -310,7 +368,8 @@ const comparatorAround = (clause: string, at: number, end: number, date = false)
 const extractLiterals = (clause: string): Literal[] => {
   const literals: Literal[] = [];
   for (const m of clause.matchAll(QUOTED)) {
-    literals.push({ kind: "text", value: m[1] ?? "", at: m.index ?? 0 });
+    const match = matchBefore(unquoted(clause), m.index ?? 0);
+    literals.push({ kind: "text", value: m[1] ?? "", at: m.index ?? 0, ...(match ? { match } : {}) });
   }
   const withoutQuotes = unquoted(clause);
   for (const m of withoutQuotes.matchAll(ISO_DATE)) {

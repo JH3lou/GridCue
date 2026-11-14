@@ -334,7 +334,7 @@ The review of each planning record left these to the lead. None changes an appro
 | 1 | What "no value" means for a count (O1) | `null`, a missing key, an empty string and `NaN`, as `isEmpty` in core already says |
 | 1 | A Host handler that stores something other than what it is given, or stores it after the bound (G1) | Documented, not handled in code. The apply fails after 1,000 ms; the table keeps what the handler stored, and it can't be undone. The owner decides whether the bound becomes an adapter option or the message names the handler |
 | 1 | A Host listener that changes another part of the view on the same notification that holds GridCue's write (G1) | Left as the spec has it: the apply fails with "the view changed meanwhile", and GridCue leaves the view as it is. Whether it fails or succeeds with a stale undo depends on which listener subscribed first. Reported to the owner |
-| 1 | Which words count as asking to group, on a grid that can't (G3) | Wider than the spec's "grouping verb". A request holding any word built on "group", outside a declared name and quoted text, is never ready. One exception: the word is said to stay or be left out, with a fixed list of staying words, and nothing follows it in its part. Three held-out rounds each found a ready Preview that dropped such a word; the fourth found none. The cost: "show accounts in the Northgate group" gets "This grid can't group rows." where the User likely meant a filter. The spec's "would change if" says to narrow to the verb at the start of a part on that evidence; narrowing would bring the dropped-word Previews back, so the lead kept the wide rule until N2's every-word rule can ask a truer question. The owner may rule otherwise |
+| 1 | Which words count as asking to group, on a grid that can't (G3) | Wider than the spec's "grouping verb". A request holding any word built on "group", outside a declared name and quoted text, is never ready. One exception: the word is said to stay or be left out, with a fixed list of staying words, and nothing follows it in its part. Three held-out rounds each found a ready Preview that dropped such a word; the fourth found none. The cost: "show accounts in the Northgate group" gets "This grid can't group rows." where the User likely meant a filter. The spec's "would change if" says to narrow to the verb at the start of a part on that evidence; narrowing would bring the dropped-word Previews back, so the lead kept the wide rule until the fix in section 12 can ask a truer question on every grid. The owner may rule otherwise |
 | 1 | A reading question that offers grouping on a grid that can't group (G3) | Unchanged and out of scope: "largest households first" still offers "Group by Household" there, and picking it ends unsupported. Nothing applies. It goes with O2, which reuses the shared "this grid can't" result |
 | 1 | Wrong views in the TanStack Table adapter that the v8 guide's review found (G2) | Not fixed: G2 adds no code to the package, and no plan covers them. The guide and the skill give the workaround. They need the owner's ruling and their own fix PR. On a column with `invertSorting: true`, the table shows the opposite order to the Preview. On a column or table with `enableSorting: false`, and on a table with no grouped row model, GridCue says "View updated." and the rows don't change. A column that names a built-in filter function shows no rows for a GridCue filter. All but the last hold on `useTable` too |
 | 2 | The code for a `now` that throws (N5) | `INPUT_CLOCK` |
@@ -352,3 +352,37 @@ The review of each planning record left these to the lead. None changes an appro
 | 6 | The bar prototype | The owner sees it after R2 builds it, and again before C1's component code |
 
 Live Jev runs wait for the owner's command each time. So does every merge.
+
+## 12. Wrong views found while building wave 1, not yet planned
+
+The wave 1 reviews and held-out rounds found these. Each is in the release too. None is in an approved plan, and no wave 1 PR could fix them inside its one concern. The lead recommends two fix PRs, each with its own labelled sets, built the way the wave 1 fixes were: every change asks, and none adds a reading. They wait for the owner.
+
+**A. Reading: a word or symbol GridCue drops, in a part with no code-read filter.** Named filters' every-word rule does not reach these parts (its spec 4.2), and the Local Resolver that would is in the four bets.
+
+| Request | Today |
+| --- | --- |
+| `custodian != Northgate`, and `≠` or `not=` | Shows Northgate |
+| A full-width "！" before a name | Dropped; shows the rows the User left out |
+| "sort by value reversed", "backwards", "inverted" | Sorts ascending |
+| "all but restricted" | Shows the restricted rows |
+| "reset and trusts", on a filtered and sorted view | Drops the reset |
+| "account first for trusts" | Drops the column move |
+| `advisor "Lane" and restricted removed` | Shows the restricted rows |
+| "show accounts in the Northgate group", on a grid that can group | Filters Custodian and drops "group" |
+| "Northgate group accounts" | Also groups by Account number |
+| "sort by value, groups by advisor" | Sorts by Advisor |
+| "households named group" | Groups by Household |
+| "accounts over $1m, top 5 by gain" | Filters Unrealized gain and sorts by Market value |
+
+With this fix in, the can't-group question can narrow back to the grouping verb (more grids spec 5.3).
+
+**B. The TanStack Table adapter says a view applied that the table doesn't show.** Found by the v8 guide's review; the guide and the skill give a workaround for each.
+
+| Table setup | Today |
+| --- | --- |
+| A column with `invertSorting: true` | The table shows the opposite order to the Preview |
+| A column or table with `enableSorting: false` | "View updated."; the rows don't move |
+| No grouped row model | "View updated."; the rows are not grouped |
+| A column that names a built-in filter function | A GridCue filter on it shows no rows |
+
+**Costs to win back.** Requests the wave 1 fixes made ask, which read correctly before: `advisor "Lane" in descending order of value`, `advisor "Lane" is trusts`, `advisor's name is "Lane"`, `advisor containing the text "Lane"`, and, on a grid that can't group, "clear the sort, leave the grouping and the filter alone".

@@ -1,12 +1,14 @@
 import { readFileSync } from "node:fs";
 import { isDeepStrictEqual } from "node:util";
-import { wealthInitialState, wealthSchema } from "@gridcue-internal/wealth-fixtures";
+import { ledgerInitialState, ledgerMockOptions, ledgerSchema } from "@gridcue-internal/ledger-fixtures";
+import { wealthInitialState, wealthMockOptions, wealthSchema } from "@gridcue-internal/wealth-fixtures";
 import {
   createGridCue,
   createRowsAdapter,
   defineSchema,
   type GridCueController,
   type IntentProvider,
+  type ResolutionResult,
   type RowsAdapter,
   type ViewOperation,
   type ViewPlan,
@@ -20,11 +22,19 @@ export interface EvalCase {
   state?: Partial<Pick<ViewState, "groupBy" | "sorts" | "filters" | "limit">>;
   /**
    * Runs on another schema instead of the wealth fixture: "dated" for cases about dates, "group-names" for a schema
-   * where "group" is part of a value and of a column's label.
+   * where "group" is part of a value and of a column's label, "ledger" for the ledger fixture (fixtures/ledger).
    */
-  schema?: "dated" | "group-names";
+  schema?: "dated" | "group-names" | "ledger";
   /** "no-group" runs on a grid that doesn't list `group.set` (more grids spec, 5.3). */
   grid?: "no-group";
+  /**
+   * A scripted answer from the Intent Provider, written by the labeller before the code. It is replayed in place of
+   * the provider the case runs with, the way ADR 0022's tests replay an answer, so the case checks what code does with
+   * that proposal. The request is built and sent as for any other case.
+   */
+  providerAnswer?: ResolutionResult;
+  /** With a ready `expect`: a question or a refusal is also right. Only a ready plan with other operations is wrong. */
+  alsoAcceptsAsk?: boolean;
   expect: {
     /** Left out with `mustNotBeReady`. */
     status?: ViewPlan["status"];
@@ -103,6 +113,9 @@ const withoutGrouping = (adapter: RowsAdapter): RowsAdapter => ({
   },
 });
 
+/** The Mock Provider's settings for the app a case runs in: which column a bare amount or percentage names there. */
+export const mockOptionsFor = (c: Pick<EvalCase, "schema">) => (c.schema === "ledger" ? ledgerMockOptions : wealthMockOptions);
+
 export type Verdict = "exact" | "safe_abstention" | "rejected" | "mismatch" | "unsafe";
 
 export const loadCases = (path = new URL("./cases.jsonl", import.meta.url)): EvalCase[] =>
@@ -161,7 +174,7 @@ export const judge = (c: EvalCase, plan: ViewPlan | null, status: string): Verdi
   if (!plan) return "mismatch";
   if (status === "ready" && c.expect.neverApplies && plan.operations.some((op) => op.type === c.expect.neverApplies)) return "unsafe";
   if (c.expect.status !== "ready" && status === "ready") return "unsafe";
-  if (c.expect.mustNotBeReady) return status === "unsupported" ? "rejected" : "safe_abstention";
+  if (c.expect.mustNotBeReady || (c.alsoAcceptsAsk && status !== "ready")) return status === "unsupported" ? "rejected" : "safe_abstention";
   if (c.expect.status !== status) return "mismatch";
   if (status === "ready") {
     return sameView(stripIds(plan.operations), c.expect.operations ?? []) ? "exact" : "unsafe";
@@ -171,20 +184,30 @@ export const judge = (c: EvalCase, plan: ViewPlan | null, status: string): Verdi
   return status === "unsupported" ? "rejected" : "safe_abstention";
 };
 
-export const runCase = async (c: EvalCase, provider: IntentProvider) => {
+/**
+ * Runs one case. `make` is the Controller's constructor: the built package's, unless a test passes the package
+ * source's to look inside the compiler.
+ */
+export const runCase = async (c: EvalCase, provider: IntentProvider, make: typeof createGridCue = createGridCue) => {
   // A case's state is the view the User is looking at. The default view, which a reset returns to, stays the fixture's.
   const rows =
     c.schema === "dated"
       ? createRowsAdapter({ schema: datedSchema })
       : c.schema === "group-names"
         ? createRowsAdapter({ schema: groupNamesSchema })
-        : createRowsAdapter({ schema: wealthSchema, initialState: wealthInitialState });
+        : c.schema === "ledger"
+          ? createRowsAdapter({ schema: ledgerSchema, initialState: ledgerInitialState })
+          : createRowsAdapter({ schema: wealthSchema, initialState: wealthInitialState });
   const adapter = c.grid === "no-group" ? withoutGrouping(rows) : rows;
   if (c.state) adapter.setState((view) => ({ ...view, ...c.state }));
-  const cue: GridCueController = createGridCue({ adapter, provider });
+  const answer = c.providerAnswer;
+  const cue: GridCueController = make({
+    adapter,
+    provider: answer ? { resolve: async () => structuredClone(answer) } : provider,
+  });
   const plan = await cue.propose(c.utterance);
-  const status = cue.getState().status;
-  return { id: c.id, verdict: judge(c, plan, status), plan, status };
+  const { status, preview } = cue.getState();
+  return { id: c.id, verdict: judge(c, plan, status), plan, status, preview };
 };
 
 /** "group", "grouped", "grouping", "ungroup", in any case. */
@@ -195,10 +218,11 @@ const GROUPING_WORD = /\b(?:un)?group/i;
  * A case whose expected plan groups, or clears the grouping, must end not applied. So must a question or refusal
  * whose words name grouping, since its labelled prompt may now say the grid can't group. Every other case keeps its
  * label, and must keep the verdict it has on the Rows Adapter. A case that starts grouped is left out: a grid that
- * can't group never holds a grouping. Returns `undefined` for those.
+ * can't group never holds a grouping. So is a case with a scripted provider answer: it was written for the candidates
+ * of a grid that can group. Returns `undefined` for those.
  */
 export const onGridWithoutGrouping = (c: EvalCase): { case: EvalCase; groups: boolean } | undefined => {
-  if (c.grid || (c.state?.groupBy?.length ?? 0) > 0) return undefined;
+  if (c.grid || c.providerAnswer || (c.state?.groupBy?.length ?? 0) > 0) return undefined;
   const groups =
     (c.expect.operations ?? []).some((op) => (op as { type: string }).type === "group.set") ||
     (c.expect.status !== "ready" && GROUPING_WORD.test(c.utterance));

@@ -1,4 +1,5 @@
 export { type ApplyResult, type GridAdapter, MVP_OPERATIONS } from "./core/adapter";
+export { type CodeReadFilter, type CodeReadKind, type CodeReadPredicate, readCodeFilters } from "./core/code-read";
 export { type CompileInput, type ConfidencePolicy, type CountQuestion, compile, countQuestion, DEFAULT_CONFIDENCE } from "./core/compile";
 export {
   type ControllerState,
@@ -10,7 +11,15 @@ export {
 export * from "./core/errors";
 export { matchesFilter, matchesPredicate } from "./core/evaluate";
 export { LITERAL_COLUMN_KINDS, type Mention, type MentionColumn, matchMentions } from "./core/mentions";
-export { type Clause, type Comparator, type Literal, type LiteralKind, type NormalizedInput, normalize } from "./core/normalize";
+export {
+  type Clause,
+  type Comparator,
+  type Literal,
+  type LiteralKind,
+  type NormalizedInput,
+  normalize,
+  type TextMatchKind,
+} from "./core/normalize";
 export { type RestrictedMention, screenRestricted } from "./core/policy";
 export * from "./core/preview";
 export * from "./core/protocol";

@@ -263,6 +263,9 @@ importers:
 
   evals:
     dependencies:
+      '@gridcue-internal/ledger-fixtures':
+        specifier: workspace:*
+        version: link:../fixtures/ledger
       '@gridcue-internal/wealth-fixtures':
         specifier: workspace:*
         version: link:../fixtures/wealth
@@ -383,6 +386,16 @@ importers:
       vite:
         specifier: 8.3.0
         version: 8.3.0(@types/node@26.6.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)
+
+  fixtures/ledger:
+    dependencies:
+      gridcue:
+        specifier: workspace:*
+        version: link:../../packages/gridcue
+    devDependencies:
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
 
   fixtures/wealth:
     dependencies:

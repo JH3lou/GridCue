@@ -28,7 +28,7 @@ One part of an Utterance that asks for one kind of change. Code splits Clauses d
 
 Comparisons are read as words or symbols, spaced or not: "over", "under", "at least", "at most", "at or above", "no greater than", "greater than or equal to", "since", `>`, `<`, `>=`, `<=`, `=`, and "$1M or more" or "$1M max" after the amount. A minus sign or "negative" right before an amount makes it negative ("gain below -$50k"); a hyphen between two amounts is a range ("$50k-$100k", "10-20%"). An amount is read only when what follows it is the end of the part or something GridCue reads, such as a name or "grouped by"; "$1M, roughly" and "over $1M or so" are asked about. With no comparison it is "equal to" only when it sits right by its column ("market value $750k", "opened on 2024-01-01"). Otherwise, as with "around $1M", `!= $1M` or "$1M give or take", GridCue asks. Filters always combine with "and", so "over $1M or at Northgate" is asked about too. "Hide taxable accounts" and "exclude accounts over $1M" keep the other rows when they leave out one simple condition; anything more is asked about.
 
-Quoted text filters a column for rows containing it, and only when the column's name comes right before it. Nothing, ":", "is", "are", or "containing", "contains", "includes", "has", "like" or "matching" may sit between them: `advisor "Lane"`, `advisor: "Lane"` and `advisor containing "Lane"` all read as containing. "Column" after a column's name, and "name" after a column that names another record ("advisor name"), are part of the name. Any other word between them is asked about, because GridCue only matches by containing: `advisor starts with "Av"`, `advisor is exactly "Avery Lane"` and `advisor = "Avery Lane"` ask. The grid's own `rowNoun` right before "for" and quoted text means the rows (`accounts for "Avery Lane"`), and quoted text with no column named before it asks which column should contain it. A provider's pick for that column is offered first, never applied. The words around text with no column are checked first, as below, and a containing word may also sit right before it (`containing "Lane"`): `starts with "Av"`, `exactly "Avery Lane"` and `"Avery Lane" exactly` ask about those words instead. The words right before the column and right after the text must be read too. Before the column: a verb that chooses rows ("show", "keep", "include", "view", "look at"), "only", "all of", the grid's own `rowNoun`, a word that joins the rows to the column, "for", "and" or "but only", and a direction or count (`taxable accounts with advisor "Lane"`, `value over $1M for advisor "Lane"`). The joining words are "with", "where", "whose", "having", "holding", "that have", "which have", and "that", "which" or "who" before "are" or "is". "Filter" also takes "rows", "records", "the grid" or "the table", then "by", "on", "for", "to", "in", "with" or "where" (`filter by advisor "Lane"`). After the text, up to the next name or amount: "'s", the `rowNoun`, "and", "or", "then" or "also", "but" before "only" or a sort, a joining word, a sort or grouping ("sorted by", "in order of"), "show", "hide" or "unhide" before a name, a direction or count ("largest first", "top 10"), a preposition before a named value ("at Northgate", "in the taxable accounts"), the words that leave a named value out ("but trusts"), "not", "no", "non" or "without" before a yes/no name, after "but" too, and a comparison before an amount, after "valued" or "worth" too (`advisor "Lane" sorted by value`, `advisor "Lane" at Northgate`). At the end of the part: any of "please", "too", "also", "only" and "as well", then "thanks". Anything else is asked about: `accounts sans advisor "Lane"`, `the opposite of advisor "Lane"`, `advisor "Lane" exactly`, `advisor "Lane" accounts exactly` and `advisor "Lane" but restricted` ask. So do some correct requests, such as `advisor's name is "Lane"`, `advisor containing the text "Lane"`, `filter advisor to "Lane"` and `show accounts for advisor "Lane"`; write `advisor containing "Lane"` instead.
+Quoted text filters a column for rows containing it, and only when the column's name comes right before it. Nothing, ":", "is", "are", or "containing", "contains", "includes", "has", "like" or "matching" may sit between them: `advisor "Lane"`, `advisor: "Lane"` and `advisor containing "Lane"` all read as containing. "Column" after a column's name, and "name" after a column that names another record ("advisor name"), are part of the name. Any other word between them is asked about, because quoted text means "containing" unless it follows one of the words in [Text forms](#text-forms-and-empty-values) below: `advisor ends with "Lane"` and `advisor matches "Lane"` ask. The grid's own `rowNoun` right before "for" and quoted text means the rows (`accounts for "Avery Lane"`), and quoted text with no column named before it asks which column should contain it. A provider's pick for that column is offered first, never applied. The words around text with no column are checked first, as below, and a containing word may also sit right before it (`containing "Lane"`): `starts with "Av"` and `exactly "Avery Lane"` ask "I'm not sure how to match “av”. Try “containing”.", and `"Avery Lane" exactly` asks about "exactly". Name the column too: `advisor starts with "Av"`. The words right before the column and right after the text must be read too. Before the column: a verb that chooses rows ("show", "keep", "include", "view", "look at"), "only", "all of", the grid's own `rowNoun`, a word that joins the rows to the column, "for", "and" or "but only", and a direction or count (`taxable accounts with advisor "Lane"`, `value over $1M for advisor "Lane"`). The joining words are "with", "where", "whose", "having", "holding", "that have", "which have", and "that", "which" or "who" before "are" or "is". "Filter" also takes "rows", "records", "the grid" or "the table", then "by", "on", "for", "to", "in", "with" or "where" (`filter by advisor "Lane"`). After the text, up to the next name or amount: "'s", the `rowNoun`, "and", "or", "then" or "also", "but" before "only" or a sort, a joining word, a sort or grouping ("sorted by", "in order of"), "show", "hide" or "unhide" before a name, a direction or count ("largest first", "top 10"), a preposition before a named value ("at Northgate", "in the taxable accounts"), the words that leave a named value out ("but trusts"), "not", "no", "non" or "without" before a yes/no name, after "but" too, and a comparison before an amount, after "valued" or "worth" too (`advisor "Lane" sorted by value`, `advisor "Lane" at Northgate`). At the end of the part: any of "please", "too", "also", "only" and "as well", then "thanks". Anything else is asked about: `accounts sans advisor "Lane"`, `the opposite of advisor "Lane"`, `advisor "Lane" exactly`, `advisor "Lane" accounts exactly` and `advisor "Lane" but restricted` ask. So do some correct requests, such as `advisor's name is "Lane"`, `advisor containing the text "Lane"`, `filter advisor to "Lane"` and `show accounts for advisor "Lane"`; write `advisor containing "Lane"` instead.
 
 A negation in a part with quoted text asks, such as `advisor is not "Avery Lane"`, "isn't", `!=`, "other than", "except", "without" and "excluded", with two exceptions. A negation the grammar reads as leaving a named value out is read: "non-retirement", `advisor "Lane" not at Northgate`, `advisor "Lane" but trusts`, `advisor "Lane" not including trusts`. So is "not", "no", "non" or "without" before a yes/no name (`advisor "Lane" not restricted`). `advisor "Lane" except restricted` and `advisor "Lane" except for trusts` ask.
 
@@ -45,6 +45,69 @@ Two forms set the count directly, and code reads both without a provider. "Show 
 The kind of change a Clause asks for (filter, sort, group, show, hide, show only, clear, or reset) is its **Operation Family**. A provider scores each family; the compiler decides which ones are used.
 
 A request can have up to 12 Clauses.
+
+## Text forms and empty values
+
+Four forms are read by GridCue's own code. A provider is never asked what they mean, and the request a provider receives is the same with or without them. Each form is the words shown and nothing else. `C` is a column's name or alias.
+
+| Form | Reads as |
+| --- | --- |
+| `C starts with "x"`, `C starting with "x"`, `C begins with "x"`, `C beginning with "x"` | C starting with x |
+| `C is exactly "x"`, `C exactly "x"`, `C = "x"`, `C equals "x"`, `C equal to "x"` | C exactly x, ignoring letter case |
+| `C is empty`, `C is blank`, `C is missing`; `no C`, `with no C`, `without C`, `without a C`, `without an C`, `without any C`; each of the last five may end in "assigned" or "set" | C is empty |
+| `C is not empty`, `C is not blank`, `C isn't empty`; `has a C`, `have an C`, `having a C`; the last three may end in "assigned" or "set" | C is not empty |
+
+| Request | Preview line |
+| --- | --- |
+| `Advisor starts with "Av"` | "Filter Advisor starting with “av”" |
+| `Advisor is exactly "Avery Lane"` | "Filter Advisor to exactly “avery lane”" |
+| "Accounts with no advisor assigned" | "Show only rows where Advisor is empty" |
+| "Accounts that have an advisor" | "Show only rows where Advisor is not empty" |
+| "Taxable accounts with no advisor" | "Filter Registration type to Taxable", then "Show only rows where Advisor is empty" |
+| "Accounts with no advisor, sorted by market value" | "Show only rows where Advisor is empty", then "Sort by Market value, ascending" |
+
+What the forms mean:
+
+- **"Exactly" ignores letter case.** `advisor is exactly "Avery Lane"` keeps "avery lane" and "AVERY LANE", and not "Avery Lane, Jr." Both forms are for text columns. On a category, date, number or other column that isn't text they ask: "GridCue can match text only in a text column, and Custodian isn't one."
+- **"Empty" means no value:** missing, `null`, or an empty string. A placeholder such as "Unassigned" is a value, so "no advisor" does not find it. It is read for text, category, date and date-and-time columns. On a number, currency or percent column it asks, since an empty amount and zero are different rows ("No gain": "GridCue can't tell whether “no gain” means Unrealized gain is empty or zero."). A yes/no column keeps its own reading: "no restricted holdings" shows the rows where Restricted holdings is No.
+- **The grid's `rowNoun` is never the column of an empty form.** "No accounts over $1m" is about the rows, as before.
+- **`advisor is "Lane"` is still "containing".** Use "exactly" or "=" for an exact match.
+- **A Host can turn a form off.** A column whose [`allowedOperators`](/docs/api/schema#columnoverride) leaves out `startsWith`, `eq`, `isEmpty` or `isNotEmpty` asks instead: "GridCue can't filter Advisor to exact text here."
+- **Other words ask.** "Ends with", "matches", a negated form (`advisor is not exactly "Avery Lane"`, `advisor doesn't start with "Av"`), an empty form followed by an amount ("accounts with no advisor over $1m"), and a form with a second condition joined by "or" all ask.
+
+**A part with one of these forms is ready only when every word in it is one GridCue places.** Quoted text is skipped. A word is placed when it is:
+
+- a name: a column, a value, the grid's `rowNoun` or an entity;
+- an amount, a date or quoted text, with its comparison;
+- a lead-in ("please", "can you", "show me", "I want to see");
+- a verb that chooses rows: "show", "display", "list", "see", "view", "find", "get", "give", "filter", "keep", "only", "just", "include";
+- the words of another change the part holds: "sort", "group", "hide", "by", "then", "column", "first", and a direction or count;
+- a small word: "the", "a", "an", "all", "any", "every", "each", "my", "our", "me", "us", "those", "these", "that", "which", "whose", "where", "with", "for", "of", "at", "in", "from", "under", "is", "are", "was", "were", "has", "have", "having", "held", "owned", "and", "or", "also", "too", "as well", "'s", "rows", "records", "ones".
+
+Any other word asks, and the question names it. These all ask, where the form alone would be ready:
+
+| Request | Question |
+| --- | --- |
+| "Accounts with no advisor assigned to the new team" | "I'm not sure what to do with “to” and “new team”. Try rephrasing that part." |
+| "Accounts with no advisor handled by the new team" | "I'm not sure what to do with “handled” and “new team”. Try rephrasing that part." |
+| `Advisor is exactly "Avery Lane" about retirement` | "I'm not sure what to do with “about”. Try rephrasing that part." |
+| "Who has no advisor" | "I'm not sure what to do with “who”. Try rephrasing that part." |
+| "There is no advisor I trust" | "I'm not sure what to do with “there” and “i”. Try rephrasing that part." |
+| "Accounts with no advisor sorted by size" | "I'm not sure what to do with “size”. Try rephrasing that part." |
+| `Advisor starts with "Av", pin advisor` | "I'm not sure what to do with “pin”. Try rephrasing that part." |
+
+"To", "about", "who" and "what" are not placed, so a request that assigns, asks about or describes something never ends in a ready Preview. A verb GridCue reads only for columns, such as "pin", is placed only when it changes a column, so it asks beside a form. "Size" asks too, because a provider may know it as a synonym, but GridCue doesn't: "sorted by market value" is ready.
+
+The same rule limits a provider's picks in such a part. A column or value that no name in the part supports is dropped, and a sort, group, show or hide is kept only when the part holds that change's own words.
+
+- **A form's filter uses its own words only.** The same column named again outside them asks, unless another change in the request uses it: "show only advisor for accounts with no advisor" and `show advisor where advisor starts with "Av"` ask "I'm not sure what to do with “advisor”. Try rephrasing that part.", and "accounts with no advisor sorted by advisor" is ready.
+- **A form said as a statement is not read.** "My" or "our" right before its column ("my advisor is missing"), or "has" or "have" with no "that", "which" or "who" before it ("every account has an advisor", "my accounts have no advisor"), says something rather than asks for rows, so the part asks. "Accounts that have an advisor", "which accounts have no advisor?" and "my accounts with no advisor" are read.
+- **A column named right after a form is that column.** "Entries with no counterparty booked after 2026-01-01" filters Booked and Counterparty, as "entries booked after 2026-01-01 with no counterparty" does.
+
+A part with none of these forms is read as before, plain quoted text included: `advisor "Lane"` stays "containing", and `advisor "Lane" sorted by market value` is read as it was. Two checks make such a part ask, and neither adds a reading:
+
+- **A word for no value outside an empty form asks.** GridCue doesn't read where empty rows go in a sort, so "sort by market value, blanks last" asks "I'm not sure what to do with “blanks”. Try rephrasing that part." The words are "blank", "blanks", "empty", "empties", "null", "nulls" and "missing". "Hide empty columns" asks about “empty” too.
+- **A change to show only some columns asks about any word that isn't its own.** Its own words are its columns' names, a lead-in, a verb that chooses rows, "column", "the", "these", "and", "&", "visible", "again", "for now" at the end, "in the grid" or "on the table", and thanks at the end. "Just the accounts where the advisor is Blake Moreno" asks about “accounts where” and “is blake moreno”, where it would show only the Advisor column. "Show only household and advisor columns in the grid, thank you" is ready.
 
 ## Mention
 
@@ -69,7 +132,11 @@ A single focused question GridCue asks when it can't resolve a request without a
 | "Largest households first" | "Did you mean households as a whole? GridCue can group by Household." |
 | "Accounts over $1 million", when the provider can't tell which column the amount applies to | "Which column should be above $1,000,000?" |
 | "Market value around $1M" | "I'm not sure how to compare with “$1m”. Try “over”, “under”, “at least”, or “exactly”." |
-| `Advisor starts with "Av"` | "I'm not sure how to match “av”. Try “containing”." |
+| `Advisor ends with "Lane"` | "I'm not sure how to match “lane”. Try “containing”." |
+| "Accounts with no advisor over $1m" | "I'm not sure what the amount after “no advisor” applies to. Name its column, or split it into separate parts." |
+| "Accounts with no advisor assigned to the new team" | "I'm not sure what to do with “to” and “new team”. Try rephrasing that part." |
+| "No gain" | "GridCue can't tell whether “no gain” means Unrealized gain is empty or zero. Ask for an amount instead." |
+| `Advisor is exactly "Avery Lane"`, on a grid that turns `eq` off for Advisor | "GridCue can't filter Advisor to exact text here." |
 | `Advisor "Lane" exactly` | "I'm not sure what to do with “exactly”. Try rephrasing that part." |
 | `Advisor is not "Avery Lane"` | "GridCue can't filter for text that isn't there. Ask for the text to look for instead." |
 | `Containing "Lane"`, with no column named | "Which column should contain “lane”?" |
