@@ -14,4 +14,4 @@ So GridCue promises one thing about the sentence: typed on the default view, wit
 
 `proposeView` exists so that a saved view never bypasses the third rule in `AGENTS.md`. The state it is given is untrusted: it may come from a link. It is parsed, turned into the operations that change the current view into it, and validated against the View Schema and the grid's capabilities. A column that no longer exists, a restricted column, or a setting the grid can't apply fails closed, and nothing is applied in part. A Host that calls `adapter.restore` with a stored state gets none of this.
 
-Storage, names, and links stay with the Host. GridCue ships no saved-views feature.
+Storage, names, and links stay with the Host. GridCue saves and opens a Saved View by request only through the Host, and never stores one (ADR 0034).
