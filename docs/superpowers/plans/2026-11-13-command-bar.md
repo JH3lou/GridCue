@@ -235,6 +235,7 @@ The owner approved the five ADRs' decisions on 2026-11-13, with the edits they m
 - [ ] Recent requests are off unless the Host sets `recent: true` or passes a store (order plan D45), which is what `AGENTS.md` asks for raw Utterances. With no `recent` option, no Utterance is kept.
 - [ ] Tests first: the order, the limit of five, duplicates left out, an edited plan, a `proposeView` plan, a save and a grid offer not recorded, no `recent` option (nothing kept), `recent: true`, `recent: false`, the Host's `initial` and `onChange`, and storage spied on.
 - [ ] Schema starters as View States through `proposeView`, left out when the view already has them.
+- [ ] On a view with a count, the sort starter asks the count question first, and the grouping starter does not. Tests for both, and at least five of the labelled views in 5.1 hold a count.
 - [ ] Bar: each applied starter's view is what its label says, on both schemas.
 
 ### Task 5.3: Both UIs, the examples and the Site demo (Sonnet)
