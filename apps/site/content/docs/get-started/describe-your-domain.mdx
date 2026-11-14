@@ -1,6 +1,6 @@
 ---
 title: Describe your domain
-description: Teach GridCue the words your Users use with aliases, approved values, restricted columns, three domain declarations, and House Terms.
+description: Teach GridCue the words your Users use with aliases, approved values, restricted columns, three domain declarations, House Terms, and Local Values.
 ---
 
 Every grid has its own vocabulary. An advisor says "rep" for Advisor, "Roth" for Roth IRA, and "retirement accounts" for two registration types at once. GridCue learns this from your **View Schema**: your declaration of which columns exist, what they mean, and what may be done with each.
@@ -60,7 +60,7 @@ registration_type: {
 
 Now "Roth accounts" filters Registration type to Roth IRA, and "non-retirement" or "excluding trusts" filters to the other approved values.
 
-These values are sent to the provider. List only values you are willing to share, and never fill this list by uploading every distinct value from your data.
+These values are sent to the provider. List only values you are willing to share, and never fill this list by uploading every distinct value from your data. To let a request name the values of a column such as Advisor without sharing them, use [Local Values](#local-values).
 
 ## Restricted columns
 
@@ -146,6 +146,35 @@ A few rules are worth knowing:
 A term is also the way to name a placeholder. "Accounts with no advisor" finds rows with no value. It does not find rows where your data holds the text "Unassigned". Declare `{ label: "Unassigned", aliases: ["orphaned"], where: [{ columnId: "advisor_name", operator: "eq", value: "Unassigned" }] }` and "unassigned accounts" previews `Filter Advisor to exactly “Unassigned” (Unassigned)`. If the field is empty instead, use `operator: "isEmpty"` with no `value`, and the line reads `Show only rows where Advisor is empty (Unassigned)`.
 
 [House Terms in Requests](/docs/concepts/requests#house-terms) lists what reads and what asks.
+
+## Local Values
+
+A request can name a value your rows hold: "Avery Lane's accounts", "the Alder household". You don't list those values in the schema, and they are not sent to the provider. You tell GridCue which columns hold names, and where to read them. It reads them in the browser, from your own rows, when a request is made. This is a **Local Value**.
+
+```ts
+createGridCue({
+  adapter,
+  provider,
+  localValues: {
+    advisor_name: () => rows.map((row) => row.advisor_name),
+    household: () => rows.map((row) => row.household),
+  },
+});
+```
+
+With a TanStack Table, `localValuesFromTable(table, ["advisor_name", "household"])` builds the same object. Now "Avery Lane's accounts" previews `Filter Advisor to exactly “Avery Lane”`, "Avery Lane or Blake Moreno" previews `Filter Advisor to any of “Avery Lane” and “Blake Moreno”`, and "show taxable accounts for Avery Lane" adds the Taxable filter too. Without `localValues`, the same requests ask what to filter on.
+
+Which columns to name:
+
+- **Columns whose values are names of people, households, firms or counterparties.** A User says "Avery Lane", not a code. A name is a whole value of one column, and GridCue reads it as an exact filter.
+- **Text columns only, and only ones the provider may know about.** A column must be a text column that is exposed, not `restricted`, and not turned off for filtering, or `createGridCue` throws `INPUT_CONFIG`. A restricted column's values are never read.
+- **Not a category with a few values.** Registration type belongs in `enumValues`, where a User's word for each value is an alias. A column with a handful of values and a short list of words is a poor Local Value.
+- **Not a column whose values are made of GridCue's own words.** A value such as "Top 10" is never read from the grid, because its words mean something else in a request: "top 10 accounts" still asks for a count. It can still be quoted: `advisor is exactly "Top 10"`.
+- **Names that GridCue also uses stay a question.** A value that two of the columns you name both hold ("Dunmore" is an owner and a counterparty), or that is also a label or alias you declared, asks which was meant.
+
+A grid that pages holds one page of its rows, and GridCue reads only what the function returns. Return your own list of every name, and not the page the grid shows, so a User can name an advisor on page 9. A name the function doesn't return is never read.
+
+[Local Values in Requests](/docs/concepts/requests#local-values) lists what reads and what asks, and [Safety and protocol](/docs/safety#the-data-boundary) says what is sent.
 
 ## Narrowing what a column allows
 

@@ -31,6 +31,8 @@ For TanStack Table, three additions to the existing table (the quick start shows
 2. `schemaFromTanStack(table, options)` for the View Schema.
 3. One controller: `createGridCue({ schema, adapter: createTanStackAdapter({ schema, table }), provider: createMockProvider() })`.
 
+Optional, once the Mock works: let a request name a value the rows hold. Add `localValues: localValuesFromTable(table, ["<name column>"])` to the controller for TanStack Table, or `localValues: { <name column>: () => rows.map((row) => row.<name column>) }` for the Rows Adapter. Ask the User which columns hold names. **Check:** "<a real name>'s accounts" previews `Filter <Column> to exactly “<name>”`.
+
 **Create the controller once**, with `useState(() => …)`. Never use `useMemo` keyed on `table`: `useTable` returns a new object on every state change, so the controller would be rebuilt and undo lost.
 
 For the Rows Adapter, create the adapter and controller outside render, subscribe with `useSyncExternalStore(adapter.subscribe, adapter.getState, adapter.getState)`, and render `applyView(rows, state, schema).rows`.

@@ -4,15 +4,21 @@ import {
   type CodeReadFilter,
   emptyWordsOutside,
   isRowNoun,
+  localValueFilters,
+  type NamedValue,
   namesAfterCodeRead,
   termQuestion,
   termWordsOutside,
   textFormStatement,
   unreadAdverbs,
+  valuePlaceQuestion,
+  valueStatement,
 } from "./code-read";
 import { isExposed, operatorsFor } from "./columns";
+import { matchesPredicate } from "./evaluate";
 import { formatAmount } from "./format";
 import { afterExclusionLead, governedClears, LEAD_IN, leavesRowsOut, nothingAfter, saidToStay, viewRequest } from "./lead";
+import { type DeclaredName, type LocalValueRef, type LocalValuesPart, MAX_LOCAL_VALUE_CHOICES } from "./local-values";
 import { LEAVES_OUT, LITERAL_COLUMN_KINDS, type Mention } from "./mentions";
 import {
   type Clause,
@@ -38,6 +44,7 @@ import {
   outsideCodeRead,
   PREPOSITIONS,
   QUANTIFIERS,
+  rowNouns,
   SORT_VERBS,
   strayBesideColumnsOnly,
   unplacedQuestion,
@@ -102,6 +109,12 @@ export interface CompileInput {
    * it is with this left out.
    */
   codeRead?: readonly (CodeReadSpan | CodeReadFilter)[];
+  /**
+   * What each part names among the Local Values, from `readLocalValueParts` (named filters spec, 5.4; ADR 0025). A
+   * whole value becomes a code-read filter, and a tie or one word of a value asks which was meant. Nothing here is ever
+   * sent to an Intent Provider. Left out, the request is compiled exactly as before.
+   */
+  localValues?: readonly LocalValuesPart[];
   /** Answers to earlier clarifications, keyed by clarification ID. */
   answers?: Record<string, string>;
   confidence?: ConfidencePolicy;
@@ -377,26 +390,41 @@ const groupLabelsBeside = (text: string, own: readonly Mention[], columns: ViewS
  *   Only the staying words `saidToStay` knows count; any other wording asks. "Not ungrouped" asks for groups, so an
  *   "un" word counts only when it is kept ("leave ungrouped"), not left out.
  */
-const groupingAsked = (clause: Clause, own: readonly Mention[], columns: ViewSchema["columns"]): "cant" | "unready" | undefined => {
+const groupingAsked = (clause: Clause, own: readonly Mention[], columns: ViewSchema["columns"]): "cant" | "unready" | undefined =>
+  groupingWords(clause, own, columns).asked;
+
+/**
+ * What `groupingAsked` says of a part, and the first word that counts, as written in the part's text with names and
+ * quoted text marked out. A word that is the text to match ("households named group") is no `word`.
+ */
+const groupingWords = (
+  clause: Clause,
+  own: readonly Mention[],
+  columns: ViewSchema["columns"],
+): { asked: "cant" | "unready" | undefined; word?: string } => {
   const names = [...own, ...groupLabelsBeside(clause.text, own, columns)];
   const words = unquoted(namesBlankedOf(clause.text, names));
   const marked = unquoted(namesBlankedOf(clause.text, names, NAME_MARK), NAME_MARK);
   let asked: "cant" | "unready" | undefined = governedClears(words).governed.has("group") ? "cant" : undefined;
+  let first: string | undefined;
   for (const m of marked.matchAll(GROUP_WORD)) {
     const word = m[0];
     const start = m.index ?? 0;
     const end = start + word.length;
-    if (/by$/.test(word) || BY_NEXT.test(marked.slice(end))) return "cant";
+    const matched = TEXT_MATCH_BEFORE.test(marked.slice(0, start));
     // A part a clear or reset says to keep ("reset everything but the grouping") is left out of the clear. Leaving out
     // an ungrouping asks for groups ("not ungrouped", "except ungrouped"), so for "ungroup" only a word that keeps it
     // ("leave ungrouped") counts.
     const said = saidToStay(marked, start, end);
     const stays = said === "kept" || (!/^un/.test(word) && (clause.keeps || said === "left out"));
+    // A word said to stay or left out, or the text to match, is never the `word`: the part asks for no grouping there.
+    if (!stays && !matched) first ??= word;
+    if (/by$/.test(word) || BY_NEXT.test(marked.slice(end))) return { asked: "cant", ...(first === undefined ? {} : { word: first }) };
     if (stays && nothingAfter(marked, end)) continue;
-    if (stays || !GROUPING_VERB.test(word) || TEXT_MATCH_BEFORE.test(marked.slice(0, start))) asked ??= "unready";
-    else return "cant";
+    if (stays || !GROUPING_VERB.test(word) || matched) asked ??= "unready";
+    else return { asked: "cant", word: first };
   }
-  return asked;
+  return { asked, ...(first === undefined ? {} : { word: first }) };
 };
 
 /**
@@ -477,6 +505,79 @@ export const countQuestion = (
   };
 };
 
+/** The operators `filtersCanAllHold` reads. Any other on a text column is left as it is. */
+const TEXT_OPERATORS: ReadonlySet<FilterPredicate["operator"]> = new Set([
+  "eq",
+  "neq",
+  "in",
+  "contains",
+  "startsWith",
+  "isEmpty",
+  "isNotEmpty",
+]);
+/**
+ * Whether some cell of a text column can match every one of these filters. A cell is empty or one text, so it is
+ * enough to try an empty cell, each text an exact filter names, and one text made from the filters' own words: the
+ * longest start, then every text to contain, then a character no filter names, which no "is not" can rule out.
+ */
+const filtersCanAllHold = (predicates: readonly FilterPredicate[], column: ColumnDescriptor): boolean => {
+  if (predicates.some((p) => !TEXT_OPERATORS.has(p.operator))) return true;
+  const texts = (p: FilterPredicate): string[] =>
+    Array.isArray(p.value) ? p.value.map(String) : p.value === undefined || typeof p.value === "object" ? [] : [String(p.value)];
+  const exact = predicates.flatMap((p) => (p.operator === "eq" || p.operator === "in" ? texts(p) : []));
+  const starts = predicates.flatMap((p) => (p.operator === "startsWith" ? texts(p) : [])).sort((a, b) => b.length - a.length);
+  const contained = predicates.flatMap((p) => (p.operator === "contains" ? texts(p) : []));
+  const made = `${starts[0] ?? ""}${contained.join("")}\u0001`;
+  return [null, ...exact, made].some((cell) => predicates.every((p) => matchesPredicate(cell, p, column)));
+};
+
+/**
+ * A Local Value's filter beside another filter on its column that no row can match with it (architecture, "Compile":
+ * contradictory operations). Filters combine with "and" (ADR 0017), so the view would show no rows: "Avery Lane's
+ * accounts with no advisor", `Avery Lane's accounts where advisor starts with "bl"`, or a value added beside a filter
+ * the view keeps ("also Avery Lane's accounts" on a view of Blake Moreno's). This returns the question to ask instead,
+ * or `undefined`.
+ *
+ * It is a pure function of a plan's operations and the view they apply to, as `countQuestion` is, so it holds for every
+ * Intent Provider. It reads only filters joined by "and", only on text columns, and only on a column where one of
+ * them is a Local Value's filter the plan adds (`localFilterIds`, by predicate ID). A plan with none reads as before:
+ * two text forms that no row can match together are left as they are. It can only turn a ready plan into a question.
+ */
+export const emptyViewQuestion = (
+  operations: readonly ViewOperation[],
+  view: { filters: ViewState["filters"] },
+  defaultView: { filters?: ViewState["filters"] } | undefined,
+  schema: ViewSchema,
+  localFilterIds: ReadonlySet<string>,
+): Clarification | undefined => {
+  const added = new Set(
+    operations.flatMap((op) => (op.type === "filter.add" && localFilterIds.has(op.predicate.id) ? [op.predicate.id] : [])),
+  );
+  if (added.size === 0) return undefined;
+  const before: ViewState = { ...emptyViewState([]), filters: view.filters };
+  const after = applyOperations(before, operations, { ...emptyViewState([]), filters: defaultView?.filters ?? null });
+  const byColumn = new Map<string, FilterPredicate[]>();
+  const walk = (group: FilterGroup) => {
+    if (group.combinator !== "and") return;
+    for (const child of group.children) {
+      if (child.type === "group") walk(child);
+      else byColumn.set(child.columnId, [...(byColumn.get(child.columnId) ?? []), child]);
+    }
+  };
+  if (after.filters) walk(after.filters);
+  for (const [columnId, predicates] of byColumn) {
+    if (predicates.length < 2 || !predicates.some((p) => added.has(p.id))) continue;
+    const column = schema.columns.find((col) => col.id === columnId);
+    if (column?.kind !== "string" || filtersCanAllHold(predicates, column)) continue;
+    return {
+      id: "plan.empty_view",
+      prompt: `No row matches every ${column.label} filter, so the view would be empty. Ask for the rows to keep.`,
+      required: true,
+    };
+  }
+  return undefined;
+};
+
 /** Turns provider picks and parsed literals into a View Plan. Deterministic; never guesses. */
 export const compile = (c: CompileInput): ViewPlan => {
   const bands = c.confidence ?? DEFAULT_CONFIDENCE;
@@ -487,11 +588,20 @@ export const compile = (c: CompileInput): ViewPlan => {
   const unsupportedSegments: ViewPlan["unsupportedSegments"] = [];
   const confidences: number[] = [];
   const column = (id: string) => c.schema.columns.find((col) => col.id === id && isExposed(col));
+  // The Local Values the request names, as code-read filters, and the questions they ask (spec 5.4). With none, the
+  // code-read filters are the caller's, exactly.
+  const local = localReading(c, answers);
+  // The filters the plan makes for Local Values, by predicate ID, for the check on filters no row can match together.
+  const localFilterIds = new Set<string>();
+  const codeReadAll: readonly (CodeReadSpan | CodeReadFilter)[] =
+    local.filters.length === 0
+      ? (c.codeRead ?? [])
+      : [...(c.codeRead ?? []), ...local.filters].sort((a, b) => a.clauseIndex - b.clauseIndex || a.start - b.start);
   // The Mentions, with any column named right after a code-read filter's words, which they read as the rows.
   const found = c.mentions ?? [];
   const mentions: readonly Mention[] = c.restricted?.length
     ? found
-    : [...found, ...namesAfterCodeRead(c.input, found, c.codeRead ?? [], c.schema)].sort(
+    : [...found, ...namesAfterCodeRead(c.input, found, codeReadAll, c.schema)].sort(
         (a, b) => a.clauseIndex - b.clauseIndex || a.start - b.start,
       );
   const optionsFor = (kinds: readonly ColumnKind[] | null, capability: string) =>
@@ -561,6 +671,8 @@ export const compile = (c: CompileInput): ViewPlan => {
     return op;
   };
 
+  // A Local Value is a name too: "Hollis Travel Group entries" asks for no grouping.
+  const localNames = (clause: Clause) => local.filters.filter((r) => r.clauseIndex === clause.index).map((r) => asNamedValue(r, clause));
   // A part that asks to group or ungroup, on a grid that can't group (more grids spec, 5.3), ends the whole request in
   // one question, and nothing in it applies, other parts included: the User asked for every change, and showing some
   // would be a different view. The question is the first such part's. A part whose grouping word code can't read
@@ -569,11 +681,7 @@ export const compile = (c: CompileInput): ViewPlan => {
     ? []
     : c.input.clauses.map((clause) => ({
         clause,
-        asked: groupingAsked(
-          clause,
-          mentions.filter((m) => m.clauseIndex === clause.index),
-          c.schema.columns,
-        ),
+        asked: groupingAsked(clause, [...mentions.filter((m) => m.clauseIndex === clause.index), ...localNames(clause)], c.schema.columns),
       }));
   const grouping = groupAsks.find((g) => g.asked === "cant")?.clause;
   const unreadGrouping = groupAsks.find((g) => g.asked === "unready")?.clause;
@@ -643,7 +751,7 @@ export const compile = (c: CompileInput): ViewPlan => {
       // Beside a code-read filter, every word is placed (ADR 0023): a word GridCue didn't place is asked about, before
       // anything a provider proposes for the part. A part that holds no code-read filter skips all of this, and is
       // compiled exactly as before. A name inside a code-read filter is the filter's own, so nothing else reads it.
-      const codeRead = (c.codeRead ?? []).filter((r) => r.clauseIndex === clause.index);
+      const codeRead = codeReadAll.filter((r) => r.clauseIndex === clause.index);
       const beside = codeRead.length > 0 ? { clause, mentions: partMentions, codeRead, schema: c.schema } : undefined;
       const ownMentions = beside ? outsideCodeRead(partMentions, codeRead) : partMentions;
       // A refusal stays a refusal: the words a provider refuses a part for ("email", "export") are not asked about.
@@ -658,10 +766,47 @@ export const compile = (c: CompileInput): ViewPlan => {
           continue;
         }
       }
+      // A Local Value is read only as the rows to keep, and never where a column goes (spec 4.1, 5.4).
+      const localFilters = codeRead.filter((r): r is CodeReadFilter => isCodeReadFilter(r) && r.kind === "value");
+      if (beside && !refused) {
+        const asks = valuePlaceQuestion(localFilters, clause, partMentions, c.schema);
+        if (asks) {
+          clarifications.push({ id: `${key}.local.${asks.id}`, prompt: asks.prompt, required: true });
+          continue;
+        }
+        const twice = local.again.get(clause.index);
+        if (twice) {
+          clarifications.push(twice);
+          continue;
+        }
+      }
+      // A tie, or one word of a value, asks which was meant (spec 5.4). Words GridCue can't place are asked about
+      // first, all of them at once: a value chosen for one word would leave the others unplaced.
+      const localAsks = local.asks.get(clause.index);
+      if (localAsks && !refused) {
+        const unplaced = unplacedWords({ clause, mentions: partMentions, codeRead: [...codeRead, ...localAsks.spans], schema: c.schema });
+        clarifications.push(unplaced.length > 0 ? unplacedQuestion(clause, unplaced) : localAsks.question);
+        continue;
+      }
       if (beside && !refused) {
         const unplaced = unplacedWords(beside);
         if (unplaced.length > 0) {
           clarifications.push(unplacedQuestion(clause, unplaced));
+          continue;
+        }
+      }
+      // Values that are no one list for each column ask (spec 5.4): "Avery Lane's accounts for Blake Moreno".
+      const apart = local.apart.get(clause.index);
+      if (apart && beside && !refused) {
+        clarifications.push(apart);
+        continue;
+      }
+      // A Local Value in a statement, or owning something other than the rows, asks (spec 5.4).
+      if (beside && !refused) {
+        const otherFilters = codeRead.filter((r): r is CodeReadFilter => isCodeReadFilter(r) && r.kind !== "value");
+        const asks = valueStatement(localFilters, otherFilters, clause, partMentions, c.schema);
+        if (asks) {
+          clarifications.push({ id: `${key}.local.${asks.id}`, prompt: asks.prompt, required: true });
           continue;
         }
       }
@@ -712,6 +857,15 @@ export const compile = (c: CompileInput): ViewPlan => {
       const res = beside && !refused ? limitPicks(narrowed, beside, (e) => evidence.push(e)) : narrowed;
       // What the plan held before this part, to tell afterwards which operations the part added or changed.
       const heldBefore = beside ? new Map(operations.map((op) => [op, JSON.stringify(op)])) : undefined;
+      // The same for a grouping, on a grid that can group, when a word built on "group" is a word of a Local Value the
+      // grid holds (below).
+      const heldWords = local.valueWords.get(clause.index);
+      const groupedBefore =
+        lists("group.set") && heldWords && [...heldWords].some((w) => w.includes("group"))
+          ? new Map(
+              operations.flatMap((op) => (op.type === "group.set" || op.type === "view.reset" ? [[op, JSON.stringify(op)] as const] : [])),
+            )
+          : undefined;
       const opsBefore = operations.length;
       // Mentions are deterministic: a named value is used at confidence 1. A named column is too, unless the provider
       // scored that column below MENTION_FLOOR: "biggest accounts first" names the rows, not Account number (ADR 0013).
@@ -1407,6 +1561,12 @@ export const compile = (c: CompileInput): ViewPlan => {
             clarifications.push({ id: `${key}.exclude`, prompt: EXCLUDE_PROMPT, required: true });
             continue;
           }
+          // A Local Value beside quoted text is read as a named value is, with its possessive: `Avery Lane's accounts
+          // with household containing "alder"`.
+          const withValues =
+            localFilters.length === 0
+              ? own
+              : [...own, ...localFilters.map((r) => asNamedValue(r, clause))].sort((a, b) => a.start - b.start);
           clause.literals.forEach((lit, j) => {
             // A text form's quoted text is read with its code-read filter, below.
             if (inCodeRead(lit.at)) return;
@@ -1428,7 +1588,7 @@ export const compile = (c: CompileInput): ViewPlan => {
             // and so does one GridCue didn't read right before the column, right after the text, or, with no column,
             // right before the text: an answer to which column holds it can't drop them.
             const quotedAfter = lit.kind === "text" ? columnBeforeText(clause, lit, own, column, c.schema.rowNoun) : undefined;
-            const unread = lit.kind === "text" ? textWordsQuestion(clause, lit, quotedAfter, own, c.schema) : undefined;
+            const unread = lit.kind === "text" ? textWordsQuestion(clause, lit, quotedAfter, withValues, c.schema) : undefined;
             if (unread) {
               clarifications.push({ id: `${key}.literal${j}.${unread.id}`, prompt: unread.prompt, required: true });
               return;
@@ -1525,10 +1685,23 @@ export const compile = (c: CompileInput): ViewPlan => {
           // A House Term's filters carry its label in `host` evidence, which the Preview names (spec 4.5). They go where
           // the term sits among the part's other filters, in the term's order: "large taxable accounts" previews Large
           // first. A part with no term keeps its filters as before.
+          // Several Local Values of one column are one filter, made where the first of them sits (spec 5.4).
+          const valueColumns = new Set<string>();
           readFilters.forEach((r, i) => {
+            if (r.kind === "value") {
+              // Values of one column are one side of an "or": "Avery Lane or Blake Moreno" is one filter.
+              sides.push({ at: r.start, columnId: r.predicate.columnId });
+              if (valueColumns.has(r.predicate.columnId)) return;
+              valueColumns.add(r.predicate.columnId);
+            }
             const before = predicates.length;
             const id = pred(r.predicate.columnId, r.predicate.operator, r.predicate.value);
-            if (r.term !== undefined) {
+            if (r.kind === "value") {
+              localFilterIds.add(id);
+              note(`${key}.codeRead${i}`, `${r.predicate.columnId}.${r.predicate.operator}`, 1, "deterministic");
+              const sitsBefore = predicates.slice(0, before).findIndex((p) => (placedAt.get(p.id) ?? -1) > r.start);
+              if (sitsBefore >= 0) predicates.splice(sitsBefore, 0, ...predicates.splice(before, 1));
+            } else if (r.term !== undefined) {
               // A term's conditions are one side of an "or": "large or taxable accounts" asks either-or, as today.
               sides.push({ at: r.start, columnId: `\u0000term ${r.start}` });
               note(`${key}.codeRead${i}`, `${r.predicate.columnId}.${r.predicate.operator}`, 1, "host");
@@ -1779,6 +1952,28 @@ export const compile = (c: CompileInput): ViewPlan => {
         const unplaced = unplacedWords({ ...beside, operations: held });
         if (unplaced.length > 0) clarifications.push(unplacedQuestion(clause, unplaced));
       }
+      // A word built on "group" that the part doesn't group by is dropped, and when the grid holds a value with that word
+      // the User may have named the value: "Travel Group entries", when the grid holds Hollis Travel Group, would filter
+      // Category to Travel. It asks with ADR 0019's question. Only a word of a Local Value counts: with no Local Values,
+      // or none that holds the word ("show accounts in the Northgate group" on a grid whose values don't), the part reads
+      // as before. A grouping said to stay or left out, as `groupingAsked` reads it, and a word that is the text to
+      // match, are not asked about. Nor is the verb a part that continues a grouping carries from the part before
+      // ("group by custodian, then northgate"): the User said it there.
+      if (groupedBefore !== undefined && heldWords && !clarifications.some((q) => q.id.startsWith(`${key}.`))) {
+        const grouped = operations.some(
+          (op) => (op.type === "group.set" || op.type === "view.reset") && groupedBefore.get(op) !== JSON.stringify(op),
+        );
+        const carried = clause.continues ? (/^\S+/.exec(clause.text)?.[0].length ?? 0) : 0;
+        const said = carried > 0 ? { ...clause, text: " ".repeat(carried) + clause.text.slice(carried) } : clause;
+        const { word } = grouped ? {} : groupingWords(said, [...partMentions, ...localNames(clause)], c.schema.columns);
+        if (word && heldWords.has(word)) {
+          clarifications.push({
+            id: `${key}.group.word`,
+            prompt: `I'm not sure what to do with “${word}”. Try rephrasing that part.`,
+            required: true,
+          });
+        }
+      }
     }
   }
 
@@ -1849,7 +2044,7 @@ export const compile = (c: CompileInput): ViewPlan => {
           undone.has(clause.index),
       )
       .map((clause) => ({ clauseIndex: clause.index, text: clause.text }));
-    const unused = [...unusedReadings(others, mentions, operations, evidence, c.schema.rowNoun, c.codeRead), ...leftOver];
+    const unused = [...unusedReadings(others, mentions, operations, evidence, c.schema.rowNoun, codeReadAll), ...leftOver];
     for (const left of unused.sort((a, b) => a.clauseIndex - b.clauseIndex)) {
       if (asked.has(left.clauseIndex)) continue;
       asked.add(left.clauseIndex);
@@ -1858,6 +2053,15 @@ export const compile = (c: CompileInput): ViewPlan => {
         prompt: `I'm not sure what to do with “${left.text}”. Try rephrasing that part.`,
         required: true,
       });
+      status = "needs_clarification";
+    }
+  }
+  // A Local Value's filter beside another filter on its column that no row can match with it never leaves a ready plan:
+  // the view would be empty. With no Local Value in the plan, nothing here runs.
+  if (status === "ready" && localFilterIds.size > 0) {
+    const asks = emptyViewQuestion(operations, viewOf(c.state), viewOf(c.defaultState), c.schema, localFilterIds);
+    if (asks) {
+      clarifications.push(asks);
       status = "needs_clarification";
     }
   }
@@ -1908,6 +2112,323 @@ const KEEP_FORM_PROMPT = "GridCue can't tell whether the view already has that f
 
 /** A code-read filter, as `readCodeFilters` gives it, and not a span alone. */
 const isCodeReadFilter = (r: CodeReadSpan | CodeReadFilter): r is CodeReadFilter => "predicate" in r;
+
+/**
+ * A Local Value's filter as a named value's Mention, for the checks beside quoted text. A possessive right after it is
+ * its own ("Avery Lane's accounts"). Its value ID stands for no declared value; nothing else reads it.
+ */
+const asNamedValue = (r: CodeReadFilter, clause: Clause): Mention => ({
+  clauseIndex: r.clauseIndex,
+  columnId: r.predicate.columnId,
+  valueId: "\u0000local",
+  start: r.start,
+  end: r.end + (/^'s?(?![\p{L}\p{N}])/u.exec(clause.text.slice(r.end))?.[0].length ?? 0),
+});
+
+/** A tie, or one word of a value, still to settle: the words, what they may mean, and for one word its counts. */
+interface LocalChoice {
+  start: number;
+  end: number;
+  values: readonly LocalValueRef[];
+  names: readonly DeclaredName[];
+  word?: { word: string; count: number; columns: ReadonlyArray<{ columnId: string; count: number }> };
+}
+
+/** "Advisor and Household": labels listed with "and". */
+const listed = (labels: readonly string[]) =>
+  labels.length <= 1 ? (labels[0] ?? "") : `${labels.slice(0, -1).join(", ")} and ${labels.at(-1)}`;
+
+/**
+ * The question for a tie or one word of a value (spec 5.4, section 9). Each value is a choice, by itself when every
+ * choice is in one column and with its column's label when they are in several, and the last choice is "None of
+ * these". One value asks "Did you mean Advisor: Avery Lane?", with "Yes" and "No". More than five values ask for the
+ * full name, with no choices. A tie offers the declared names too: picking one reads the words as GridCue would
+ * without Local Values. Option IDs say only which choice it was: `v` and the value's place, `n` and the name's.
+ */
+const localQuestion = (id: string, clause: Clause, choice: LocalChoice, schema: ViewSchema): Clarification => {
+  const label = (columnId: string) => schema.columns.find((col) => col.id === columnId)?.label ?? columnId;
+  const words = clause.text.slice(choice.start, choice.end);
+  const columns = [...new Set(choice.values.map((v) => v.columnId))];
+  const none = { id: "none", label: "None of these" };
+  if (choice.word && choice.values.length === 0) {
+    const where = listed(choice.word.columns.map((col) => label(col.columnId)));
+    return { id, prompt: `${choice.word.count} ${where} values contain “${words}”. Type the full name.`, required: true };
+  }
+  const [only] = choice.values;
+  if (choice.word && only && choice.values.length === 1) {
+    return {
+      id,
+      prompt: `Did you mean ${label(only.columnId)}: ${only.value}?`,
+      options: [
+        { id: "v0", label: `Yes, ${only.value}` },
+        { id: "none", label: "No" },
+      ],
+      required: true,
+    };
+  }
+  const valueLabel = (v: LocalValueRef) =>
+    columns.length === 1 && choice.names.length === 0 ? v.value : `${label(v.columnId)}: ${v.value}`;
+  // Every declared name reads the words as GridCue would with no Local Values, so a column's names are one choice: its
+  // name and its entity word are "The Household column", and its values one list, "Registration type: Trust and IRA".
+  const names = new Map<string, { column: boolean; values: string[]; label: string }>();
+  for (const n of choice.names) {
+    const key = n.columnId ?? `\u0000${n.kind} ${n.label}`;
+    const held = names.get(key) ?? { column: false, values: [], label: n.kind === "codeRead" ? `“${n.label}”` : n.label };
+    if (n.columnId && (n.kind === "value" || n.kind === "valueGroup")) {
+      if (!held.values.includes(n.label)) held.values.push(n.label);
+    } else if (n.columnId) held.column = true;
+    names.set(key, held);
+  }
+  const nameLabels = [...names].map(([key, n]) =>
+    n.values.length > 0 ? `${label(key)}: ${listed(n.values)}` : n.column ? `The ${label(key)} column` : n.label,
+  );
+  // Six buttons at most, "None of these" among them (section 9). With more, the User rephrases.
+  if (choice.values.length + nameLabels.length > MAX_LOCAL_VALUE_CHOICES || choice.values.length + nameLabels.length === 0) {
+    return {
+      id,
+      prompt: `“${words}” could mean more than ${MAX_LOCAL_VALUE_CHOICES} things here. Try rephrasing that part.`,
+      required: true,
+    };
+  }
+  const prompt =
+    choice.word && columns.length === 1 && columns[0] !== undefined
+      ? `Which ${label(columns[0])} did you mean by “${words}”?`
+      : `Which did you mean by “${words}”?`;
+  return {
+    id,
+    prompt,
+    options: [
+      ...choice.values.map((v, i) => ({ id: `v${i}`, label: valueLabel(v) })),
+      ...nameLabels.map((l, i) => ({ id: `n${i}`, label: l })),
+      none,
+    ],
+    required: true,
+  };
+};
+
+/**
+ * What joins two Local Values written as one list: commas, "&", "/", "+", "and" and "or", with "the" before the next
+ * value, after a possessive mark on the first ("Avery Lane's or Blake Moreno's"). At least one of them is needed.
+ */
+const LISTED_BETWEEN = /^(?:'s?)?(?:\s*(?:[,&/+]|\b(?:and|or)\b))+\s*(?:the\s+)?$/u;
+/**
+ * Words that add one thing to another, wherever they sit between two Local Values: "and", "plus", "also", "as well
+ * as", "along with", "together with", a comma, "&", "/" or "+". "Avery Lane's accounts and the Alder household's" may
+ * mean the rows of each, where "in", "with" or "for" says which rows have both.
+ */
+const ADDS_BETWEEN = /[,&/+—–]|\s-\s|\b(?:and|plus|also|as\s+well\s+as|along\s+with|together\s+with)\b/u;
+/**
+ * Whether the part names the column of a Local Value right before it: "advisor is Avery Lane", "filter advisor to
+ * Avery Lane". The value's filter then covers the column's name too (`localValueFilters`), so the name starts where the
+ * filter's words do and ends before they end. Such a value is a condition on that column, and two of them are two
+ * conditions, which every row kept must meet: "advisor is Avery Lane and household is Alder Household".
+ */
+const columnNamed = (clause: Clause, r: CodeReadFilter, mentions: readonly Mention[]): boolean =>
+  mentions.some(
+    (m) =>
+      m.clauseIndex === clause.index &&
+      m.valueId === undefined &&
+      m.columnId === r.predicate.columnId &&
+      m.start === r.start &&
+      m.end < r.end,
+  );
+
+/** The question for Local Values of two columns that may mean rows with both, or rows with either (spec 5.4). */
+const bothOrEither = (clauseIndex: number, first: string, other: string, either: boolean): Clarification => ({
+  id: `c${clauseIndex}.local.listed`,
+  prompt: either
+    ? EITHER_PROMPT
+    : `GridCue can't tell whether you want rows with both “${first}” and “${other}”, or with either. Ask for one at a time, or for the rows that have both.`,
+  required: true,
+});
+
+/**
+ * The question for Local Values a part names that don't make one filter for each column (spec 5.4), if any. Several
+ * values of one column make one filter only when they are written as one list ("Avery Lane or Blake Moreno"):
+ * - values of one column apart from each other give the same rows two values: "Avery Lane's accounts for Blake
+ *   Moreno", "accounts for Avery Lane with advisor Blake Moreno";
+ * - values of two columns in one list may mean rows with both, or rows with either: "Avery Lane and the Alder
+ *   household". Words that say which rows have each are read: "Avery Lane's accounts in the Alder household".
+ * `found` are the part's Local Values, from `localValueFilters`, in the order written.
+ */
+const unlistedValues = (
+  clause: Clause,
+  found: readonly CodeReadFilter[],
+  schema: ViewSchema,
+  mentions: readonly Mention[],
+): Clarification | undefined => {
+  if (found.length < 2) return undefined;
+  const label = (columnId: string) => schema.columns.find((col) => col.id === columnId)?.label ?? columnId;
+  // Each value's list: values written one after another, with only a list's joining words between them.
+  const lists: CodeReadFilter[][] = [];
+  found.forEach((r, i) => {
+    const before = found[i - 1];
+    const list = lists.at(-1);
+    if (before && list && LISTED_BETWEEN.test(clause.text.slice(before.end, r.start))) list.push(r);
+    else lists.push([r]);
+  });
+  const listsOf = new Map<string, Set<number>>();
+  const valuesOf = new Map<string, string[]>();
+  lists.forEach((list, i) => {
+    for (const r of list) {
+      const id = r.predicate.columnId;
+      listsOf.set(id, (listsOf.get(id) ?? new Set()).add(i));
+      const values = valuesOf.get(id) ?? [];
+      if (r.localValue !== undefined && !values.includes(r.localValue)) values.push(r.localValue);
+      valuesOf.set(id, values);
+    }
+  });
+  for (const [columnId, values] of valuesOf) {
+    if (values.length < 2 || (listsOf.get(columnId)?.size ?? 0) < 2) continue;
+    return {
+      id: `c${clause.index}.local.apart`,
+      prompt: `No row has two ${label(columnId)} values. Ask for them as one list, such as “${values[0]} or ${values[1]}”.`,
+      required: true,
+    };
+  }
+  const both = (first: CodeReadFilter, other: CodeReadFilter, either: boolean) =>
+    bothOrEither(clause.index, first.localValue ?? "", other.localValue ?? "", either);
+  for (const list of lists) {
+    const first = list[0];
+    const other = list.find((r) => r.predicate.columnId !== first?.predicate.columnId);
+    if (!first || !other) continue;
+    // Each after its column's name, they are two conditions: "advisor is Avery Lane and household is Alder Household".
+    if (columnNamed(clause, first, mentions) && columnNamed(clause, other, mentions)) continue;
+    const joins = clause.text.slice(first.end, list.at(-1)?.start ?? first.end);
+    return both(first, other, /\bor\b/.test(joins) && !/\band\b/.test(joins));
+  }
+  // Values of two columns with words that add one to the other between them, wherever they sit, ask the same: "Avery
+  // Lane's accounts and the Alder household's accounts". So do values that each come with the rows' own noun, whatever
+  // sits between them: "Avery Lane's accounts the Alder household's accounts" names two sets of rows. Two values that
+  // each follow their column's name are two conditions, and are read: "advisor is Avery Lane and household is Alder
+  // Household".
+  const text = unquoted(clause.text);
+  const entityColumns = new Set(schema.columns.map((col) => col.id));
+  const rows = rowNouns(text, schema, entityColumns).filter((n) => !found.some((r) => r.start < n.end && n.start < r.end));
+  for (let i = 1; i < found.length; i++) {
+    const first = found[i - 1];
+    const other = found[i];
+    if (!first || !other || first.predicate.columnId === other.predicate.columnId) continue;
+    if (columnNamed(clause, first, mentions) && columnNamed(clause, other, mentions)) continue;
+    if (ADDS_BETWEEN.test(text.slice(first.end, other.start))) return both(first, other, false);
+    const between = rows.some((n) => n.start >= first.end && n.end <= other.start);
+    const outside = rows.some((n) => n.end <= first.start || n.start >= other.end);
+    if (between && outside) return both(first, other, false);
+  }
+  return undefined;
+};
+
+/**
+ * The Local Values a request names (named filters spec, 5.4; ADR 0025), as code-read filters, and the question each
+ * part still asks about them. A whole value is a filter. A tie, or one word of a value, asks which was meant, one at a
+ * time in the order written. An answer that picks a value reads it as if typed whole at those words; one that picks a
+ * declared name reads the words as GridCue would without Local Values; "None of these" or "No" says nothing will
+ * change, and the part stays unread. Answers are read here, in the browser: nothing is sent again.
+ *
+ * Filters in different parts combine with "and", and no row has two values in one column: "entries for Gale Ivers;
+ * entries for Frankie Dunmore" would show no rows. A part that names a value of a column an earlier part already named
+ * one of asks (`again`), and says how to name both in one part. A part that names a value of another column than an
+ * earlier part's value asks too, as two values with "and" between them do in one part: "Avery Lane's accounts. Also
+ * the Alder household." may mean the rows of each.
+ */
+const localReading = (
+  c: CompileInput,
+  answers: Record<string, string>,
+): {
+  filters: CodeReadFilter[];
+  asks: Map<number, { question: Clarification; spans: CodeReadSpan[] }>;
+  again: Map<number, Clarification>;
+  apart: Map<number, Clarification>;
+  valueWords: Map<number, ReadonlySet<string>>;
+} => {
+  const filters: CodeReadFilter[] = [];
+  const asks = new Map<number, { question: Clarification; spans: CodeReadSpan[] }>();
+  const again = new Map<number, Clarification>();
+  const apart = new Map<number, Clarification>();
+  const valueWords = new Map<number, ReadonlySet<string>>();
+  // The values named for each column in earlier parts, in the order named, and the columns whose every value so far
+  // followed its column's name ("advisor is Avery Lane").
+  const named = new Map<string, string[]>();
+  const tied = new Map<string, boolean>();
+  for (const part of c.localValues ?? []) {
+    const clause = c.input.clauses.find((x) => x.index === part.clauseIndex);
+    if (!clause) continue;
+    valueWords.set(clause.index, new Set(part.valueWords));
+    const hits: NamedValue[] = part.values.map(({ start, end, columnId, value }) => ({ start, end, columnId, value }));
+    const choices: LocalChoice[] = [
+      ...part.ties.map((t) => ({ start: t.start, end: t.end, values: t.values, names: t.names })),
+      ...part.words.map((w) => ({
+        start: w.start,
+        end: w.end,
+        values: w.choices,
+        names: [],
+        word: { word: w.word, count: w.count, columns: w.columns },
+      })),
+    ].sort((a, b) => a.start - b.start);
+    const open: CodeReadSpan[] = [];
+    let question: Clarification | undefined;
+    for (const choice of choices) {
+      const id = `c${clause.index}.local.${choice.start}`;
+      const answer = answers[id];
+      const picked = answer === undefined ? undefined : /^([vn])(\d+)$/.exec(answer);
+      const value = picked?.[1] === "v" ? choice.values[Number(picked[2])] : undefined;
+      if (value) {
+        hits.push({ start: choice.start, end: choice.end, columnId: value.columnId, value: value.value });
+        continue;
+      }
+      // A declared name: the words are read as they are with no Local Values.
+      if (picked?.[1] === "n" && choice.names[Number(picked[2])]) continue;
+      open.push({ clauseIndex: clause.index, start: choice.start, end: choice.end });
+      question ??=
+        answer === undefined
+          ? localQuestion(id, clause, choice, c.schema)
+          : {
+              id: `${id}.none`,
+              prompt: `Nothing will change for “${clause.text.slice(choice.start, choice.end)}”. Type the full name, or rephrase that part.`,
+              required: true,
+            };
+    }
+    if (question) asks.set(clause.index, { question, spans: open });
+    const others = (c.codeRead ?? []).filter((r) => r.clauseIndex === clause.index);
+    // A value chosen in an answer sits where its words do: "Lane and Blake Moreno" lists Avery Lane first.
+    hits.sort((a, b) => a.start - b.start);
+    const found = localValueFilters(clause, hits, c.mentions ?? [], others);
+    const unlisted = unlistedValues(clause, found, c.schema, c.mentions ?? []);
+    if (unlisted) apart.set(clause.index, unlisted);
+    const twice = found.find((r) => {
+      const before = named.get(r.predicate.columnId);
+      return !!before && !before.includes(r.localValue ?? "");
+    });
+    if (twice) {
+      const label = c.schema.columns.find((col) => col.id === twice.predicate.columnId)?.label ?? twice.predicate.columnId;
+      again.set(clause.index, {
+        id: `c${clause.index}.local.again`,
+        prompt: `No row has two ${label} values. Ask for them in one part, such as “${named.get(twice.predicate.columnId)?.[0]} or ${twice.localValue}”.`,
+        required: true,
+      });
+    } else if (!/^or\b/.test(clause.text)) {
+      // Each part is a request of its own, so a value of another column than an earlier part's value is listed apart
+      // from it, as values with "and" between them are in one part: rows with both, or with either? It asks the same.
+      // A part that starts with "or" asks either-or already. Values that each follow their column's name are
+      // conditions, and are read: "advisor is Avery Lane; household is Alder Household".
+      for (const r of found) {
+        const earlier = [...named].find(
+          ([columnId]) => columnId !== r.predicate.columnId && !(tied.get(columnId) && columnNamed(clause, r, c.mentions ?? [])),
+        )?.[1][0];
+        if (earlier === undefined) continue;
+        again.set(clause.index, bothOrEither(clause.index, earlier, r.localValue ?? "", false));
+        break;
+      }
+    }
+    for (const r of found) {
+      const id = r.predicate.columnId;
+      named.set(id, [...(named.get(id) ?? []), r.localValue ?? ""]);
+      tied.set(id, (tied.get(id) ?? true) && columnNamed(clause, r, c.mentions ?? []));
+    }
+    filters.push(...found);
+  }
+  return { filters, asks, again, apart, valueWords };
+};
 /** A part's House Terms, each as its filters at one place: a term's conditions share its words. */
 const termsIn = (codeRead: readonly (CodeReadSpan | CodeReadFilter)[]): CodeReadFilter[][] => {
   const terms = new Map<string, CodeReadFilter[]>();
@@ -1924,6 +2445,7 @@ const EMPTY_KINDS: ReadonlySet<ColumnKind> = new Set(["string", "enum", "date", 
 const FORM_WORDS: Partial<Record<CodeReadFilter["predicate"]["operator"], string>> = {
   startsWith: "by how it starts",
   eq: "to exact text",
+  in: "to any of several values",
   isEmpty: "to rows where it is empty",
   isNotEmpty: "to rows where it is not empty",
 };
@@ -1947,7 +2469,9 @@ const codeReadQuestion = (
   const label = col?.label ?? r.predicate.columnId;
   const words = clause.text.slice(r.start, r.end);
   if (!col?.capabilities.includes("filter")) return `GridCue can't filter ${label} here. Try a different filter.`;
-  if (r.kind === "text" && col.kind !== "string") return `GridCue can match text only in a text column, and ${label} isn't one.`;
+  if ((r.kind === "text" || r.kind === "value") && col.kind !== "string") {
+    return `GridCue can match text only in a text column, and ${label} isn't one.`;
+  }
   if (r.kind === "empty" && col.kind === "boolean") {
     return `GridCue reads ${label} as Yes or No, so it can't tell what “${words}” means. Ask for Yes or No instead.`;
   }

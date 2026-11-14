@@ -24,9 +24,18 @@ import { useState } from "react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import type { GridAdapter } from "../src/core/adapter";
 import { createGridCue } from "../src/core/controller";
+import { isGridCueError } from "../src/core/errors";
+import { defineSchema } from "../src/core/schema";
 import { validatePlan } from "../src/core/validate";
 import { createMockProvider } from "../src/mock";
-import { createTanStackAdapter, gridcueFilterFn, schemaFromTanStack, type TanStackTableLike, withGridCueFilter } from "../src/tanstack";
+import {
+  createTanStackAdapter,
+  gridcueFilterFn,
+  localValuesFromTable,
+  schemaFromTanStack,
+  type TanStackTableLike,
+  withGridCueFilter,
+} from "../src/tanstack";
 import { runAdapterContract } from "./adapter-contract";
 
 const rows = [
@@ -656,5 +665,182 @@ describe("TanStack end to end", () => {
     table.setSorting([{ id: "team", desc: false }]);
     await cue.apply();
     expect(cue.getState().status).toBe("error");
+  });
+});
+
+// Local Values from a TanStack table (named filters spec, 5.4; ADR 0025). Synthetic names only.
+describe("localValuesFromTable", () => {
+  const accounts = [
+    { advisor_name: "Avery Lane", household: "Alder Household", market_value: 250_000 },
+    { advisor_name: "Blake Moreno", household: "Birch Household", market_value: 1_800_000 },
+    { advisor_name: "Casey Ortiz", household: "Alder Household", market_value: 900_000 },
+  ];
+  type Account = (typeof accounts)[number] & { subRows?: Account[] };
+  type NamesTable = TanStackTableLike & {
+    getRowModel(): { rows: Array<{ original: Account; subRows?: Array<{ original: Account }> }> };
+    setOptions(updater: (old: Record<string, unknown>) => Record<string, unknown>): void;
+    setPageSize(size: number): void;
+  };
+  const accountColumns = [
+    { accessorKey: "advisor_name", header: "Advisor" },
+    { accessorKey: "household", header: "Household" },
+    { accessorKey: "market_value", header: "Market value" },
+  ];
+  const makeNames = (data: Account[] = accounts, more: Record<string, unknown> = {}) =>
+    constructTable({
+      features,
+      data,
+      defaultColumn: { filterFn: gridcueFilterFn },
+      columns: accountColumns,
+      ...more,
+    } as never) as unknown as NamesTable;
+  const namesSchema = defineSchema(
+    accountColumns.map((c) => ({ id: c.accessorKey, label: c.header })),
+    {
+      rowNoun: "account",
+      columns: {
+        advisor_name: { aliases: ["advisor"], entity: "advisor" },
+        household: { entity: "household" },
+        market_value: { kind: "currency", aliases: ["value"] },
+      },
+    },
+  );
+  /** A GridCue filter the table holds: market value above $1,000,000, which hides Avery Lane's and Casey Ortiz's rows. */
+  const overOneMillion = {
+    id: "market_value",
+    value: {
+      gridcue: 1,
+      kind: "currency",
+      predicates: [{ id: "f", type: "predicate", columnId: "market_value", operator: "gt", value: 1_000_000 }],
+    },
+  };
+  const make = (table: NamesTable, columnIds: string[] = ["advisor_name", "household"]) =>
+    createGridCue({
+      adapter: createTanStackAdapter({ schema: namesSchema, table }),
+      provider: createMockProvider(),
+      localValues: localValuesFromTable(table, columnIds),
+    });
+  const configError = (run: () => unknown) => {
+    try {
+      run();
+    } catch (error) {
+      return isGridCueError(error) ? error.code : "not a GridCue error";
+    }
+    return "no error";
+  };
+  const withDana = (old: Record<string, unknown>) => ({
+    ...old,
+    data: [...accounts, { advisor_name: "Dana Whit", household: "Cedar Household", market_value: 5 }],
+  });
+
+  it("reads every loaded row, whatever the table's filters, sorting, grouping and pages", () => {
+    const table = makeNames();
+    table.setColumnFilters([overOneMillion]);
+    table.setSorting([{ id: "advisor_name", desc: true }]);
+    table.setGrouping(["household"]);
+    table.setPageSize(1);
+    table.setColumnVisibility({ advisor_name: false });
+    // Grouped by household: the page holds one group row, and the filter leaves one account in it.
+    const shown = table.getRowModel().rows.flatMap((r) => r.subRows ?? []);
+    expect(shown.map((r) => r.original.advisor_name)).toEqual(["Blake Moreno"]);
+    const values = localValuesFromTable(table, ["advisor_name", "household"]);
+    expect(Object.keys(values)).toEqual(["advisor_name", "household"]);
+    // The rows before filtering, in the table's data order. Repeated values stay: the Controller's index drops them.
+    expect(values.advisor_name?.()).toEqual(["Avery Lane", "Blake Moreno", "Casey Ortiz"]);
+    expect(values.household?.()).toEqual(["Alder Household", "Birch Household", "Alder Household"]);
+  });
+
+  it("finds a name whose row the table's filter hides", async () => {
+    const table = makeNames();
+    table.setColumnFilters([overOneMillion]);
+    expect(table.getRowModel().rows.map((r) => r.original.advisor_name)).toEqual(["Blake Moreno"]);
+    const cue = make(table);
+    await cue.propose("accounts for Avery Lane");
+    expect(cue.getState().status).toBe("ready");
+    const added = cue
+      .getState()
+      .plan?.operations.flatMap((op) =>
+        op.type === "filter.add" ? [[op.predicate.columnId, op.predicate.operator, op.predicate.value]] : [],
+      );
+    expect(added).toEqual([["advisor_name", "eq", "Avery Lane"]]);
+  });
+
+  it("reads sub-rows too", () => {
+    const child: Account = { advisor_name: "Dana Whit", household: "Cedar Household", market_value: 10 };
+    const data: Account[] = [{ ...(accounts[0] as Account), subRows: [child] }];
+    const table = makeNames(data, { getSubRows: (row: Account) => row.subRows });
+    expect(localValuesFromTable(table, ["advisor_name"]).advisor_name?.()).toEqual(["Avery Lane", "Dana Whit"]);
+  });
+
+  it("returns the same array while the table's data is the same array, so the Controller keeps its index", () => {
+    const table = makeNames();
+    const values = localValuesFromTable(table, ["advisor_name", "household"]);
+    const first = values.advisor_name?.();
+    const households = values.household?.();
+    table.setColumnFilters([overOneMillion]);
+    table.setSorting([{ id: "market_value", desc: true }]);
+    table.getRowModel();
+    expect(values.advisor_name?.()).toBe(first);
+    expect(values.household?.()).toBe(households);
+    // New data: a new array, read from the new rows.
+    table.setOptions(withDana);
+    const next = values.advisor_name?.();
+    expect(next).not.toBe(first);
+    expect(next).toEqual(["Avery Lane", "Blake Moreno", "Casey Ortiz", "Dana Whit"]);
+    expect(values.advisor_name?.()).toBe(next);
+  });
+
+  it("reads a name the Host's new data adds, through the Controller", async () => {
+    const table = makeNames();
+    const cue = make(table);
+    await cue.propose("accounts for Dana Whit");
+    expect(cue.getState().status).not.toBe("ready");
+    table.setOptions(withDana);
+    await cue.propose("accounts for Dana Whit");
+    expect(cue.getState().status).toBe("ready");
+  });
+
+  it("throws INPUT_CONFIG for a column id the table doesn't have, as createGridCue does for one the schema doesn't", () => {
+    const table = makeNames();
+    expect(configError(() => localValuesFromTable(table, ["advisor"]))).toBe("INPUT_CONFIG");
+    expect(configError(() => localValuesFromTable(table, ["advisor_name", "tax_id"]))).toBe("INPUT_CONFIG");
+  });
+
+  it("leaves createGridCue's check to refuse a column that is not text, or that the schema doesn't have", () => {
+    const table = makeNames();
+    expect(configError(() => make(table, ["market_value"]))).toBe("INPUT_CONFIG");
+    const fewer = defineSchema([{ id: "advisor_name", label: "Advisor" }]);
+    expect(
+      configError(() =>
+        createGridCue({
+          adapter: createTanStackAdapter({ schema: fewer, table }),
+          provider: createMockProvider(),
+          localValues: localValuesFromTable(table, ["advisor_name", "household"]),
+        }),
+      ),
+    ).toBe("INPUT_CONFIG");
+  });
+
+  it("passes a value that is not text through as the table holds it, and the Controller's index drops it", async () => {
+    const odd = [
+      { advisor_name: "Avery Lane", household: 42, market_value: 1 },
+      { advisor_name: null, household: "Alder Household", market_value: 2 },
+    ] as unknown as Account[];
+    const table = makeNames(odd);
+    const values = localValuesFromTable(table, ["advisor_name", "household"]);
+    expect(values.advisor_name?.()).toEqual(["Avery Lane", null]);
+    expect(values.household?.()).toEqual([42, "Alder Household"]);
+    const cue = make(table);
+    await cue.propose("the Alder household");
+    expect(cue.getState().status).toBe("ready");
+  });
+
+  it("stops the request with INPUT_LOCAL_VALUES when the table loses a column it reads", async () => {
+    const table = makeNames();
+    const cue = make(table);
+    table.setOptions((old) => ({ ...old, columns: accountColumns.filter((c) => c.accessorKey !== "household") }));
+    await cue.propose("accounts for Avery Lane");
+    expect(cue.getState().status).toBe("error");
+    expect(cue.getState().issues.map((i) => i.code)).toEqual(["INPUT_LOCAL_VALUES"]);
   });
 });

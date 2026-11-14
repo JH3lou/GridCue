@@ -116,6 +116,8 @@ A Grid Adapter for Hosts that keep rows in memory. It holds the View State itsel
 
 It reports `MVP_OPERATIONS`, atomic apply, snapshot restore and `observesChanges: true`. Revisions look like `rows:0`, `rows:1`, and so on.
 
+It never holds your rows, only the view, so it can't supply Local Values. Pass `localValues` to `createGridCue` with a function that reads your own rows: see [Local Values](/docs/api/create-grid-cue#local-values).
+
 ### RowsAdapter
 
 ```ts
@@ -209,6 +211,36 @@ const [cue] = useState(() => {
 });
 ```
 
+## localValuesFromTable
+
+```ts
+import { localValuesFromTable } from "gridcue/tanstack-table";
+
+function localValuesFromTable(
+  table: Pick<TanStackTableLike, "getAllLeafColumns" | "getCoreRowModel">,
+  columnIds: readonly string[],
+): LocalValues;
+```
+
+Builds the [`localValues`](/docs/api/create-grid-cue#local-values) option from a TanStack table, so a request can name a value its rows hold. Pass it the column ids to read, which must be text columns of the schema.
+
+```tsx
+const [cue] = useState(() => {
+  const schema = schemaFromTanStack(table);
+  return createGridCue({
+    schema,
+    adapter: createTanStackAdapter({ schema, table }),
+    provider,
+    localValues: localValuesFromTable(table, ["advisor_name", "household"]),
+  });
+});
+```
+
+- **It reads every loaded row, whatever filters the table has.** It uses the table's core row model, which is the data before the table filters, sorts, groups or pages it, and it includes sub-rows. A name is found while the User's filter hides its row, so a request can name an advisor the current view doesn't show.
+- **It reads what the table holds, not what the Host's server holds.** A table that pages on a server holds one page. Pass your own list of every name to `localValues` instead, as in [Local Values](/docs/api/create-grid-cue#local-values).
+- **The index is kept while the table's data is.** Each function returns the same array while the table's data is the same array, so GridCue indexes it once.
+- **A column id the table doesn't have throws `INPUT_CONFIG`** when you call it. `createGridCue` then checks each column against the schema and throws `INPUT_CONFIG` for one that is not an exposed, filterable text column. If the table later loses a column, the request stops with `INPUT_LOCAL_VALUES` and the view doesn't change.
+
 ## gridcueFilterFn
 
 ```ts
@@ -247,7 +279,10 @@ interface TanStackTableLike {
   setColumnVisibility(visibility: Record<string, boolean>): void;
   setColumnOrder(order: string[]): void;
   getAllLeafColumns(): Array<{ id: string; columnDef: { header?: unknown } }>;
-  getCoreRowModel(): { rows: Array<{ getValue(columnId: string): unknown }> };
+  getCoreRowModel(): {
+    rows: Array<{ getValue(columnId: string): unknown }>;
+    flatRows?: Array<{ getValue(columnId: string): unknown }>;
+  };
 }
 ```
 

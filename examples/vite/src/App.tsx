@@ -14,7 +14,7 @@ import {
   useTable,
 } from "@tanstack/react-table";
 import { createGridCue, createRemoteProvider, type HouseTerm } from "gridcue";
-import { createTanStackAdapter, gridcueFilterFn, schemaFromTanStack } from "gridcue/tanstack-table";
+import { createTanStackAdapter, gridcueFilterFn, localValuesFromTable, schemaFromTanStack } from "gridcue/tanstack-table";
 import { useState } from "react";
 import { CommandBar } from "@/components/gridcue/command-bar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -86,6 +86,8 @@ export function App() {
       schema,
       adapter: createTanStackAdapter({ schema, table }),
       provider: createRemoteProvider({ endpoint: "/api/gridcue" }),
+      // Local Values: the names the table's rows hold, read in the browser and never sent.
+      localValues: localValuesFromTable(table, ["advisor_name", "household"]),
     });
   });
   const [showDev, setShowDev] = useState(false);

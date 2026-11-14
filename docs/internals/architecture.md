@@ -59,7 +59,7 @@ Candidate sets come from the schema and capability registry, never from provider
 - possible action types: filter, sort, group, columns, reset, unsupported;
 - columns eligible for each action;
 - operators legal for the selected column type;
-- values explicitly present in the utterance or supplied by an approved resolver;
+- values explicitly present in the utterance, or a host-approved candidate list in the schema;
 - an explicit `none` or `ambiguous` choice.
 
 ### 4. Resolve semantics
@@ -141,7 +141,7 @@ Because Jev is a new service and its API may evolve, keep endpoint names, model 
 - account numbers, client names, tax lots, orders, or other record data;
 - hidden-field values;
 - credentials, tokens, cookies, or internal authorization details;
-- unrestricted distinct values gathered from the dataset.
+- unrestricted distinct values gathered from the dataset, including the Local Values GridCue reads in the browser, whether one matched, which column holds it, and the choices in a question about it. A name the user types is in the utterance and is sent with it. The provider is called exactly as often, and with exactly the same request, whether or not a Local Value matched (ADR 0025); the payload pin test runs with `localValues` on and off.
 
 Hosts may extend the payload, but doing so is an explicit integration decision outside core defaults.
 

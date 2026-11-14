@@ -1,8 +1,9 @@
 import type { GridAdapter } from "./adapter";
 import { type CodeReadFilter, readCodeFilters } from "./code-read";
-import { isExposed } from "./columns";
+import { isExposed, operatorsFor } from "./columns";
 import { type ConfidencePolicy, compile } from "./compile";
 import { GridCueError, type Issue, isGridCueError } from "./errors";
+import { indexLocalValues, type LocalValueColumn, type LocalValueIndex, type LocalValuesPart, readLocalValueParts } from "./local-values";
 import { type Mention, matchMentions } from "./mentions";
 import { type NormalizedInput, normalize, withoutNamedSizes } from "./normalize";
 import { screenRestricted } from "./policy";
@@ -24,6 +25,14 @@ export interface ControllerState {
   canUndo: boolean;
 }
 
+/**
+ * Where GridCue reads Local Values from (named filters spec, 5.4; ADR 0025): for each text column the Host names, a
+ * function that returns that column's values from the grid's own rows. For a grid that pages, that is the Host's own
+ * list, not the page. GridCue calls each function when a request is made, in the User's browser, and keeps its index
+ * while the function returns the same array. Nothing about the values is sent to an Intent Provider.
+ */
+export type LocalValues = Record<string, () => readonly unknown[]>;
+
 export interface GridCueOptions {
   adapter: GridAdapter;
   provider: IntentProvider;
@@ -38,6 +47,13 @@ export interface GridCueOptions {
    * 0 turns the limit off. A live Jev call once hung for 78 s through the SDK's own retries (v1 grill, Q1).
    */
   providerTimeoutMs?: number;
+  /**
+   * Local Values, off unless set: a function for each text column whose values GridCue may read in the browser. Each
+   * column must be a text column that is exposed, not restricted, and may be filtered to exact text (its operators
+   * include "eq" and "in"); anything else throws `INPUT_CONFIG` here. A function that throws stops the request with `INPUT_LOCAL_VALUES`, and the view doesn't
+   * change. A whole value in a request is read as an exact filter; one word of a value only ever asks.
+   */
+  localValues?: LocalValues;
 }
 
 export interface GridCueController {
@@ -63,6 +79,47 @@ const unsupportedMessage = (plan: ViewPlan): string => {
   return `GridCue only changes how the table looks, so it can't do “${segment.text ?? "that"}”. Remove that part to continue.`;
 };
 
+/** The message a request ends with when a Local Values function throws (spec 5.4). */
+const LOCAL_VALUES_FAILED = "Couldn't read this grid's values. The view hasn't changed.";
+
+/**
+ * Checks `localValues` when the Controller is made (spec 5.4): a function for each column, and each column a text
+ * column of the schema that is exposed, not restricted, and may be filtered to exact text ("eq" and "in"). Returns the
+ * columns in the order given.
+ */
+const localValueSources = (localValues: unknown, schema: ViewSchema): Array<{ columnId: string; read: () => readonly unknown[] }> => {
+  if (localValues === undefined) return [];
+  // A plain object only: a Map, an array or a class instance would read as no columns, and turn the feature off unseen.
+  const plain =
+    typeof localValues === "object" && localValues !== null && [Object.prototype, null].includes(Object.getPrototypeOf(localValues));
+  if (!plain) {
+    throw new GridCueError("INPUT_CONFIG", "localValues must be an object with a function for each column.");
+  }
+  return Object.entries(localValues).map(([columnId, read]) => {
+    const column = schema.columns.find((c) => c.id === columnId);
+    if (!column) throw new GridCueError("INPUT_CONFIG", `localValues names “${columnId}”, which is not a column of this grid.`);
+    if (column.sensitivity === "restricted")
+      throw new GridCueError("INPUT_CONFIG", `localValues can't read ${column.label}: it is restricted.`);
+    if (!isExposed(column)) throw new GridCueError("INPUT_CONFIG", `localValues can't read ${column.label}: it is not exposed.`);
+    if (column.kind !== "string")
+      throw new GridCueError("INPUT_CONFIG", `localValues can read only text columns, and ${column.label} isn't one.`);
+    if (!column.capabilities.includes("filter")) {
+      throw new GridCueError("INPUT_CONFIG", `localValues can't read ${column.label}: it may not be filtered.`);
+    }
+    // A value is read as an exact filter, and several as one "any of" filter. A column the Host limits to other
+    // operators ("contains" alone) could never take one, and every name would end in a question.
+    const allowed = operatorsFor(column);
+    if (!allowed.includes("eq") || !allowed.includes("in")) {
+      throw new GridCueError(
+        "INPUT_CONFIG",
+        `localValues can't read ${column.label}: a value is filtered as exact text, and its allowedOperators leave out “eq” or “in”.`,
+      );
+    }
+    if (typeof read !== "function") throw new GridCueError("INPUT_CONFIG", `localValues needs a function for ${column.label}.`);
+    return { columnId, read: read as () => readonly unknown[] };
+  });
+};
+
 /** The one object a Host creates to wire a grid to GridCue. */
 export const createGridCue = (options: GridCueOptions): GridCueController => {
   const { adapter, provider } = options;
@@ -72,6 +129,23 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
   if (maxLength > MAX_UTTERANCE_LENGTH) {
     throw new GridCueError("INPUT_CONFIG", `maxUtteranceLength can be at most ${MAX_UTTERANCE_LENGTH}.`);
   }
+  const sources = localValueSources(options.localValues, schema);
+  // Each column's index, kept while its function returns the same array.
+  const indexes = new Map<string, { values: readonly unknown[]; index: LocalValueIndex }>();
+  /**
+   * Every column's Local Values, read now and indexed. Throws when a function throws or returns something other than
+   * an array, and then keeps no index from this call: GridCue never reads a request with half its values.
+   */
+  const readLocalValues = (): LocalValueColumn[] => {
+    const read = sources.map(({ columnId, read }) => {
+      const values = read();
+      if (!Array.isArray(values)) throw new Error("Not an array.");
+      const kept = indexes.get(columnId);
+      return { columnId, values, index: kept && kept.values === values ? kept.index : indexLocalValues(values) };
+    });
+    for (const { columnId, values, index } of read) indexes.set(columnId, { values, index });
+    return read.map(({ columnId, index }) => ({ columnId, index }));
+  };
   const providerTimeoutMs = options.providerTimeoutMs ?? 8000;
   let state: ControllerState = IDLE;
   let inflight: AbortController | null = null;
@@ -84,6 +158,7 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
     restricted: ReturnType<typeof screenRestricted>;
     mentions: Mention[];
     codeRead: CodeReadFilter[];
+    localValues: LocalValuesPart[];
   } | null = null;
   let applicable: ApplicableViewPlan | null = null;
   // Every applied plan can be undone, newest first. An entry is undoable while the grid still shows what that plan
@@ -125,6 +200,7 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
       restricted: session.restricted,
       mentions: session.mentions,
       codeRead: session.codeRead,
+      localValues: session.localValues,
       answers: session.answers,
       operations: adapter.getCapabilities().operations,
       defaultState: adapter.getDefaultState(),
@@ -281,15 +357,32 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
       const codeRead = readCodeFilters(input, mentions, schema);
       try {
         let resolution: ResolutionResult = { clauses: [] };
+        let localValues: LocalValuesPart[] = [];
         if (restricted.length === 0) {
           const request = buildResolutionRequest(input, schema, adapter.getCapabilities(), base.state, mentions);
+          // Local Values are read only once the request is built, and nothing read from them reaches it: the provider
+          // is sent the same request, and called once, whether or not the grid holds a name (spec 4.3; ADR 0025).
+          if (sources.length > 0) {
+            let columns: LocalValueColumn[];
+            try {
+              columns = readLocalValues();
+            } catch {
+              set({
+                status: "error",
+                message: LOCAL_VALUES_FAILED,
+                issues: [{ code: "INPUT_LOCAL_VALUES", message: LOCAL_VALUES_FAILED }],
+              });
+              return null;
+            }
+            localValues = readLocalValueParts(input, mentions, codeRead, schema, columns);
+          }
           const raw = await Promise.race([provider.resolve(request, controller.signal), abandoned]);
           if (controller.signal.aborted) return stopped();
           const parsed = ResolutionResult.safeParse(raw);
           if (!parsed.success) throw new GridCueError("PROVIDER_MALFORMED", "The provider returned an unexpected response.");
           resolution = parsed.data;
         }
-        session = { input, resolution, base, channel, answers: {}, restricted, mentions, codeRead };
+        session = { input, resolution, base, channel, answers: {}, restricted, mentions, codeRead, localValues };
         return present();
       } catch (error) {
         if (controller.signal.aborted) return stopped();

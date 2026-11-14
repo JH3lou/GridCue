@@ -188,6 +188,81 @@ const CHANGED: Record<string, string[] | null> = {
   // nothing says to sort ("accounts by advisor, largest first").
   "cases-house-terms-heldout-r2.jsonl: r2-form-largely-8": null,
   "cases-house-terms-heldout-r2.jsonl: r2-nat-size-2": null,
+  // Local Values (named filters spec, 5.4, and section 9's "Filter Advisor to exactly “Avery Lane”"). Each request says
+  // `"values": true`; their Previews were recorded before a value was read (2026-11-14), when each asked, or showed
+  // rows the User didn't ask for. A value's filter shows it as the grid holds it, in its own letter case, and several
+  // values of one column are one line, "to any of".
+  // - a name was dropped beside another reading, which was shown alone ("show taxable accounts for Avery Lane"), or read
+  //   as a sort's second column ("sort by market value for the Alder household");
+  "cases-names.jsonl: lv-middle": ["Filter Advisor to exactly “Dana Whitfield”", "Filter Registration type to Taxable"],
+  "cases-names.jsonl: lv-end": ["Filter Registration type to Taxable", "Filter Advisor to exactly “Emerson Hale”"],
+  "cases-names.jsonl: lv-table-taxable-for": ["Filter Registration type to Taxable", "Filter Advisor to exactly “Avery Lane”"],
+  "cases-names.jsonl: lv-table-sort-for": ["Filter Household to exactly “Alder Household”", "Sort by Market value, ascending"],
+  "cases-names.jsonl: lv-table-group-for": ["Filter Advisor to exactly “Avery Lane”", "Group by Advisor"],
+  "cases-names.jsonl: lv-ledger-cleared-yes": ["Show only rows where Cleared is Yes", "Filter Owner to exactly “Casey Ortiz”"],
+  "cases-names.jsonl: lv-ledger-sorted": ["Filter Owner to exactly “Dana Whitfield”", "Sort by Amount, descending"],
+  "cases-names.jsonl: lv-ledger-group": ["Filter Owner to exactly “Emerson Hale”", "Group by Category"],
+  // - one word of a value was dropped beside another reading ("taxable accounts for Lane"); it now asks which was meant;
+  "cases-names.jsonl: lv-one-word-taxable-for-lane": null,
+  // - a scripted provider's sort, grouping, column change or value for the name's own words was shown; it is dropped;
+  "cases-provider-picks.jsonl: pp-lv-sort-for-name": ["Filter Advisor to exactly “Avery Lane”"],
+  "cases-provider-picks.jsonl: pp-lv-group-for-name": ["Filter Advisor to exactly “Blake Moreno”"],
+  "cases-provider-picks.jsonl: pp-lv-value-for-household": ["Filter Household to exactly “Alder Household”"],
+  "cases-provider-picks.jsonl: pp-lv-hide-for-name": ["Filter Advisor to exactly “Casey Ortiz”"],
+  "cases-provider-picks.jsonl: pp-lv-show-for-name": ["Filter Advisor to exactly “Emerson Hale”"],
+  "cases-provider-picks.jsonl: pp-lv-sort-for-name-with-group": ["Filter Advisor to exactly “Avery Lane”", "Group by Custodian"],
+  "cases-provider-picks.jsonl: pp-lv-value-beside-name-taxable": [
+    "Filter Registration type to Taxable",
+    "Filter Advisor to exactly “Avery Lane”",
+  ],
+  "cases-provider-picks.jsonl: pp-lv-ledger-sort-for-owner": ["Filter Owner to exactly “Gale Ivers”"],
+  "cases-provider-picks.jsonl: pp-lv-ledger-value-for-counterparty": ["Filter Counterparty to exactly “Cedar Works”"],
+  "cases-provider-picks.jsonl: pp-lv-ledger-group-for-list": ["Filter Owner to any of “Avery Lane” and “Gale Ivers”"],
+  // - and each of these asked before, and now reads the value.
+  "cases-names.jsonl: lv-possessive": ["Filter Advisor to exactly “Avery Lane”"],
+  "cases-names.jsonl: lv-for": ["Filter Advisor to exactly “Avery Lane”"],
+  "cases-names.jsonl: lv-is": ["Filter Advisor to exactly “Avery Lane”"],
+  "cases-names.jsonl: lv-household": ["Filter Household to exactly “Alder Household”"],
+  "cases-names.jsonl: lv-household-show": ["Filter Household to exactly “Birch Household”"],
+  "cases-names.jsonl: lv-household-of": ["Filter Household to exactly “Cedar Household”"],
+  "cases-names.jsonl: lv-or": ["Filter Advisor to any of “Avery Lane” and “Blake Moreno”"],
+  "cases-names.jsonl: lv-or-three-commas": ["Filter Advisor to any of “Avery Lane”, “Blake Moreno” and “Casey Ortiz”"],
+  "cases-names.jsonl: lv-or-households": ["Filter Household to any of “Alder Household” and “Birch Household”"],
+  "cases-names.jsonl: lv-and-list": ["Filter Advisor to any of “Avery Lane” and “Blake Moreno”"],
+  "cases-names.jsonl: lv-start": ["Filter Advisor to exactly “Casey Ortiz”"],
+  "cases-names.jsonl: lv-case-lower": ["Filter Advisor to exactly “Avery Lane”"],
+  "cases-names.jsonl: lv-case-upper": ["Filter Advisor to exactly “Blake Moreno”"],
+  "cases-names.jsonl: lv-trailing-period": ["Filter Advisor to exactly “Casey Ortiz”"],
+  "cases-names.jsonl: lv-comma-before-filter": ["Filter Advisor to exactly “Dana Whitfield”", "Filter Registration type to Taxable"],
+  "cases-names.jsonl: lv-beside-hide": ["Filter Advisor to exactly “Avery Lane”", "Hide Custodian"],
+  "cases-names.jsonl: lv-beside-two-filters": [
+    "Filter Advisor to exactly “Casey Ortiz”",
+    "Filter Registration type to IRA",
+    "Filter Concentration above 10%",
+  ],
+  "cases-names.jsonl: lv-quoted-beside": ["Filter Advisor to exactly “Avery Lane”", "Filter Household containing “alder”"],
+  "cases-names.jsonl: lv-ledger-owner-is": ["Filter Owner to exactly “Avery Lane”"],
+  "cases-names.jsonl: lv-ledger-for": ["Filter Owner to exactly “Gale Ivers”"],
+  "cases-names.jsonl: lv-ledger-possessive": ["Filter Owner to exactly “Frankie Dunmore”"],
+  "cases-names.jsonl: lv-ledger-ampersand": ["Filter Counterparty to exactly “Birch & Fenn Ltd”"],
+  "cases-names.jsonl: lv-ledger-no-ampersand": ["Filter Counterparty to exactly “Birch & Fenn Ltd”"],
+  "cases-names.jsonl: lv-ledger-show": ["Filter Counterparty to exactly “Alder Supply Co”"],
+  "cases-names.jsonl: lv-ledger-longest-travel": ["Filter Counterparty to exactly “Hollis Travel Group”"],
+  "cases-names.jsonl: lv-ledger-or-owners": ["Filter Owner to any of “Avery Lane” and “Gale Ivers”"],
+  "cases-names.jsonl: lv-ledger-or-counterparties": ["Filter Counterparty to any of “Cedar Works” and “Ellery Partners”"],
+  // The five wrong views of the Local Values held-out run, each narrowed to a question as a class, and the one ready
+  // case that the same class now asks about (it accepts a question). Their Previews were recorded as the code gave them.
+  // - a value beside another filter on its column that no row can match with it ("with no advisor", a starts-with form):
+  //   filters on one text column that can't all hold ask, with values or without, also beside a filter the view keeps;
+  // - two values of one column apart from each other, not one list: they ask;
+  // - values of two columns listed with "and" or a comma: rows with both, or with either, so they ask;
+  // - a word built on "group" that the part doesn't group by ("Travel Group entries"): it asks, with values or without.
+  "cases-names-heldout-wealth.jsonl: lv1-conflict-no-advisor": null,
+  "cases-names-heldout-wealth.jsonl: lv1-conflict-starts-with": null,
+  "cases-names-heldout-wealth.jsonl: lv1-conflict-two-advisors": null,
+  "cases-names-heldout-wealth.jsonl: lv1-mixed-columns-and": null,
+  "cases-names-heldout-ledger.jsonl: lvl1-owner-and-cp": null,
+  "cases-names-heldout-ledger.jsonl: lvl1-two-words-category-and-group": null,
 };
 
 describe("the Preview of every labelled request", () => {

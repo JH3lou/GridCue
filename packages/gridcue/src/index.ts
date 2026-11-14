@@ -7,6 +7,7 @@ export {
   type GridCueController,
   type GridCueOptions,
   type InteractionStatus,
+  type LocalValues,
 } from "./core/controller";
 export * from "./core/errors";
 export { matchesFilter, matchesPredicate } from "./core/evaluate";

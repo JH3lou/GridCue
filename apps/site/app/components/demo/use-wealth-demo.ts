@@ -20,7 +20,7 @@ import {
 } from "@tanstack/react-table";
 import { createGridCue, type GridCueController, type IntentProvider, type ResolutionRequest, type SchemaOptions } from "gridcue";
 import { createMockProvider } from "gridcue/mock";
-import { createTanStackAdapter, gridcueFilterFn, schemaFromTanStack } from "gridcue/tanstack-table";
+import { createTanStackAdapter, gridcueFilterFn, localValuesFromTable, schemaFromTanStack } from "gridcue/tanstack-table";
 import { useState } from "react";
 
 export const features = tableFeatures({
@@ -105,7 +105,9 @@ export function useWealthDemo(rowCount: number) {
         return mock.resolve(request, signal);
       },
     };
-    return createGridCue({ schema, adapter: createTanStackAdapter({ schema, table }), provider });
+    // Local Values: the advisor and household names the rows hold, read in the browser and never sent.
+    const localValues = localValuesFromTable(table, ["advisor_name", "household"]);
+    return createGridCue({ schema, adapter: createTanStackAdapter({ schema, table }), provider, localValues });
   });
   return { table, cue, last };
 }
