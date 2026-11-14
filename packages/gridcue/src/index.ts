@@ -1,5 +1,5 @@
 export { type ApplyResult, type GridAdapter, MVP_OPERATIONS } from "./core/adapter";
-export { type CompileInput, type ConfidencePolicy, compile, DEFAULT_CONFIDENCE } from "./core/compile";
+export { type CompileInput, type ConfidencePolicy, type CountQuestion, compile, countQuestion, DEFAULT_CONFIDENCE } from "./core/compile";
 export {
   type ControllerState,
   createGridCue,

@@ -58,41 +58,41 @@ Spec 4.1 (count forms only), 5.1, 5.2 (count rows). ADR 0027, without the TanSta
 
 ### Task 1.1: Label the count cases (Sonnet)
 **Files:** new `evals/cases-count.jsonl`; a held-out set outside the repo.
-- [ ] Dev: 30 follow-ups after a count (sort, clear sort, filter, clear filters, "show every row", "show only the first 5 rows", "show all accounts" with and without a filter), half wanting each outcome; 10 controls that must not ask (grouping, columns, a new count, reset). Each case carries the current view in its state.
-- [ ] Held-out: 30 of the same kinds, written from spec 5.1 alone.
-- [ ] Baseline with the Mock Provider on both, before any code. Today's wrong views are expected; record them.
+- [x] Dev: 30 follow-ups after a count (sort, clear sort, filter, clear filters, "show every row", "show only the first 5 rows", "show all accounts" with and without a filter), half wanting each outcome; 10 controls that must not ask (grouping, columns, a new count, reset). Each case carries the current view in its state.
+- [x] Held-out: 30 of the same kinds, written from spec 5.1 alone.
+- [x] Baseline with the Mock Provider on both, before any code. Today's wrong views are expected; record them.
 
 ### Task 1.2: Empty values in a count (Opus)
 **Files:** `core/rows-adapter.ts`, `test/rows-adapter.test.ts`, `CHANGELOG.md`.
-- [ ] Tests first: top N descending and ascending with `null` and missing values; fewer than N rows with a value; a count with no sort.
-- [ ] `applyView` keeps only rows with a value in the first sorted column when it applies a count.
+- [x] Tests first: top N descending and ascending with `null` and missing values; fewer than N rows with a value; a count with no sort.
+- [x] `applyView` keeps only rows with a value in the first sorted column when it applies a count.
 
 ### Task 1.3: The count question and the count words (Fable)
 **Files:** new `core/view-words.ts`, `core/compile.ts`, `core/preview.ts` (`diffViews`), `index.ts`, tests, `evals/evals.test.ts`.
-- [ ] Tests first: one per row of the table in spec 5.1; the question never fires on a plan with its own count; each count form with one leftover word, which must not read.
-- [ ] `readViewWords` with the count-clear and "show only the first N rows" forms, returning spans. Not stored on the Clause.
-- [ ] The count question, asked after compiling, right after ADR 0019's check.
-- [ ] `ViewDiff.countChanged`.
-- [ ] A payload test: the provider request for every labelled request equals today's. This PR owns that pin test (order plan). Named filters, routing, the command bar and the four bets reuse it and say why whenever they update it.
-- [ ] The count rule is one pure function of a plan's operations and the view it applies to, exported for the command bar's `edit` and View Parts to call.
-- [ ] `cases-count.jsonl` in the gate. Bars: 0 wrong views on the dev set and on every existing set, no existing verdict worse.
+- [x] Tests first: one per row of the table in spec 5.1; the question never fires on a plan with its own count; each count form with one leftover word, which must not read.
+- [x] `readViewWords` with the count-clear and "show only the first N rows" forms, returning spans. Not stored on the Clause.
+- [x] The count question, asked after compiling, right after ADR 0019's check.
+- [x] `ViewDiff.countChanged`.
+- [x] A payload test: the provider request for every labelled request equals today's. This PR owns that pin test (order plan). Named filters, routing, the command bar and the four bets reuse it and say why whenever they update it.
+- [x] The count rule is one pure function of a plan's operations and the view it applies to, exported for the command bar's `edit` and View Parts to call.
+- [x] `cases-count.jsonl` in the gate. Bars: 0 wrong views on the dev set and on every existing set, no existing verdict worse.
 
 ### Task 1.4: Held-out run (lead)
-- [ ] One run of the held-out set. Report exact, safe misses and wrong views. Bar: 0 wrong views. A wrong view goes back as a class, with a fresh held-out set.
-- [ ] The set joins the repo as `evals/cases-count-heldout.jsonl`.
+- [x] One run of the held-out set. Report exact, safe misses and wrong views. Bar: 0 wrong views. A wrong view goes back as a class, with a fresh held-out set.
+- [x] The set joins the repo as `evals/cases-count-heldout.jsonl`.
 
 ### Task 1.5: UIs and docs (Sonnet)
 **Files:** `test/grid-cue-bar.test.tsx`, `registry/test/command-bar.test.tsx`, Site docs, `skills/gridcue/SKILL.md`.
-- [ ] Component tests in both UIs: the count question shows two choices, and each answer previews its line.
-- [ ] Site: `concepts/requests` (a count asks when its rows would change; the clearing words), `concepts/views`, `api/protocol`.
-- [ ] `skills/gridcue`: counts and how to clear one. `pnpm check:skills`.
-- [ ] ADR 0018's count bullet is rewritten, not added to: an empty value never fills a count, and a change to the sort or the filters asks (ADR 0027).
-- [ ] The four bets plan, as the order plan's section 6 says: the payload pin test exists (task 2.3), and marks and the grammar cover the count-clearing words (tasks 2.4 and 4.2).
-- [ ] Changelog (Haiku).
+- [x] Component tests in both UIs: the count question shows two choices, and each answer previews its line.
+- [x] Site: `concepts/requests` (a count asks when its rows would change; the clearing words), `concepts/views`, `api/protocol`.
+- [x] `skills/gridcue`: counts and how to clear one. `pnpm check:skills`.
+- [x] ADR 0018's count bullet is rewritten, not added to: an empty value never fills a count, and a change to the sort or the filters asks (ADR 0027).
+- [x] The four bets plan, as the order plan's section 6 says: the payload pin test exists (task 2.3), and marks and the grammar cover the count-clearing words (tasks 2.4 and 4.2).
+- [x] Changelog (Haiku).
 
 ### Task 1.6: Review (Opus), then gate
-- [ ] The reviewer hunts for a follow-up that changes which rows a count keeps without asking.
-- [ ] `pnpm lint`, `pnpm check`.
+- [x] The reviewer hunts for a follow-up that changes which rows a count keeps without asking.
+- [x] `pnpm lint`, `pnpm check`.
 
 **Owner sees before code:** nothing new; the question uses the existing clarification UI.
 

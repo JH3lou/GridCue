@@ -15,8 +15,8 @@ import {
 export interface EvalCase {
   id: string;
   utterance: string;
-  /** Starts the grid from this view instead of the default, e.g. already grouped by custodian. */
-  state?: Partial<Pick<ViewState, "groupBy" | "sorts" | "filters">>;
+  /** Starts the grid from this view instead of the default, e.g. already grouped by custodian, or showing a count. */
+  state?: Partial<Pick<ViewState, "groupBy" | "sorts" | "filters" | "limit">>;
   /** Runs on another schema instead of the wealth fixture: "dated" for cases about dates. */
   schema?: "dated";
   expect: {

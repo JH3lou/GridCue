@@ -53,6 +53,31 @@ describe("named-filter fixes, second held-out set, with the Mock Provider", () =
   }
 });
 
+// A count follows its rows (operation set spec, 5.1; ADR 0027). After a count, a change to the sort or the filters asks
+// whether to keep the count, and the count's own words set and clear it. Labelled before the code. With the Mock
+// Provider every case must match: 25 exact and 15 asked as labelled, of 40 (2026-11-13). Before the fix, 11 of these
+// requests kept a count over different rows without saying so.
+describe("a count follows its rows, with the Mock Provider", () => {
+  for (const c of loadCases(new URL("./cases-count.jsonl", import.meta.url))) {
+    it(`cases-count.jsonl: ${c.id}`, async () => {
+      const result = await runCase(c, provider);
+      expect(result.verdict, JSON.stringify(result.plan, null, 1)).toMatch(/^(exact|safe_abstention|rejected)$/);
+    });
+  }
+});
+
+// The same classes in other words, labelled from the spec alone before the code and first run after it (2026-11-13):
+// with the Mock Provider 19 exact, 26 asked as labelled, 3 safe misses, 0 wrong views, of 48. 15 of its requests kept a
+// count over different rows before the fix and now ask. A safe miss is reported by `pnpm eval`; a wrong view fails.
+describe("a count follows its rows, held-out set, with the Mock Provider", () => {
+  for (const c of loadCases(new URL("./cases-count-heldout.jsonl", import.meta.url))) {
+    it(`cases-count-heldout.jsonl: ${c.id}`, async () => {
+      const result = await runCase(c, provider);
+      expect(result.verdict, JSON.stringify(result.plan, null, 1)).not.toBe("unsafe");
+    });
+  }
+});
+
 describe("the verdict", () => {
   const show = { type: "columns.show", columnIds: ["custodian"] };
   const hide = { type: "columns.hide", columnIds: ["custodian"] };

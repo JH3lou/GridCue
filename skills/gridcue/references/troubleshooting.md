@@ -6,6 +6,7 @@ Look up the symptom, check the cause, then fix. Read the linked docs page before
 | --- | --- | --- |
 | Nothing previews; "I'm not sure what to change" | The request's words aren't column labels or aliases | Add aliases and `enumValues` ([Describe your domain](https://gridcue.dev/docs/get-started/describe-your-domain)) |
 | "Which column should be sorted by?" for "largest first" | No column name in the request, or `rowNoun` unset | Expected on the Mock. Set `rowNoun`; with Jev, the provider often picks the column. |
+| "Keep only the first 10 rows of the new view, or show every row?" | The view has a count and the request changes the sort or the filters | Expected: pick one. "Show every row" clears the count at any time ([Requests](https://gridcue.dev/docs/concepts/requests)) |
 | A filter previews but the table doesn't change | `gridcueFilterFn` isn't the table's default filter function | `defaultColumn: { filterFn: gridcueFilterFn }` ([Vite and TanStack Table](https://gridcue.dev/docs/guides/vite-tanstack)) |
 | Undo stops working after the table changes | The controller is rebuilt on each render | Create it once with `useState(() => …)`, not `useMemo` on `table` |
 | "The view changed since this preview" | The User changed the table between Preview and Apply | Expected: preview again. GridCue never overwrites a manual change. |
