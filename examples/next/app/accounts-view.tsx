@@ -50,6 +50,8 @@ const initialState = {
   ...emptyViewState(schema.columns.map((c) => c.id)),
   visibleColumnIds: [...wealthInitialState.visibleColumnIds, "opened", "last_contact"],
 };
+// A date stays on one line in its cell (page.css).
+const DATE_COLUMNS = new Set(schema.columns.filter((c) => c.kind === "date" || c.kind === "datetime").map((c) => c.id));
 const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 const dateTime = new Intl.DateTimeFormat("en-US", { timeZone, dateStyle: "medium", timeStyle: "short" });
 
@@ -85,7 +87,9 @@ export function AccountsView({ now }: { now: string }) {
     list.slice(0, 100).map((row) => (
       <tr key={row.account_number}>
         {view.columns.map((id) => (
-          <td key={id}>{format(id, row[id as keyof typeof row])}</td>
+          <td key={id} className={DATE_COLUMNS.has(id) ? "date" : undefined}>
+            {format(id, row[id as keyof typeof row])}
+          </td>
         ))}
       </tr>
     ));
