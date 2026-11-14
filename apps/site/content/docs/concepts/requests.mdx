@@ -115,10 +115,51 @@ The same rule limits a provider's picks in such a part. A column or value that n
   A text form said as a statement asks about the words that make it one: `every advisor starts with "Av"` asks "I'm not sure what to do with “every”. Try rephrasing that part.", and `which advisor starts with "Av"` asks about “which”. A first-person word anywhere but the two places above asks too: "advisor is missing from my account" asks about “my”, "advisor is missing for me" about “me”, and "my advisor's accounts with no household" about “my”. "Accounts that have an advisor", "which accounts have no advisor?", "my accounts with no advisor", "every account with no advisor", "accounts without any advisor" and `all advisors starting with "Av"` are read.
 - **A column named right after a form is that column.** "Entries with no counterparty booked after 2026-01-01" filters Booked and Counterparty, as "entries booked after 2026-01-01 with no counterparty" does.
 
-A part with none of these forms is read as before, plain quoted text included: `advisor "Lane"` stays "containing", and `advisor "Lane" sorted by market value` is read as it was. Two checks make such a part ask, and neither adds a reading:
+A part with none of these forms is read as before, plain quoted text included: `advisor "Lane"` stays "containing", and `advisor "Lane" sorted by market value` is read as it was. Four checks make such a part ask, and none adds a reading:
 
 - **A word for no value outside an empty form asks.** GridCue doesn't read where empty rows go in a sort, so "sort by market value, blanks last" asks "I'm not sure what to do with “blanks”. Try rephrasing that part." The words are "blank", "blanks", "empty", "empties", "null", "nulls" and "missing". "Hide empty columns" asks about “empty” too.
 - **A change to show only some columns asks about any word that isn't its own.** Its own words are its columns' names, a lead-in, a verb that chooses rows, "column", "the", "these", "and", "&", "visible", "again", "for now" at the end, "in the grid" or "on the table", and thanks at the end. "Just the accounts where the advisor is Blake Moreno" asks about “accounts where” and “is blake moreno”, where it would show only the Advisor column. "Show only household and advisor columns in the grid, thank you" is ready.
+- **An adverb nothing reads asks, beside a value, a yes/no column, an amount or a date.** "Accounts largely in taxable", "accounts that are mostly taxable", "accounts roughly over $1m" and "taxable accounts held indirectly" ask about the adverb: no filter holds "largely", and read without it the part would keep rows the User didn't ask for. An adverb that says what "only", "all" or "now" says is read: "accounts currently at Northgate", "accounts solely at Northgate", "accounts that are fully taxable" and "show taxable accounts quickly" filter as they would without it. So are the adverbs GridCue reads ("only", "exactly", "alphabetically") and one right before a verb ("kindly show").
+- **A size or age word sorts only a column that holds an amount or a date.** "Which advisor has the largest accounts?", "accounts by advisor, largest first" and "accounts, newest first" ask "Which column should be sorted by?", with a `defaultMeasure` or without. "Largest" there speaks of the accounts, not of the advisors' names. A part that says "sort" or "order" itself keeps its column: "sort by advisor, largest first" sorts by Advisor, descending.
+
+## House Terms
+
+A **House Term** is a name your schema gives to a fixed list of conditions, such as Large for Market value above $1,000,000. See [`houseTerms`](/docs/api/schema#houseterms) to declare one. A term is read by GridCue's own code, like the forms above, and the provider is never asked what it means. The examples here declare Large (alias "big"), Needs attention (aliases "need attention", "needing attention") and Unassigned, which is Advisor empty.
+
+A term said as a whole word adds each of its conditions as a filter. The Preview puts the term's label in brackets on each line it made, so the User sees the threshold and not only the word:
+
+| Request | Preview lines |
+| --- | --- |
+| "Large accounts", "show the big accounts" | "Filter Market value above $1,000,000 (Large)" |
+| "Show large taxable accounts" | "Filter Market value above $1,000,000 (Large)" · "Filter Registration type to Taxable" |
+| "Accounts that need attention" | "Filter Concentration above 10% (Needs attention)" · "Show only rows where Restricted holdings is Yes (Needs attention)" |
+| "Show unassigned accounts" | "Show only rows where Advisor is empty (Unassigned)" |
+| "Large accounts that need attention" | each line of both terms |
+| "Large accounts, group by custodian" | "Filter Market value above $1,000,000 (Large)" · "Group by Custodian" |
+
+The view keeps plain filters. The brackets are in the Preview and in the plan's evidence, and once applied the term's words are gone from the view. A new filter replaces the current ones unless the request says to add, as for any filter.
+
+These ask instead:
+
+| Request | Asks |
+| --- | --- |
+| A term left out: "accounts that aren't large", "hide large accounts" | "GridCue can't leave out “large” yet. Ask for the rows to keep, such as “market value at or below $1,000,000”." |
+| A term where a column goes: "sort by large", "group by large", "the large column" | "“large” stands for rows, not a column. Name a column instead, such as Market value." |
+| "Large or taxable accounts" | "GridCue can only show rows that match every condition, not either one. Ask for one at a time." |
+| "Large accounts called about retirement" | "I'm not sure what to do with “called about”. Try rephrasing that part." |
+| A term where an amount goes: "accounts under large", "accounts at large" | "I'm not sure what to do with “under large”. Try rephrasing that part." |
+| A term that describes the rows' owner: "large households' accounts" | "I'm not sure what to do with “large households'”. Try rephrasing that part." |
+| A statement: "accounts need attention", "accounts are large" | "I'm not sure what to do with “accounts need attention”. Try rephrasing that part." |
+| "Largest accounts" | "Which column should be sorted by?" |
+
+- **A term is a code-read filter, so every word must be placed.** The rule under [Text forms and empty values](#text-forms-and-empty-values) holds for a part with a term: any word GridCue doesn't place asks, a statement asks ("who is large", "what is large"), and a column asked for beside the term must end up in the plan. A provider's picks in that part are limited to what the words name, so a sort, a column or a value the provider proposes for a term's word is dropped, and a yes/no column named on its own keeps Yes: "material cleared entries" never shows Cleared is No.
+- **A term describes the rows.** Where an amount or a noun would go, it asks: "under" is a word GridCue places, and "accounts under large" would keep the accounts above $1,000,000. Right after an amount it asks too, since a unit or what the amount counts goes there: "gain 50k large" asks about “50k large”, while "accounts over $5m, large" and "accounts over $1m unassigned" are read. The rows in the plural right before a term say something of them unless the term starts with an "-ing" or "-ed" word: "accounts needing attention" and "accounts unassigned" are read, and "accounts need attention" asks, as "accounts have no advisor" does. With other words between, the rows say something of a term said as a verb, one of several words whose first ends in a verb's "s" ("needs attention", "breaches limit"), or whose names include the same words with and without that "s" ("needs attention", "need attention"): "Northgate needs attention", "these accounts at Northgate need attention" and "trusts need attention" ask, while "accounts at Northgate large" and "accounts at Northgate that need attention" are read. A term after a comma or "and" is one more thing the User lists: "show accounts, need attention" is read.
+- **A word made from a term's name asks** in a part with no other reading of its own: "show larger taxable accounts" asks about “larger”, and so does "accounts larger than taxable", where no amount follows "larger than". "Accounts bigger than $2m" is read.
+- **"Or" asks.** A term never holds "or", so either-or between a term and another filter asks, as it does without terms. "Large taxable or IRA accounts" is not either-or between filters: the "or" joins two values of one column.
+- **"Largest" is a size word, not the term.** "Large" and "largest" are different words: a term is found as a whole word, in any letter case, with no plural form. "Largest accounts" is read as in [Size words](#clause) above, and "larger accounts" asks about “larger”.
+- **An amount beside a term** takes its column from the provider's pick, as an amount with no term does. The Mock Provider picks none for a part that starts with a word it doesn't know, so "large accounts over $5m" asks "Which column should be above $5,000,000?" The term is read and the amount is never guessed.
+- **With no terms declared** a term's words are read as before: "show the big accounts" asks what to filter on, and "show larger taxable accounts" filters Taxable. The adverb and size-word checks above hold for every grid, with terms or without.
+- **A term is never sent to a provider.** The request a provider receives is the same with terms declared or not, and the provider is called as often. See [Safety and protocol](/docs/safety#the-data-boundary).
 
 ## Mention
 
@@ -131,7 +172,7 @@ In "Roth accounts at Northgate, sorted by rep":
 - "rep" is a Mention of the Advisor column (an alias);
 - "accounts" is **not** a Mention of Account number. With `rowNoun: "account"` declared, it means the rows.
 
-A name used for the rows themselves is never a Mention. The rules lean toward "the rows" on purpose: a name wrongly read as the rows falls back to the provider, while a name wrongly read as a column would propose a wrong view.
+A name used for the rows themselves is never a Mention. A [House Term](#house-terms) is not one either: a Mention is sent to the provider, and a term never is. The rules lean toward "the rows" on purpose: a name wrongly read as the rows falls back to the provider, while a name wrongly read as a column would propose a wrong view.
 
 ## Clarification
 
@@ -139,7 +180,7 @@ A single focused question GridCue asks when it can't resolve a request without a
 
 | Request | Clarification |
 | --- | --- |
-| "Show the big accounts" | "What should “show the big accounts” filter on? Include a value, such as an amount or a category." |
+| "Show the big accounts", when no [House Term](#house-terms) names "big" | "What should “show the big accounts” filter on? Include a value, such as an amount or a category." |
 | "Largest households first" | "Did you mean households as a whole? GridCue can group by Household." |
 | "Accounts over $1 million", when the provider can't tell which column the amount applies to | "Which column should be above $1,000,000?" |
 | "Market value around $1M" | "I'm not sure how to compare with “$1m”. Try “over”, “under”, “at least”, or “exactly”." |
@@ -158,7 +199,7 @@ A single focused question GridCue asks when it can't resolve a request without a
 | "Accounts over $2M or at Northgate" | "GridCue can only show rows that match every condition, not either one. Ask for one at a time." |
 | "Group by custodian over $1M", when nothing in the plan uses the amount | "I'm not sure what to do with “$1m”. Try rephrasing that part." |
 
-GridCue does not invent a threshold for "big" or pick a column for "$1 million" on a guess. Before a plan is ready, GridCue also checks that its operations use every amount, quoted text, date, count and name it read from the request, and asks about anything left over by its words. The check catches a dropped part, not a part read the wrong way, so the comparison and column rules above still matter. Answering is one call:
+GridCue does not invent a threshold for "big". Unless you declare it as a [House Term](#house-terms), it asks. GridCue does not pick a column for "$1 million" on a guess. Before a plan is ready, GridCue also checks that its operations use every amount, quoted text, date, count and name it read from the request, and asks about anything left over by its words. The check catches a dropped part, not a part read the wrong way, so the comparison and column rules above still matter. Answering is one call:
 
 ```ts
 cue.answer(clarificationId, optionId);

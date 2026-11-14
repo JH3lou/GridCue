@@ -128,6 +128,124 @@
 {"file":"cases-fanout.jsonl","id":"k-group-by-type-roth","lines":["Group by Registration type","Filter Registration type to Roth IRA"],"notes":[]}
 {"file":"cases-fanout.jsonl","id":"k-restricted-sorted","lines":["Show only rows where Restricted holdings is Yes","Sort by Market value, ascending"],"notes":[]}
 {"file":"cases-fanout.jsonl","id":"k-plain-hide-control","lines":["Hide Household"],"notes":[]}
+{"file":"cases-house-terms-heldout-r2.jsonl","id":"r2-form-largely-8","lines":["Filter Category to Travel"],"notes":[]}
+{"file":"cases-house-terms-heldout-r2.jsonl","id":"r2-nat-size-2","lines":["Sort by Advisor, descending"],"notes":[]}
+{"file":"cases-house-terms-heldout-r2.jsonl","id":"r2-term-ready-1","lines":["Filter Market value above $1,000,000 (Large)"],"notes":[]}
+{"file":"cases-house-terms-heldout-r2.jsonl","id":"r2-term-ready-2","lines":["Filter Market value above $1,000,000 (Large)"],"notes":[]}
+{"file":"cases-house-terms-heldout-r2.jsonl","id":"r2-term-ready-3","lines":["Filter Concentration above 10% (Needs attention)","Show only rows where Restricted holdings is Yes (Needs attention)"],"notes":[]}
+{"file":"cases-house-terms-heldout-r2.jsonl","id":"r2-term-ready-4","lines":["Show only rows where Advisor is empty (Unassigned)"],"notes":[]}
+{"file":"cases-house-terms-heldout-r2.jsonl","id":"r2-term-ready-5","lines":["Show only rows where Advisor is empty (Unassigned)"],"notes":[]}
+{"file":"cases-house-terms-heldout-r2.jsonl","id":"r2-term-ready-6","lines":["Filter Market value above $1,000,000 (Large)","Filter Market value above $5,000,000"],"notes":[]}
+{"file":"cases-house-terms-heldout-r2.jsonl","id":"r2-term-ready-7","lines":["Filter Amount above $10,000 (Material)"],"notes":[]}
+{"file":"cases-house-terms-heldout-r2.jsonl","id":"r2-term-ready-8","lines":["Show only rows where Cleared is No (Needs review)","Filter Amount above $5,000 (Needs review)"],"notes":[]}
+{"file":"cases-house-terms-heldout-r2.jsonl","id":"r2-term-ready-9","lines":["Show only rows where Category is empty (Uncoded)"],"notes":[]}
+{"file":"cases-house-terms-heldout-r2.jsonl","id":"r2-term-ready-10","lines":["Filter Amount above $10,000 (Material)"],"notes":[]}
+{"file":"cases-house-terms-heldout-r3.jsonl","id":"r3-sortsize-ctrl-7","lines":["Sort by Market value, descending"],"notes":[]}
+{"file":"cases-house-terms-heldout-r3.jsonl","id":"r3-term-2","lines":["Show only rows where Advisor is empty (Unassigned)"],"notes":[]}
+{"file":"cases-house-terms-heldout-r3.jsonl","id":"r3-term-3","lines":["Filter Amount above $10,000 (Material)"],"notes":[]}
+{"file":"cases-house-terms-heldout-r3.jsonl","id":"r3-term-4","lines":["Show only rows where Cleared is No (Needs review)","Filter Amount above $5,000 (Needs review)"],"notes":[]}
+{"file":"cases-house-terms-heldout-r3.jsonl","id":"r3-term-5","lines":["Show only rows where Category is empty (Uncoded)"],"notes":[]}
+{"file":"cases-house-terms-heldout-r3.jsonl","id":"r3-term-6","lines":["Filter Concentration above 10% (Needs attention)","Show only rows where Restricted holdings is Yes (Needs attention)"],"notes":[]}
+{"file":"cases-house-terms-heldout-r3.jsonl","id":"r3-term-ask-15","lines":["Filter Amount above $10,000 (Material)","Show only rows where Category is empty"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-large-plain","lines":["Filter Market value above $1,000,000 (Large)"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-big-the","lines":["Filter Market value above $1,000,000 (Large)"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-large-canyou","lines":["Filter Market value above $1,000,000 (Large)"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-big-iwant","lines":["Filter Market value above $1,000,000 (Large)"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-large-upper","lines":["Filter Market value above $1,000,000 (Large)"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-large-bare","lines":["Filter Market value above $1,000,000 (Large)"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-large-keep","lines":["Filter Market value above $1,000,000 (Large)"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-large-are","lines":["Filter Market value above $1,000,000 (Large)"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-big-are","lines":["Filter Market value above $1,000,000 (Large)"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-large-ones-only","lines":["Filter Market value above $1,000,000 (Large)"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-large-comma-taxable","lines":["Filter Market value above $1,000,000 (Large)","Filter Registration type to Taxable"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-large-taxable","lines":["Filter Market value above $1,000,000 (Large)","Filter Registration type to Taxable"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-large-trust-harborline","lines":["Filter Market value above $1,000,000 (Large)","Filter Registration type to Trust","Filter Custodian to Harborline"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-over5m-large-end","lines":["Filter Market value above $5,000,000","Filter Market value above $1,000,000 (Large)"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-big-concentration","lines":["Filter Market value above $1,000,000 (Large)","Filter Concentration above 10%"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-large-no-advisor","lines":["Filter Market value above $1,000,000 (Large)","Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-large-starts-with","lines":["Filter Market value above $1,000,000 (Large)","Filter Advisor starting with “av”"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-large-hide","lines":["Filter Market value above $1,000,000 (Large)","Hide Custodian"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-need-attention","lines":["Filter Concentration above 10% (Needs attention)","Show only rows where Restricted holdings is Yes (Needs attention)"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-needing-attention","lines":["Filter Concentration above 10% (Needs attention)","Show only rows where Restricted holdings is Yes (Needs attention)"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-needs-attention-label","lines":["Filter Concentration above 10% (Needs attention)","Show only rows where Restricted holdings is Yes (Needs attention)"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-needs-attention-bare","lines":["Filter Concentration above 10% (Needs attention)","Show only rows where Restricted holdings is Yes (Needs attention)"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-taxable-need-attention","lines":["Filter Registration type to Taxable","Filter Concentration above 10% (Needs attention)","Show only rows where Restricted holdings is Yes (Needs attention)"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-attention-end-lead","lines":["Filter Concentration above 10% (Needs attention)","Show only rows where Restricted holdings is Yes (Needs attention)"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-attention-sort","lines":["Filter Concentration above 10% (Needs attention)","Show only rows where Restricted holdings is Yes (Needs attention)","Sort by Market value, descending"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-attention-over1m","lines":["Filter Concentration above 10% (Needs attention)","Show only rows where Restricted holdings is Yes (Needs attention)","Filter Market value above $1,000,000"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-unassigned","lines":["Show only rows where Advisor is empty (Unassigned)"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-orphaned-show","lines":["Show only rows where Advisor is empty (Unassigned)"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-orphaned-taxable","lines":["Show only rows where Advisor is empty (Unassigned)","Filter Registration type to Taxable"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-unassigned-are","lines":["Show only rows where Advisor is empty (Unassigned)"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-two-large-attention","lines":["Filter Market value above $1,000,000 (Large)","Filter Concentration above 10% (Needs attention)","Show only rows where Restricted holdings is Yes (Needs attention)"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-two-big-needing","lines":["Filter Market value above $1,000,000 (Large)","Filter Concentration above 10% (Needs attention)","Show only rows where Restricted holdings is Yes (Needs attention)"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-two-large-unassigned","lines":["Filter Market value above $1,000,000 (Large)","Show only rows where Advisor is empty (Unassigned)"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-two-orphaned-attention","lines":["Show only rows where Advisor is empty (Unassigned)","Filter Concentration above 10% (Needs attention)","Show only rows where Restricted holdings is Yes (Needs attention)"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-quoted-large","lines":["Filter Advisor containing “large”"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-quoted-big","lines":["Filter Registration type to Taxable","Filter Household containing “big”"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-mat-plain","lines":["Filter Amount above $10,000 (Material)"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-sizeable-show","lines":["Filter Amount above $10,000 (Material)"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-mat-are","lines":["Filter Amount above $10,000 (Material)"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-mat-travel","lines":["Filter Amount above $10,000 (Material)","Filter Category to Travel"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-mat-counterparty-empty","lines":["Filter Amount above $10,000 (Material)","Show only rows where Counterparty is empty"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-mat-booked-after","lines":["Filter Amount above $10,000 (Material)","Filter Booked above “2026-01-31”"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-review-need","lines":["Show only rows where Cleared is No (Needs review)","Filter Amount above $5,000 (Needs review)"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-review-needing","lines":["Show only rows where Cleared is No (Needs review)","Filter Amount above $5,000 (Needs review)"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-review-label-lead","lines":["Show only rows where Cleared is No (Needs review)","Filter Amount above $5,000 (Needs review)"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-review-hide","lines":["Show only rows where Cleared is No (Needs review)","Filter Amount above $5,000 (Needs review)","Hide Rate"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-uncoded","lines":["Show only rows where Category is empty (Uncoded)"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-uncategorized-show","lines":["Show only rows where Category is empty (Uncoded)"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-uncategorised","lines":["Show only rows where Category is empty (Uncoded)"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-uncoded-no-counterparty","lines":["Show only rows where Category is empty (Uncoded)","Show only rows where Counterparty is empty"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-two-mat-review","lines":["Filter Amount above $10,000 (Material)","Show only rows where Cleared is No (Needs review)","Filter Amount above $5,000 (Needs review)"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-two-sizeable-uncoded","lines":["Filter Amount above $10,000 (Material)","Show only rows where Category is empty (Uncoded)"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-two-uncoded-review","lines":["Show only rows where Category is empty (Uncoded)","Show only rows where Cleared is No (Needs review)","Filter Amount above $5,000 (Needs review)"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-quoted-material","lines":["Filter Counterparty containing “material”"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-size-bigger-than","lines":["Filter Market value above $2,000,000"],"notes":[]}
+{"file":"cases-house-terms-heldout.jsonl","id":"h1-contain-largely","lines":["Filter Registration type to Taxable"],"notes":[]}
+{"file":"cases-house-terms-natural-heldout.jsonl","id":"hn-w-large","lines":["Filter Market value above $1,000,000 (Large)"],"notes":[]}
+{"file":"cases-house-terms-natural-heldout.jsonl","id":"hn-w-big","lines":["Filter Market value above $1,000,000 (Large)"],"notes":[]}
+{"file":"cases-house-terms-natural-heldout.jsonl","id":"hn-w-attn","lines":["Filter Concentration above 10% (Needs attention)","Show only rows where Restricted holdings is Yes (Needs attention)"],"notes":[]}
+{"file":"cases-house-terms-natural-heldout.jsonl","id":"hn-w-unassigned","lines":["Show only rows where Advisor is empty (Unassigned)"],"notes":[]}
+{"file":"cases-house-terms-natural-heldout.jsonl","id":"hn-w-orphaned-group","lines":["Show only rows where Advisor is empty (Unassigned)","Group by Custodian"],"notes":[]}
+{"file":"cases-house-terms-natural-heldout.jsonl","id":"hn-w-large-taxable","lines":["Filter Market value above $1,000,000 (Large)","Filter Registration type to Taxable"],"notes":[]}
+{"file":"cases-house-terms-natural-heldout.jsonl","id":"hn-w-large-attn","lines":["Filter Market value above $1,000,000 (Large)","Filter Concentration above 10% (Needs attention)","Show only rows where Restricted holdings is Yes (Needs attention)"],"notes":[]}
+{"file":"cases-house-terms-natural-heldout.jsonl","id":"hn-w-large-and-unassigned","lines":["Filter Market value above $1,000,000 (Large)","Show only rows where Advisor is empty (Unassigned)"],"notes":[]}
+{"file":"cases-house-terms-natural-heldout.jsonl","id":"hn-w-largest-advisor","lines":["Sort by Advisor, descending"],"notes":[]}
+{"file":"cases-house-terms-natural-heldout.jsonl","id":"hn-w-larger-than","lines":["Filter Market value above $2,500,000"],"notes":[]}
+{"file":"cases-house-terms-natural-heldout.jsonl","id":"hn-w-unassigned-sort","lines":["Show only rows where Advisor is empty (Unassigned)","Sort by Market value, descending"],"notes":[]}
+{"file":"cases-house-terms-natural-heldout.jsonl","id":"hn-w-only-unassigned-large","lines":["Show only rows where Advisor is empty (Unassigned)","Filter Market value above $1,000,000 (Large)"],"notes":[]}
+{"file":"cases-house-terms-natural-heldout.jsonl","id":"hn-w-all-three-group","lines":["Filter Market value above $1,000,000 (Large)","Filter Concentration above 10% (Needs attention)","Show only rows where Restricted holdings is Yes (Needs attention)","Group by Advisor"],"notes":[]}
+{"file":"cases-house-terms-natural-heldout.jsonl","id":"hn-w-large-sell","lines":["Filter Market value above $1,000,000 (Large)"],"notes":[]}
+{"file":"cases-house-terms-natural-heldout.jsonl","id":"hn-l-material","lines":["Filter Amount above $10,000 (Material)"],"notes":[]}
+{"file":"cases-house-terms-natural-heldout.jsonl","id":"hn-l-sizeable","lines":["Filter Amount above $10,000 (Material)"],"notes":[]}
+{"file":"cases-house-terms-natural-heldout.jsonl","id":"hn-l-review","lines":["Show only rows where Cleared is No (Needs review)","Filter Amount above $5,000 (Needs review)"],"notes":[]}
+{"file":"cases-house-terms-natural-heldout.jsonl","id":"hn-l-uncoded","lines":["Show only rows where Category is empty (Uncoded)"],"notes":[]}
+{"file":"cases-house-terms-natural-heldout.jsonl","id":"hn-l-uncat-material","lines":["Show only rows where Category is empty (Uncoded)","Filter Amount above $10,000 (Material)"],"notes":[]}
+{"file":"cases-house-terms-natural-heldout.jsonl","id":"hn-l-material-travel","lines":["Filter Amount above $10,000 (Material)","Filter Category to Travel"],"notes":[]}
+{"file":"cases-house-terms-natural-heldout.jsonl","id":"hn-l-review-group","lines":["Show only rows where Cleared is No (Needs review)","Filter Amount above $5,000 (Needs review)","Group by Owner"],"notes":[]}
+{"file":"cases-house-terms-natural-heldout.jsonl","id":"hn-l-just-sizeable","lines":["Filter Amount above $10,000 (Material)"],"notes":[]}
+{"file":"cases-house-terms-natural-heldout.jsonl","id":"hn-l-material-review-hide","lines":["Filter Amount above $10,000 (Material)","Show only rows where Cleared is No (Needs review)","Filter Amount above $5,000 (Needs review)","Hide Rate"],"notes":[]}
+{"file":"cases-house-terms-picks-heldout.jsonl","id":"h1-pk-large-sort","lines":["Filter Market value above $1,000,000 (Large)"],"notes":[]}
+{"file":"cases-house-terms-picks-heldout.jsonl","id":"h1-pk-big-group","lines":["Filter Market value above $1,000,000 (Large)"],"notes":[]}
+{"file":"cases-house-terms-picks-heldout.jsonl","id":"h1-pk-attention-hide","lines":["Filter Concentration above 10% (Needs attention)","Show only rows where Restricted holdings is Yes (Needs attention)"],"notes":[]}
+{"file":"cases-house-terms-picks-heldout.jsonl","id":"h1-pk-show-large-showcol","lines":["Filter Market value above $1,000,000 (Large)"],"notes":[]}
+{"file":"cases-house-terms-picks-heldout.jsonl","id":"h1-pk-unassigned-value","lines":["Show only rows where Advisor is empty (Unassigned)"],"notes":[]}
+{"file":"cases-house-terms-picks-heldout.jsonl","id":"h1-pk-large-value","lines":["Filter Market value above $1,000,000 (Large)"],"notes":[]}
+{"file":"cases-house-terms-picks-heldout.jsonl","id":"h1-pk-big-trust-value","lines":["Filter Market value above $1,000,000 (Large)"],"notes":[]}
+{"file":"cases-house-terms-picks-heldout.jsonl","id":"h1-pk-attention-sort","lines":["Filter Concentration above 10% (Needs attention)","Show only rows where Restricted holdings is Yes (Needs attention)"],"notes":[]}
+{"file":"cases-house-terms-picks-heldout.jsonl","id":"h1-pk-orphaned-sort-asc","lines":["Show only rows where Advisor is empty (Unassigned)"],"notes":[]}
+{"file":"cases-house-terms-picks-heldout.jsonl","id":"h1-pk-two-terms-group","lines":["Filter Market value above $1,000,000 (Large)","Show only rows where Advisor is empty (Unassigned)"],"notes":[]}
+{"file":"cases-house-terms-picks-heldout.jsonl","id":"h1-pk-attention-group-named","lines":["Filter Concentration above 10% (Needs attention)","Show only rows where Restricted holdings is Yes (Needs attention)","Group by Custodian"],"notes":[]}
+{"file":"cases-house-terms-picks-heldout.jsonl","id":"h1-pk-large-unmatched","lines":["Filter Market value above $1,000,000 (Large)"],"notes":[]}
+{"file":"cases-house-terms-picks-heldout.jsonl","id":"h1-pk-mat-sort","lines":["Filter Amount above $10,000 (Material)"],"notes":[]}
+{"file":"cases-house-terms-picks-heldout.jsonl","id":"h1-pk-review-group","lines":["Show only rows where Cleared is No (Needs review)","Filter Amount above $5,000 (Needs review)"],"notes":[]}
+{"file":"cases-house-terms-picks-heldout.jsonl","id":"h1-pk-uncoded-hide","lines":["Show only rows where Category is empty (Uncoded)"],"notes":[]}
+{"file":"cases-house-terms-picks-heldout.jsonl","id":"h1-pk-sizeable-value","lines":["Filter Amount above $10,000 (Material)"],"notes":[]}
+{"file":"cases-house-terms-picks-heldout.jsonl","id":"h1-pk-uncategorized-show","lines":["Show only rows where Category is empty (Uncoded)"],"notes":[]}
+{"file":"cases-house-terms-picks-heldout.jsonl","id":"h1-pk-mat-review-two-sort","lines":["Filter Amount above $10,000 (Material)","Show only rows where Cleared is No (Needs review)","Filter Amount above $5,000 (Needs review)"],"notes":[]}
+{"file":"cases-house-terms-picks-heldout.jsonl","id":"h1-pk-uncoded-named-sort","lines":["Show only rows where Category is empty (Uncoded)","Sort by Amount, descending"],"notes":[]}
+{"file":"cases-house-terms.jsonl","id":"ht-large-taxable","lines":["Filter Registration type to Taxable"],"notes":[]}
 {"file":"cases-live.jsonl","id":"live-retirement","lines":["Filter Registration type to any of IRA and Roth IRA"],"notes":[]}
 {"file":"cases-live.jsonl","id":"live-drop-sorting","lines":["Clear sorting"],"notes":[]}
 {"file":"cases-live.jsonl","id":"live-clients-amount","lines":["Filter Market value above $5,000,000"],"notes":[]}
@@ -236,6 +354,15 @@
 {"file":"cases-provider-picks.jsonl","id":"pp-hide-for-booked-blank","lines":["Hide Booked and Posted at"],"notes":[]}
 {"file":"cases-provider-picks.jsonl","id":"pp-amount-after-empty","lines":["Filter Market value above $1,000,000"],"notes":[]}
 {"file":"cases-provider-picks.jsonl","id":"pp-pin-beside-empty","lines":["Show Advisor"],"notes":[]}
+{"file":"cases-provider-picks.jsonl","id":"pp-ht-sort-for-large","lines":["Sort by Account number, descending; then Market value, descending"],"notes":[]}
+{"file":"cases-provider-picks.jsonl","id":"pp-ht-group-for-big","lines":["Group by Account number, then Custodian"],"notes":[]}
+{"file":"cases-provider-picks.jsonl","id":"pp-ht-hide-for-attention","lines":["Hide Restricted holdings"],"notes":[]}
+{"file":"cases-provider-picks.jsonl","id":"pp-ht-value-for-unassigned","lines":["Filter Registration type to Taxable"],"notes":[]}
+{"file":"cases-provider-picks.jsonl","id":"pp-ht-sort-for-material","lines":["Sort by Amount, descending"],"notes":[]}
+{"file":"cases-provider-picks.jsonl","id":"pp-ht-group-for-uncoded","lines":["Group by Owner"],"notes":[]}
+{"file":"cases-provider-picks.jsonl","id":"pp-ht-value-for-needs-review","lines":["Filter Category to Fees"],"notes":[]}
+{"file":"cases-provider-picks.jsonl","id":"pp-ht-sort-by-large","lines":["Sort by Market value, descending"],"notes":[]}
+{"file":"cases-provider-picks.jsonl","id":"pp-ht-show-column-for-large","lines":["Show Account number and Advisor"],"notes":[]}
 {"file":"cases-reading-heldout.jsonl","id":"rh-aum-gte","lines":["Filter Market value at or above $3,000,000"],"notes":[]}
 {"file":"cases-reading-heldout.jsonl","id":"rh-gain-lt","lines":["Filter Unrealized gain below $20,000"],"notes":[]}
 {"file":"cases-reading-heldout.jsonl","id":"rh-balance-eq","lines":["Filter Market value to $2,000,000"],"notes":[]}

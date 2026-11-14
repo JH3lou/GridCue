@@ -13,7 +13,7 @@ import {
   tableFeatures,
   useTable,
 } from "@tanstack/react-table";
-import { createGridCue, createRemoteProvider } from "gridcue";
+import { createGridCue, createRemoteProvider, type HouseTerm } from "gridcue";
 import { createTanStackAdapter, gridcueFilterFn, schemaFromTanStack } from "gridcue/tanstack-table";
 import { useState } from "react";
 import { CommandBar } from "@/components/gridcue/command-bar";
@@ -56,6 +56,19 @@ const columns: Array<ColumnDef<typeof features, AccountRow>> = wealthColumns.map
 }));
 const data = generateAccounts();
 
+// House Terms: the firm's own names for fixed filters. GridCue reads them in the browser and never sends them.
+const houseTerms: HouseTerm[] = [
+  { label: "Large", aliases: ["big"], where: [{ columnId: "market_value", operator: "gt", value: 1_000_000 }] },
+  {
+    label: "Needs attention",
+    aliases: ["need attention", "needing attention"],
+    where: [
+      { columnId: "concentration", operator: "gt", value: 0.1 },
+      { columnId: "has_restricted_holding", operator: "eq", value: true },
+    ],
+  },
+];
+
 export function App() {
   const table = useTable({
     features,
@@ -68,7 +81,7 @@ export function App() {
   // GridCue lines 2 and 3: an adapter over the existing table, and a controller.
   // Create it once: useTable returns a new object whenever table state changes.
   const [cue] = useState(() => {
-    const schema = schemaFromTanStack(table, wealthSchemaOptions);
+    const schema = schemaFromTanStack(table, { ...wealthSchemaOptions, houseTerms });
     return createGridCue({
       schema,
       adapter: createTanStackAdapter({ schema, table }),

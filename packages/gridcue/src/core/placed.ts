@@ -1,9 +1,9 @@
+import { isExposed } from "./columns";
 import { COLUMN_VERBS, LEAD_IN_WORDS } from "./lead";
 import { LITERAL_COLUMN_KINDS, type Mention } from "./mentions";
 import { type Clause, comparisonSpans, directionSpans, literalText, unquoted } from "./normalize";
 import type { Clarification, DecisionEvidence, ViewOperation, ViewSchema } from "./protocol";
 import type { ClauseResolution } from "./resolution";
-import { isExposed } from "./schema";
 import { escapeRegExp } from "./text-match";
 import { namesOf } from "./unused";
 import { readViewWords } from "./view-words";
@@ -48,7 +48,7 @@ export interface PlacedPart {
    * Where the part's code-read filters sit in its text, with the column each filters on and how, when that is known.
    * Their words are placed, whatever they are.
    */
-  codeRead: readonly (Span & { predicate?: { columnId: string; operator?: string } })[];
+  codeRead: readonly (Span & { predicate?: { columnId: string; operator?: string }; kind?: string })[];
   schema: ViewSchema;
   /**
    * The operations the plan holds for this part. Another change's own words ("sorted by", "hide"), a verb read only
@@ -165,6 +165,38 @@ const PHRASES = new RegExp(
 /** A lead-in of `core/lead.ts`, wherever it sits. */
 const LEAD_INS = new RegExp(String.raw`(?<![\p{L}\p{N}'])(?:${LEAD_IN_WORDS})(?![\p{L}\p{N}'])`, "gu");
 const COLUMN_VERB_WORDS: ReadonlySet<string> = new Set(COLUMN_VERBS.split("|"));
+/** Every word and phrase on the lists here, wherever it is placed: alone, or only beside the change it belongs to. */
+const ON_A_LIST: ReadonlySet<string> = new Set([
+  ...ROW_VERBS,
+  ...SMALL_WORDS,
+  ...OWNERS,
+  ...SELVES,
+  ...SORT_VERBS,
+  ...GROUP_VERBS,
+  ...HIDE_VERBS,
+  ADD,
+  BY,
+  ...COLUMN_WORDS,
+  ...CONTAINING_WORDS,
+  ...COLUMN_VERB_WORDS,
+]);
+/** The verbs on the lists here: the ones that choose rows, sort, group, hide, or show or move columns. */
+const CHANGE_VERBS: ReadonlySet<string> = new Set([
+  ...GIVING_VERBS,
+  ...SORT_VERBS,
+  ...GROUP_VERBS,
+  ...HIDE_VERBS,
+  ADD,
+  ...COLUMN_VERB_WORDS,
+]);
+/** Whether `word` (lower case) is a verb on the lists here: "show", "sort", "group", "hide", "add", "move". */
+export const isChangeVerb = (word: string): boolean => CHANGE_VERBS.has(word);
+const WHOLE_LEAD_IN = new RegExp(`^(?:${LEAD_IN_WORDS})$`, "u");
+/**
+ * Whether `words` (lower case, one space between) is a word or a phrase on the lists here, or a lead-in of
+ * `core/lead.ts`. A House Term may not be named one of them (ADR 0024).
+ */
+export const onPlacedLists = (words: string): boolean => ON_A_LIST.has(words) || WHOLE_LEAD_IN.test(words);
 /** The column change each verb read only for columns makes. "Add" shows a column, "pin" pins one, the rest move one. */
 const changeOf = (verb: string): ViewOperation["type"] =>
   verb === ADD ? "columns.show" : verb === "pin" ? "columns.pin" : "columns.order";
@@ -382,8 +414,10 @@ const read = (part: PlacedPart) => {
     for (;;) {
       if (clause.text[at] !== " ") break;
       const value = names.find((m) => m.start === at + 1 && (m.valueId !== undefined || yesNo(m)));
+      // A House Term describes the rows as a named value does: "my large accounts".
+      const term = codeRead.find((r) => r.kind === "term" && r.start === at + 1);
       // "Top" and "top 10" start at the same place: the longer one is the whole of it.
-      const described = value ?? ranking.filter((s) => s.start === at + 1).sort((a, b) => b.end - a.end)[0];
+      const described = value ?? term ?? ranking.filter((s) => s.start === at + 1).sort((a, b) => b.end - a.end)[0];
       if (!described) break;
       at = described.end;
       if (value?.valueId !== undefined) values++;
@@ -396,7 +430,8 @@ const read = (part: PlacedPart) => {
     const rowsEnd = noun ? noun.end : word && next !== undefined ? next + word[0].length : values > 0 ? at : undefined;
     // "My advisor's accounts" are the accounts of the User's own advisor, whom GridCue can't know: no noun for the rows.
     if (rowsEnd === undefined || POSSESSIVE_AFTER.test(clause.text.slice(rowsEnd))) return false;
-    return codeRead.every((r) => r.start >= rowsEnd);
+    // A House Term between "my" and the noun is one of the words that describe the rows.
+    return codeRead.every((r) => r.start >= rowsEnd || (r.kind === "term" && r.start > end && r.end <= rowsEnd));
   };
   return { names, scan, objectOf, asked, ownsRows };
 };
@@ -547,7 +582,8 @@ const CLEARS: ReadonlySet<string> = new Set(["filter.clear", "sort.clear", "grou
  * The limit on a provider's picks (spec 4.2), for a part that holds a code-read filter and passed `unplacedWords`. This
  * extends ADR 0022: the provider proposes, and the part's words decide what stays.
  * - A column or value the provider proposes that no Mention names is dropped. A name inside the code-read filter is the
- *   filter's own, and names nothing else. The yes or no of a named yes/no column stays, as today.
+ *   filter's own, and names nothing else. A yes/no column named on its own keeps Yes, or No where a negation
+ *   leaves it out; the provider's other answer for it is dropped.
  * - The column for a bare amount or a bare date still comes from the provider's pick for it, or, with no pick, from a
  *   column of a kind that can hold it (the kind rule of ADR 0013).
  * - A sort, a grouping, a hide, a show or an only-these-columns change is kept only when the part holds that change's
@@ -573,9 +609,13 @@ export const limitPicks = (res: ClauseResolution, part: PlacedPart, record: (e: 
       return pick ? pick.columnId === id : LITERAL_COLUMN_KINDS[lit.kind].includes(column(id)?.kind ?? "string");
     });
   const keepsColumn = (id: string) => namedColumns.has(id) || holdsLiteral(id);
+  // A yes/no column named on its own says Yes ("cleared entries"), or No when a negation leaves it out. The words say
+  // nothing else, so a provider's other answer is dropped: "material cleared entries" never shows Cleared is No.
+  const saysYesNo = (v: ClauseResolution["values"][number]) =>
+    names.some((m) => m.columnId === v.columnId && m.valueId === undefined && v.valueId === (m.negated ? "false" : "true"));
   const keepsValue = (v: ClauseResolution["values"][number]) =>
     names.some((m) => m.columnId === v.columnId && m.valueId === v.valueId) ||
-    (namedColumns.has(v.columnId) && column(v.columnId)?.kind === "boolean");
+    (namedColumns.has(v.columnId) && column(v.columnId)?.kind === "boolean" && saysYesNo(v));
   const adds = said.some((t) => t.text === "add" && objectOf(t.end) !== undefined);
   const asked = (family: string): boolean => {
     if (family === "sort") return says(SORT_VERBS) || clause.direction !== undefined;

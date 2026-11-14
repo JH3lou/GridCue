@@ -117,6 +117,7 @@ export const unquoted = (text: string, mark = " "): string => text.replace(QUOTE
 
 const VERB_ALT = CLAUSE_VERBS.join("|");
 const VERB = `(?:${VERB_ALT})(?:ed)?\\b`;
+const WHOLE_VERB = new RegExp(`^${VERB}$`);
 // "!=" is a comparison, not the end of a sentence. A "!" ends a sentence only right after a word ("show trusts!"):
 // one that starts the request, follows a space, or sits right before a name, quoted text or an amount says "not"
 // (`!advisor "Lane"`, `advisor "Lane" !trusts`), so it stays in the part, and the compiler asks about it.
@@ -232,6 +233,18 @@ const DATE_COMPARATORS_AFTER: Array<[RegExp, Comparator]> = [
   [/^ ?(?:(?:or|and) (?:later|after|beyond)\b|at the earliest\b)(?! or\b| and\b)/, "gte"],
   [/^ ?(?:(?:or|and) (?:earlier|before|prior)\b|at the latest\b)(?! or\b| and\b)/, "lte"],
 ];
+/**
+ * Every word the comparisons above are written with, before or after an amount or a date: "more", "than", "up", "to",
+ * "equal", "or". They are taken from the patterns themselves, so they never fall behind them. A House Term named only
+ * with them would be found inside a comparison ("gain more than $50k"), so `defineSchema` refuses one.
+ */
+const COMPARISON_WORD_SET: ReadonlySet<string> = new Set(
+  [...COMPARATORS, ...COMPARATORS_AFTER, ...DATE_COMPARATORS_AFTER].flatMap(
+    ([re]) => re.source.replace(/\\[a-zA-Z]/g, " ").match(/[a-z]+/g) ?? [],
+  ),
+);
+/** Whether `word` (lower case) is one a comparison is written with: "more", "than", "up", "to". */
+export const isComparisonWord = (word: string): boolean => COMPARISON_WORD_SET.has(word);
 /** The comparison written right after an amount, and how many characters it takes. */
 export const trailingComparison = (after: string, date = false): { comparator: Comparator; length: number } | undefined => {
   for (const [re, comparator] of date ? [...DATE_COMPARATORS_AFTER, ...COMPARATORS_AFTER] : COMPARATORS_AFTER) {
@@ -313,6 +326,37 @@ const DIRECTIONS: ReadonlyArray<readonly [RegExp, "asc" | "desc"]> = [
 ];
 
 const directionOf = (text: string) => DIRECTIONS.find(([re]) => re.test(unquoted(text)))?.[1];
+/** The last two directions: a size word on its own ("largest accounts", "which advisor is largest"), with no phrase. */
+const SIZE_ALONE = DIRECTIONS.length - 2;
+/**
+ * Whether a part's direction is read from a size word on its own: "largest accounts", but not "largest first",
+ * "largest to smallest" or "descending", which say the order of whatever column they sort. `text` is the part's text
+ * with its names blanked, as its direction was read (`withoutNamedSizes`).
+ */
+export const directionFromSizeAlone = (text: string): boolean => {
+  const at = DIRECTIONS.findIndex(([re]) => re.test(unquoted(text)));
+  return at >= SIZE_ALONE;
+};
+/** The words of a direction that speak of how big or how old the rows are. */
+const SIZE_OR_AGE_WORDS = "largest|biggest|highest|greatest|most|top|bottom|newest|latest|smallest|lowest|least|oldest|earliest|high|low";
+const SIZE_OR_AGE = new RegExp(String.raw`\b(?:${SIZE_OR_AGE_WORDS})\b`);
+/** A size or age word, or "first", which a direction's phrase ends with: "largest first". */
+const ORDER_WORD = new RegExp(`^(?:${SIZE_OR_AGE_WORDS}|first)$`);
+/**
+ * Whether `words` (lower case, one space between) are words a sort's direction is read from: a size or age word,
+ * "first", or a whole direction ("descending", "a to z"). A House Term may hold none of them (ADR 0024).
+ */
+export const readsOrder = (words: string): boolean => ORDER_WORD.test(words) || DIRECTIONS.some(([re]) => re.test(words));
+/**
+ * Whether a part's direction is read from a size or age word, on its own or in a phrase: "largest accounts", "largest
+ * first", "newest first", "high to low". Not "descending", "A to Z" or "alphabetically", which say only the order of
+ * whatever column they sort. `text` is as for `directionFromSizeAlone`.
+ */
+export const directionBySize = (text: string): boolean => {
+  const bare = unquoted(text);
+  const found = DIRECTIONS.find(([re]) => re.test(bare))?.[0].exec(bare);
+  return !!found && SIZE_OR_AGE.test(found[0]);
+};
 
 type Span = { start: number; end: number };
 const spanOf = (m: RegExpExecArray | null): Span | undefined => (m ? { start: m.index, end: m.index + m[0].length } : undefined);
@@ -525,6 +569,11 @@ const CLEAR_WORD =
   /^(?:please )?(?:ungroup\b|(?:clear|remove|reset|undo|drop)(?: all| every)?(?: the| my| of the)? (?:filters?|filtering|sorts?|sorting|grouping|groups?|view|everything)\b)/;
 const KEEP_WORDS =
   / (?:except(?: for)?|but(?= (?:keep|leave)\b| (?:the |my )?(?:sort|sorting|sorts|grouping|groups?|filters?)\b)|other than|apart from) /g;
+/**
+ * Whether `words` (lower case, one space between) start an instruction here: a verb a request is split at ("show",
+ * "reset", "export"), or one that clears the view ("undo the view"). A House Term may hold none of them (ADR 0024).
+ */
+export const startsInstruction = (words: string): boolean => WHOLE_VERB.test(words) || CLEAR_WORD.test(`${words} the view`);
 /** Marks a part split off by `splitKeep`; `normalize` turns it into `Clause.keeps`. */
 const KEPT = "\u0001";
 const splitKeep = (part: string): string[] => {

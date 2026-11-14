@@ -301,12 +301,14 @@ Request:
 
 > “Show the big accounts.”
 
-If `big` has no host-defined semantic rule, the result is:
+If the host's schema declares no House Term for `big`, the result is:
 
 - `status: "needs_clarification"`;
 - zero applicable operations;
 - a bounded question such as “What minimum market value should count as big?”;
 - no guessed threshold.
+
+If the schema declares a House Term, such as Large with the alias `big` and the condition Market value above $1,000,000, code reads it before any provider call and adds each condition as a filter. The Preview names the term on each line: “Filter Market value above $1,000,000 (Large)”. The resolution request is the same with or without the term, and a provider is never sent one (ADR 0024).
 
 ## Mixed-scope example
 

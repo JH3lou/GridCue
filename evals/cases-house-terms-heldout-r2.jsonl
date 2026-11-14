@@ -1,0 +1,42 @@
+{"id":"r2-form-largely-1","utterance":"accounts largely in retirement","terms":true,"expect":{"mustNotBeReady":true}}
+{"id":"r2-form-largely-2","utterance":"show accounts largely with taxable status","terms":true,"expect":{"mustNotBeReady":true}}
+{"id":"r2-form-largely-3","utterance":"accounts that are largely taxable","terms":true,"expect":{"mustNotBeReady":true}}
+{"id":"r2-form-largely-4","utterance":"bigly taxable accounts","terms":true,"expect":{"mustNotBeReady":true}}
+{"id":"r2-form-largely-5","utterance":"accounts largely managed by Avery Lane","terms":true,"expect":{"mustNotBeReady":true}}
+{"id":"r2-form-largely-6","utterance":"accounts needing-attentionally flagged and taxable","terms":true,"expect":{"mustNotBeReady":true}}
+{"id":"r2-form-largely-7","utterance":"show me records largely uncleared","terms":true,"schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"r2-form-largely-8","utterance":"records largely in the Travel category","terms":true,"schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"r2-nat-which-1","utterance":"which advisor has the biggest accounts?","terms":true,"expect":{"mustNotBeReady":true}}
+{"id":"r2-nat-which-2","utterance":"which registration type has the largest accounts","terms":true,"expect":{"mustNotBeReady":true}}
+{"id":"r2-nat-which-3","utterance":"which advisor looks after the largest accounts?","terms":true,"expect":{"mustNotBeReady":true}}
+{"id":"r2-nat-which-4","utterance":"what advisor owns the largest accounts","terms":true,"expect":{"mustNotBeReady":true}}
+{"id":"r2-nat-which-5","utterance":"which advisor has the most large accounts?","terms":true,"expect":{"mustNotBeReady":true}}
+{"id":"r2-nat-which-6","utterance":"which category has the largest records?","terms":true,"schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"r2-nat-size-1","utterance":"largest accounts","terms":true,"expect":{"mustNotBeReady":true,"neverApplies":"sort.set"}}
+{"id":"r2-nat-size-2","utterance":"accounts by advisor, largest first","terms":true,"expect":{"mustNotBeReady":true,"neverApplies":"filter.add"}}
+{"id":"r2-term-ready-1","utterance":"show me the big accounts","terms":true,"expect":{"status":"ready","operations":[{"type":"filter.add","predicate":{"columnId":"market_value","operator":"gt","value":1000000},"combineWith":"and"}]}}
+{"id":"r2-term-ready-2","utterance":"large accounts","terms":true,"expect":{"status":"ready","operations":[{"type":"filter.add","predicate":{"columnId":"market_value","operator":"gt","value":1000000},"combineWith":"and"}]}}
+{"id":"r2-term-ready-3","utterance":"accounts needing attention","terms":true,"expect":{"status":"ready","operations":[{"type":"filter.add","predicate":{"columnId":"concentration","operator":"gt","value":0.1},"combineWith":"and"},{"type":"filter.add","predicate":{"columnId":"has_restricted_holding","operator":"eq","value":true},"combineWith":"and"}]}}
+{"id":"r2-term-ready-4","utterance":"list the orphaned accounts","terms":true,"expect":{"status":"ready","operations":[{"type":"filter.add","predicate":{"columnId":"advisor_name","operator":"isEmpty"},"combineWith":"and"}]}}
+{"id":"r2-term-ready-5","utterance":"unassigned accounts","terms":true,"expect":{"status":"ready","operations":[{"type":"filter.add","predicate":{"columnId":"advisor_name","operator":"isEmpty"},"combineWith":"and"}]}}
+{"id":"r2-term-ready-6","utterance":"show large accounts over $5m","terms":true,"expect":{"status":"ready","operations":[{"type":"filter.add","predicate":{"columnId":"market_value","operator":"gt","value":1000000},"combineWith":"and"},{"type":"filter.add","predicate":{"columnId":"market_value","operator":"gt","value":5000000},"combineWith":"and"}]}}
+{"id":"r2-term-ready-7","utterance":"show sizeable records","terms":true,"schema":"ledger","expect":{"status":"ready","operations":[{"type":"filter.add","predicate":{"columnId":"amount","operator":"gt","value":10000},"combineWith":"and"}]}}
+{"id":"r2-term-ready-8","utterance":"records that need review","terms":true,"schema":"ledger","expect":{"status":"ready","operations":[{"type":"filter.add","predicate":{"columnId":"cleared","operator":"eq","value":false},"combineWith":"and"},{"type":"filter.add","predicate":{"columnId":"amount","operator":"gt","value":5000},"combineWith":"and"}]}}
+{"id":"r2-term-ready-9","utterance":"uncategorized records","terms":true,"schema":"ledger","expect":{"status":"ready","operations":[{"type":"filter.add","predicate":{"columnId":"category","operator":"isEmpty"},"combineWith":"and"}]}}
+{"id":"r2-term-ready-10","utterance":"just the material ones","terms":true,"schema":"ledger","alsoAcceptsAsk":true,"expect":{"status":"ready","operations":[{"type":"filter.add","predicate":{"columnId":"amount","operator":"gt","value":10000},"combineWith":"and"}]}}
+{"id":"r2-term-leave-1","utterance":"accounts that aren't big","terms":true,"expect":{"mustNotBeReady":true,"neverApplies":"filter.add"}}
+{"id":"r2-term-leave-2","utterance":"hide the unassigned accounts","terms":true,"expect":{"mustNotBeReady":true,"neverApplies":"filter.add"}}
+{"id":"r2-term-leave-3","utterance":"everything except accounts needing attention","terms":true,"expect":{"mustNotBeReady":true,"neverApplies":"filter.add"}}
+{"id":"r2-term-leave-4","utterance":"records other than uncoded ones","terms":true,"schema":"ledger","expect":{"mustNotBeReady":true,"neverApplies":"filter.add"}}
+{"id":"r2-term-column-1","utterance":"sort by big","terms":true,"expect":{"mustNotBeReady":true}}
+{"id":"r2-term-column-2","utterance":"show the large column","terms":true,"expect":{"mustNotBeReady":true}}
+{"id":"r2-term-column-3","utterance":"group by unassigned","terms":true,"expect":{"mustNotBeReady":true}}
+{"id":"r2-term-or-1","utterance":"big or taxable accounts","terms":true,"expect":{"mustNotBeReady":true}}
+{"id":"r2-term-word-1","utterance":"show larger accounts","terms":true,"expect":{"mustNotBeReady":true}}
+{"id":"r2-term-word-2","utterance":"enlarge the accounts","terms":true,"expect":{"mustNotBeReady":true}}
+{"id":"r2-term-notreq-1","utterance":"assign the large accounts to Avery Lane","terms":true,"expect":{"mustNotBeReady":true}}
+{"id":"r2-term-notreq-2","utterance":"who handles the big accounts","terms":true,"expect":{"mustNotBeReady":true}}
+{"id":"r2-term-notreq-3","utterance":"pin advisor for the large accounts","terms":true,"expect":{"mustNotBeReady":true}}
+{"id":"r2-term-notreq-4","utterance":"email the advisors of large accounts","terms":true,"expect":{"mustNotBeReady":true}}
+{"id":"r2-term-notreq-5","utterance":"large accounts called about last week","terms":true,"expect":{"mustNotBeReady":true}}
+{"id":"r2-term-sort-1","utterance":"large accounts sorted by size","terms":true,"expect":{"mustNotBeReady":true}}

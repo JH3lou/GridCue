@@ -1,9 +1,30 @@
 import { MVP_OPERATIONS } from "./adapter";
-import { amountWithoutName, type CodeReadFilter, emptyWordsOutside, namesAfterCodeRead, textFormStatement } from "./code-read";
+import {
+  amountWithoutName,
+  type CodeReadFilter,
+  emptyWordsOutside,
+  isRowNoun,
+  namesAfterCodeRead,
+  termQuestion,
+  termWordsOutside,
+  textFormStatement,
+  unreadAdverbs,
+} from "./code-read";
+import { isExposed, operatorsFor } from "./columns";
 import { formatAmount } from "./format";
 import { afterExclusionLead, governedClears, LEAD_IN, leavesRowsOut, nothingAfter, saidToStay, viewRequest } from "./lead";
 import { LEAVES_OUT, LITERAL_COLUMN_KINDS, type Mention } from "./mentions";
-import { type Clause, type Literal, literalText, type NormalizedInput, SIZE_WORDS, trailingComparison, unquoted } from "./normalize";
+import {
+  type Clause,
+  directionBySize,
+  directionFromSizeAlone,
+  type Literal,
+  literalText,
+  type NormalizedInput,
+  SIZE_WORDS,
+  trailingComparison,
+  unquoted,
+} from "./normalize";
 import {
   ALSO_WORDS,
   CHOOSING_VERBS,
@@ -49,7 +70,6 @@ import {
   VIEW_FAMILIES,
   type ViewFamily,
 } from "./resolution";
-import { isExposed, operatorsFor } from "./schema";
 import { REVERSAL_WORDING, unknownTerm } from "./terms";
 import { escapeRegExp } from "./text-match";
 import { unusedReadings } from "./unused";
@@ -101,6 +121,14 @@ export interface CompileInput {
   operations?: readonly string[];
   newId: (prefix: string) => string;
 }
+
+/**
+ * The column kinds that hold a size, the only ones a size or age word sorts: amounts, and dates ("top 10 by booking
+ * date", "sort by opened, newest first"). The Mentions call a column of these kinds sized too (`core/mentions.ts`).
+ */
+const SIZED_KINDS: ReadonlySet<string> = new Set(["number", "currency", "percent", "date", "datetime"]);
+/** A sort's own verb, wherever it sits in a part: "sort", "sorted", "order", "ordered". */
+const SAYS_SORT = new RegExp(String.raw`(?<![\p{L}\p{N}'])(?:${SORT_VERBS.join("|")})(?![\p{L}\p{N}'])`, "u");
 
 const COLUMN_WORD: Record<string, string> = {
   sort: "sorted by",
@@ -621,6 +649,15 @@ export const compile = (c: CompileInput): ViewPlan => {
       // A refusal stays a refusal: the words a provider refuses a part for ("email", "export") are not asked about.
       const refused =
         !clause.keeps && proposed.families.some((f) => KNOWN_FAMILY_IDS.has(f.id) && !isView(f.id) && f.confidence >= bands.clarify);
+      // A House Term is read only as the rows to keep (spec 4.1, 5.3): left out, where a column goes, or said as a
+      // statement, it asks, before anything else is asked about the part.
+      if (beside && !refused) {
+        const asks = termQuestion(termsIn(codeRead), clause, partMentions, c.schema);
+        if (asks) {
+          clarifications.push({ id: `${key}.term.${asks.id}`, prompt: asks.prompt, required: true });
+          continue;
+        }
+      }
       if (beside && !refused) {
         const unplaced = unplacedWords(beside);
         if (unplaced.length > 0) {
@@ -629,12 +666,25 @@ export const compile = (c: CompileInput): ViewPlan => {
         }
       }
       // A word for no value outside an empty form is read nowhere: "sort by advisor, blanks last" would sort and drop
-      // "blanks last", since where empty rows go in a sort is not something GridCue reads. The part asks (order plan, D4).
-      // Beside a code-read filter, `unplacedWords` already asks about such a word.
+      // "blanks last", since where empty rows go in a sort is not something GridCue reads. Nor is a word made from a
+      // House Term's name ("larger" in "show larger taxable accounts"), since a term is found only as a whole word, or
+      // an adverb beside what the part keeps ("largely" in "accounts largely in retirement"), which no filter holds. The
+      // part asks (order plan, D4). Beside a code-read filter, `unplacedWords` already asks about such words.
       if (!beside && !refused) {
-        const empties = emptyWordsOutside(clause, partMentions);
-        if (empties.length > 0) {
-          clarifications.push(unplacedQuestion(clause, empties));
+        // An amount whose comparison GridCue can't read asks about it below, naming the amount: "market value roughly
+        // $1m", "$1m, approximately". Its part's adverbs are left to that question.
+        const amountAsks = clause.literals.some((lit) => comparisonUnread(clause, lit, partMentions, readNames));
+        const found = [
+          ...emptyWordsOutside(clause, partMentions),
+          ...termWordsOutside(clause, partMentions, c.schema),
+          ...(amountAsks ? [] : unreadAdverbs(clause, partMentions, c.schema)),
+        ];
+        // "Largely" is made from "Large" and is an adverb too: name it once.
+        const unread = found
+          .filter((w, i) => found.findIndex((o) => o.start === w.start && o.end === w.end) === i)
+          .sort((a, b) => a.start - b.start);
+        if (unread.length > 0) {
+          clarifications.push(unplacedQuestion(clause, unread));
           continue;
         }
       }
@@ -718,6 +768,13 @@ export const compile = (c: CompileInput): ViewPlan => {
       for (const m of own.filter((x) => x.ambiguous)) {
         const col = column(m.columnId);
         if (!col) continue;
+        // Beside a code-read filter the Row Noun is placed as the rows (spec 4.2), so it names no column of another
+        // change: in "show the advisor column for large accounts", "accounts" is no Account number column.
+        if (beside && isRowNoun(clause, m, c.schema.rowNoun)) {
+          readAsRows.add(col.id);
+          evidence.push({ key: `dropped:${key}.mention`, selectedId: col.id, confidence: 1, source: "deterministic" });
+          continue;
+        }
         const answerKey = `${key}.reading.${col.id}`;
         const answer = answers[answerKey];
         if (answer === "group") groupAnswer = col.id;
@@ -1210,8 +1267,17 @@ export const compile = (c: CompileInput): ViewPlan => {
           else clearOnly("view");
         } else if (family === "filter") {
           const predicates: FilterPredicate[] = [];
-          const pred = (columnId: string, operator: FilterPredicate["operator"], value?: FilterPredicate["value"]) =>
-            predicates.push({ id: c.newId("filter"), type: "predicate", columnId, operator, ...(value === undefined ? {} : { value }) });
+          const pred = (columnId: string, operator: FilterPredicate["operator"], value?: FilterPredicate["value"]) => {
+            const id = c.newId("filter");
+            predicates.push({ id, type: "predicate", columnId, operator, ...(value === undefined ? {} : { value }) });
+            return id;
+          };
+          // Where each filter's words start in the part, where code knows: a named value's or a column's, an amount's.
+          const placedAt = new Map<string, number>();
+          const namedAt = (columnId: string) => own.find((m) => m.columnId === columnId)?.start;
+          const at = (id: string, start: number | undefined) => {
+            if (start !== undefined) placedAt.set(id, start);
+          };
           const byColumn = new Map<string, string[]>();
           for (const v of values) {
             const col = column(v.columnId);
@@ -1226,7 +1292,7 @@ export const compile = (c: CompileInput): ViewPlan => {
               : col.enumValues?.find((e) => e.id === v.valueId)?.label;
             if (valueLabel === undefined) continue;
             const use = (confidence: number, source: DecisionEvidence["source"], noteKey: string) => {
-              if (isBoolean) pred(col.id, "eq", v.valueId === "true");
+              if (isBoolean) at(pred(col.id, "eq", v.valueId === "true"), namedAt(col.id));
               else byColumn.set(col.id, [...(byColumn.get(col.id) ?? []), v.valueId]);
               note(noteKey, v.valueId, confidence, source);
             };
@@ -1290,6 +1356,7 @@ export const compile = (c: CompileInput): ViewPlan => {
             // Keeping "every value but these" also leaves out rows with no value, which the request didn't name. The
             // Preview says so (`leftOutEmpty`). "Not equal" keeps those rows.
             const added = predicates.length > filtersBefore ? predicates.at(-1) : undefined;
+            if (added) at(added.id, namedAt(id));
             if (out.length > 0 && added && added.operator !== "neq") {
               evidence.push({ key: `${key}.leftOutEmpty`, selectedId: id, confidence: 1, source: "deterministic" });
             }
@@ -1449,16 +1516,30 @@ export const compile = (c: CompileInput): ViewPlan => {
               clarifications.push({ id: `${key}.exclude`, prompt: EXCLUDE_PROMPT, required: true });
               return;
             }
-            pred(target.id, kept, operator === "between" ? { min: lit.value, max: lit.upper ?? lit.value } : lit.value);
+            at(pred(target.id, kept, operator === "between" ? { min: lit.value, max: lit.upper ?? lit.value } : lit.value), lit.at);
             // "At or below $1m" also leaves out rows with no amount, which "exclude accounts over $1m" didn't name.
             if (excludes) evidence.push({ key: `${key}.leftOutEmpty`, selectedId: target.id, confidence: 1, source: "deterministic" });
           });
           // Each code-read filter, as code read it (spec 4.1). Its column was checked above. "Or" next to one asks below,
           // whatever the other side names: GridCue never joins a code-read filter to anything with "or".
+          // A House Term's filters carry its label in `host` evidence, which the Preview names (spec 4.5). They go where
+          // the term sits among the part's other filters, in the term's order: "large taxable accounts" previews Large
+          // first. A part with no term keeps its filters as before.
           readFilters.forEach((r, i) => {
-            pred(r.predicate.columnId, r.predicate.operator, r.predicate.value);
-            sides.push({ at: r.start, columnId: `\u0000code-read ${i}` });
-            note(`${key}.codeRead${i}`, `${r.predicate.columnId}.${r.predicate.operator}`, 1, "deterministic");
+            const before = predicates.length;
+            const id = pred(r.predicate.columnId, r.predicate.operator, r.predicate.value);
+            if (r.term !== undefined) {
+              // A term's conditions are one side of an "or": "large or taxable accounts" asks either-or, as today.
+              sides.push({ at: r.start, columnId: `\u0000term ${r.start}` });
+              note(`${key}.codeRead${i}`, `${r.predicate.columnId}.${r.predicate.operator}`, 1, "host");
+              evidence.push({ key: `${key}.term.${id}`, selectedId: r.term, confidence: 1, source: "host" });
+              const sitsBefore = predicates.slice(0, before).findIndex((p) => (placedAt.get(p.id) ?? -1) > r.start);
+              if (sitsBefore >= 0) predicates.splice(sitsBefore, 0, ...predicates.splice(before, 1));
+            } else {
+              sides.push({ at: r.start, columnId: `\u0000code-read ${i}` });
+              note(`${key}.codeRead${i}`, `${r.predicate.columnId}.${r.predicate.operator}`, 1, "deterministic");
+            }
+            placedAt.set(id, r.start);
           });
           // "Over $1m or at Northgate": filters always combine with "and", so either-or across columns is asked about.
           // "Northgate or Harborline" is one column, and one filter.
@@ -1535,6 +1616,26 @@ export const compile = (c: CompileInput): ViewPlan => {
               required: true,
             });
             continue;
+          }
+          // A size or age word speaks of how big or how old the rows are, so its direction sorts only a column that holds
+          // a size. In "which advisor has the largest accounts?" and "accounts by advisor, largest first" it is no order
+          // for Advisor, and the User may mean the largest accounts first, or a grouping: ask which column, as "largest
+          // accounts" does (order plan, D4). A phrase in a part that says "sort" or "order" itself is the order of the
+          // column it sorts: "sort by advisor, largest first". "Descending" and "A to Z" say only an order.
+          const blanked = family === "sort" && !answered && clause.direction ? namesBlankedOf(clause.text, partMentions) : undefined;
+          if (
+            blanked !== undefined &&
+            (directionFromSizeAlone(blanked) || (directionBySize(blanked) && !SAYS_SORT.test(unquoted(clause.text))))
+          ) {
+            if (cols.some((col) => !SIZED_KINDS.has(col.kind))) {
+              clarifications.push({
+                id: answerKey,
+                prompt: `Which column should be ${COLUMN_WORD[family]}?`,
+                options: optionsFor(null, capability),
+                required: true,
+              });
+              continue;
+            }
           }
           // Code keeps the order named; with reversal wording, the provider may say the later one is outer (Q6).
           const outerScore = (a: string, b: string) => res.outer?.find((o) => o.outerId === a && o.innerId === b)?.confidence ?? 0;
@@ -1807,10 +1908,20 @@ const KEEP_FORM_PROMPT = "GridCue can't tell whether the view already has that f
 
 /** A code-read filter, as `readCodeFilters` gives it, and not a span alone. */
 const isCodeReadFilter = (r: CodeReadSpan | CodeReadFilter): r is CodeReadFilter => "predicate" in r;
+/** A part's House Terms, each as its filters at one place: a term's conditions share its words. */
+const termsIn = (codeRead: readonly (CodeReadSpan | CodeReadFilter)[]): CodeReadFilter[][] => {
+  const terms = new Map<string, CodeReadFilter[]>();
+  for (const r of codeRead) {
+    if (!isCodeReadFilter(r) || r.kind !== "term") continue;
+    const at = `${r.start}:${r.end}`;
+    terms.set(at, [...(terms.get(at) ?? []), r]);
+  }
+  return [...terms.values()];
+};
 /** The column kinds an empty form is read on (spec 5.2). A number, currency or percent column could be empty or zero. */
 const EMPTY_KINDS: ReadonlySet<ColumnKind> = new Set(["string", "enum", "date", "datetime"]);
-/** What each operator a code-read filter writes does, for the question when the Host doesn't allow it. */
-const FORM_WORDS: Record<CodeReadFilter["predicate"]["operator"], string> = {
+/** What each operator a text or empty form writes does, for the question when the Host doesn't allow it. */
+const FORM_WORDS: Partial<Record<CodeReadFilter["predicate"]["operator"], string>> = {
   startsWith: "by how it starts",
   eq: "to exact text",
   isEmpty: "to rows where it is empty",
@@ -1845,7 +1956,11 @@ const codeReadQuestion = (
   }
   const follows = r.kind === "empty" ? amountWithoutName(clause, r.end, mentions, next) : undefined;
   if (follows) return `I'm not sure what the ${follows} after “${words}” applies to. Name its column, or split it into separate parts.`;
-  if (!operatorsFor(col).includes(r.predicate.operator)) return `GridCue can't filter ${label} ${FORM_WORDS[r.predicate.operator]} here.`;
+  if (!operatorsFor(col).includes(r.predicate.operator)) {
+    // A House Term's conditions were checked when the schema was built; one built by hand may still hold another.
+    if (r.kind === "term") return `GridCue can't filter ${label} the way “${words}” needs here.`;
+    return `GridCue can't filter ${label} ${FORM_WORDS[r.predicate.operator] ?? "that way"} here.`;
+  }
   return undefined;
 };
 /** The comparison that keeps the rows another one leaves out. "Equal to", "between" and "containing" have none here. */
