@@ -1,0 +1,309 @@
+---
+title: TanStack Table v8 apps
+description: Move an app that renders a TanStack Table v8 to v9 through useLegacyTable, add GridCue, then finish the move to useTable.
+---
+
+GridCue's adapter for TanStack Table targets v9. If your app renders a v8 table today, you don't rewrite it first. TanStack ships `useLegacyTable`, its own compatibility layer for migrating from v8. It takes the v8 options you already pass, so your table code stays almost as it is. GridCue works with a table from `useLegacyTable`, and the adapter's tests run on one.
+
+This guide is a migration, not a place to stay. TanStack marks `useLegacyTable` as deprecated, so the last step moves you to `useTable`.
+
+## Before you start
+
+- **TanStack Table v9 needs React 18 or later.** `gridcue/react`, which holds `useGridCue` and `<GridCueBar />` and sits under the shadcn command bar, needs React 19 or later. An app on React 18 can move its table to v9, but it can't use either command bar yet.
+- **If your app can't move to v9,** the **Rows Adapter** remains. It needs no TanStack Table. See [Next.js with the Rows Adapter](/docs/guides/next-rows-adapter). The command bar still needs React 19.
+
+## 1. Install TanStack Table v9
+
+```bash
+npm i @tanstack/react-table@9
+```
+
+## 2. Change the import and the hook's name
+
+v9 has no `useReactTable`. The v8 hook lives on as `useLegacyTable`, in a separate entry: `@tanstack/react-table/legacy`.
+
+Before, in v8:
+
+```tsx
+import {
+  type ColumnDef,
+  flexRender,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getSortedRowModel,
+  type SortingState,
+  useReactTable,
+} from "@tanstack/react-table";
+
+const columns: ColumnDef<Account>[] = [
+  { accessorKey: "name", header: "Name" },
+  { accessorKey: "value", header: "Value" },
+];
+
+export function Accounts({ data }: { data: Account[] }) {
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const table = useReactTable({
+    data,
+    columns,
+    state: { sorting },
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+  });
+  // …render the table as before
+}
+```
+
+After, on `useLegacyTable`:
+
+```tsx
+import { flexRender, type SortingState } from "@tanstack/react-table";
+import {
+  getCoreRowModel,
+  getFilteredRowModel,
+  getSortedRowModel,
+  type LegacyColumnDef,
+  useLegacyTable,
+} from "@tanstack/react-table/legacy";
+
+const columns: LegacyColumnDef<Account>[] = [
+  { accessorKey: "name", header: "Name" },
+  { accessorKey: "value", header: "Value" },
+];
+
+export function Accounts({ data }: { data: Account[] }) {
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const table = useLegacyTable({
+    data,
+    columns,
+    state: { sorting },
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+  });
+  // …render the table as before
+}
+```
+
+Only the imports, the hook's name, and the column type changed. The options, the column definitions, and the markup that renders the table stay. In your own files, make these changes:
+
+| In v8 | With `useLegacyTable` |
+| --- | --- |
+| `useReactTable(` | `useLegacyTable(`, from `@tanstack/react-table/legacy` |
+| `getCoreRowModel`, `getFilteredRowModel`, `getSortedRowModel`, `getGroupedRowModel`, `getPaginationRowModel`, `getExpandedRowModel`, `getFacetedRowModel`, `getFacetedMinMaxValues`, `getFacetedUniqueValues` | The same names and calls, from `@tanstack/react-table/legacy` |
+| `ColumnDef<Account>` | `LegacyColumnDef<Account>`, from `@tanstack/react-table/legacy` |
+| `createColumnHelper<Account>()` | `legacyCreateColumnHelper<Account>()`, from `@tanstack/react-table/legacy` |
+| `Table<Account>`, `Row<Account>`, `Column<Account>`, `Header<Account>`, `HeaderGroup<Account>`, `Cell<Account>` | `LegacyTable<Account>`, `LegacyRow<Account>`, `LegacyColumn<Account>`, `LegacyHeader<Account>`, `LegacyHeaderGroup<Account>`, `LegacyCell<Account>`, from `@tanstack/react-table/legacy` |
+| `VisibilityState` | `ColumnVisibilityState`, from `@tanstack/react-table` |
+| `sortingFn` on a column | `sortFn`. Your type check may not report the old name. v9 ignores it, and the column sorts with the default function instead of yours |
+| The table option `sortingFns` | `sortFns` |
+| `flexRender`, `SortingState`, `ColumnFiltersState`, `GroupingState`, `ColumnOrderState`, `PaginationState` | Unchanged, from `@tanstack/react-table` |
+
+`table.getState()` still works on a legacy table. Search your code for `sortingFn`, because the type check can miss it. Then run your type check and run the app before you add GridCue.
+
+### What may also need changing
+
+Moving TanStack's own v8 examples (basic, sorting, filters, column ordering, column visibility, and controlled pagination) showed these changes beyond the table above. Each one is a type error, not a runtime one, and your type check reports it.
+
+- **Annotate a `columns` array built with the column helper.** `legacyCreateColumnHelper<Account>()` infers a different value type for each column, and `useLegacyTable` rejects the mixed array. Give the array a type:
+
+  ```tsx
+  const columns: LegacyColumnDef<Account, any>[] = [
+    columnHelper.accessor("name", { header: "Name" }),
+    columnHelper.accessor("value", { header: "Value" }),
+  ];
+  ```
+
+- **`SortingFn` is now `SortFn`.** It takes the feature set first, and `LegacyFeatures` is that set for a legacy table. Both come from their entries: `SortFn` from `@tanstack/react-table`, `LegacyFeatures` from `@tanstack/react-table/legacy`. Before: `const byStatus: SortingFn<Account>`. After: `const byStatus: SortFn<LegacyFeatures, Account>`.
+- **Write `LegacyColumn<Account, unknown>`, not `LegacyColumn<any, unknown>`.** Passing a table's own column to a component typed with `any` rows fails to compile.
+- **`ColumnMeta` takes three type parameters.** If you add your own fields to `ColumnMeta` with `declare module "@tanstack/react-table"`, the declaration must match v9's parameters: `interface ColumnMeta<TFeatures extends TableFeatures, TData extends RowData, TValue extends CellData = CellData>`. Import `TableFeatures`, `RowData`, and `CellData` from `@tanstack/react-table`.
+- **`getPrePaginationRowModel()` is now `getPrePaginatedRowModel()`.**
+
+Other names that v8 code uses, such as `VisibilityState`, are in the table above. If your type check reports something else, it is a v9 change in your own code, outside this guide.
+
+## 3. Add GridCue
+
+Add GridCue as the [Vite with TanStack Table](/docs/guides/vite-tanstack) guide does, and take its sections from there:
+
+- [Install](/docs/guides/vite-tanstack#install) `gridcue`.
+- Skip its "Enable the table features" section. A legacy table registers every stock feature for you.
+- [Wire the controller](/docs/guides/vite-tanstack#wire-the-controller), with `useLegacyTable` where it has `useTable`.
+- [Pick a command bar](/docs/guides/vite-tanstack#pick-a-command-bar) and [mount the endpoint](/docs/guides/vite-tanstack#mount-the-endpoint-in-vites-dev-server). Start with the Mock Provider if you have no endpoint yet.
+
+These things differ for a v8 table.
+
+**Pass the row models GridCue needs.** GridCue changes filters, sorting, and grouping, so the table needs a row model for each: `getFilteredRowModel`, `getSortedRowModel`, and `getGroupedRowModel`. A v8 table that doesn't group has no `getGroupedRowModel` yet, so add it. Column visibility and order need no row model.
+
+```tsx
+import { createGridCue } from "gridcue";
+import { createMockProvider } from "gridcue/mock";
+import { GridCueBar } from "gridcue/react";
+import "gridcue/styles.css";
+import { createTanStackAdapter, gridcueFilterFn, schemaFromTanStack } from "gridcue/tanstack-table";
+import { useState } from "react";
+import {
+  getCoreRowModel,
+  getFilteredRowModel,
+  getGroupedRowModel,
+  getSortedRowModel,
+  useLegacyTable,
+} from "@tanstack/react-table/legacy";
+
+export function Accounts({ data }: { data: Account[] }) {
+  const table = useLegacyTable({
+    data,
+    columns,
+    defaultColumn: { filterFn: gridcueFilterFn }, // GridCue filters evaluate like the Rows Adapter's
+    getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getGroupedRowModel: getGroupedRowModel(), // added for GridCue
+  });
+
+  // Create the Controller once. The table object changes whenever table state changes.
+  const [cue] = useState(() => {
+    const schema = schemaFromTanStack(table);
+    return createGridCue({
+      schema,
+      adapter: createTanStackAdapter({ schema, table }),
+      provider: createMockProvider(),
+    });
+  });
+
+  return <GridCueBar controller={cue} />; // and render the table as before
+}
+```
+
+**Keep your own filter inputs working.** If your table has filter inputs of its own, the `defaultColumn` above changes them, in two ways:
+
+- **A column that names no filter function** uses `auto`, which picks a built-in one for it. `defaultColumn: { filterFn: gridcueFilterFn }` replaces `auto` on every such column, and `gridcueFilterFn` passes every row for a value that isn't GridCue's. Your own filter input on that column stops filtering.
+- **A column that names one**, such as `filterFn: "includesString"`, keeps it, and the name replaces `gridcueFilterFn`. A GridCue filter on that column then matches no rows.
+
+Give each column you filter yourself the built-in function wrapped by `besideGridCue` below, so your filter and GridCue's both work. The table resolves a filter value only for the function a column holds, such as lowercasing it for a text filter, so `besideGridCue` does that step before it calls the built-in:
+
+```tsx
+import { filterFn_includesString, filterFn_inNumberRange } from "@tanstack/react-table";
+import { type LegacyColumnDef } from "@tanstack/react-table/legacy";
+import { withGridCueFilter } from "gridcue/tanstack-table";
+
+type BuiltInFilter = typeof filterFn_includesString;
+
+/** A built-in TanStack filter function that keeps working beside GridCue's filters. */
+const besideGridCue = (builtIn: BuiltInFilter) =>
+  Object.assign(
+    withGridCueFilter((row, columnId, value) =>
+      builtIn(row as Parameters<BuiltInFilter>[0], columnId, builtIn.resolveFilterValue?.(value) ?? value),
+    ),
+    {
+      // The Host's own empty value clears the filter, as before. GridCue's value is an object and is never cleared.
+      autoRemove: (value: unknown) =>
+        typeof value === "object" && value !== null && !Array.isArray(value) ? false : Boolean(builtIn.autoRemove?.(value)),
+    },
+  );
+
+const columns: LegacyColumnDef<Account>[] = [
+  { accessorKey: "name", header: "Name", filterFn: besideGridCue(filterFn_includesString) }, // a text input
+  { accessorKey: "value", header: "Value", filterFn: besideGridCue(filterFn_inNumberRange) }, // a min and max input
+];
+```
+
+Which built-in to pass: for a named one, `filterFn_` and its name, such as `filterFn_equalsString` for `"equalsString"`. For `auto`, the one it picks from the column's first value that isn't empty:
+
+| The column's values | `auto` picks | Pass |
+| --- | --- | --- |
+| Text | `includesString` | `filterFn_includesString` |
+| Numbers | `inNumberRange` | `filterFn_inNumberRange` |
+| `true` or `false` | `equals` | `filterFn_equals` |
+| Dates | `inDateRange` | `filterFn_inDateRange` |
+| Lists | `arrIncludes` | `filterFn_arrIncludes` |
+| Other objects | `equals` | `filterFn_equals` |
+| Anything else | `weakEquals` | `filterFn_weakEquals` |
+
+All of them come from `@tanstack/react-table`. A select input on a text column is still `includesString` under `auto`. A column you don't filter yourself needs nothing: `gridcueFilterFn` serves it. A function you wrote and registered yourself, with no `resolveFilterValue`, goes through `withGridCueFilter` as it is. See [`withGridCueFilter`](/docs/api/adapters#withgridcuefilter).
+
+**Leave sort out of a column the table won't sort as GridCue says.** GridCue doesn't read a column's sort options yet. On a column with `enableSorting: false`, the table ignores GridCue's sort, but GridCue says the view changed. On a column with `invertSorting: true`, the table shows the rows in the opposite order to the Preview. TanStack's own v8 sorting example sets `invertSorting` on a column. For each such column, give `schemaFromTanStack` its capabilities without `sort`, and GridCue asks instead of sorting:
+
+```tsx
+const schema = schemaFromTanStack(table, {
+  columns: { rank: { capabilities: ["filter", "group", "show", "hide", "reorder"] } }, // rank sets invertSorting
+});
+```
+
+A table with `enableSorting: false` in its options needs this on every column. See [ColumnOverride](/docs/api/schema#columnoverride).
+
+**If your app controls the table's state,** read [If your app controls the table's state](/docs/guides/vite-tanstack#if-your-app-controls-the-tables-state). It applies to a legacy table as it does to any other: every controlled slice needs its change handler, and the handler stores exactly what it is given.
+
+## 4. Move to `useTable`
+
+When you have time, move from `useLegacyTable` to `useTable`. Your GridCue code stays as it is. The [Vite with TanStack Table](/docs/guides/vite-tanstack#enable-the-table-features-gridcue-uses) guide has the `features` GridCue uses.
+
+| With `useLegacyTable` | With `useTable` |
+| --- | --- |
+| `import { useLegacyTable } from "@tanstack/react-table/legacy"` | `import { useTable } from "@tanstack/react-table"` |
+| `getFilteredRowModel: getFilteredRowModel()` | `filteredRowModel: createFilteredRowModel()` in `tableFeatures` |
+| `getSortedRowModel: getSortedRowModel()` | `sortedRowModel: createSortedRowModel()` in `tableFeatures` |
+| `getGroupedRowModel: getGroupedRowModel()` | `groupedRowModel: createGroupedRowModel()` in `tableFeatures` |
+| `getCoreRowModel: getCoreRowModel()` | Remove it. v9 always builds the core row model |
+| Every stock feature, registered for you | One feature for each part of the table you use, in `tableFeatures` |
+| `LegacyColumnDef<Account>` | `ColumnDef<typeof features, Account>` |
+| `table.getState()` | `table.state`. Pass a selector as the second argument to `useTable` to choose which slices re-render the component |
+
+After:
+
+```tsx
+import {
+  columnFilteringFeature,
+  columnGroupingFeature,
+  columnOrderingFeature,
+  columnVisibilityFeature,
+  type ColumnDef,
+  createFilteredRowModel,
+  createGroupedRowModel,
+  createSortedRowModel,
+  rowSortingFeature,
+  type SortingState,
+  tableFeatures,
+  useTable,
+} from "@tanstack/react-table";
+
+const features = tableFeatures({
+  columnFilteringFeature,
+  rowSortingFeature,
+  columnGroupingFeature,
+  columnVisibilityFeature,
+  columnOrderingFeature,
+  filteredRowModel: createFilteredRowModel(),
+  sortedRowModel: createSortedRowModel(),
+  groupedRowModel: createGroupedRowModel(),
+});
+
+const columns: ColumnDef<typeof features, Account>[] = [
+  { accessorKey: "name", header: "Name" },
+  { accessorKey: "value", header: "Value" },
+];
+
+export function Accounts({ data }: { data: Account[] }) {
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const table = useTable({
+    features,
+    data,
+    columns,
+    defaultColumn: { filterFn: gridcueFilterFn },
+    state: { sorting },
+    onSortingChange: setSorting,
+  });
+  // …the Controller and the command bar stay as they were
+}
+```
+
+If you use pagination, expanding, selection, pinning, or the other features your v8 table had, add each one's feature to `tableFeatures` as well. A legacy table registered them all, and `useTable` registers only what you list.
+
+`besideGridCue`, `withGridCueFilter` and a column's capabilities work the same on a `useTable` table.
+
+## Limits
+
+- **`useLegacyTable` is TanStack's, and TanStack may change or remove it.** Finish step 4 before then.
+- **The limits of the TanStack adapter apply.** Column filters combine with AND only. See [Adapters](/docs/api/adapters).
+- **GridCue doesn't read a column's sort options.** On a column with `enableSorting: false` or `invertSorting: true`, the table doesn't show the sort GridCue previews. Leave `sort` out of that column's capabilities, as step 3 shows. This holds on `useTable` too.

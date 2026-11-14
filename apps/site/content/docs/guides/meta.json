@@ -2,6 +2,7 @@
   "title": "Guides",
   "pages": [
     "vite-tanstack",
+    "tanstack-v8",
     "next-rows-adapter",
     "server-handler",
     "protect-the-endpoint",
