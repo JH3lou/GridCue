@@ -1,15 +1,31 @@
 "use client";
 
-import { generateAccounts, wealthInitialState, wealthSchema } from "@gridcue-internal/wealth-fixtures";
-import { applyView, createGridCue, createRemoteProvider, createRowsAdapter } from "gridcue";
+import { generateAccounts, wealthColumns, wealthInitialState, wealthSchemaOptions } from "@gridcue-internal/wealth-fixtures";
+import { applyView, createGridCue, createRemoteProvider, createRowsAdapter, defineSchema } from "gridcue";
 import { GridCueBar } from "gridcue/react";
 import { useState, useSyncExternalStore } from "react";
 
+// The fixture's schema with two House Terms: the firm's own names for fixed filters. GridCue reads them in the browser
+// and never sends them.
+const schema = defineSchema(wealthColumns, {
+  ...wealthSchemaOptions,
+  houseTerms: [
+    { label: "Large", aliases: ["big"], where: [{ columnId: "market_value", operator: "gt", value: 1_000_000 }] },
+    {
+      label: "Needs attention",
+      aliases: ["need attention", "needing attention"],
+      where: [
+        { columnId: "concentration", operator: "gt", value: 0.1 },
+        { columnId: "has_restricted_holding", operator: "eq", value: true },
+      ],
+    },
+  ],
+});
 const rows = generateAccounts();
 const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 
 const format = (columnId: string, value: unknown): string => {
-  const column = wealthSchema.columns.find((c) => c.id === columnId);
+  const column = schema.columns.find((c) => c.id === columnId);
   if (column?.kind === "currency") return money.format(value as number);
   if (column?.kind === "percent") return `${Math.round((value as number) * 1000) / 10}%`;
   if (column?.kind === "boolean") return value ? "Yes" : "No";
@@ -20,12 +36,12 @@ const format = (columnId: string, value: unknown): string => {
 export function AccountsView() {
   // The whole GridCue setup: an adapter over the rows you already have, and a controller.
   const [{ adapter, cue }] = useState(() => {
-    const adapter = createRowsAdapter({ schema: wealthSchema, initialState: wealthInitialState });
+    const adapter = createRowsAdapter({ schema, initialState: wealthInitialState });
     return { adapter, cue: createGridCue({ adapter, provider: createRemoteProvider({ endpoint: "/api/gridcue" }) }) };
   });
   const { state } = useSyncExternalStore(adapter.subscribe, adapter.getState, adapter.getState);
-  const view = applyView(rows, state, wealthSchema);
-  const label = (id: string) => wealthSchema.columns.find((c) => c.id === id)?.label ?? id;
+  const view = applyView(rows, state, schema);
+  const label = (id: string) => schema.columns.find((c) => c.id === id)?.label ?? id;
   const body = (list: typeof rows) =>
     list.slice(0, 100).map((row) => (
       <tr key={row.account_number}>

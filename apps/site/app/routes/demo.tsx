@@ -1,8 +1,9 @@
 import { HomeLayout } from "fumadocs-ui/layouts/home";
 import { useState } from "react";
-import { AskBar, type Suggestion } from "@/components/demo/ask-bar";
+import { AskBar } from "@/components/demo/ask-bar";
 import { CompareStrategies } from "@/components/demo/compare-strategies";
 import { DevPanel } from "@/components/demo/dev-panel";
+import { SUGGESTIONS } from "@/components/demo/suggestions";
 import { useWealthDemo } from "@/components/demo/use-wealth-demo";
 import { WealthTable } from "@/components/demo/wealth-table";
 import { baseOptions } from "@/lib/layout.shared";
@@ -14,21 +15,6 @@ export function meta(_: Route.MetaArgs) {
     { name: "description", content: "Try GridCue on 500 synthetic accounts, in your browser, with no key. Then compare Jev's strategies." },
   ];
 }
-
-// Each is checked against the Mock Provider (Site spec §5.2): filter, sort, group, show and hide, several changes
-// in one part, nesting, an exclusion, a value group, a question back, and a refusal.
-const SUGGESTIONS: Suggestion[] = [
-  { label: "Taxable accounts over $1M, sort by concentration, highest first" },
-  { label: "Roth IRAs grouped by rep" },
-  { label: "Group by custodian, then by advisor" },
-  { label: "Retirement accounts grouped by advisor" },
-  { label: "Show IRAs at Northgate" },
-  { label: "Excluding trusts" },
-  { label: "Accounts with restricted holdings" },
-  { label: "Hide custodian and account number" },
-  { label: "Largest households first" },
-  { label: "Sell anything over 10%", refusal: true },
-];
 
 const TABS = ["Try it", "Compare strategies"] as const;
 

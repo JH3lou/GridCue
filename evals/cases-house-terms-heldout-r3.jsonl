@@ -1,0 +1,41 @@
+{"id":"r3-hedge-led-1","utterance":"entries mostly in the Travel category","schema":"ledger","terms":true,"expect":{"mustNotBeReady":true,"neverApplies":"filter.add"}}
+{"id":"r3-hedge-led-2","utterance":"transactions that are largely Travel","schema":"ledger","terms":true,"expect":{"mustNotBeReady":true,"neverApplies":"filter.add"}}
+{"id":"r3-hedge-led-3","utterance":"show entries largely over $2,000","schema":"ledger","terms":true,"expect":{"mustNotBeReady":true,"neverApplies":"filter.add"}}
+{"id":"r3-hedge-led-4","utterance":"items largely uncleared","schema":"ledger","terms":true,"expect":{"mustNotBeReady":true,"neverApplies":"filter.add"}}
+{"id":"r3-hedge-led-5","utterance":"largely Travel records","schema":"ledger","terms":true,"expect":{"mustNotBeReady":true,"neverApplies":"filter.add"}}
+{"id":"r3-hedge-led-6","utterance":"rows in the Travel category that are largely cleared","schema":"ledger","terms":true,"expect":{"mustNotBeReady":true,"neverApplies":"filter.add"}}
+{"id":"r3-hedge-led-7","utterance":"entries, largely in Travel, sorted by amount","schema":"ledger","terms":true,"expect":{"mustNotBeReady":true}}
+{"id":"r3-hedge-led-8","utterance":"please list the records that fall largely under Travel","schema":"ledger","terms":true,"expect":{"mustNotBeReady":true,"neverApplies":"filter.add"}}
+{"id":"r3-hedge-led-9","utterance":"payments mostly cleared","schema":"ledger","terms":true,"expect":{"mustNotBeReady":true,"neverApplies":"filter.add"}}
+{"id":"r3-hedge-led-10","utterance":"roughly the Travel entries","schema":"ledger","terms":true,"expect":{"mustNotBeReady":true,"neverApplies":"filter.add"}}
+{"id":"r3-hedge-led-11","utterance":"material entries that are largely Travel","schema":"ledger","terms":true,"expect":{"mustNotBeReady":true,"neverApplies":"filter.add"}}
+{"id":"r3-hedge-led-12","utterance":"uncoded entries, largely over $500","schema":"ledger","terms":true,"expect":{"mustNotBeReady":true,"neverApplies":"filter.add"}}
+{"id":"r3-hedge-wealth-1","utterance":"accounts largely in the taxable registration","terms":true,"expect":{"mustNotBeReady":true,"neverApplies":"filter.add"}}
+{"id":"r3-hedge-wealth-2","utterance":"holdings that are largely retirement","terms":true,"expect":{"mustNotBeReady":true,"neverApplies":"filter.add"}}
+{"id":"r3-hedge-wealth-3","utterance":"accounts largely over $2m","terms":true,"expect":{"mustNotBeReady":true,"neverApplies":"filter.add"}}
+{"id":"r3-hedge-wealth-4","utterance":"mostly taxable accounts","terms":true,"expect":{"mustNotBeReady":true,"neverApplies":"filter.add"}}
+{"id":"r3-hedge-wealth-nt-5","utterance":"accounts that are largely taxable","expect":{"mustNotBeReady":true,"neverApplies":"filter.add"}}
+{"id":"r3-hedge-wealth-nt-6","utterance":"accounts largely in retirement","expect":{"mustNotBeReady":true,"neverApplies":"filter.add"}}
+{"id":"r3-hedge-wealth-7","utterance":"large accounts that are largely taxable","terms":true,"expect":{"mustNotBeReady":true,"neverApplies":"filter.add"}}
+{"id":"r3-sortsize-1","utterance":"accounts by advisor, largest first","terms":true,"expect":{"mustNotBeReady":true,"neverApplies":"filter.add"}}
+{"id":"r3-sortsize-2","utterance":"holdings by custodian, biggest first","terms":true,"expect":{"mustNotBeReady":true,"neverApplies":"filter.add"}}
+{"id":"r3-sortsize-3","utterance":"show accounts by registration type with the largest first","terms":true,"expect":{"mustNotBeReady":true,"neverApplies":"filter.add"}}
+{"id":"r3-sortsize-4","utterance":"list accounts by advisor, biggest at the top","terms":true,"expect":{"mustNotBeReady":true,"neverApplies":"filter.add"}}
+{"id":"r3-sortsize-5","utterance":"entries by category, largest first","schema":"ledger","terms":true,"expect":{"mustNotBeReady":true,"neverApplies":"filter.add"}}
+{"id":"r3-sortsize-6","utterance":"accounts by advisor, largest first","expect":{"mustNotBeReady":true,"neverApplies":"filter.add"}}
+{"id":"r3-sortsize-ctrl-7","utterance":"accounts by market value, largest first","terms":true,"expect":{"status":"ready","operations":[{"type":"sort.set","sorts":[{"columnId":"market_value","direction":"desc"}]}]}}
+{"id":"r3-term-1","utterance":"which big accounts do we have","terms":true,"expect":{"status":"ready","operations":[{"type":"filter.add","predicate":{"columnId":"market_value","operator":"gt","value":1000000},"combineWith":"and"}]}}
+{"id":"r3-term-2","utterance":"list the orphaned accounts","terms":true,"expect":{"status":"ready","operations":[{"type":"filter.add","predicate":{"columnId":"advisor_name","operator":"isEmpty"},"combineWith":"and"}]}}
+{"id":"r3-term-3","utterance":"sizeable entries","schema":"ledger","terms":true,"expect":{"status":"ready","operations":[{"type":"filter.add","predicate":{"columnId":"amount","operator":"gt","value":10000},"combineWith":"and"}]}}
+{"id":"r3-term-4","utterance":"entries needing review","schema":"ledger","terms":true,"expect":{"status":"ready","operations":[{"type":"filter.add","predicate":{"columnId":"cleared","operator":"eq","value":false},"combineWith":"and"},{"type":"filter.add","predicate":{"columnId":"amount","operator":"gt","value":5000},"combineWith":"and"}]}}
+{"id":"r3-term-5","utterance":"uncategorised entries","schema":"ledger","terms":true,"expect":{"status":"ready","operations":[{"type":"filter.add","predicate":{"columnId":"category","operator":"isEmpty"},"combineWith":"and"}]}}
+{"id":"r3-term-6","utterance":"accounts needing attention","terms":true,"expect":{"status":"ready","operations":[{"type":"filter.add","predicate":{"columnId":"concentration","operator":"gt","value":0.1},"combineWith":"and"},{"type":"filter.add","predicate":{"columnId":"has_restricted_holding","operator":"eq","value":true},"combineWith":"and"}]}}
+{"id":"r3-term-ask-7","utterance":"accounts that aren't big","terms":true,"expect":{"mustNotBeReady":true,"neverApplies":"filter.add"}}
+{"id":"r3-term-ask-8","utterance":"hide the orphaned accounts","terms":true,"expect":{"mustNotBeReady":true,"neverApplies":"filter.add"}}
+{"id":"r3-term-ask-9","utterance":"sort by sizeable","schema":"ledger","terms":true,"expect":{"mustNotBeReady":true,"neverApplies":"filter.add"}}
+{"id":"r3-term-ask-10","utterance":"big or orphaned accounts","terms":true,"expect":{"mustNotBeReady":true,"neverApplies":"filter.add"}}
+{"id":"r3-term-ask-11","utterance":"assign the orphaned accounts to Avery Lane","terms":true,"expect":{"mustNotBeReady":true,"neverApplies":"filter.add"}}
+{"id":"r3-term-ask-12","utterance":"large accounts called about fees","terms":true,"expect":{"mustNotBeReady":true,"neverApplies":"filter.add"}}
+{"id":"r3-term-ask-13","utterance":"biggest accounts","terms":true,"expect":{"mustNotBeReady":true,"neverApplies":"filter.add"}}
+{"id":"r3-term-ask-14","utterance":"show the Needs review column","schema":"ledger","terms":true,"expect":{"mustNotBeReady":true,"neverApplies":"filter.add"}}
+{"id":"r3-term-ask-15","utterance":"material entries without a category","schema":"ledger","terms":true,"expect":{"status":"ready","operations":[{"type":"filter.add","predicate":{"columnId":"amount","operator":"gt","value":10000},"combineWith":"and"},{"type":"filter.add","predicate":{"columnId":"category","operator":"isEmpty"},"combineWith":"and"}]}}

@@ -1,5 +1,6 @@
 import type { GridAdapter } from "./adapter";
 import { type CodeReadFilter, readCodeFilters } from "./code-read";
+import { isExposed } from "./columns";
 import { type ConfidencePolicy, compile } from "./compile";
 import { GridCueError, type Issue, isGridCueError } from "./errors";
 import { type Mention, matchMentions } from "./mentions";
@@ -8,7 +9,6 @@ import { screenRestricted } from "./policy";
 import { type AuditEvent, type AuditPolicy, type Preview, renderPreview, toAuditEvent } from "./preview";
 import type { VersionedViewState, ViewPlan, ViewSchema } from "./protocol";
 import { buildResolutionRequest, type IntentProvider, MAX_UTTERANCE_LENGTH, ResolutionResult } from "./resolution";
-import { isExposed } from "./schema";
 import { type ApplicableViewPlan, resultingState, validatePlan } from "./validate";
 
 export type InteractionStatus = "idle" | "resolving" | "ready" | "needs_clarification" | "unsupported" | "applying" | "applied" | "error";

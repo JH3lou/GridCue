@@ -41,9 +41,10 @@ Rows never leave your app. The provider needs only the request and a description
 - restricted columns: not their names, aliases or values;
 - enum values you didn't list in `enumValues`;
 - the current filter values;
+- your House Terms: a term's name, aliases and conditions, and whether a request used one. A term is read in the browser by GridCue's own code. The request the provider receives is the same with terms declared or not, and it is called as often. The words the User typed are sent as always, so a term's word in the request reaches the provider like any other word;
 - keys, cookies or tokens.
 
-To see what your schema exposes, call `describeProviderPayload(schema)` from `gridcue`. It returns each exposed column's id, label, kind, aliases, description, approved values, entity and value groups, the `rowNoun`, and `rows: "never sent"`.
+To see what your schema exposes, call `describeProviderPayload(schema)` from `gridcue`. It returns each exposed column's id, label, kind, aliases, description, approved values, entity and value groups, the `rowNoun`, and `rows: "never sent"`. It has no House Terms in it.
 
 `enumValues` is the one place you choose to share values. List only what you are willing to send, and never fill it with every distinct value in your data.
 

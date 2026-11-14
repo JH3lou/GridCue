@@ -171,6 +171,79 @@ describe("the main value column (defaultMeasure)", () => {
   });
 });
 
+// A size word ("largest", "biggest", "smallest", "top", "highest") or an age word ("newest", "oldest") speaks of how big
+// or how old the rows are, so its direction goes only to a column that holds a size: an amount or a date. That holds on
+// its own ("which advisor has the largest accounts?") and in a phrase where nothing says to sort ("accounts by advisor,
+// largest first"): each was read as "Sort by Advisor, descending", the word lending its direction to a column it isn't
+// about, when the User may have meant the largest accounts first, or a grouping by advisor. Such a sort asks which
+// column to sort by, as "largest accounts" does with no main value column (order plan, D4). A phrase in a part that says
+// "sort" or "order" ("sort by advisor, largest first") and a direction that says only an order ("descending", "A to Z")
+// are the column's own, and read as before.
+describe("a size or age word gives its direction only to an amount or a date", () => {
+  const withAdvisor = (measure?: string) =>
+    defineSchema([...columns, { id: "advisor", label: "Advisor" }, { id: "opened", label: "Opened", kind: "date" as const }], {
+      ...options,
+      ...(measure ? { defaultMeasure: measure } : {}),
+    });
+  const ask = "Which column should be sorted by?";
+
+  it.each([
+    "which advisor has the largest accounts?",
+    "which advisor has the biggest accounts",
+    "what advisor has the smallest accounts",
+    "which advisor is largest",
+    "largest accounts sorted by advisor",
+    "which advisor has the largest market value",
+    "accounts by advisor, largest first",
+    "accounts by advisor, biggest first",
+    "accounts by advisor largest to smallest",
+    "accounts by advisor, smallest first",
+    "accounts by advisor, highest first",
+    "accounts by advisor high to low",
+    "accounts by advisor, newest first",
+    "accounts by advisor, oldest first",
+    "show accounts by advisor, largest first",
+    "accounts by registration, largest first",
+  ])("asks for “%s”, with or without a main value column", async (text) => {
+    for (const schema of [withAdvisor(), withAdvisor("value")]) {
+      const cue = setup(schema);
+      await cue.propose(text);
+      expect(cue.getState().status, `${text}: ${JSON.stringify(cue.getState().plan?.operations)}`).toBe("needs_clarification");
+      expect(cue.getState().message, text).toBe(ask);
+    }
+  });
+
+  it.each([
+    ["largest accounts by market value", "value", "desc"],
+    ["smallest market value", "value", "asc"],
+    ["sort by market value, largest", "value", "desc"],
+    ["top accounts by opened", "opened", "desc"],
+    ["accounts by market value, largest first", "value", "desc"],
+    ["accounts by opened, newest first", "opened", "desc"],
+    ["accounts by opened, oldest first", "opened", "asc"],
+    ["sort by advisor, largest first", "advisor", "desc"],
+    ["sort by advisor largest to smallest", "advisor", "desc"],
+    ["accounts by advisor, descending", "advisor", "desc"],
+    ["accounts by advisor, a to z", "advisor", "asc"],
+  ])("reads “%s” as before", async (text, columnId, direction) => {
+    const cue = setup(withAdvisor());
+    await cue.propose(text);
+    expect(cue.getState().status, text).toBe("ready");
+    expect(cue.getState().plan?.operations[0], text).toEqual({ type: "sort.set", sorts: [{ columnId, direction }] });
+  });
+
+  it("takes the User's answer to which column, and still asks about the column it didn't use", async () => {
+    const cue = setup(withAdvisor());
+    await cue.propose("largest accounts sorted by market value");
+    expect(cue.getState().status).toBe("ready");
+    await cue.propose("which advisor has the largest accounts?");
+    cue.answer("c0.sort.column", "value");
+    // The answer sorts by Market value, and "advisor" is then a name nothing reads (ADR 0019).
+    expect(cue.getState().status).toBe("needs_clarification");
+    expect(cue.getState().message).toBe("I'm not sure what to do with “advisor”. Try rephrasing that part.");
+  });
+});
+
 describe("a count", () => {
   it("reads “top 10” as a count, never as a filter value", () => {
     const [clause] = normalize("top 10 accounts").clauses;

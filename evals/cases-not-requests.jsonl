@@ -69,3 +69,13 @@
 {"id":"nr-r4-advisor-is-blank-in-those-accounts","utterance":"advisor is blank in those accounts","expect":{"mustNotBeReady":true}}
 {"id":"nr-r4-vendor-is-empty-for-these-entries-ledger","utterance":"vendor is empty for these entries","schema":"ledger","expect":{"mustNotBeReady":true}}
 {"id":"nr-r4-advisor-is-empty-for-all","utterance":"advisor is empty for all","expect":{"mustNotBeReady":true}}
+{"id":"nr-ht-large-mistake","terms":true,"utterance":"that was a large mistake","expect":{"mustNotBeReady":true}}
+{"id":"nr-ht-audit-needs-attention","terms":true,"utterance":"the audit needs attention from me","expect":{"mustNotBeReady":true}}
+{"id":"nr-ht-big-thank-you","terms":true,"utterance":"a big thank you to the whole team","expect":{"mustNotBeReady":true}}
+{"id":"nr-ht-large-part-problem","terms":true,"utterance":"this is a large part of the problem","expect":{"mustNotBeReady":true}}
+{"id":"nr-ht-orphaned-kitten","terms":true,"utterance":"I found an orphaned kitten on my way in","expect":{"mustNotBeReady":true}}
+{"id":"nr-ht-unassigned-task","terms":true,"utterance":"the unassigned task is on my list for tomorrow","expect":{"mustNotBeReady":true}}
+{"id":"nr-ht-material-sent","terms":true,"schema":"ledger","utterance":"the material was sent to the printer yesterday","expect":{"mustNotBeReady":true}}
+{"id":"nr-ht-sizeable-donation","terms":true,"schema":"ledger","utterance":"a sizeable donation surprised everyone at lunch","expect":{"mustNotBeReady":true}}
+{"id":"nr-ht-needs-review-friday","terms":true,"schema":"ledger","utterance":"my draft needs review before Friday","expect":{"mustNotBeReady":true}}
+{"id":"nr-ht-uncoded-message","terms":true,"schema":"ledger","utterance":"an uncoded message is a risk for the whole company","expect":{"mustNotBeReady":true}}

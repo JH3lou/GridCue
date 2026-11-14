@@ -60,6 +60,7 @@ interface SchemaOptions {
   restricted?: string[];
   rowNoun?: string;
   defaultMeasure?: string;
+  houseTerms?: HouseTerm[];
   sampleRows?: ReadonlyArray<Record<string, unknown>>;
 }
 ```
@@ -72,7 +73,64 @@ interface SchemaOptions {
 | `restricted` | `string[]` | none | Column IDs GridCue must never expose to a provider or act on. |
 | `rowNoun` | `string` | none | What one row is, such as `"account"`. Its name in a request means the rows, not a column. |
 | `defaultMeasure` | `string` | none | The column a size word ranks by when the request names none: "top accounts", "largest to smallest", "smallest first" sort by it, descending for top, largest and biggest, ascending for smallest. It must name a column; a restricted or unsortable one is never used. Without it, GridCue asks which column. |
+| `houseTerms` | `HouseTerm[]` | none | Words your firm uses for a fixed set of conditions, such as "large" for Market value above $1,000,000. See [House Terms](#houseterms). |
 | `sampleRows` | `ReadonlyArray<Record<string, unknown>>` | none | Rows used only to infer missing kinds. They never leave the caller. |
+
+## houseTerms
+
+```ts
+interface HouseTerm {
+  label: string;
+  aliases?: string[];
+  where: Array<{ columnId: string; operator: FilterOperator; value?: Scalar | Scalar[] | { min: Scalar; max: Scalar } }>;
+}
+```
+
+A **House Term** is a name you give to a fixed list of conditions on the rows. Each condition is a filter on a column by its id. Every condition must hold, so a term is its conditions joined by "and".
+
+```ts
+const schema = defineSchema(columns, {
+  rowNoun: "account",
+  houseTerms: [
+    { label: "Large", aliases: ["big"], where: [{ columnId: "market_value", operator: "gt", value: 1_000_000 }] },
+    {
+      label: "Needs attention",
+      aliases: ["need attention", "needing attention"],
+      where: [
+        { columnId: "concentration", operator: "gt", value: 0.1 },
+        { columnId: "has_restricted_holding", operator: "eq", value: true },
+      ],
+    },
+    { label: "Unassigned", aliases: ["orphaned"], where: [{ columnId: "advisor_name", operator: "isEmpty" }] },
+  ],
+});
+```
+
+A request that says a term as a whole word adds each of its conditions as a filter. "Large accounts" previews `Filter Market value above $1,000,000 (Large)`. The label in brackets names the term on every line it made, so the User sees the threshold and not only the word. Once applied, the view holds plain filters. See [House Terms in Requests](/docs/concepts/requests#house-terms) for what reads and what asks.
+
+- **`label`** and **`aliases`** are the words that find the term. They match as whole words in any letter case, with any separator between their words: "needs-attention" finds "Needs attention". They have no plural form: "large" finds the term and "larger" does not.
+- **`where`** holds at least one condition. `value` is a number, text, a yes/no, a list for `in`, or `{ min, max }` for `between`. An `isEmpty` or `isNotEmpty` condition has no value. An amount is a plain number: `1_000_000` for $1,000,000 and `0.1` for 10%.
+- **A term holds no "or" and no moving date.** Each condition is a fixed filter. A request for either of two things asks, as it does without terms.
+- **A term is never sent to an Intent Provider.** Not its name, its conditions, or whether a request matched one. `describeProviderPayload` leaves terms out.
+
+`defineSchema` checks each condition the way validation checks a filter in a plan. The column must exist, not be restricted, allow `filter`, and allow the operator, and the value must fit the column's kind, so a `registration_type` condition must name one of its `enumValues` ids. It also checks that every name is the term's own. A label or alias throws when it is also:
+
+- a column's label or alias, or the `entity` word of a column;
+- a value's label or alias, or a Value Group's;
+- the `rowNoun`;
+- another term's label or alias;
+- one of GridCue's own words, such as "top", "largest", "smallest", "empty", "blank", "show", "sort", "only" or "plus";
+- only words a comparison is written with, such as "More", "Than", "Up", "Equal", "Valued" or "Worth": "gain more than $50k" and "accounts valued over $1m" would also keep the term's rows.
+
+Plurals count as the same name, so a term named "Accounts" collides with `rowNoun: "account"`. A collision throws because the name would be read twice: "taxable" can't be both a value and a term.
+
+A name also throws when it holds:
+
+- one of GridCue's own words among its words: "Top tier", "Most valuable", "High value", "Reset pending" and "Due today" would also sort, reset or read a date. The small words GridCue places count too, so "Out of policy" throws; "Off-policy" doesn't;
+- an amount or a count: "Tier 1", "1m", "Top 10";
+- a name the schema already uses among its words: "Big gain" holds the alias "gain", "Northgate large" a value, and "Big accounts" the `rowNoun`. GridCue never looks for a term inside a declared name, so such a term could never be found.
+
+A `between` condition throws when its `min` is above its `max`: it would keep no row.
 
 ## ColumnOverride
 
@@ -217,6 +275,11 @@ console.log(describeProviderPayload(schema));
 | `restricted` names an ID that matches no column | `restricted names an id that matches no column: …` |
 | `columns` has a key that matches no column | `columns names an id that matches no column: …` |
 | A `valueGroups` entry names a value that is not in the column's `enumValues` | `valueGroups on <id> name values that are not in its enumValues: …` |
+| A House Term has no label, an empty alias, or no conditions | `House Term "<label>" has no conditions.` |
+| A House Term's condition names an unknown or restricted column, or an operator or value the column doesn't allow | `House Term "<label>", condition 1: <problem>` |
+| A House Term's label or alias is a name already in use, or one of GridCue's own words | `House Term "<label>": the name "<name>" is also a name of the column <label>.` or `… is one of GridCue's own words.` |
+| A House Term's label or alias holds one of GridCue's own words, an amount, or a name already in use | `House Term "<label>": the name "<name>" holds “<word>”, one of GridCue's own words.`, `… holds an amount, which GridCue reads on its own.` or `… holds “<word>”, a name the schema already uses, so the term could never be found.` |
+| A House Term's `between` condition starts above where it ends | `House Term "<label>", condition 1: its range starts at 5, above where it ends at 2, so it keeps no row.` |
 | The built schema fails the `ViewSchema` shape, such as an empty label or ID | `Invalid schema: <path>: <problem>` |
 
 ```ts

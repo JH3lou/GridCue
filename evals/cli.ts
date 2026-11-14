@@ -230,12 +230,15 @@ const textForms = await run(new URL("./cases-text-forms.jsonl", import.meta.url)
 // all 24 were ready before it. 11 more joined with the review's next fixes ("include me in accounts with no advisor",
 // "that advisor is missing", "accounts which were without an advisor"): all 11 were ready before them. 16 more joined
 // with the lead's rulings on statements around a form (round 4: "accounts are without an advisor", "that account has
-// no advisor", "which advisor is missing", "advisor is empty for every account"): all 16 were ready before them. Now:
-// 70 asked and 1 refused, of 71.
+// no advisor", "which advisor is missing", "advisor is empty for every account"): all 16 were ready before them. 10 more
+// that hold a House Term joined before its code ("that was a large mistake"), each run with its schema's terms
+// declared: all 10 asked before it and ask after it. Now: 80 asked and 1 refused, of 81.
 const notRequests = await run(new URL("./cases-not-requests.jsonl", import.meta.url), "cases-not-requests.jsonl");
 // The limit on a provider's picks (spec 4.2): requests that hold a code-read filter, each with a scripted provider answer
 // that proposes a sort, a column or a value for words the filter took, written before the code. Each case must match:
-// 14 exact, 6 asked as labelled, of 20 (2026-11-14). Before the code, 8 showed a wrong view.
+// 14 exact, 6 asked as labelled, of 20 (2026-11-14). Before the code, 8 showed a wrong view. 10 more that hold a House
+// Term joined before its code, each run with its schema's terms declared: 9 exact and 1 asked as labelled. Before the
+// code, 9 of them showed a wrong view. Now: 23 exact, 7 asked as labelled, of 30.
 const providerPicks = await run(new URL("./cases-provider-picks.jsonl", import.meta.url), "cases-provider-picks.jsonl");
 // The held-out form set, from spec 5.2 alone, labelled before the code and first run after it (2026-11-14). With the Mock
 // Provider: 43 exact, 42 asked as labelled, 1 refused as labelled, 1 safe miss (h2f-23), 2 wrong views (h2f-54
@@ -278,6 +281,70 @@ const providerPicksHeldOut = await run(
   new URL("./cases-provider-picks-heldout.jsonl", import.meta.url),
   "cases-provider-picks-heldout.jsonl",
 );
+// House Terms (named filters spec, 5.3): each case says `"terms": true` and runs on its schema with the declared terms
+// (evals/house-terms.ts), labelled before the code (2026-11-14). Before the code, 1 showed a wrong view ("show large
+// taxable accounts" filtered Taxable alone). With the Mock Provider now: 23 exact, 12 asked as labelled, 6 safe misses,
+// no wrong view, of 41. A wrong view fails. Its 6 safe misses
+// are the Mock Provider's: each part starts with a word the Mock doesn't know, so it proposes no sort, grouping or
+// column for an amount, which come from the provider (evals.test.ts names them). So the set is not in `mockMustMatch`.
+const houseTerms = await run(new URL("./cases-house-terms.jsonl", import.meta.url), "cases-house-terms.jsonl");
+// The House Terms held-out sets, labelled before the code from the declared terms and first run after it (2026-11-14),
+// each case run with its schema's terms declared. With the Mock Provider:
+// - the form set: 55 exact, 65 asked as labelled, 3 refused as labelled, 4 safe misses, 1 wrong view
+//   (h1-contain-largely: "accounts largely in taxable" filters Taxable and drops "largely", as before the code), of 128;
+// - sentences that hold a term and are not requests: 20 asked, 1 refused, none ready, of 21;
+// - scripted provider picks for a term's words: 19 exact, 5 asked as labelled, of 24. Before the code, 21 showed a
+//   wrong view;
+// - the natural set, by a labeller who saw only the product definition, the schemas and the terms: 21 exact, 20 asked
+//   as labelled, 1 refused as labelled, 13 safe misses, 1 wrong view (hn-w-largest-advisor: "which advisor has the
+//   largest accounts?" sorts by Advisor, as before the code), of 56.
+// The fix narrowed each wrong view's class to a question (order plan, D4), and both sets now hold them as regression
+// cases: a word made from a term's name ("largely", "larger") in a part with no code-read filter asks about the word,
+// and a size word on its own sorts only a column that holds an amount or a date, so "which advisor has the largest
+// accounts?" asks which column. Now: the form set 66 asked and the natural set 21 asked, with no wrong view; the other
+// numbers are unchanged.
+// Their safe misses are reported, not failed; a wrong view fails.
+const houseTermsHeldOut = await run(new URL("./cases-house-terms-heldout.jsonl", import.meta.url), "cases-house-terms-heldout.jsonl");
+const houseTermsNotRequestsHeldOut = await run(
+  new URL("./cases-house-terms-not-requests-heldout.jsonl", import.meta.url),
+  "cases-house-terms-not-requests-heldout.jsonl",
+);
+const houseTermsPicksHeldOut = await run(
+  new URL("./cases-house-terms-picks-heldout.jsonl", import.meta.url),
+  "cases-house-terms-picks-heldout.jsonl",
+);
+const houseTermsNaturalHeldOut = await run(
+  new URL("./cases-house-terms-natural-heldout.jsonl", import.meta.url),
+  "cases-house-terms-natural-heldout.jsonl",
+);
+// A second held-out set for House Terms, labelled from the declared terms and the spec and first run after the fix for
+// the first sets' wrong views (2026-11-14), each case run with its schema's terms declared. With the Mock Provider: 10
+// exact, 29 asked as labelled, 1 refused as labelled, no safe miss, 2 wrong views (r2-form-largely-8: "records largely
+// in the Travel category" filters Category to Travel and drops "largely"; r2-nat-size-2: "accounts by advisor, largest
+// first" sorts Advisor descending), both as before the code, of 42, after one label was corrected to the spec's reading
+// (r2-term-ready-10, "just the material ones", is ready with the Material filter). 9 of its requests showed a view the
+// User didn't ask for before the code and now ask. The fix narrowed each wrong view's class to a question: an adverb
+// nothing reads beside what a part keeps asks about the word, with or without terms, and a size or age word's phrase
+// sorts a column that holds no size only where the part says "sort" or "order". Now: 10 exact, 31 asked, 1 refused, no
+// wrong view. Its safe misses are reported, not failed; a wrong view fails.
+const houseTermsHeldOut2 = await run(
+  new URL("./cases-house-terms-heldout-r2.jsonl", import.meta.url),
+  "cases-house-terms-heldout-r2.jsonl",
+);
+// A third held-out set for House Terms, labelled from the declared terms and the spec and first run after the fix for
+// the second set's wrong views (2026-11-14), most cases run with their schema's terms declared and three without:
+// adverbs nothing reads ("largely", "mostly", "roughly") beside a value, an amount or a term, a size word's phrase after
+// "by" and a column that holds no size, each term's aliases, and a term left out, in a column slot, with "or", or in a
+// sentence that is not a view request. With the Mock Provider: 7 exact, 33 asked as labelled, 1 safe miss
+// (r3-term-1, "which big accounts do we have", asks about "do we", which spec 4.2 does not place), no wrong view, of
+// 41, after 7 labels were corrected: r3-term-1 to r3-term-6 held a predicate "type" the harness drops, and
+// r3-term-ask-15 ("material entries without a category") is ready with the Material filter and Category empty, as
+// spec 5.2, 5.3 and 4.2 read it. 14 of its requests showed a view the User didn't ask for before the code and now ask.
+// Its safe misses are reported, not failed; a wrong view fails.
+const houseTermsHeldOut3 = await run(
+  new URL("./cases-house-terms-heldout-r3.jsonl", import.meta.url),
+  "cases-house-terms-heldout-r3.jsonl",
+);
 
 // Applying a view the user did not ask for is release-blocking with any provider.
 // With the Mock Provider every core case must match exactly, because its answers are deterministic.
@@ -307,6 +374,13 @@ const all = [
   textFormsHeldOut3,
   notRequestsHeldOut,
   providerPicksHeldOut,
+  houseTerms,
+  houseTermsHeldOut,
+  houseTermsNotRequestsHeldOut,
+  houseTermsPicksHeldOut,
+  houseTermsNaturalHeldOut,
+  houseTermsHeldOut2,
+  houseTermsHeldOut3,
 ];
 const mockMustMatch = [
   core,

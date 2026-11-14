@@ -22,6 +22,7 @@ interface ViewSchema {
   columns: ColumnDescriptor[];
   rowNoun?: string;
   defaultMeasure?: string;
+  houseTerms?: HouseTerm[];
 }
 ```
 
@@ -32,6 +33,7 @@ interface ViewSchema {
 | `columns` | `ColumnDescriptor[]` | Every column, restricted ones included. |
 | `rowNoun` | `string` | What one row is, such as `"account"`. Its name in a request means the rows, not a column. |
 | `defaultMeasure` | `string` | The column "top", "largest", "biggest" and "smallest" sort by when the request names none. |
+| `houseTerms` | `HouseTerm[]` | The Host's [House Terms](/docs/api/schema#houseterms). Code reads them; they are never sent to an Intent Provider. |
 
 Build one with [`defineSchema`](/docs/api/schema#defineschema).
 

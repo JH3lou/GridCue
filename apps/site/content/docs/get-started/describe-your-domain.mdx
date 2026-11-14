@@ -1,6 +1,6 @@
 ---
 title: Describe your domain
-description: Teach GridCue the words your Users use with aliases, approved values, restricted columns, and three domain declarations.
+description: Teach GridCue the words your Users use with aliases, approved values, restricted columns, three domain declarations, and House Terms.
 ---
 
 Every grid has its own vocabulary. An advisor says "rep" for Advisor, "Roth" for Roth IRA, and "retirement accounts" for two registration types at once. GridCue learns this from your **View Schema**: your declaration of which columns exist, what they mean, and what may be done with each.
@@ -106,6 +106,46 @@ registration_type: {
 ```
 
 A Value Group is a Host-named category over several values of one column. "Retirement accounts grouped by advisor" filters Registration type to IRA or Roth IRA, then groups. "Non-retirement" filters to the rest. `defineSchema` throws if a group names a value that is not in the column's `enumValues`.
+
+## House terms
+
+Every firm has a word that means a fixed set of conditions. At a wealth firm "large" means Market value above $1,000,000, and "needs attention" means more than 10% in one security and a restricted holding. Nothing in the data says so, and GridCue won't pick $1 million for you: without a declaration, "show large accounts" asks. A **House Term** is how you tell it. Declare the word and its conditions once, and GridCue reads it with its own code.
+
+```ts
+const schema = defineSchema(columns, {
+  rowNoun: "account",
+  houseTerms: [
+    { label: "Large", aliases: ["big"], where: [{ columnId: "market_value", operator: "gt", value: 1_000_000 }] },
+    {
+      label: "Needs attention",
+      aliases: ["need attention", "needing attention"],
+      where: [
+        { columnId: "concentration", operator: "gt", value: 0.1 },
+        { columnId: "has_restricted_holding", operator: "eq", value: true },
+      ],
+    },
+  ],
+});
+```
+
+Now "large accounts" and "show the big accounts" preview `Filter Market value above $1,000,000 (Large)`, and "accounts that need attention" previews two lines, one for each condition, each ending `(Needs attention)`. The brackets name the term, so the User sees the threshold and not only the word. "Show large taxable accounts" adds the term's filter and the Taxable filter.
+
+Declare a term when:
+
+- **Your firm's word has one fixed meaning,** and the User means it every time. "Large" is a good term if everyone at the firm means $1 million. It is a poor one if each advisor means something different: leave it out, and GridCue keeps asking.
+- **The meaning is a list of conditions on columns,** all of which must hold. A term can't say "or", and it can't say a moving date such as "last 90 days". Write those as a request.
+- **The name is its own.** A term's label and aliases can't be a column's, a value's, a Value Group's, your `rowNoun` or an `entity` word, another term's, or one of GridCue's own words such as "top", "largest" or "empty". It can't hold one among its words either ("Top tier", "Out of policy", "Due today"), or an amount ("Tier 1"), or a column's or value's name ("Big gain"), or be only words a comparison is written with ("More", "Up", "Equal"). `defineSchema` throws `INPUT_SCHEMA` and says which name or word collides. Pick a different word.
+
+A few rules are worth knowing:
+
+- **A term is a name for rows, not a column or an amount.** "Sort by large" and "group by large" ask, and so do "large or taxable accounts" and "accounts under large".
+- **A term can't be left out.** "Accounts that aren't large" and "hide large accounts" ask: GridCue can't leave out a term yet. The question says what to ask for instead, such as "market value at or below $1,000,000".
+- **"Largest" is a size word, not the term.** "Largest accounts" still sorts by size, and asks which column when you declare no [`defaultMeasure`](/docs/api/schema#schemaoptions). A term is found as a whole word with no plural form.
+- **A term is never sent to the provider.** Not its name, its conditions, or whether a request used one. See [Safety and protocol](/docs/safety#the-data-boundary).
+
+A term is also the way to name a placeholder. "Accounts with no advisor" finds rows with no value. It does not find rows where your data holds the text "Unassigned". Declare `{ label: "Unassigned", aliases: ["orphaned"], where: [{ columnId: "advisor_name", operator: "eq", value: "Unassigned" }] }` and "unassigned accounts" previews `Filter Advisor to exactly “Unassigned” (Unassigned)`. If the field is empty instead, use `operator: "isEmpty"` with no `value`, and the line reads `Show only rows where Advisor is empty (Unassigned)`.
+
+[House Terms in Requests](/docs/concepts/requests#house-terms) lists what reads and what asks.
 
 ## Narrowing what a column allows
 

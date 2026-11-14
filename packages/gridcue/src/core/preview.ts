@@ -138,6 +138,9 @@ const leftOutEmpty = (plan: Pick<ViewPlan, "operations"> & Partial<Pick<ViewPlan
   return [...new Set(columns)].filter((id) => filtered.has(id));
 };
 
+/** Where a House Term's evidence names the filter it made: `c0.term.<filter ID>`, with the term's label. */
+const TERM_KEY = ".term.";
+
 /** Renders exactly what a plan will change. Deterministic: the same plan always gives the same text. */
 export const renderPreview = (
   plan: Pick<ViewPlan, "operations"> & Partial<Pick<ViewPlan, "evidence">>,
@@ -145,7 +148,19 @@ export const renderPreview = (
   /** The view the plan applies to. With it, a line that clears filters names the ones it removes. */
   current?: Pick<ViewState, "filters">,
 ): Preview => {
-  const lines = plan.operations.map((op) => describe(op, schema, current));
+  // A filter a House Term made names the term, as the Host declared it (spec 4.5): "Filter Market value above
+  // $1,000,000 (Large)". The plan's `host` evidence keeps the label, by the filter's ID.
+  const terms = new Map(
+    (plan.evidence ?? []).flatMap((e) => {
+      const at = e.key.indexOf(TERM_KEY);
+      return at >= 0 && e.source === "host" && e.selectedId ? [[e.key.slice(at + TERM_KEY.length), e.selectedId] as const] : [];
+    }),
+  );
+  const lines = plan.operations.map((op) => {
+    const line = describe(op, schema, current);
+    const term = op.type === "filter.add" ? terms.get(op.predicate.id) : undefined;
+    return term ? `${line} (${term})` : line;
+  });
   const count = droppedLimit(plan);
   const label = (id: string) => schema.columns.find((c) => c.id === id)?.label ?? id;
   const notes = [
