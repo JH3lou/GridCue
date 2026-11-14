@@ -69,8 +69,9 @@ Spec 4.2 and 5.1. ADR 0031.
 - [ ] `@tanstack/react-table` 9.2.4, exact, in `packages/gridcue` dev dependencies.
 
 ### Task 1.2: The wait (Opus)
-**Files:** `packages/gridcue/src/tanstack/index.ts`, `packages/gridcue/src/core/adapter.ts` (doc comment only), tests. Needs 1.1.
+**Files:** `packages/gridcue/src/tanstack/index.ts`, `packages/gridcue/src/core/adapter.ts` (doc comment only), `packages/gridcue/src/core/controller.ts` (the recovery), tests. Needs 1.1.
 - [ ] Tests first: owned returns in the same tick; controlled waits for the render; no handler fails after 1,000 ms and the Controller says "Nothing was changed"; a manual change during the wait fails with recovery; `restore` waits the same way.
+- [ ] The recovery after a failed apply: a part of the view the plan writes is the plan's own only when it holds its old value or the value the plan wrote. Test: a sort apply waits, the User clicks a header and changes the sort, the wait fails, and the User's sort stays.
 - [ ] After a write, compare the table's View State with the written one; wait on store notifications up to the bound; return the store's Revision.
 - [ ] `GridAdapter.apply`'s doc comment states 4.2.
 
@@ -149,7 +150,7 @@ Spec 5.4. ADR 0032.
 - [ ] The Rows Adapter moves onto the shared holder with no change in behaviour: its tests pass unchanged.
 
 ### Task 4.3: Held-out run (lead)
-- [ ] Every existing set on a default Query Adapter. Bar: 0 wrong views; every `limit.set` case ends as a sort with the count note.
+- [ ] Every existing set on a default Query Adapter. Bar: 0 wrong views. By kind of request: a size word with a count ("top 10") ends as a sort with the count note; a request that only sets a count ("show only the first 5 rows") ends in "This grid can't show only the first 5 rows." with nothing applied; a request that clears a count ends as any clear of something the view doesn't have. The operation set's count sets are among the existing sets by then.
 
 ### Task 4.4: Docs (Sonnet), changelog (Haiku)
 - [ ] Site: `api/adapters` (`createQueryAdapter`; the Rows Adapter is for rows in memory).

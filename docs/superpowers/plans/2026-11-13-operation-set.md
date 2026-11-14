@@ -159,7 +159,7 @@ Spec 4.3 to 4.5 (totals rows), 5.2, 5.4, 9. ADR 0030, and ADR 0029's totals half
 
 ### Task 3.3: Totals, validation, group order (Fable for the rules, Opus for the code)
 **Files:** `core/view-words.ts`, `core/compile.ts`, `core/validate.ts`, `core/errors.ts`, `core/preview.ts`, `core/schema.ts`, `core/rows-adapter.ts`, tests.
-- [ ] Fable first writes the tests for the semantics: what a total counts, empty values, the kind rule, adding to existing totals, "total X by Y", the three-choice question, and the group order in both rows of spec 5.4's table.
+- [ ] Fable first writes the tests for the semantics: what a total counts, empty values, the kind rule, adding to existing totals, one total for each column ("total market value" then "average market value" replaces the total, and a group with 60 and 60 against a group with 100 ranks by the one that is left), "total X by Y", the three-choice question, and the group order in both rows of spec 5.4's table.
 - [ ] Opus builds against them: the forms; `PLAN_AGGREGATION_KIND` and the duplicate check; Preview lines and the audit's columns; `defineSchema` adds `"aggregate"`; `ViewResult.totals` and `groups[].totals`; the Rows Adapter's group order; the third choice in the "as a whole" question (`compile.ts:365-372`).
 - [ ] The Preview-line pin test from named filters' PR 2 is updated for the totals wording, and the PR lists each line that changed.
 - [ ] Bars: 0 wrong views on the dev set and every existing set; the nine chassis prompts unchanged; the payload test unchanged.
