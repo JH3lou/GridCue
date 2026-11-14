@@ -10,7 +10,8 @@ What a total is:
 
 - **It counts the rows the view shows,** after its filters and its count. Empty values are skipped. With no values, the total is empty.
 - **With a grouping, each group shows its total.** With none, the grid shows one total for the whole view.
-- **A new total is added** to the ones the view has. Nothing goes unless a request says to remove it.
+- **A new total is added** to the ones the view has. A total on another column never goes unless a request says to remove it.
+- **A column holds one total at a time.** An average of a column that already shows its sum replaces the sum, and the Preview says so. A sort on that column then has one total to order the groups by.
 - **A total that doesn't fit its column's kind is not valid,** and GridCue says which total would fit.
 - **Min, max and a count of rows stay unreachable by request.** The Site demo's grid already shows each group's row count.
 
