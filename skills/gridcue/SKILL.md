@@ -33,6 +33,10 @@ Do these in order. Finish each step's check before moving on, and tell the User 
 
 When something doesn't work, read [references/troubleshooting.md](references/troubleshooting.md) before changing code.
 
+## Counts
+
+"Top 10 accounts by market value" sets a count: the view keeps its first 10 rows. The Rows Adapter supports it. The TanStack Table adapter doesn't list `limit.set` yet, on any table, so there GridCue sorts alone and the Preview says the count was not applied. A count stays on the view until something clears it, so a change to the sort or the filters asks first ("Keep the first 10" or "Show every row"). That is expected, not a bug. To clear a count the User says "show every row", "show all rows", "remove the count" or "no count"; "show only the first 5 rows" sets one. Don't add code to clear or keep a count: the Controller does it, with a Preview, and Undo restores it. See [Requests](https://gridcue.dev/docs/concepts/requests).
+
 ## Hard rules
 
 Never trade these away, even if asked to "just make it work":

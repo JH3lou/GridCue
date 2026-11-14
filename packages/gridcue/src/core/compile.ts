@@ -17,6 +17,7 @@ import {
   type ColumnDescriptor,
   type ColumnKind,
   type DecisionEvidence,
+  emptyViewState,
   type FilterGroup,
   type FilterPredicate,
   PROTOCOL_VERSION,
@@ -26,6 +27,7 @@ import {
   type ViewSchema,
   type ViewState,
 } from "./protocol";
+import { applyOperations } from "./reduce";
 import {
   type ClauseResolution,
   COLUMN_FAMILIES,
@@ -38,6 +40,7 @@ import {
 import { isExposed, operatorsFor } from "./schema";
 import { REVERSAL_WORDING, unknownTerm } from "./terms";
 import { unusedReadings } from "./unused";
+import { namesEveryRow, readViewWords } from "./view-words";
 
 export interface ConfidencePolicy {
   /** At or above this, a decision is used as-is. Default 0.85. */
@@ -64,12 +67,13 @@ export interface CompileInput {
   /**
    * The view `view.reset` returns to (the adapter's `getDefaultState()`). A reset that keeps the current filters
    * ("reset everything except the filters") adds them to this view's own, so it is ready only when this is given and
-   * has no filters. Otherwise GridCue asks.
+   * has no filters. Otherwise GridCue asks. Its sort and count are what a reset leaves for the count rule (ADR 0027).
    */
-  defaultState?: { filters: ViewState["filters"] };
+  defaultState?: { filters: ViewState["filters"]; sorts?: ViewState["sorts"]; limit?: ViewState["limit"] };
   /**
    * The operations the grid supports (its adapter's capabilities). A count ("top 10") becomes `limit.set` only where
-   * this lists it; otherwise the plan sorts alone and records the count as not applied (ADR 0018).
+   * this lists it; otherwise the plan sorts alone and records the count as not applied (ADR 0018). "Show only the first
+   * 5 rows" there ends in a question with no choices, and nothing applies (ADR 0027).
    */
   operations?: readonly string[];
   newId: (prefix: string) => string;
@@ -241,6 +245,68 @@ export const settleFamilies = (
   return { kept, ask: confident ? [] : waiting, dropped, byKind: decidedByKind || !!promoted };
 };
 
+/** The count question (ADR 0027), and the plan each answer makes. */
+export interface CountQuestion {
+  /** "Keep only the first 10 rows of the new view, or show every row?", with the options `keep` and `all`. */
+  clarification: Clarification;
+  /** The plan's operations after each answer. Each ends with the count's own line, so the Preview says it. */
+  answers: { keep: ViewOperation[]; all: ViewOperation[] };
+}
+
+const countWords = (count: number) => count.toLocaleString("en-US");
+/** A sort or the filters as the rows see them: generated IDs dropped, and keys in one order however they were written. */
+const rowsKey = (part: ViewState["sorts"] | FilterGroup | null) =>
+  JSON.stringify(part, (key, value) =>
+    key === "id"
+      ? undefined
+      : value && typeof value === "object" && !Array.isArray(value)
+        ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => (a < b ? -1 : 1)))
+        : value,
+  );
+/** No filters at all is one thing, whether the view holds `null` or an empty group. */
+const filtersKey = (filters: FilterGroup | null) => (predicatesIn(filters) === 0 ? "null" : rowsKey(filters));
+
+/**
+ * The count rule (ADR 0027): a count follows its rows. On a view with a count, a plan that changes or clears the sort,
+ * or adds, replaces or clears a filter, and sets no count of its own, would keep the count over different rows without
+ * saying so. This returns the question to ask instead, or `undefined` when the plan may go ahead.
+ *
+ * It is a pure function of a plan's operations and the view they apply to, not of the request's words, so it holds for
+ * every Intent Provider and for a plan made without compiling. It never asks about a plan that sets its own count, or
+ * one that leaves the sort and the filters as they are. A reset states its whole target view, count included: only the
+ * operations after it are checked, against `defaultView`, the view it returns to.
+ */
+export const countQuestion = (
+  operations: readonly ViewOperation[],
+  view: { sorts: ViewState["sorts"]; filters: ViewState["filters"]; limit?: ViewState["limit"] },
+  defaultView?: { sorts?: ViewState["sorts"]; filters?: ViewState["filters"]; limit?: ViewState["limit"] },
+): CountQuestion | undefined => {
+  const reset = operations.findLastIndex((op) => op.type === "view.reset");
+  const from = reset < 0 ? view : defaultView;
+  const count = from?.limit;
+  const rest = operations.slice(reset + 1);
+  if (count === undefined || rest.some((op) => op.type === "limit.set")) return undefined;
+  const before: ViewState = { ...emptyViewState([]), sorts: from?.sorts ?? [], filters: from?.filters ?? null };
+  const after = applyOperations(before, rest, before);
+  if (rowsKey(after.sorts) === rowsKey(before.sorts) && filtersKey(after.filters) === filtersKey(before.filters)) return undefined;
+  const rows = count === 1 ? "row" : `${countWords(count)} rows`;
+  return {
+    clarification: {
+      id: "plan.count",
+      prompt: `Keep only the first ${rows} of the new view, or show every row?`,
+      options: [
+        { id: "keep", label: `Keep the first ${count === 1 ? "row" : countWords(count)}` },
+        { id: "all", label: "Show every row" },
+      ],
+      required: true,
+    },
+    answers: {
+      keep: [...operations, { type: "limit.set", count }],
+      all: [...operations, { type: "limit.set", count: null }],
+    },
+  };
+};
+
 /** Turns provider picks and parsed literals into a View Plan. Deterministic; never guesses. */
 export const compile = (c: CompileInput): ViewPlan => {
   const bands = c.confidence ?? DEFAULT_CONFIDENCE;
@@ -303,9 +369,82 @@ export const compile = (c: CompileInput): ViewPlan => {
     evidence.push({ key: `c${mention.clauseIndex}.restricted`, selectedId: mention.columnId, source: "host" });
   }
 
+  // Parts code read whole as view words (ADR 0028), with the operations each gave the plan.
+  const readWhole = new Map<number, ViewOperation[]>();
+  // Parts that say "every row" of a view with no count and no filters: true only while the request adds no filter.
+  const everyRowOfAll = new Set<number>();
+  const canCount = c.operations?.includes("limit.set") ?? false;
+  // One count per plan: a later one replaces an earlier one, which is then left unused and asked about (ADR 0019).
+  const setCount = (count: number | null): ViewOperation => {
+    const earlier = operations.findIndex((o) => o.type === "limit.set");
+    if (earlier >= 0) operations.splice(earlier, 1);
+    const op: ViewOperation = { type: "limit.set", count };
+    operations.push(op);
+    return op;
+  };
+
   if (unsupportedSegments.length === 0) {
     for (const clause of c.input.clauses) {
       const key = `c${clause.index}`;
+      // View words come first (spec 4.1). A part read whole uses the reader's operations, and the provider's families
+      // for it are ignored. A part not read goes on exactly as before.
+      const viewWords = readViewWords(clause, c.mentions ?? [], c.schema);
+      const readCount = viewWords?.operations.flatMap((op) => (op.type === "limit.set" ? [op.count] : []))[0];
+      if (typeof readCount === "number") {
+        // "Show only the first 5 rows" on a grid that keeps no count: a question with no choices, and nothing applies.
+        if (!canCount) {
+          clarifications.push({
+            id: `${key}.cant`,
+            prompt: `This grid can't show only the first ${countWords(readCount)} ${readCount === 1 ? "row" : "rows"}.`,
+            required: true,
+          });
+          continue;
+        }
+        readWhole.set(clause.index, [setCount(readCount)]);
+        note(`${key}.words`, "limit.set", 1, "deterministic");
+        continue;
+      }
+      // "Show every row" and "remove the count" clear the count. On a view with no count that is a clear of nothing, as
+      // "clear the sort" is on a view with no sort. But with filters and no count, "every row" may mean the rows the
+      // filters leave out, and on a grid that keeps no count there is none to clear: both go to the provider, as before.
+      const saysCount = clause.text.endsWith("count");
+      if (readCount === null && canCount && (c.state.limit !== undefined || saysCount || predicatesIn(c.state.filters) === 0)) {
+        readWhole.set(clause.index, [setCount(null)]);
+        if (c.state.limit === undefined && !saysCount) everyRowOfAll.add(clause.index);
+        note(`${key}.words`, "limit.set", 1, "deterministic");
+        continue;
+      }
+      // "Show all accounts" on a view with a count and filters: every row of the filtered view, or of the grid?
+      if (
+        canCount &&
+        c.state.limit !== undefined &&
+        predicatesIn(c.state.filters) > 0 &&
+        namesEveryRow(clause, c.mentions ?? [], c.schema)
+      ) {
+        const answerKey = `${key}.rows`;
+        const answer = answers[answerKey];
+        if (answer === "count" || answer === "filters") {
+          const ops = [setCount(null)];
+          if (answer === "filters") {
+            const clear: ViewOperation = { type: "filter.clear" };
+            operations.push(clear);
+            ops.push(clear);
+          }
+          readWhole.set(clause.index, ops);
+          note(answerKey, answer, 1, "user");
+        } else {
+          clarifications.push({
+            id: answerKey,
+            prompt: "Show every row, or clear the filters too?",
+            options: [
+              { id: "count", label: "Show every row" },
+              { id: "filters", label: "Clear the filters too" },
+            ],
+            required: true,
+          });
+        }
+        continue;
+      }
       const proposed: ClauseResolution = c.resolution.clauses.find((r) => r.clauseIndex === clause.index) ?? {
         clauseIndex: clause.index,
         families: [],
@@ -1261,10 +1400,8 @@ export const compile = (c: CompileInput): ViewPlan => {
       // "Top 10": the count shows only the first rows of the sorted view, where the grid can (ADR 0018). Elsewhere the
       // plan sorts alone and keeps the count as dropped evidence, which the Preview names in its notes.
       if (clause.limit !== undefined) {
-        if (c.operations?.includes("limit.set")) {
-          const earlier = operations.findIndex((o) => o.type === "limit.set");
-          if (earlier >= 0) operations.splice(earlier, 1);
-          operations.push({ type: "limit.set", count: clause.limit });
+        if (canCount) {
+          setCount(clause.limit);
           note(`${key}.limit`, String(clause.limit), 1, "deterministic");
         } else {
           evidence.push({ key: `dropped:${key}.limit`, selectedId: String(clause.limit), confidence: 1, source: "host" });
@@ -1292,6 +1429,39 @@ export const compile = (c: CompileInput): ViewPlan => {
     }
   }
 
+  // View words are read in the order they are said. Parts whose words the rest of the request undoes are asked about
+  // with ADR 0019's check below:
+  // - a reset said after them returns to the default view, count included, so their line would not be kept;
+  // - "show only the first 5 rows" said before a change to the sort or the filters may mean the 5 rows on screen now,
+  //   or the first 5 of the new view. The View State holds only the second, and neither is certain (ADR 0027).
+  // "Show only the first 5 rows" keeps the first rows of the sorted view as it stands when it is said. With no sort
+  // there, nothing says which rows come first: ask, never pick a column.
+  const undone = new Set<number>();
+  const viewOf = (v?: { sorts?: ViewState["sorts"]; filters?: ViewState["filters"] }): ViewState => ({
+    ...emptyViewState([]),
+    sorts: v?.sorts ?? [],
+    filters: v?.filters ?? null,
+  });
+  const viewAt = (at: number) => applyOperations(viewOf(c.state), operations.slice(0, at), viewOf(c.defaultState));
+  for (const [index, ops] of readWhole) {
+    for (const op of ops) {
+      const at = operations.indexOf(op);
+      if (at < 0) continue;
+      const later = operations.slice(at + 1);
+      if (later.some((o) => o.type === "view.reset")) {
+        undone.add(index);
+        continue;
+      }
+      if (op.type !== "limit.set" || op.count === null) continue;
+      const said = viewAt(at);
+      const end = applyOperations(said, later, said);
+      if (rowsKey(end.sorts) !== rowsKey(said.sorts) || filtersKey(end.filters) !== filtersKey(said.filters)) undone.add(index);
+      else if (said.sorts.length === 0) {
+        clarifications.push({ id: `c${index}.count`, prompt: `First ${countWords(op.count)} by which column?`, required: true });
+      }
+    }
+  }
+
   // A "No" never dead-ends (v1 grill, Q1): when the User declined something in a part and all that is left there
   // is a question with no choices, say plainly that nothing will change, with the request kept for editing.
   for (const clause of c.input.clauses) {
@@ -1313,7 +1483,21 @@ export const compile = (c: CompileInput): ViewPlan => {
   // This can only turn a ready plan into a question.
   if (status === "ready") {
     const asked = new Set<number>();
-    for (const left of unusedReadings(c.input, c.mentions ?? [], operations, evidence, c.schema.rowNoun)) {
+    // A part read whole as view words used every word (ADR 0028), unless another part replaced what it set (a request
+    // holds one count), "every row" has no count to clear and sits beside a filter this request adds, or the rest of
+    // the request undoes it (above).
+    const others = { ...c.input, clauses: c.input.clauses.filter((clause) => !readWhole.has(clause.index)) };
+    const addsFilter = operations.some((op) => op.type === "filter.add");
+    const leftOver = c.input.clauses
+      .filter(
+        (clause) =>
+          readWhole.get(clause.index)?.some((op) => !operations.includes(op)) ||
+          (addsFilter && everyRowOfAll.has(clause.index)) ||
+          undone.has(clause.index),
+      )
+      .map((clause) => ({ clauseIndex: clause.index, text: clause.text }));
+    const unused = [...unusedReadings(others, c.mentions ?? [], operations, evidence, c.schema.rowNoun), ...leftOver];
+    for (const left of unused.sort((a, b) => a.clauseIndex - b.clauseIndex)) {
       if (asked.has(left.clauseIndex)) continue;
       asked.add(left.clauseIndex);
       clarifications.push({
@@ -1321,6 +1505,20 @@ export const compile = (c: CompileInput): ViewPlan => {
         prompt: `I'm not sure what to do with “${left.text}”. Try rephrasing that part.`,
         required: true,
       });
+      status = "needs_clarification";
+    }
+  }
+  // Then the count rule (ADR 0027): a plan that would keep the view's count over different rows asks which the User
+  // wants. Each answer adds the count's own line, so the Preview says it. Asked here, after compiling, so it holds for
+  // every Intent Provider. Until it is answered, it can only turn a ready plan into a question.
+  if (status === "ready") {
+    const asks = countQuestion(operations, c.state, c.defaultState);
+    const answer = asks && answers[asks.clarification.id];
+    if (asks && (answer === "keep" || answer === "all")) {
+      operations.push(...asks.answers[answer].slice(operations.length));
+      note(asks.clarification.id, answer, 1, "user");
+    } else if (asks) {
+      clarifications.push(asks.clarification);
       status = "needs_clarification";
     }
   }

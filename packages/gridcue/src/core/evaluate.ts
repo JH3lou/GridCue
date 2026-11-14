@@ -1,6 +1,7 @@
 import type { ColumnDescriptor, FilterGroup, FilterPredicate, Scalar, ViewSchema } from "./protocol";
 
-const isEmpty = (v: unknown) => v === null || v === undefined || v === "";
+/** A cell with no value: missing, `null`, or empty text. Filters and counts share this test. */
+export const isEmpty = (v: unknown) => v === null || v === undefined || v === "";
 
 const compare = (a: unknown, b: unknown): number => {
   if (typeof a === "number" && typeof b === "number") return a - b;

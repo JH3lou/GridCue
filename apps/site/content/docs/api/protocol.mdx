@@ -180,8 +180,10 @@ One change to the view. Operations apply in order.
 | `columns.pin` | Pins columns to the start or end, or unpins them with `none`. | no |
 | `aggregation.set` | Replaces the aggregations. | no |
 | `density.set` | Sets the row density. | no |
-| `limit.set` | Shows only the first `count` rows of the sorted view; `null` shows every row again. A count in a request ("top 10") produces it only where the adapter lists it; elsewhere the plan sorts alone and the Preview's `notes` say the count was not applied. | no |
+| `limit.set` | Shows only the first `count` rows of the sorted view; `null` shows every row again. A row with no value in the first sorted column never fills the count. A count in a request ("top 10") produces it only where the adapter lists it; elsewhere the plan sorts alone and the Preview's `notes` say the count was not applied. The Preview's lines are "Show only the first 10 rows" and "Show every row". | no |
 | `view.reset` | Returns to the adapter's default view. | yes |
+
+A plan that changes or clears the sort, or adds, replaces or clears a filter, on a view with a `limit`, and has no `limit.set` of its own, is not ready: GridCue asks whether to keep the count or show every row (Clarification id `plan.count`, options `keep` and `all`). `countQuestion(operations, view, defaultView?)` is that rule as a pure function. It is exported from the root, and returns the Clarification with the operations each answer makes, or `undefined` when the plan may go ahead. `compile` calls it after the provider has answered, so it holds for every Intent Provider.
 
 GridCue changes the view only. `aggregation.set` exists in the protocol but is not in `MVP_OPERATIONS`, and neither are `columns.pin` or `density.set`: no first-release adapter supports them, and a plan that uses them fails validation with `PLAN_OPERATION_UNSUPPORTED`. See [Adapters](/docs/api/adapters#mvp_operations).
 

@@ -148,6 +148,8 @@ export interface ViewDiff {
   shown: string[];
   hidden: string[];
   orderChanged: boolean;
+  /** The count ("top 10") was set, changed or cleared. */
+  countChanged: boolean;
 }
 
 export const diffViews = (before: ViewState, after: ViewState): ViewDiff => ({
@@ -157,6 +159,7 @@ export const diffViews = (before: ViewState, after: ViewState): ViewDiff => ({
   shown: after.visibleColumnIds.filter((id) => !before.visibleColumnIds.includes(id)),
   hidden: before.visibleColumnIds.filter((id) => !after.visibleColumnIds.includes(id)),
   orderChanged: JSON.stringify(before.columnOrder) !== JSON.stringify(after.columnOrder),
+  countChanged: before.limit !== after.limit,
 });
 
 export interface AuditPolicy {
