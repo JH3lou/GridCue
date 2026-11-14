@@ -1,4 +1,5 @@
 import { type ConfidencePolicy, DEFAULT_CONFIDENCE } from "./compile";
+import { calendarZone, isDay } from "./dates";
 import { formatAmount } from "./format";
 import type { ColumnDescriptor, FilterGroup, FilterPredicate, Scalar, ViewOperation, ViewPlan, ViewSchema, ViewState } from "./protocol";
 
@@ -45,6 +46,37 @@ const rowsWhere = (p: FilterPredicate, c: ColumnDescriptor | undefined): string 
   return undefined;
 };
 
+/** The words for a comparison with a date (spec section 9). Each is one `normalize` reads, so the line can be typed back. */
+const DATE_OPERATOR_TEXT: Partial<Record<FilterPredicate["operator"], string>> = {
+  eq: "on",
+  gt: "after",
+  gte: "on or after",
+  lt: "before",
+  lte: "on or before",
+};
+
+/**
+ * A filter on a date or date-and-time column, without quote marks (spec section 9): "Filter Opened after 2026-01-31",
+ * "Filter Opened from 2026-08-15 to 2026-11-13". `undefined` for any other filter.
+ */
+const dateLine = (p: FilterPredicate, c: ColumnDescriptor | undefined): string | undefined => {
+  if (c?.kind !== "date" && c?.kind !== "datetime") return undefined;
+  const v = p.value;
+  if (p.operator === "between" && typeof v === "object" && v !== null && !Array.isArray(v)) {
+    return typeof v.min === "string" && typeof v.max === "string" ? `Filter ${c.label} from ${v.min} to ${v.max}` : undefined;
+  }
+  const words = DATE_OPERATOR_TEXT[p.operator];
+  return words && typeof v === "string" ? `Filter ${c.label} ${words} ${v}` : undefined;
+};
+
+/** Whether a filter compares a date-and-time column with a day, which then means the whole day (ADR 0026). */
+const onWholeDays = (p: FilterPredicate, c: ColumnDescriptor | undefined): boolean => {
+  if (c?.kind !== "datetime") return false;
+  const v = p.value;
+  const days = typeof v === "string" ? [v] : typeof v === "object" && v !== null && !Array.isArray(v) ? [v.min, v.max] : [];
+  return days.length > 0 && days.every((d) => typeof d === "string" && isDay(d));
+};
+
 const describe = (op: ViewOperation, schema: ViewSchema, current?: Pick<ViewState, "filters">): string => {
   const col = (id: string) => schema.columns.find((c) => c.id === id);
   const label = (id: string) => col(id)?.label ?? id;
@@ -54,6 +86,8 @@ const describe = (op: ViewOperation, schema: ViewSchema, current?: Pick<ViewStat
       const c = col(p.columnId);
       const where = rowsWhere(p, c);
       if (where) return `Show only rows where ${where}`;
+      const date = dateLine(p, c);
+      if (date) return date;
       const v = p.value;
       // Exact text on a text column, without letter case: "to" alone can't be told from "containing" at a glance.
       if (c?.kind === "string" && p.operator === "eq" && typeof v === "string") return `Filter ${c.label} to exactly ${formatValue(v, c)}`;
@@ -140,6 +174,8 @@ const leftOutEmpty = (plan: Pick<ViewPlan, "operations"> & Partial<Pick<ViewPlan
 
 /** Where a House Term's evidence names the filter it made: `c0.term.<filter ID>`, with the term's label. */
 const TERM_KEY = ".term.";
+/** Where a relative date form's evidence names the filter it made: `c0.dateWords.<filter ID>`, with the form's words. */
+const DATE_WORDS_KEY = ".dateWords.";
 
 /** Renders exactly what a plan will change. Deterministic: the same plan always gives the same text. */
 export const renderPreview = (
@@ -156,16 +192,39 @@ export const renderPreview = (
       return at >= 0 && e.source === "host" && e.selectedId ? [[e.key.slice(at + TERM_KEY.length), e.selectedId] as const] : [];
     }),
   );
+  // A filter a relative date form made names the form's words after its dates (spec 4.5): "Filter Opened from
+  // 2026-08-15 to 2026-11-13 (last 90 days)". The plan's evidence keeps the words, by the filter's ID.
+  const dateWords = new Map(
+    (plan.evidence ?? []).flatMap((e) => {
+      const at = e.key.indexOf(DATE_WORDS_KEY);
+      return at >= 0 && e.source === "deterministic" && e.selectedId
+        ? [[e.key.slice(at + DATE_WORDS_KEY.length), e.selectedId] as const]
+        : [];
+    }),
+  );
   const lines = plan.operations.map((op) => {
     const line = describe(op, schema, current);
     const term = op.type === "filter.add" ? terms.get(op.predicate.id) : undefined;
-    return term ? `${line} (${term})` : line;
+    if (term) return `${line} (${term})`;
+    const words = op.type === "filter.add" ? dateWords.get(op.predicate.id) : undefined;
+    return words ? `${line} (${words})` : line;
   });
   const count = droppedLimit(plan);
   const label = (id: string) => schema.columns.find((c) => c.id === id)?.label ?? id;
+  // A day on a date-and-time column means the whole day in the Calendar's time zone (ADR 0026): the one thing the dates
+  // don't show. Said once, however many such filters the plan adds.
+  const wholeDays = plan.operations.some(
+    (op) =>
+      op.type === "filter.add" &&
+      onWholeDays(
+        op.predicate,
+        schema.columns.find((c) => c.id === op.predicate.columnId),
+      ),
+  );
   const notes = [
     ...(count === undefined ? [] : [`Count not applied: this grid can't show only the first ${count.toLocaleString("en-US")}`]),
     ...leftOutEmpty(plan).map((id) => `Rows with no ${label(id)} are hidden too`),
+    ...(wholeDays ? [`Whole days, in ${calendarZone(schema.calendar)} time`] : []),
   ];
   const joined = [...lines, ...notes].map((l, i) => (i === 0 ? l : l.charAt(0).toLowerCase() + l.slice(1))).join("; ");
   return { lines, notes, text: `${joined ? `${joined}. ` : ""}No records will be changed.` };

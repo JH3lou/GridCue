@@ -36,7 +36,7 @@ import {
   type TanStackTableLike,
   withGridCueFilter,
 } from "../src/tanstack";
-import { runAdapterContract } from "./adapter-contract";
+import { DATED_COLUMNS, DATED_ROWS, runAdapterContract } from "./adapter-contract";
 
 const rows = [
   { value: 5, team: "b", name: "x" },
@@ -94,10 +94,28 @@ const makeTableWithHostFilter = () =>
     ],
   } as never) as unknown as TestTable;
 
+/** A table over the contract's dated rows, with a column for each of their keys. */
+const makeDatedTable = () =>
+  constructTable({
+    features,
+    data: DATED_ROWS,
+    defaultColumn: { filterFn: gridcueFilterFn },
+    columns: DATED_COLUMNS.map((id) => ({ accessorKey: id, header: id })),
+  } as never) as unknown as TestTable;
+
 runAdapterContract("TanStack Table adapter", () => {
   const table = makeTable();
   const adapter = createTanStackAdapter({ schema: schemaFromTanStack(table), table });
-  return { adapter, manualChange: () => table.setSorting([{ id: "team", desc: false }]), numericColumn: "value", otherColumn: "name" };
+  return {
+    adapter,
+    manualChange: () => table.setSorting([{ id: "team", desc: false }]),
+    numericColumn: "value",
+    otherColumn: "name",
+    dated: () => {
+      const dated = makeDatedTable();
+      return createTanStackAdapter({ schema: schemaFromTanStack(dated), table: dated });
+    },
+  };
 });
 
 // The same suite through React's `useTable` and `useLegacyTable`, where the Host may control a slice of the
@@ -133,13 +151,18 @@ type Filters = Array<{ id: string; value: unknown }>;
 /** Which slices of the table's state the Host controls, and whether it gives a change handler. */
 type Control = { sorting?: "handler" | "none"; filters?: "handler" };
 
+/** The rows and columns a Host table shows: the shared rows, or the contract's dated rows. */
+type Grid = { data: readonly object[]; columns: ReadonlyArray<{ accessorKey: string; header: string }> };
+const accounts: Grid = { data: rows, columns: reactColumns };
+const datedGrid: Grid = { data: DATED_ROWS, columns: DATED_COLUMNS.map((id) => ({ accessorKey: id, header: id })) };
+
 /** The Host's own state and handlers for the slices it controls: the options both hooks share. */
-const useHostOptions = (control: Control) => {
+const useHostOptions = (control: Control, grid: Grid) => {
   const [sorting, setSorting] = useState<Sorting>([]);
   const [columnFilters, setColumnFilters] = useState<Filters>([]);
   return {
-    columns: reactColumns,
-    data: rows,
+    columns: grid.columns,
+    data: grid.data,
     defaultColumn: { filterFn: gridcueFilterFn },
     state: {
       ...(control.sorting ? { sorting } : {}),
@@ -150,18 +173,18 @@ const useHostOptions = (control: Control) => {
   };
 };
 
-const useHostTable = (control: Control) => useTable({ ...useHostOptions(control), features: reactFeatures } as never);
+const useHostTable = (control: Control, grid: Grid) => useTable({ ...useHostOptions(control, grid), features: reactFeatures } as never);
 
-const useHostLegacyTable = (control: Control) =>
+const useHostLegacyTable = (control: Control, grid: Grid) =>
   useLegacyTable({
-    ...useHostOptions(control),
+    ...useHostOptions(control, grid),
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getSortedRowModel: getSortedRowModel(),
   } as never);
 
-const makeHostTable = (control: Control, legacy: boolean) => {
-  const hook = legacy ? renderHook(() => useHostLegacyTable(control)) : renderHook(() => useHostTable(control));
+const makeHostTable = (control: Control, legacy: boolean, grid: Grid = accounts) => {
+  const hook = legacy ? renderHook(() => useHostLegacyTable(control, grid)) : renderHook(() => useHostTable(control, grid));
   // Created once, as the Vite example does: useTable returns a new object whenever table state changes.
   const table = hook.result.current as unknown as TestTable;
   const schema = schemaFromTanStack(table);
@@ -173,7 +196,13 @@ const makeHostTable = (control: Control, legacy: boolean) => {
 
 const harnessOf = (control: Control, legacy: boolean) => () => {
   const { adapter, manualChange } = makeHostTable(control, legacy);
-  return { adapter, manualChange, numericColumn: "value", otherColumn: "name" };
+  return {
+    adapter,
+    manualChange,
+    numericColumn: "value",
+    otherColumn: "name",
+    dated: () => makeHostTable(control, legacy, datedGrid).adapter,
+  };
 };
 
 runAdapterContract("TanStack Table adapter, table-owned, useTable", harnessOf({}, false));

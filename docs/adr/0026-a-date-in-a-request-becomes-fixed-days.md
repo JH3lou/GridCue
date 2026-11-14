@@ -1,6 +1,6 @@
 # A date in a request becomes fixed days
 
-**Status:** accepted with the named filters spec (2026-11-13). Not yet built.
+**Status:** accepted with the named filters spec (2026-11-13). Built in PR 5 of the named filters plan.
 
 A relative date in a request, such as "last 90 days" or "this quarter", is worked out once, when the request is made. The view keeps the two dates as an ordinary filter. The Preview shows the dates first and the words after: "Filter Opened date from 2026-08-15 to 2026-11-13 (last 90 days)".
 

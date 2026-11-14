@@ -94,6 +94,11 @@ export const localValuesFromTable = (
 interface GridCueFilterValue {
   gridcue: 1;
   kind: ColumnDescriptor["kind"];
+  /**
+   * On a date or date-and-time column, the Calendar's time zone, which a date in a filter is a whole day in. With no
+   * Calendar time zone it is left out, and the browser's is read when a row is filtered, as `applyView` does.
+   */
+  timeZone?: string;
   predicates: FilterPredicate[];
   host?: unknown;
 }
@@ -107,9 +112,13 @@ const isGridCueValue = (v: unknown): v is GridCueFilterValue =>
  * it has no Host filter function to call, so a `host` value carried alongside them is not
  * evaluated here. Use `withGridCueFilter` on a column that needs its Host filter honoured too.
  */
-export const gridcueFilterFn = (row: { getValue(columnId: string): unknown }, columnId: string, value: unknown): boolean =>
-  !isGridCueValue(value) ||
-  value.predicates.every((p) => matchesPredicate(row.getValue(columnId), p, { kind: value.kind } as ColumnDescriptor));
+export const gridcueFilterFn = (row: { getValue(columnId: string): unknown }, columnId: string, value: unknown): boolean => {
+  if (!isGridCueValue(value)) return true;
+  const cell = row.getValue(columnId);
+  const column = { kind: value.kind } as ColumnDescriptor;
+  const options = value.timeZone === undefined ? undefined : { timeZone: value.timeZone };
+  return value.predicates.every((p) => matchesPredicate(cell, p, column, options));
+};
 
 type FilterFn = (
   row: { getValue(columnId: string): unknown },
@@ -253,6 +262,13 @@ export const createTanStackAdapter = ({ schema, table, maxSorts = 3, maxGroups =
       if (host !== undefined && !hostByColumn.has(f.id)) hostByColumn.set(f.id, host);
     }
     const kind = (id: string) => schema.columns.find((c) => c.id === id)?.kind ?? "string";
+    // Beside a date column's kind, the time zone its dates are whole days in, so `gridcueFilterFn` keeps the rows
+    // `applyView` keeps.
+    const zoneOf = (id: string) => {
+      const timeZone = schema.calendar?.timeZone;
+      const dated = kind(id) === "date" || kind(id) === "datetime";
+      return dated && timeZone !== undefined ? { timeZone } : {};
+    };
     const slices = {
       columnFilters: [
         ...[...hostByColumn].filter(([id]) => !byColumn.has(id)).map(([id, host]) => ({ id, value: host })),
@@ -261,6 +277,7 @@ export const createTanStackAdapter = ({ schema, table, maxSorts = 3, maxGroups =
           value: {
             gridcue: 1,
             kind: kind(id),
+            ...zoneOf(id),
             predicates: preds,
             ...(hostByColumn.has(id) ? { host: hostByColumn.get(id) } : {}),
           } satisfies GridCueFilterValue,

@@ -1,4 +1,4 @@
-import { emptyWordsOutside } from "./code-read";
+import { emptyWordsOutside, isTimeWord } from "./code-read";
 import { leavesRowsOut, nothingAfter } from "./lead";
 import { LEAVES_OUT } from "./mentions";
 import {
@@ -16,8 +16,8 @@ import { Density } from "./protocol";
 
 /**
  * GridCue's own words: the words its reader gives a meaning of its own, taken from the lists the reader already holds.
- * No word is written here that a reader does not read, with one exception, the time words below, which GridCue keeps
- * before it reads them.
+ * No word is written here that a reader does not read. The time words are the date reader's (`isTimeWord`, named
+ * filters spec 5.5).
  *
  * Two checks use it, and neither holds a list of its own, so neither can fall behind the reader:
  * - `defineSchema` refuses a House Term named with one of these words (ADR 0024), since it would be read twice;
@@ -43,22 +43,16 @@ const onlyComparison = (text: string): boolean => {
 
 /** The densities a view can have: "compact view" asks for one. */
 const DENSITIES: ReadonlySet<string> = new Set(Density.options);
-/**
- * The words for days and periods the dates of named filters' spec 5.5 read ("today", "last 90 days", "this quarter",
- * "YTD", a month's name). GridCue keeps them for itself before it reads them, so no term can be named one now and read
- * twice later.
- */
-const TIME_WORDS =
-  /^(?:today|yesterday|tomorrow|days?|weeks?|months?|quarters?|years?|ago|next|recent|mtd|qtd|ytd|january|february|march|april|may|june|july|august|september|october|november|december)$/u;
 
 /**
  * Whether `words` (lower case, one space between) are one of GridCue's own words, taken from the lists its reader
  * already holds: a word the placed-words check places or a lead-in (`core/placed.ts`, `core/lead.ts`), a joining or
  * staying word ("plus", "then", "stays"), a size, age or order word or a direction, a verb that starts an instruction, a
  * density, a word for no value, a word that leaves rows out, a text match's words, a comparison, or a time word. A House
- * Term that held one would be read twice.
+ * Term that held one would be read twice. `next` is the word written after them, if any: "may" is a time word only
+ * before a number, so with no next word it is taken to be one.
  */
-export const ownWord = (words: string): boolean => {
+export const ownWord = (words: string, next?: string): boolean => {
   const all = (span: { start: number; end: number } | undefined) => !!span && span.start === 0 && span.end === words.length;
   return (
     onPlacedLists(words) ||
@@ -68,7 +62,7 @@ export const ownWord = (words: string): boolean => {
     readsOrder(words) ||
     startsInstruction(words) ||
     DENSITIES.has(words) ||
-    TIME_WORDS.test(words) ||
+    isTimeWord(words, next) ||
     leavesRowsOut(`${words} rows`) ||
     emptyWordsOutside({ index: 0, text: words, literals: [] }, []).some(all) ||
     onlyComparison(`${words} 1`) ||

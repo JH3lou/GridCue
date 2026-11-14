@@ -29,7 +29,7 @@ import { createGridCue } from "../src/core/controller";
 import { validatePlan } from "../src/core/validate";
 import { createMockProvider } from "../src/mock";
 import { createTanStackAdapter, gridcueFilterFn, schemaFromTanStack, type TanStackTableLike, withGridCueFilter } from "../src/tanstack";
-import { runAdapterContract } from "./adapter-contract";
+import { DATED_COLUMNS, DATED_ROWS, runAdapterContract } from "./adapter-contract";
 
 type Account = { value: number; team: string; name: string };
 
@@ -51,13 +51,17 @@ type Control = { sorting?: boolean; filters?: boolean; visibility?: boolean };
 
 // A v8 app's table: its own state hooks, then the options it already passes, with GridCue's filter function as the
 // default. Only the hook's name and its import changed from `useReactTable`.
-const useAccountsTable = (control: Control) => {
+const useAccountsTable = <Row extends object = Account>(
+  control: Control,
+  rows: Row[] = data as unknown as Row[],
+  rowColumns: LegacyColumnDef<Row>[] = columns as unknown as LegacyColumnDef<Row>[],
+) => {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>({});
-  return useLegacyTable<Account>({
-    data,
-    columns,
+  return useLegacyTable<Row>({
+    data: rows,
+    columns: rowColumns,
     defaultColumn: { filterFn: gridcueFilterFn },
     state: {
       ...(control.sorting ? { sorting } : {}),
@@ -82,6 +86,9 @@ beforeAll(() => {
 });
 afterEach(cleanup);
 
+// The same app's table over the contract's dated rows.
+const datedColumns: LegacyColumnDef<(typeof DATED_ROWS)[number]>[] = DATED_COLUMNS.map((id) => ({ accessorKey: id, header: id }));
+
 const harnessOf = (control: Control) => () => {
   const hook = renderHook(() => useAccountsTable(control));
   // Created once, as the Vite guide does: the table object changes whenever table state changes.
@@ -89,7 +96,11 @@ const harnessOf = (control: Control) => () => {
   const adapter = createTanStackAdapter({ schema: schemaFromTanStack(table), table });
   // The User's own change goes through React, as a header click does.
   const manualChange = () => act(() => table.setSorting([{ id: "team", desc: false }]));
-  return { adapter, manualChange, numericColumn: "value", otherColumn: "name" };
+  const dated = () => {
+    const datedTable = renderHook(() => useAccountsTable(control, DATED_ROWS, datedColumns)).result.current as unknown as TanStackTableLike;
+    return createTanStackAdapter({ schema: schemaFromTanStack(datedTable), table: datedTable });
+  };
+  return { adapter, manualChange, numericColumn: "value", otherColumn: "name", dated };
 };
 
 runAdapterContract("TanStack Table adapter, v8 app on useLegacyTable, table-owned", harnessOf({}));

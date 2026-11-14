@@ -38,6 +38,7 @@ interface GridCueOptions {
   maxUtteranceLength?: number;
   providerTimeoutMs?: number;
   localValues?: LocalValues;
+  now?: () => Date;
 }
 ```
 
@@ -51,6 +52,7 @@ interface GridCueOptions {
 | `maxUtteranceLength` | `number` | `500` | Longest Utterance accepted, in characters, after trimming. A longer one sets status `error` with the issue `INPUT_TOO_LONG`. At most 2000, the protocol's limit; a larger value makes `createGridCue` throw `INPUT_CONFIG`. |
 | `providerTimeoutMs` | `number` | `8000` | How long the provider may take before GridCue gives up and returns to `idle` with the request kept. `0` turns the limit off. |
 | `localValues` | `LocalValues` | none | A function for each text column whose values GridCue may read from your rows, in the browser, so a request can name a value: "Avery Lane's accounts". Off unless set. See [Local Values](#local-values). |
+| `now` | `() => Date` | The system clock | The clock a relative date in a request is worked out from. See [now](#now). |
 
 `DEFAULT_CONFIDENCE` is exported with the default bands:
 
@@ -95,6 +97,18 @@ The keys are column ids. Each function returns that column's values from your ow
 - **The request is built first.** The request to the provider is built before any value is looked at, and the provider is called once whether or not a request matched a value. See [Safety and protocol](/docs/safety#the-data-boundary).
 
 How a request reads a value, and which requests ask, is on [Requests](/docs/concepts/requests#local-values).
+
+## now
+
+```ts
+const cue = createGridCue({ adapter, provider, now: () => new Date("2026-11-13T15:00:00Z") });
+```
+
+A request such as "entries booked in the last 90 days" is worked out once, when it is made, from today's date in the schema's [Calendar](/docs/api/schema#calendar). The view keeps the two fixed days, not the words: see [Views](/docs/concepts/views#a-view-keeps-fixed-dates). `now` is the clock. Leave it out for the system clock. Tests pass a fixed one, so today doesn't move under them.
+
+- **It is called at most once for a request,** and only for a request that holds a relative date form ("today", "last 90 days", "this quarter", "YTD"). A request with no date, or with an ISO date, never calls it.
+- **Today is the day that instant falls on in the Calendar's `timeZone`.** At 2026-11-13T15:00:00Z it is 2026-11-13 in `America/New_York` and in `UTC`, and 2026-11-14 in `Pacific/Auckland`.
+- **A clock that fails stops the request.** If `now` throws, or returns anything but a valid `Date`, the status is `error` with the issue `INPUT_CLOCK` and the message "Couldn't read today's date. The view hasn't changed." The provider is not called and the view does not change. Nothing guesses a date.
 
 ## GridCueController
 

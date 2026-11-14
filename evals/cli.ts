@@ -96,7 +96,11 @@ const run = async (file: URL, label: string) => {
   const cases = loadCases(file);
   // A case that says `"values": true` runs with its schema's Local Values (evals/local-values.ts).
   const withValues = cases.filter((c) => c.values).length;
-  const named = withValues > 0 ? `${label}, ${withValues} with Local Values` : label;
+  // A case that says `"clock": true` runs at the fixed clock with the fixed Calendar (evals/clock.ts).
+  const withClock = cases.filter((c) => c.clock).length;
+  const named = [label, withValues > 0 ? `${withValues} with Local Values` : "", withClock > 0 ? `${withClock} on the fixed clock` : ""]
+    .filter(Boolean)
+    .join(", ");
   for (const c of cases) {
     seen = {};
     useProviderFor(c);
@@ -390,6 +394,37 @@ const namesNaturalHeldOut = await run(new URL("./cases-names-natural-heldout.jso
 // cases that ran with no Local Values were taken out after the review (2026-11-14): with none, every request reads as
 // before this PR, and they test readings outside it. Its safe misses are reported, not failed; a wrong view fails.
 const namesHeldOut2 = await run(new URL("./cases-names-heldout-wealth-r2.jsonl", import.meta.url), "cases-names-heldout-wealth-r2.jsonl");
+// Dates (named filters spec, 5.5): each form, with and without a date column named, after the Row Noun or a value,
+// beside other changes, on the date-and-time column, and the wordings that must ask, on the ledger at the fixed clock
+// (evals/clock.ts), labelled before the code (2026-11-14). Before the code: 1 exact, 1 wrong view ("travel entries
+// since january" showed Travel and dropped the date), 58 asked. With the Mock Provider now: 40 exact, 16 asked as
+// labelled, 3 asked where a ready plan or a question is right, 1 safe miss, no wrong view, of 60. A wrong view fails.
+// The safe miss is the Mock Provider's: the part starts with a word the Mock doesn't know, so it proposes no sort
+// (evals/evals.test.ts names it). So the set is not in `mockMustMatch`.
+const dates = await run(new URL("./cases-dates.jsonl", import.meta.url), "cases-dates.jsonl");
+// The date held-out sets, labelled from spec 5.5 before the code, on the ledger at the fixed clock, and first run after
+// it (2026-11-14), once each. With the Mock Provider:
+// - the form set: 64 exact, 59 asked as labelled, 7 asked where a ready plan or a question is right, 3 safe misses (the
+//   Mock Provider's: no sort, grouping or amount column for a part that starts with "entries"), no wrong view, of 133;
+// - sentences that hold a date form and are not requests: 12 asked, 5 refused, none ready, of 17;
+// - scripted provider picks for a date form's words: 14 exact, 1 asked where a ready plan or a question is right, of 15;
+// - the natural set, by a labeller who saw only the product definition, the ledger schema and the fixed day: 11 exact,
+//   19 asked as labelled, 1 refused as labelled, 19 safe misses, no wrong view, of 50. A month name was the unlisted
+//   date wording that asked most.
+// 1 of their requests showed a view the User didn't ask for before the code and now asks. Their safe misses are
+// reported, not failed; a wrong view fails.
+const datesHeldOut = await run(new URL("./cases-dates-heldout.jsonl", import.meta.url), "cases-dates-heldout.jsonl");
+const datesNotRequestsHeldOut = await run(
+  new URL("./cases-dates-not-requests-heldout.jsonl", import.meta.url),
+  "cases-dates-not-requests-heldout.jsonl",
+);
+const datesPicksHeldOut = await run(new URL("./cases-dates-picks-heldout.jsonl", import.meta.url), "cases-dates-picks-heldout.jsonl");
+const datesNaturalHeldOut = await run(new URL("./cases-dates-natural-heldout.jsonl", import.meta.url), "cases-dates-natural-heldout.jsonl");
+// Rounds 2 and 3, each labelled blind after the review's fixes and run once. Round 2: 34 exact, 136 asked, no wrong
+// view, of the 170 kept (seven labels corrected, one request set aside; see evals.test.ts). Round 3, first run: 48
+// exact, 121 asked, 3 safe misses, no wrong view, of 172.
+const datesHeldOut2 = await run(new URL("./cases-dates-heldout-r2.jsonl", import.meta.url), "cases-dates-heldout-r2.jsonl");
+const datesHeldOut3 = await run(new URL("./cases-dates-heldout-r3.jsonl", import.meta.url), "cases-dates-heldout-r3.jsonl");
 
 // Applying a view the user did not ask for is release-blocking with any provider.
 // With the Mock Provider every core case must match exactly, because its answers are deterministic.
@@ -433,6 +468,13 @@ const all = [
   namesPicksHeldOut,
   namesNaturalHeldOut,
   namesHeldOut2,
+  dates,
+  datesHeldOut,
+  datesNotRequestsHeldOut,
+  datesPicksHeldOut,
+  datesNaturalHeldOut,
+  datesHeldOut2,
+  datesHeldOut3,
 ];
 const mockMustMatch = [
   core,

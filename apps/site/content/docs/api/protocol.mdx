@@ -23,6 +23,7 @@ interface ViewSchema {
   rowNoun?: string;
   defaultMeasure?: string;
   houseTerms?: HouseTerm[];
+  calendar?: Calendar; // { timeZone?: string; fiscalYearStart?: number }
 }
 ```
 
@@ -34,6 +35,7 @@ interface ViewSchema {
 | `rowNoun` | `string` | What one row is, such as `"account"`. Its name in a request means the rows, not a column. |
 | `defaultMeasure` | `string` | The column "top", "largest", "biggest" and "smallest" sort by when the request names none. |
 | `houseTerms` | `HouseTerm[]` | The Host's [House Terms](/docs/api/schema#houseterms). Code reads them; they are never sent to an Intent Provider. |
+| `calendar` | `Calendar` | The time zone and the first month of the year, which turn date words into dates. It is never sent to an Intent Provider. See [Schema](/docs/api/schema#calendar). |
 
 Build one with [`defineSchema`](/docs/api/schema#defineschema).
 
@@ -432,6 +434,7 @@ Every failure has a stable code starting with its stage. Some are thrown as a `G
 | --- | --- | --- |
 | `INPUT_TOO_LONG` | Controller issue | The Utterance is longer than `maxUtteranceLength`. |
 | `INPUT_TOO_COMPLEX` | Controller issue | The Utterance has more than 12 Clauses. |
+| `INPUT_CLOCK` | Controller issue | The `now` function threw or returned something that is not a valid `Date`, for a request that holds a relative date. The view does not change. See [createGridCue](/docs/api/create-grid-cue#now). |
 | `INPUT_SCHEMA` | thrown by `defineSchema` | The schema is invalid. See [Schema](/docs/api/schema#input_schema-errors). |
 | `INPUT_CONFIG` | thrown by `createJevProvider` | Unknown strategy or signal name. |
 | `INPUT_METHOD` | Server Handler, 405 | The request is not a `POST`. |

@@ -2,6 +2,7 @@ import type { GridAdapter } from "./adapter";
 import { type CodeReadFilter, readCodeFilters } from "./code-read";
 import { isExposed, operatorsFor } from "./columns";
 import { type ConfidencePolicy, compile } from "./compile";
+import { calendarZone, todayIn } from "./dates";
 import { GridCueError, type Issue, isGridCueError } from "./errors";
 import { indexLocalValues, type LocalValueColumn, type LocalValueIndex, type LocalValuesPart, readLocalValueParts } from "./local-values";
 import { type Mention, matchMentions } from "./mentions";
@@ -54,6 +55,13 @@ export interface GridCueOptions {
    * change. A whole value in a request is read as an exact filter; one word of a value only ever asks.
    */
   localValues?: LocalValues;
+  /**
+   * The clock date words are read with (named filters spec, 5.5; ADR 0026): "last 90 days" is worked out from today in
+   * the Calendar's time zone, once, when the request is made, and the view keeps the two days. Defaults to the system
+   * clock; tests pass a fixed one. It is called only for a request that holds a relative date form. One that throws, or
+   * returns anything but a valid `Date`, stops the request with `INPUT_CLOCK`, and the view doesn't change.
+   */
+  now?: () => Date;
 }
 
 export interface GridCueController {
@@ -81,6 +89,22 @@ const unsupportedMessage = (plan: ViewPlan): string => {
 
 /** The message a request ends with when a Local Values function throws (spec 5.4). */
 const LOCAL_VALUES_FAILED = "Couldn't read this grid's values. The view hasn't changed.";
+/** The message a request ends with when the clock throws or gives no valid time (spec 5.5). */
+const CLOCK_FAILED = "Couldn't read today's date. The view hasn't changed.";
+
+/**
+ * Today in a time zone, from a clock (spec 5.5). Throws `INPUT_CLOCK` when the clock throws, or gives anything but a
+ * valid `Date` in the years 0001 to 9999.
+ */
+const todayFrom = (now: () => Date, timeZone: string): string => {
+  try {
+    const at = now();
+    if (!(at instanceof Date) || Number.isNaN(at.getTime())) throw new Error("Not a time.");
+    return todayIn(at, timeZone);
+  } catch {
+    throw new GridCueError("INPUT_CLOCK", CLOCK_FAILED);
+  }
+};
 
 /**
  * Checks `localValues` when the Controller is made (spec 5.4): a function for each column, and each column a text
@@ -130,6 +154,10 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
     throw new GridCueError("INPUT_CONFIG", `maxUtteranceLength can be at most ${MAX_UTTERANCE_LENGTH}.`);
   }
   const sources = localValueSources(options.localValues, schema);
+  if (options.now !== undefined && typeof options.now !== "function") {
+    throw new GridCueError("INPUT_CONFIG", "now must be a function that returns the current time.");
+  }
+  const now = options.now ?? (() => new Date());
   // Each column's index, kept while its function returns the same array.
   const indexes = new Map<string, { values: readonly unknown[]; index: LocalValueIndex }>();
   /**
@@ -353,13 +381,28 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
       const mentions =
         restricted.length === 0 ? matchMentions(normalized.clauses, schema.columns.filter(isExposed), { rowNoun: schema.rowNoun }) : [];
       const input = withoutNamedSizes(normalized, mentions);
-      // Code-read filters are read from the same input as the provider's request, and change nothing in it (ADR 0023).
-      const codeRead = readCodeFilters(input, mentions, schema);
+      // Today, read from the clock once, and only when a relative date form needs it (spec 5.5).
+      let today: string | undefined;
+      const readToday = () => {
+        today ??= todayFrom(now, calendarZone(schema.calendar));
+        return today;
+      };
       try {
         let resolution: ResolutionResult = { clauses: [] };
         let localValues: LocalValuesPart[] = [];
+        let codeRead: CodeReadFilter[] = [];
         if (restricted.length === 0) {
           const request = buildResolutionRequest(input, schema, adapter.getCapabilities(), base.state, mentions);
+          // Code-read filters are read from the same input as the provider's request, and change nothing in it (ADR
+          // 0023). A date form's days are worked out here, after the request is built: the request is the same with
+          // any clock and any Calendar (spec 4.3).
+          try {
+            codeRead = readCodeFilters(input, mentions, schema, { today: readToday });
+          } catch (error) {
+            if (!isGridCueError(error) || error.code !== "INPUT_CLOCK") throw error;
+            set({ status: "error", message: CLOCK_FAILED, issues: [{ code: "INPUT_CLOCK", message: CLOCK_FAILED }] });
+            return null;
+          }
           // Local Values are read only once the request is built, and nothing read from them reaches it: the provider
           // is sent the same request, and called once, whether or not the grid holds a name (spec 4.3; ADR 0025).
           if (sources.length > 0) {

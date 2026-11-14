@@ -89,6 +89,8 @@
 {"file":"cases-count.jsonl","id":"ct-ctl-hide-advisor","lines":["Hide Advisor"],"notes":[]}
 {"file":"cases-count.jsonl","id":"ct-ctl-hide-concentration","lines":["Hide Concentration"],"notes":[]}
 {"file":"cases-count.jsonl","id":"ct-ctl-group-registration","lines":["Group by Registration type"],"notes":[]}
+{"file":"cases-dates.jsonl","id":"dt-value-then-iso-after","lines":["Filter Category to Travel","Filter Booked above “2026-01-31”"],"notes":[]}
+{"file":"cases-dates.jsonl","id":"dt-ask-since-january","lines":["Filter Category to Travel"],"notes":[]}
 {"file":"cases-fanout.jsonl","id":"f-roth-grouped","lines":["Filter Registration type to Roth IRA","Group by Advisor"],"notes":[]}
 {"file":"cases-fanout.jsonl","id":"f-amount-sorted","lines":["Filter Market value above $2,000,000","Sort by Concentration, descending"],"notes":[]}
 {"file":"cases-fanout.jsonl","id":"f-taxable-grouped","lines":["Filter Registration type to Taxable","Group by Custodian"],"notes":[]}
@@ -1044,6 +1046,11 @@
 {"file":"cases-provider-picks.jsonl","id":"pp-lv-ledger-sort-for-owner","lines":["Sort by Owner, descending; then Amount, descending"],"notes":[]}
 {"file":"cases-provider-picks.jsonl","id":"pp-lv-ledger-value-for-counterparty","lines":["Filter Category to Fees"],"notes":[]}
 {"file":"cases-provider-picks.jsonl","id":"pp-lv-ledger-group-for-list","lines":["Group by Owner, then Category"],"notes":[]}
+{"file":"cases-provider-picks.jsonl","id":"pp-dt-sort-for-quarter","lines":["Sort by Booked, descending; then Amount, descending"],"notes":[]}
+{"file":"cases-provider-picks.jsonl","id":"pp-dt-group-for-ytd","lines":["Group by Booked, then Category"],"notes":[]}
+{"file":"cases-provider-picks.jsonl","id":"pp-dt-hide-for-last-quarter","lines":["Hide Booked and Posted at"],"notes":[]}
+{"file":"cases-provider-picks.jsonl","id":"pp-dt-sort-for-today","lines":["Sort by Booked, ascending; then Posted at, ascending"],"notes":[]}
+{"file":"cases-provider-picks.jsonl","id":"pp-dt-show-for-ytd","lines":["Show Booked and Rate"],"notes":[]}
 {"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-owner-possessive","lines":["Filter Owner to exactly “Avery Lane”"],"notes":[]}
 {"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-owner-for","lines":["Filter Owner to exactly “Avery Lane”"],"notes":[]}
 {"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-owner-is","lines":["Filter Owner to exactly “Avery Lane”"],"notes":[]}
@@ -1197,3 +1204,174 @@
 {"file":"cases-names-heldout-wealth-r2.jsonl","id":"r2-ledger-two-columns-for","lines":["Filter Owner to exactly “Avery Lane”","Filter Counterparty to exactly “Cedar Works”"],"notes":[]}
 {"file":"cases-names-heldout-wealth-r2.jsonl","id":"r2-quoted-contains-unchanged","lines":["Filter Advisor containing “hale”"],"notes":[]}
 {"file":"cases-names-heldout-wealth-r2.jsonl","id":"r2-export","lines":["Filter Advisor to exactly “Avery Lane”"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-last-7-days","lines":["Filter Booked from 2026-11-06 to 2026-11-13 (last 7 days)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-past-30-days-noun","lines":["Filter Booked from 2026-10-14 to 2026-11-13 (past 30 days)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-over-the-365-days","lines":["Filter Booked from 2025-11-13 to 2026-11-13 (last 365 days)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-during-the-999-days","lines":["Filter Booked from 2024-02-18 to 2026-11-13 (last 999 days)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-within-the-2-weeks","lines":["Filter Booked from 2026-10-30 to 2026-11-13 (last 2 weeks)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-last-6-weeks","lines":["Filter Booked from 2026-10-02 to 2026-11-13 (last 6 weeks)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-for-the-past-52-weeks","lines":["Filter Booked from 2025-11-14 to 2026-11-13 (past 52 weeks)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-for-the-past-8-weeks","lines":["Filter Booked from 2026-09-18 to 2026-11-13 (past 8 weeks)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-last-3-weeks-alias","lines":["Filter Booked from 2026-10-23 to 2026-11-13 (last 3 weeks)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-last-3-months","lines":["Filter Booked from 2026-08-13 to 2026-11-13 (last 3 months)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-last-9-months","lines":["Filter Booked from 2026-02-13 to 2026-11-13 (last 9 months)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-past-12-months","lines":["Filter Booked from 2025-11-13 to 2026-11-13 (past 12 months)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-during-18-months","lines":["Filter Booked from 2025-05-13 to 2026-11-13 (last 18 months)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-last-2-years","lines":["Filter Booked from 2024-11-13 to 2026-11-13 (last 2 years)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-within-past-5-years","lines":["Filter Booked from 2021-11-13 to 2026-11-13 (past 5 years)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-last-999-years","lines":["Filter Booked from 1027-11-13 to 2026-11-13 (last 999 years)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-last-1-day","lines":["Filter Booked from 2026-11-12 to 2026-11-13 (last 1 day)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-today","lines":["Filter Booked on 2026-11-13 (today)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-yesterday","lines":["Filter Booked on 2026-11-12 (yesterday)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-posted-10-days","lines":["Filter Posted at from 2026-11-03 to 2026-11-13 (last 10 days)"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-posted-45-days-noun","lines":["Filter Posted at from 2026-09-29 to 2026-11-13 (last 45 days)"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-posting-time-this-month","lines":["Filter Posted at from 2026-11-01 to 2026-11-30 (this month)"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-timestamp-last-quarter","lines":["Filter Posted at from 2026-07-01 to 2026-09-30 (last quarter)"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-posted-this-year","lines":["Filter Posted at from 2026-01-01 to 2026-12-31 (this year)"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-posted-ytd","lines":["Filter Posted at from 2026-01-01 to 2026-11-13 (YTD)"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-this-month","lines":["Filter Booked from 2026-11-01 to 2026-11-30 (this month)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-this-quarter-noun","lines":["Filter Booked from 2026-10-01 to 2026-12-31 (this quarter)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-during-this-year","lines":["Filter Booked from 2026-01-01 to 2026-12-31 (this year)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-last-month","lines":["Filter Booked from 2026-10-01 to 2026-10-31 (last month)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-in-the-last-quarter","lines":["Filter Booked from 2026-07-01 to 2026-09-30 (last quarter)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-last-year-noun","lines":["Filter Booked from 2025-01-01 to 2025-12-31 (last year)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-for-the-last-quarter","lines":["Filter Booked from 2026-07-01 to 2026-09-30 (last quarter)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-month-to-date","lines":["Filter Booked from 2026-11-01 to 2026-11-13 (month to date)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-quarter-to-date-noun","lines":["Filter Booked from 2026-10-01 to 2026-11-13 (quarter to date)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-year-to-date","lines":["Filter Booked from 2026-01-01 to 2026-11-13 (year to date)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-mtd","lines":["Filter Booked from 2026-11-01 to 2026-11-13 (MTD)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-qtd","lines":["Filter Booked from 2026-10-01 to 2026-11-13 (QTD)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-in-the-quarter-to-date","lines":["Filter Booked from 2026-10-01 to 2026-11-13 (quarter to date)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-between-iso","lines":["Filter Booked from 2026-02-01 to 2026-04-30"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-from-to-noun","lines":["Filter Booked from 2025-06-15 to 2025-09-15"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-from-through","lines":["Filter Booked from 2026-03-01 to 2026-03-31"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-between-reversed","lines":["Filter Booked from 2026-03-01 to 2026-09-30"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-from-to-reversed","lines":["Filter Booked from 2026-01-01 to 2026-12-31"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-from-through-reversed","lines":["Filter Booked from 2026-06-01 to 2026-06-30"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-posted-between","lines":["Filter Posted at from 2026-05-01 to 2026-05-31"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-posted-from-through-noun","lines":["Filter Posted at from 2026-01-15 to 2026-02-15"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-fees-last-quarter","lines":["Filter Category to Fees","Filter Booked from 2026-07-01 to 2026-09-30 (last quarter)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-travel-30-days","lines":["Filter Category to Travel","Filter Booked from 2026-10-14 to 2026-11-13 (last 30 days)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-software-this-year","lines":["Filter Category to Software","Filter Booked from 2026-01-01 to 2026-12-31 (this year)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-no-vendor-after-form","lines":["Filter Booked from 2026-11-01 to 2026-11-30 (this month)","Show only rows where Counterparty is empty"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-no-vendor-before-form","lines":["Show only rows where Counterparty is empty","Filter Booked from 2025-01-01 to 2025-12-31 (last year)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-settled-ytd","lines":["Show only rows where Cleared is Yes","Filter Booked from 2026-01-01 to 2026-11-13 (YTD)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-amount-then-form","lines":["Filter Amount above $50,000","Filter Booked from 2026-10-14 to 2026-11-13 (last 30 days)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-text-form-beside","lines":["Filter Owner starting with “av”","Filter Booked from 2026-10-01 to 2026-12-31 (this quarter)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-exactly-beside","lines":["Filter Counterparty to exactly “cedar works”","Filter Booked from 2026-10-01 to 2026-10-31 (last month)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-no-category-beside","lines":["Filter Booked from 2026-09-14 to 2026-11-13 (last 60 days)","Show only rows where Category is empty"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-have-counterparty-beside","lines":["Show only rows where Counterparty is not empty","Filter Booked from 2026-10-01 to 2026-12-31 (this quarter)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-beside-sort-end","lines":["Filter Booked from 2026-10-30 to 2026-11-13 (last 14 days)","Sort by Units, ascending"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-beside-group-start","lines":["Filter Booked from 2026-10-01 to 2026-12-31 (this quarter)","Group by Category"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-beside-hide-start","lines":["Hide Rate","Filter Booked from 2026-11-01 to 2026-11-30 (this month)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-beside-hide-end","lines":["Filter Booked from 2026-07-01 to 2026-09-30 (last quarter)","Hide Cleared"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-two-forms-booked-posted","lines":["Filter Booked from 2026-01-01 to 2026-12-31 (this year)","Filter Posted at from 2026-11-06 to 2026-11-13 (last 7 days)"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-two-forms-quarter-month","lines":["Filter Booked from 2026-07-01 to 2026-09-30 (last quarter)","Filter Posted at from 2026-11-01 to 2026-11-30 (this month)"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-two-forms-ytd-range","lines":["Filter Booked from 2026-01-01 to 2026-11-13 (YTD)","Filter Posted at from 2026-10-01 to 2026-10-31"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-natural-heldout.jsonl","id":"n1-booked-today","lines":["Filter Booked on 2026-11-13 (today)"],"notes":[]}
+{"file":"cases-dates-natural-heldout.jsonl","id":"n1-booked-last-30","lines":["Filter Booked from 2026-10-14 to 2026-11-13 (last 30 days)"],"notes":[]}
+{"file":"cases-dates-natural-heldout.jsonl","id":"n1-posted-last-30-travel","lines":["Filter Category to Travel","Filter Posted at from 2026-10-14 to 2026-11-13 (last 30 days)"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-natural-heldout.jsonl","id":"n1-booked-last-7","lines":["Filter Booked from 2026-11-06 to 2026-11-13 (last 7 days)"],"notes":[]}
+{"file":"cases-dates-natural-heldout.jsonl","id":"n1-booked-this-month","lines":["Filter Booked from 2026-11-01 to 2026-11-30 (this month)"],"notes":[]}
+{"file":"cases-dates-natural-heldout.jsonl","id":"n1-posted-last-month","lines":["Filter Posted at from 2026-10-01 to 2026-10-31 (last month)"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-natural-heldout.jsonl","id":"n1-booked-this-quarter","lines":["Filter Booked from 2026-10-01 to 2026-12-31 (this quarter)"],"notes":[]}
+{"file":"cases-dates-natural-heldout.jsonl","id":"n1-posted-ytd-grouped","lines":["Filter Posted at from 2026-01-01 to 2026-11-13 (year to date)","Group by Category"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-natural-heldout.jsonl","id":"n1-booked-after-iso","lines":["Filter Booked after 2026-01-31"],"notes":[]}
+{"file":"cases-dates-natural-heldout.jsonl","id":"n1-booked-between","lines":["Filter Booked from 2026-02-01 to 2026-02-28"],"notes":[]}
+{"file":"cases-dates-natural-heldout.jsonl","id":"n1-hide-and-yesterday","lines":["Hide Rate and Units","Filter Booked on 2026-11-12 (yesterday)"],"notes":[]}
+{"file":"cases-dates-picks-heldout.jsonl","id":"dr1-pk-sort-amount","lines":["Filter Booked from 2026-10-14 to 2026-11-13 (last 30 days)"],"notes":[]}
+{"file":"cases-dates-picks-heldout.jsonl","id":"dr1-pk-group-category","lines":["Filter Booked from 2026-10-01 to 2026-12-31 (this quarter)"],"notes":[]}
+{"file":"cases-dates-picks-heldout.jsonl","id":"dr1-pk-hide-rate","lines":["Filter Booked from 2026-10-01 to 2026-10-31 (last month)"],"notes":[]}
+{"file":"cases-dates-picks-heldout.jsonl","id":"dr1-pk-value-fees","lines":["Filter Booked from 2026-01-01 to 2026-11-13 (YTD)"],"notes":[]}
+{"file":"cases-dates-picks-heldout.jsonl","id":"dr1-pk-column-for-form-words","lines":["Filter Booked from 2026-08-15 to 2026-11-13 (last 90 days)"],"notes":[]}
+{"file":"cases-dates-picks-heldout.jsonl","id":"dr1-pk-form-words-as-sort-posted","lines":["Filter Posted at from 2026-11-06 to 2026-11-13 (last 7 days)"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-picks-heldout.jsonl","id":"dr1-pk-sort-recent-ytd","lines":["Filter Posted at from 2026-01-01 to 2026-11-13 (YTD)"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-picks-heldout.jsonl","id":"dr1-pk-value-beside-named","lines":["Filter Category to Travel","Filter Booked from 2026-01-01 to 2026-12-31 (this year)"],"notes":[]}
+{"file":"cases-dates-picks-heldout.jsonl","id":"dr1-pk-group-owner-range","lines":["Filter Booked from 2026-02-01 to 2026-04-30"],"notes":[]}
+{"file":"cases-dates-picks-heldout.jsonl","id":"dr1-pk-hide-booked-itself","lines":["Filter Booked from 2026-07-01 to 2026-09-30 (last quarter)"],"notes":[]}
+{"file":"cases-dates-picks-heldout.jsonl","id":"dr1-pk-sort-unmatched-term","lines":["Filter Booked from 2026-10-30 to 2026-11-13 (past 2 weeks)"],"notes":[]}
+{"file":"cases-dates-picks-heldout.jsonl","id":"dr1-pk-keeps-named-sort","lines":["Filter Booked from 2026-11-01 to 2026-11-30 (this month)","Sort by Amount, descending"],"notes":[]}
+{"file":"cases-dates-picks-heldout.jsonl","id":"dr1-pk-group-with-named-amount","lines":["Filter Amount above $50,000","Filter Booked from 2026-10-14 to 2026-11-13 (last 30 days)"],"notes":[]}
+{"file":"cases-dates-picks-heldout.jsonl","id":"dr1-pk-sort-on-today","lines":["Filter Booked on 2026-11-13 (today)"],"notes":[]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-b-01","lines":["Filter Booked on or after 2026-01-31"],"notes":[]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-b-02","lines":["Filter Booked on or before 2026-03-01"],"notes":[]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-b-07","lines":["Filter Booked on or before 2026-06-30"],"notes":[]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-c-01","lines":["Filter Booked from 2026-10-01 to 2026-10-31 (last month)","Filter Posted at from 2026-10-01 to 2026-12-31 (this quarter)"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-c-02","lines":["Filter Posted at on 2026-11-12 (yesterday)","Filter Booked on 2026-11-13 (today)"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-c-15","lines":["Filter Booked from 2026-10-01 to 2026-10-31 (last month)","Hide Posted at"],"notes":[]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-c-19","lines":["Filter Posted at from 2026-10-01 to 2026-10-31 (last month)","Filter Booked from 2026-11-01 to 2026-11-30 (this month)"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-c-20","lines":["Filter Category to Services","Filter Posted at from 2026-10-01 to 2026-12-31 (this quarter)","Group by Booked"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-c-24","lines":["Filter Booked from 2026-10-01 to 2026-10-31 (last month)","Sort by Posted at, descending"],"notes":[]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-e-01","lines":["Filter Booked from 2026-10-23 to 2026-11-13 (last 21 days)"],"notes":[]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-e-02","lines":["Filter Booked from 2026-09-29 to 2026-11-13 (last 45 days)"],"notes":[]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-e-03","lines":["Filter Posted at from 2026-11-06 to 2026-11-13 (last 7 days)"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-e-04","lines":["Filter Booked from 2026-05-13 to 2026-11-13 (last 6 months)"],"notes":[]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-e-05","lines":["Filter Booked from 2024-11-13 to 2026-11-13 (last 2 years)"],"notes":[]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-e-06","lines":["Filter Booked on 2026-11-12 (yesterday)"],"notes":[]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-e-07","lines":["Filter Posted at on 2026-11-13 (today)"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-e-08","lines":["Filter Booked from 2026-01-01 to 2026-12-31 (this year)"],"notes":[]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-e-09","lines":["Filter Booked from 2025-01-01 to 2025-12-31 (last year)"],"notes":[]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-e-10","lines":["Filter Booked from 2026-07-01 to 2026-09-30 (last quarter)"],"notes":[]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-e-11","lines":["Filter Booked from 2026-10-01 to 2026-11-13 (QTD)"],"notes":[]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-e-12","lines":["Filter Posted at from 2026-11-01 to 2026-11-13 (MTD)"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-e-13","lines":["Filter Booked from 2026-01-01 to 2026-03-31"],"notes":[]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-e-14","lines":["Filter Booked from 2025-12-01 to 2026-02-28"],"notes":[]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-e-15","lines":["Filter Booked after 2026-06-30"],"notes":[]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-e-16","lines":["Filter Booked on or before 2026-02-14"],"notes":[]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-e-17","lines":["Filter Posted at before 2026-09-01"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-e-18","lines":["Filter Booked on or after 2026-04-01"],"notes":[]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-e-19","lines":["Filter Booked from 2026-11-01 to 2026-11-30 (this month)"],"notes":[]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-e-20","lines":["Filter Booked from 2026-08-21 to 2026-11-13 (past 12 weeks)"],"notes":[]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-e-25","lines":["Filter Booked from 2026-10-16 to 2026-11-13 (past 4 weeks)"],"notes":[]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-e-26","lines":["Filter Booked from 2026-11-03 to 2026-11-13 (past 10 days)"],"notes":[]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-e-27","lines":["Filter Booked from 2026-07-16 to 2026-11-13 (last 120 days)"],"notes":[]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-e-28","lines":["Filter Booked from 2026-10-30 to 2026-11-13 (last 2 weeks)"],"notes":[]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-f-01","lines":["Filter Booked from 2026-07-01 to 2026-09-30 (last quarter)"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-a-44","lines":["Filter Booked from 2026-10-14 to 2026-11-13 (last 30 days)"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-a-45","lines":["Filter Booked from 2026-08-15 to 2026-11-13 (last 90 days)"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-a-46","lines":["Filter Booked from 2026-10-01 to 2026-12-31 (this quarter)"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-01","lines":["Filter Category to Travel","Filter Booked from 2026-10-14 to 2026-11-13 (last 30 days)"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-02","lines":["Filter Booked from 2026-10-01 to 2026-12-31 (this quarter)","Sort by Amount, descending"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-03","lines":["Filter Category to Software","Filter Booked from 2026-07-01 to 2026-09-30 (last quarter)"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-04","lines":["Filter Booked from 2026-01-01 to 2026-11-13 (YTD)","Group by Category"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-05","lines":["Filter Amount above $5,000","Filter Booked from 2026-08-15 to 2026-11-13 (last 90 days)"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-06","lines":["Filter Booked on 2026-11-13 (today)"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-07","lines":["Filter Booked on 2026-11-12 (yesterday)","Hide Rate"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-09","lines":["Filter Booked from 2026-01-01 to 2026-03-31","Group by Category"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-10","lines":["Filter Category to Services","Filter Booked after 2026-01-31"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-11","lines":["Filter Booked before 2026-06-01"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-12","lines":["Filter Booked on or after 2026-06-01","Hide Units"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-13","lines":["Filter Booked on or after 2026-06-01"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-14","lines":["Filter Booked on or before 2026-06-30"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-15","lines":["Filter Booked from 2026-02-01 to 2026-02-28"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-16","lines":["Filter Booked from 2026-01-01 to 2026-03-31"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-17","lines":["Filter Posted at from 2026-11-06 to 2026-11-13 (last 7 days)"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-18","lines":["Filter Posted at from 2026-11-01 to 2026-11-30 (this month)","Group by Category"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-19","lines":["Filter Units above 10","Filter Booked from 2026-10-30 to 2026-11-13 (past 14 days)"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-21","lines":["Filter Category to Supplies","Filter Booked from 2026-05-13 to 2026-11-13 (last 6 months)"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-22","lines":["Filter Booked from 2026-10-30 to 2026-11-13 (last 2 weeks)"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-23","lines":["Filter Booked from 2025-11-13 to 2026-11-13 (last 12 months)","Sort by Booked, descending"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-24","lines":["Filter Category to Travel","Filter Booked from 2026-11-01 to 2026-11-13 (MTD)"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-25","lines":["Filter Booked from 2026-01-01 to 2026-12-31 (this year)","Group by Category"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-26","lines":["Filter Amount above $100,000","Filter Booked from 2026-10-01 to 2026-11-13 (QTD)"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-27","lines":["Filter Booked from 2023-11-13 to 2026-11-13 (last 3 years)"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-28","lines":["Filter Category to Software","Filter Posted at on 2026-11-12 (yesterday)"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-29","lines":["Filter Amount below $20,000","Filter Booked from 2026-08-15 to 2026-11-13 (past 90 days)"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-30","lines":["Filter Booked after 2026-01-31","Sort by Amount, descending","Group by Category"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-31","lines":["Filter Booked from 2026-10-13 to 2026-11-13 (last 1 month)"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-32","lines":["Filter Booked from 2025-11-13 to 2026-11-13 (last 365 days)"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-33","lines":["Filter Booked from 2026-08-21 to 2026-11-13 (last 12 weeks)","Hide Rate"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-34","lines":["Filter Category to Fees","Filter Booked from 2026-07-16 to 2026-11-13 (last 120 days)"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-35","lines":["Filter Booked from 2026-02-13 to 2026-11-13 (last 9 months)","Sort by Amount, descending"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-36","lines":["Filter Booked from 2026-05-17 to 2026-11-13 (last 180 days)"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-37","lines":["Filter Posted at from 2026-07-01 to 2026-09-30 (last quarter)"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-38","lines":["Filter Category to Travel","Filter Booked from 2026-09-14 to 2026-11-13 (last 60 days)"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-d-01","lines":["Filter Booked after 2026-01-31","Filter Posted at before 2026-06-01"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-d-02","lines":["Filter Booked from 2026-10-14 to 2026-11-13 (last 30 days)","Filter Posted at from 2026-10-01 to 2026-12-31 (this quarter)"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-d-03","lines":["Filter Booked from 2026-01-01 to 2026-12-31 (this year)","Filter Posted at on 2026-11-12 (yesterday)"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-d-04","lines":["Filter Booked from 2026-07-01 to 2026-09-30 (last quarter)","Filter Posted at from 2026-10-01 to 2026-12-31 (this quarter)"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-d-07","lines":["Filter Booked from 2026-08-15 to 2026-11-13 (last 90 days)","Filter Posted at from 2026-10-14 to 2026-11-13 (last 30 days)"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-d-10","lines":["Filter Booked on 2026-11-12 (yesterday)","Filter Posted at on 2026-11-13 (today)"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-d-11","lines":["Filter Category to Travel","Filter Posted at before 2026-04-01","Filter Booked after 2026-03-01"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-d-15","lines":["Filter Booked from 2026-01-01 to 2026-03-31","Filter Posted at from 2026-04-01 to 2026-06-30"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-d-17","lines":["Filter Booked from 2026-10-14 to 2026-11-13 (last 30 days)","Filter Posted at from 2026-10-01 to 2026-12-31 (this quarter)"],"notes":["Whole days, in America/New_York time"]}

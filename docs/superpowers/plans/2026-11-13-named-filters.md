@@ -232,46 +232,48 @@ Spec 4.5, 5.5. ADR 0026.
 
 ### Task 5.1: Label the date cases (Sonnet, two separate agents)
 **Files:** new `evals/cases-dates.jsonl`; held-out sets outside the repo; a reference day counter in `evals/`.
-- [ ] Form dev set, 60, on the ledger with a fixed clock: each form in spec 5.5, with and without a column named, after the Row Noun, beside other filters, on the date-and-time column, and each wording that must ask, "this week" and "last week" among them.
-- [ ] Form held-out set, at least 60, from spec 5.5 alone, with the same fixed clock. Natural held-out set, 30. Not-a-request sentences: 10 more for each set from Task 2.2.
-- [ ] The expected dates for every form on a month end, a leap day, a year end, the first day of a quarter and both clock-change days, in the six time zones of spec section 10. Written by hand from the spec's table.
-- [ ] A reference day counter for the property tests, written by this labeller and not shown to the builder.
+- [x] Form dev set, 60, on the ledger with a fixed clock: each form in spec 5.5, with and without a column named, after the Row Noun, beside other filters, on the date-and-time column, and each wording that must ask, "this week" and "last week" among them.
+- [x] Form held-out set, at least 60, from spec 5.5 alone, with the same fixed clock. Natural held-out set, 30. Not-a-request sentences: 10 more for each set from Task 2.2.
+- [x] The expected dates for every form on a month end, a leap day, a year end, the first day of a quarter and both clock-change days, in the six time zones of spec section 10. Written by hand from the spec's table.
+- [x] A reference day counter for the property tests, written by this labeller and not shown to the builder.
 
 ### Task 5.2: Date arithmetic and whole days (Fable)
 **Files:** new `core/dates.ts`, tests.
-- [ ] Tests first: the labelled table from 5.1; today in a zone either side of midnight; a cell's day for a date string, a `Date`, a string with an offset and a string with none; an unreadable cell.
-- [ ] Today from a clock and a time zone. Each form to its dates, on calendar days only. A cell to its day.
-- [ ] Property tests against the reference counter: 1,000 random days, and 2,000 random instants in six zones, fixed seeds. Bar: every date equal, 0 rows differ.
+- [x] Tests first: the labelled table from 5.1; today in a zone either side of midnight; a cell's day for a date string, a `Date`, a string with an offset and a string with none; an unreadable cell.
+- [x] Today from a clock and a time zone. Each form to its dates, on calendar days only. A cell to its day.
+- [x] Property tests against the reference counter: 1,000 random days, and 2,000 random instants in six zones, fixed seeds. Bar: every date equal, 0 rows differ.
 
 ### Task 5.3: The reader, the column and the Preview (Opus)
 **Files:** `core/protocol.ts`, `core/schema.ts`, `core/normalize.ts`, `core/mentions.ts`, `core/code-read.ts`, `core/compile.ts`, `core/unused.ts`, `core/preview.ts`, `core/controller.ts`, `core/errors.ts`, `index.ts`, tests. Needs 5.2.
-- [ ] Tests first, one per row of both tables in spec 5.5.
-- [ ] `calendar` in the schema, holding `timeZone` and `fiscalYearStart` and nothing else, with its checks. `now` on the Controller; a `now` that throws stops the request with `INPUT_CLOCK` (order plan, D5). `normalize(text, { today, calendar })`; with no `today`, relative forms ask.
-- [ ] Ranges of two ISO dates. `Literal.words`.
-- [ ] A date column named right before a date form keeps its name after the Row Noun or a value.
-- [ ] Every other time word asks, "this week" and "last week" included. A grid with no date column asks.
-- [ ] The Preview's date words, the bracketed words and the whole-days note. Each test that pinned the old date wording is listed in the PR.
-- [ ] Every existing labelled request with a calendar set: the same verdict and operations.
+- [x] Tests first, one per row of both tables in spec 5.5.
+- [x] `calendar` in the schema, holding `timeZone` and `fiscalYearStart` and nothing else, with its checks. `now` on the Controller; a `now` that throws stops the request with `INPUT_CLOCK` (order plan, D5). `normalize(text, { today, calendar })`; with no `today`, relative forms ask.
+- [x] Ranges of two ISO dates. `Literal.words`.
+- [x] A date column named right before a date form keeps its name after the Row Noun or a value.
+- [x] Every other time word asks, "this week" and "last week" included. A grid with no date column asks.
+- [x] The Preview's date words, the bracketed words and the whole-days note. Each test that pinned the old date wording is listed in the PR.
+- [x] Every existing labelled request with a calendar set: the same verdict and operations.
 
 ### Task 5.4: Filtering by whole days (Opus)
 **Files:** `core/evaluate.ts`, `tanstack/index.ts`, `test/adapter-contract.ts`, new `test/rendered-rows.ts`, tests. Needs 5.2.
-- [ ] Tests first: the contract suite gains date, date-and-time and `Date`-object filters in its state checks. A new shared test, `test/rendered-rows.ts`, builds both Grid Adapters on the same rows and View State and compares the rows each keeps. This PR starts it with the whole-day, empty and exact-text cases; the operation set's PR 3 adds groups, order and totals.
-- [ ] `matchesPredicate` takes the time zone. `matchesFilter` reads it from the schema. The TanStack Table adapter stores it beside the column's kind.
-- [ ] PR 1's question for date-and-time columns is removed, with its tests turned into ready cases.
-- [ ] Report the time to filter 50,000 date-and-time rows.
+- [x] Tests first: the contract suite gains date, date-and-time and `Date`-object filters in its state checks. A new shared test, `test/rendered-rows.ts`, builds both Grid Adapters on the same rows and View State and compares the rows each keeps. This PR starts it with the whole-day, empty and exact-text cases; the operation set's PR 3 adds groups, order and totals.
+- [x] `matchesPredicate` takes the time zone. `matchesFilter` reads it from the schema. The TanStack Table adapter stores it beside the column's kind.
+- [x] PR 1's question for date-and-time columns is removed, with its tests turned into ready cases.
+- [x] Report the time to filter 50,000 date-and-time rows. At the gate, in America/New_York: the Rows Adapter took 63 ms on ISO strings and 45 ms on `Date` cells, and TanStack Table took 119 ms and 97 ms. Both adapters kept the same rows.
 
 ### Task 5.5: Held-out run (lead)
-- [ ] One run of each set, with the fixed clock. Bar: 0 wrong views. Report the exact share, the natural set's ask rate, and which unlisted date wording turned up most. The sets join the repo.
+- [x] One run of each set, with the fixed clock. Bar: 0 wrong views. Report the exact share, the natural set's ask rate, and which unlisted date wording turned up most. The sets join the repo.
+- [x] Two more blind sets after the review's fixes, each run once (order plan, section 11). Round 2, 171 cases: one wrong view from this work ("booked last month or so"), now asking; seven labels corrected; one statement the release already reads set aside (section 12 C). Round 3, 172 cases: no wrong view on its first run. Both joined the repo.
+- [x] The representative Host test, in a throwaway clone: its grids declare no date column; 5 of its 289 requests that dropped a time word now ask, none got worse, and its own typecheck, lint, tests and build pass.
 
 ### Task 5.6: Fixture, examples, Site, skill (Sonnet)
-- [ ] The wealth fixture gains an Opened date and a Last contact column if every existing labelled request stays the same. Otherwise both examples add a small ledger table.
-- [ ] Both examples and the Site demo resolve "opened in the last 90 days" and show the dates.
-- [ ] Site: `api/schema` (`calendar`), `api/create-grid-cue` (`now`), `concepts/requests` (the forms, and what asks), `concepts/views` (a view keeps fixed dates), `guides/going-to-production` (set `timeZone` when rows render on a server), `guides/build-an-adapter` and `guides/build-a-provider` (whole days). `docs/internals/architecture.md`: the dates line.
-- [ ] `skills/gridcue`: `calendar`, and when to set `timeZone`. `pnpm check:skills`. Changelog (Haiku).
-- [ ] Browser check in both examples and the Site, light and dark: a two-filter date Preview with its note. Screenshots.
+- [x] The wealth fixture gains an Opened date and a Last contact column if every existing labelled request stays the same. Otherwise both examples add a small ledger table. The lead ruled a third way (order plan, section 11): the fixture does not change, and each example and the Site demo adds the two columns to its own rows, worked out from today.
+- [x] Both examples and the Site demo resolve "opened in the last 90 days" and show the dates.
+- [x] Site: `api/schema` (`calendar`), `api/create-grid-cue` (`now`), `concepts/requests` (the forms, and what asks), `concepts/views` (a view keeps fixed dates), `guides/going-to-production` (set `timeZone` when rows render on a server), `guides/build-an-adapter` and `guides/build-a-provider` (whole days). `docs/internals/architecture.md`: the dates line.
+- [x] `skills/gridcue`: `calendar`, and when to set `timeZone`. `pnpm check:skills`. Changelog (Haiku).
+- [x] Browser check in both examples and the Site, light and dark: a two-filter date Preview with its note. Screenshots. The Vite example renders the registry Command Bar, the Next.js example the built-in bar, and the Site the registry's pieces; each was also checked at 320 px.
 
 ### Task 5.7: Review (Opus), then gate
-- [ ] The reviewer hunts for a date off by one day: either side of midnight, on a clock-change day, and with a fiscal year start.
+- [x] The reviewer hunts for a date off by one day: either side of midnight, on a clock-change day, and with a fiscal year start.
 - [ ] One live run, on the owner's command. `pnpm lint`, `pnpm check`.
 
 ## Spec coverage

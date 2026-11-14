@@ -157,7 +157,7 @@ interface ViewResult<Row> {
 }
 ```
 
-Applies a View State to in-memory rows. It is pure: it never changes `rows`, and the Host renders the result with any table.
+Applies a View State to in-memory rows. It is pure: it never changes `rows`, and the Host renders the result with any table. A date in a filter means the whole day in the schema's [Calendar](/docs/api/schema#calendar) time zone, which `applyView` reads from the schema; see [Build an adapter](/docs/guides/build-an-adapter#dates-are-whole-days).
 
 - **Filters** use each column's kind. Text comparisons on `string` columns ignore case; `contains` and `startsWith` always do. `gt`, `lt`, `between` and the like never match an empty cell.
 - **Sorts** apply level by level. Empty cells sort after other values in ascending order and before them in descending order.
@@ -249,7 +249,7 @@ import { gridcueFilterFn } from "gridcue/tanstack-table";
 function gridcueFilterFn(row: { getValue(columnId: string): unknown }, columnId: string, value: unknown): boolean;
 ```
 
-A TanStack filter function that evaluates GridCue's predicates exactly as the Rows Adapter does. Register it once with `defaultColumn: { filterFn: gridcueFilterFn }`. It passes every row for a filter value that is not GridCue's, and it does not evaluate a Host filter value stored alongside GridCue's. For a column that needs its own filter honored too, use `withGridCueFilter`.
+A TanStack filter function that evaluates GridCue's predicates exactly as the Rows Adapter does, dates included: the adapter stores the Calendar's time zone beside a date column's kind, so both keep the same rows. Register it once with `defaultColumn: { filterFn: gridcueFilterFn }`. It passes every row for a filter value that is not GridCue's, and it does not evaluate a Host filter value stored alongside GridCue's. For a column that needs its own filter honored too, use `withGridCueFilter`.
 
 ## withGridCueFilter
 
