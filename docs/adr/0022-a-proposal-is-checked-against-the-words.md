@@ -17,6 +17,8 @@ The checks:
 
 Every drop is recorded as `dropped:` evidence on the plan.
 
+These checks run on the plan a request produced. A plan the User edited in the Preview is not checked against the request's words (ADR 0036).
+
 The owner's second rule already says a provider's output is a proposal. These checks apply it to cases where the words settle the matter. They do not make the provider path as strict as the Local Resolver (ADR 0020): a provider is still trusted to read wording code can't, which is what it is for.
 
 The `ready` and `clarify` defaults do not change.

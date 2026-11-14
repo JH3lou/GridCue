@@ -52,7 +52,7 @@ Success means:
 - **Local first as the default.** It stays opt-in. The owner decides on the default after the two fresh sets in section 8 are in.
 - **A symbol grammar** (`/adv -mv !trust`).
 - **Storing, naming, or sharing views.** The Host does that with the View State. GridCue gives it `describeView` and `proposeView`.
-- **Editing the View Sentence in place.**
+- **Editing the View Sentence's text in place.** A part of the current view can still be removed, through a Preview: the command bar builds that (ADR 0039).
 - **New view operations.** OR filters, "starts with", empty and not empty, pinning, aggregations, and density stay unreachable by request. The sentence words them for reading and says they can't be typed back.
 - **A completion menu.** Tab completes only when one name fits.
 - **`limit.set` in the TanStack Table adapter.**
@@ -258,7 +258,8 @@ Applied with `emil-design-eng`, `better-ui`, and `principle-experience-first`. B
 | — | The reading line is in the input's `aria-describedby`. It is not a live region | Announcing every keystroke would drown the User. The status row stays the live region |
 | Tab leaves the input | With a completion, the reading line ends with `Tab` in a `<kbd>` and the completed name. Tab inserts it. With none, Tab leaves the input | Speed for heavy Users without a focus trap |
 | Light `#2563eb`, dark `#60a5fa` accent | Unchanged: the underline uses `--gridcue-accent` | No new tokens |
-| Preview panel, clarification buttons, Undo | Unchanged | — |
+| Preview panel, clarification buttons | As the command bar spec's section 9 leaves them (`2026-11-13-command-bar-design.md`): Preview lines can be dropped or changed, the Rows Shown follow the list, and every open question shows with its part | That work is built first. This design pass starts from its bar |
+| Undo | Unchanged | — |
 
 If the mirror layer can't be made exact in both UIs (long text that scrolls, composition input, right-to-left text), the underline is dropped and the reading line ships alone. It carries all of the meaning.
 
