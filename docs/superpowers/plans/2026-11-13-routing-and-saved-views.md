@@ -163,6 +163,7 @@ Spec 5.3, 9. ADR 0035. Needs PR 2, and the owner's own edit to `AGENTS.md` rule 
 
 ### Task 3.1: Label the routing cases (Sonnet)
 - [ ] A synthetic households schema in `fixtures/wealth/src/households.ts`: `rowNoun: "household"`, a name, an advisor, a currency total, a number of accounts, a review date, and an enum. Every value generated, none real. It is the target grid.
+- [ ] Both sets hold requests with `savedViews` and `grids` set together: "open households" with no saved view of that name offers the grid; with a saved view called "Households" it asks with both as choices; a name that is neither still says there is no such saved view.
 - [ ] Before any code, list every case in the existing sets whose result changes when the four grids in spec 5.3 are declared, with its new label. The owner sees this list.
 - [ ] 50 dev and 50 held-out requests on the Accounts grid with the four grids declared. Each labelled with the result (offer and the request that goes along, question and its choices, or unchanged) and, for every request that goes along, the expected result on the households schema.
 - [ ] Of the held-out 50, at least 15 use a second grid list the builder never sees (the Households grid as the current one, with other aliases), and at least 5 put a House Term or a Local Value before another grid's noun ("large households").

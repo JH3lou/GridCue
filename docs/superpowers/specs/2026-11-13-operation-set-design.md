@@ -118,7 +118,7 @@ createTanStackAdapter({ schema, table, renders: ["pinning", "density", "totals",
 | Pin a hidden column | Passes, nothing shows | The compiler adds "Show X" before the pin, so the Preview says both. Validation still accepts a hidden pinned column, so hiding one later keeps its pin | 2 |
 | A sum on a text, enum, date or percent column | Passes | `PLAN_AGGREGATION_KIND`: "Concentration can't be totalled; try an average." | 3 |
 | An average on a text, enum or date column | Passes | `PLAN_AGGREGATION_KIND` | 3 |
-| The same column and function twice | Passes | `PLAN_INCONSISTENT_STATE` | 3 |
+| Two totals on the same column, with the same function or different ones | Passes | `PLAN_INCONSISTENT_STATE`. A column holds one total at a time (5.4) | 3 |
 | Min, max or count | Passes where listed | Still valid in the protocol; no request produces them, and the adapters apply only sum and average. `PLAN_AGGREGATION_KIND` on an adapter that doesn't apply them | 3 |
 
 `docs/internals/intent-protocol.md` promises an "incompatible grouping/aggregation" check. These rows are that check.
@@ -222,7 +222,8 @@ createTanStackAdapter({ schema, table, renders: ["pinning", "density", "totals",
 | "most concentrated households first" | Asked, two choices | Asked, three; the third is "Rank households by average Concentration" |
 | "largest households first" (no `defaultMeasure`) | Asked, two choices | Unchanged |
 
-- **A new total is added** to the view's totals, and the plan's `aggregation.set` carries the whole list. Nothing disappears unless a request says to remove it.
+- **A new total is added** to the view's totals, and the plan's `aggregation.set` carries the whole list. A total on another column never disappears unless a request says to remove it.
+- **A column holds one total at a time.** "Average market value" on a view that shows the total of Market value replaces that total, and the Preview says so: "Show the average of Market value instead of its total". So a sort on a column with a total always has one total to order the groups by, and TanStack's one aggregation function for each column is enough. A sum and an average of the same column side by side is out of scope.
 - **"Total X by Y"** also sets the grouping to Y, replacing the current one, as "group by Y" does today.
 - **A total counts the rows the view shows,** after its filters and its count. Empty values are skipped. With no values, the total is empty.
 - **The third choice** applies the grouping, the total and a descending sort on the total's column (ascending for "smallest"). The Preview shows all three lines. Routing later adds "Open the Households grid" to the same question, as its last choice, after these three.
