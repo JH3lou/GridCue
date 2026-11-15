@@ -98,9 +98,9 @@ Any other word asks, and the question names it. These all ask, where the form al
 | "Who has no advisor" | "I'm not sure what to do with “who”. Try rephrasing that part." |
 | "There is no advisor I trust" | "I'm not sure what to do with “there” and “i”. Try rephrasing that part." |
 | "Accounts with no advisor sorted by size" | "I'm not sure what to do with “size”. Try rephrasing that part." |
-| `Advisor starts with "Av", pin advisor` | "I'm not sure what to do with “pin”. Try rephrasing that part." |
+| `Advisor starts with "Av", lock advisor` | "I'm not sure what to do with “lock”. Try rephrasing that part." |
 
-"To", "about", "who" and "what" are not placed, so a request that assigns, asks about or describes something never ends in a ready Preview. A verb GridCue reads only for columns, such as "pin", is placed only when it changes a column, so it asks beside a form. "Size" asks too, because a provider may know it as a synonym, but GridCue doesn't: "sorted by market value" is ready.
+"To", "about", "who" and "what" are not placed, so a request that assigns, asks about or describes something never ends in a ready Preview. A verb GridCue doesn't read, such as "lock" or "freeze" with no "column" after it, is never placed, so it asks beside a form. "Pin", "unpin" and the density words are read: see [Pins and density](#pins-and-density). "Size" asks too, because a provider may know it as a synonym, but GridCue doesn't: "sorted by market value" is ready.
 
 The same rule limits a provider's picks in such a part. A column or value that no name in the part supports is dropped, and a sort, group, show or hide is kept only when the part holds that change's own words.
 
@@ -293,6 +293,53 @@ Whole days, in America/New_York time
 
 A date in a filter means the whole day in the Calendar's time zone, so a cell stamped 2026-11-13T23:30 is kept by "posted today", whatever the hour. The note is shown once, however many date-and-time filters the Preview holds. A date column needs no note. How a cell becomes its day is on [Build an adapter](/docs/guides/build-an-adapter#dates-are-whole-days).
 
+## Pins and density
+
+GridCue's own code reads a small, closed set of words for pinning columns and for density, with no provider. A part is read only when every word is a form word, a column the grid names, or a filler the form allows. One word left over, and the part goes to the provider as it would before, and usually asks.
+
+| Form | Reads | Doesn't read |
+| --- | --- | --- |
+| Pin | "pin advisor", "pin advisor and household", "pin the advisor column", "pin the custodian and advisor columns", "freeze the advisor column" | "freeze advisor" with no "column", "lock advisor", "pin advisor to my watchlist", "pin the Northgate accounts" (a value, not a column) |
+| Where | "pin advisor to the left", "to the start"; "pin market value to the right", "to the end". With no place, a pin goes to the start | "pin advisor to start" with no "the" |
+| Unpin | "unpin advisor", "unpin the advisor column", "unpin all columns", "unpin all", "unpin everything" | "unfreeze" |
+| Density | "compact", "comfortable" or "spacious" right before "view", "rows", "density" or "mode"; "use compact density" | "make it denser", "tighter", "make it compact", "compact exceptions view", "use compact view" |
+
+- **Columns come only from the names the grid declares.** "Pin the account column" asks, because "account" is the grid's `rowNoun` and may mean the rows: "GridCue can't tell whether “account” means the Account number column or the rows. To pin the column, say “pin the Account number column”." A yes/no column's name, as in "pin restricted", asks the same way until "column" follows it. A restricted column is refused, as everywhere.
+- **"Freeze" reads only with "column"**, and "denser" and "tighter" always ask, because they depend on the density the grid has now.
+- **"Left" and "right" mean the start and the end.** That assumes a grid that reads left to right.
+- **A pin comes with the other parts of a request.** "Group by advisor and pin advisor" previews "Group by Advisor" and "Pin Advisor to the start", and `Advisor starts with "Av", pin advisor` adds the filter and the pin. A request is split before some column names, so a column that starts the next part, as in "pin owner and cleared", may be one more column to pin or the start of another change. GridCue asks.
+- **The grid's own names come first.** Where a name the Host declared holds a form word, such as a size class "Compact", "compact view" may ask for the density or name that value. GridCue can't tell, so it asks, wherever the words sit in the request: "compact view sorted by mileage" and "sort by mileage, compact view" both ask "“compact” is a name in this grid, so GridCue can't tell what “compact view” asks for." "Rows" is the word for the rows themselves, so after a word that takes them, as in "hide the compact rows", "compact rows" says which rows and is read as the value. This doubt exists only on a grid that draws the density (or, for a name that holds "pin", pins). On a grid that doesn't, the words can only be the Host's name, and "compact view" filters by the size class, as it did before density was read.
+- **A pin or density is read as its own part, or at the end of one.** Said anywhere else, as in "compact view, top 10 by market value" or "pin market value above 1m", GridCue can't tell how it fits with the rest, and asks: "GridCue can't tell how “compact view” fits with the rest of that part. Try asking for it on its own." A pin or density word no form reads, as in "group by advisor with advisor pinned" or "northgate accounts, denser", asks about that word. Neither is ever dropped from a Preview. Inside quoted text or a name the grid declares, the word is the text's or the name's, unless the name starts a form there (above), and "the pins stay" asks for nothing.
+- **A pin on a hidden column shows it first.** "Pin concentration" with Concentration hidden previews "Show Concentration" and "Pin Concentration to the start". A column is pinned once: pinning it to the other side moves it.
+- **A pin or unpin names only what it changes.** "Pin advisor" with Advisor already pinned to the start keeps it where it is. "Unpin advisor" with Advisor not pinned, and "unpin everything" with nothing pinned, change nothing, and GridCue says "The grid already shows this view." "Unpin everything" never names a restricted column the Host pinned. While that column is hidden, it stays pinned out of sight and the others are unpinned. While it shows, GridCue asks "GridCue can't unpin every column here. To unpin the others, name them.", without the last sentence when no other column is pinned.
+
+The Preview says what will change:
+
+| Request | Preview |
+| --- | --- |
+| "Pin account number" | Pin Account number to the start |
+| "Pin market value to the right" | Pin Market value to the end |
+| "Unpin advisor" | Unpin Advisor |
+| "Unpin everything" | Unpin all columns |
+| "Compact view" | Use compact density |
+
+Each applies atomically and `cue.undo()` puts the pins and the density back.
+
+### A grid that doesn't draw them
+
+A Grid Adapter lists `columns.pin` and `density.set` only when the Host says its table draws them, with the adapter's [`renders` option](/docs/api/adapters#renders). Without it, a request for either ends in one Clarification with no choices, and nothing in the request applies, the other parts included:
+
+| Request, without `renders` | Clarification |
+| --- | --- |
+| "Pin account number" | "This grid can't pin columns." |
+| "Unpin everything" | "This grid can't pin columns." |
+| "Compact view" | "This grid can't change its density." |
+| "Group by advisor and pin advisor" | "This grid can't pin columns." |
+| "Compact view of taxable accounts" | "This grid can't change its density." |
+| "Pin restricted" | "This grid can't pin columns." |
+
+The form counts wherever it is said in the request, and whatever column it names: on this grid no wording of it could pin. It is the same question as [a grid that can't group](#a-grid-that-cant-group), and not an Unsupported Segment: nothing here is outside the view. A request that also asks for something outside the view, as in "pin advisor and export the list", is refused for that, as on a grid that draws pins. A request with none of these words reads as before.
+
 ## Mention
 
 A column or enum value that a Clause names by one of the Host's declared labels or aliases. Code finds Mentions before any provider call, matching whole words and plurals.
@@ -363,6 +410,8 @@ A Grid Adapter lists the operations it supports in `getCapabilities().operations
 | "Show the Northgate group" | "This grid can't group rows." |
 
 Nothing in the request applies, the other parts included. The User asked for every change, and showing only some would be a different view. Ask again without the grouping to get the rest.
+
+A grid that doesn't draw pins or density ends in the same question for them: see [A grid that doesn't draw them](#a-grid-that-doesnt-draw-them).
 
 Any word built on "group" counts, as a verb or a noun: "grouping", "groups", "regroup", "groupwise". "The Northgate group" and "groups of taxable accounts" may mean a grouping or only those rows, and GridCue can't tell which, so it asks. Ask for "Northgate accounts" to get the filter. "By" right after the word always asks: "keep the sort and the grouping by advisor".
 

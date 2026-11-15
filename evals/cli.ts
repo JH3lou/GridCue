@@ -3,7 +3,7 @@ import { TypeSafeClient } from "@typesafe-ai/sdk";
 import type { IntentProvider, ResolutionRequest, ResolutionResult } from "gridcue";
 import { createMockProvider } from "gridcue/mock";
 import { createJevProvider, JEV_SIGNALS, type JevClient, type JevSignal, type JevStrategy } from "gridcue/server";
-import { type EvalCase, loadCases, mockOptionsFor, runCase, runWithoutGrouping, type Verdict } from "./run";
+import { type EvalCase, loadCases, mockOptionsFor, runCase, runWithoutGrouping, runWithoutRenders, type Verdict } from "./run";
 
 const live = process.argv.includes("--live");
 const verbose = process.argv.includes("--verbose");
@@ -154,6 +154,40 @@ if (flag("grid") === "no-group") {
     // A set labelled for a grid without group.set already runs there.
     if (Object.values(counts).every((n) => n === 0)) continue;
     console.log(`GridCue evals on a grid without group.set: ${file} (${live ? "Jev" : "Mock Provider"})`);
+    console.table(counts);
+  }
+  process.exit(failed > 0 ? 1 : 0);
+}
+
+// `--grid=no-renders` runs every case labelled for a grid that draws pins and density on a grid without `renders`
+// (operation set spec, 5.3). A case whose expected plan pins or sets the density must end not applied, asking only
+// "This grid can't …"; every other case must keep the verdict it has with `renders`.
+if (flag("grid") === "no-renders") {
+  const dir = new URL("./", import.meta.url);
+  const files = readdirSync(dir)
+    .filter((name) => /^cases.*\.jsonl$/.test(name))
+    .sort();
+  let failed = 0;
+  for (const file of files) {
+    const counts = { "pins or density": 0, "pins or density, not asked why": 0, other: 0, "other, verdict changed": 0 };
+    for (const c of loadCases(new URL(file, dir))) {
+      if (!c.renders) continue;
+      useProviderFor(c);
+      const result = await runWithoutRenders(c, provider);
+      if (!result) continue;
+      counts[result.needsRenders ? "pins or density" : "other"]++;
+      if (!result.pass) {
+        failed++;
+        counts[result.needsRenders ? "pins or density, not asked why" : "other, verdict changed"]++;
+        const { before, after } = result;
+        const got = after.plan?.clarifications.map((q) => q.prompt).join(" | ") || JSON.stringify(after.plan?.operations);
+        console.log(
+          `${result.needsRenders ? "NOT ASKED" : "CHANGED"}: ${file}: ${c.id} (${before.verdict} -> ${after.verdict}, ${after.status}: ${got})`,
+        );
+      } else if (verbose) console.log(`ok ${result.needsRenders ? "pins or density" : "other"} ${file}: ${c.id} (${result.after.verdict})`);
+    }
+    if (Object.values(counts).every((n) => n === 0)) continue;
+    console.log(`GridCue evals on a grid without renders: ${file} (${live ? "Jev" : "Mock Provider"})`);
     console.table(counts);
   }
   process.exit(failed > 0 ? 1 : 0);
@@ -425,6 +459,24 @@ const datesNaturalHeldOut = await run(new URL("./cases-dates-natural-heldout.jso
 // exact, 121 asked, 3 safe misses, no wrong view, of 172.
 const datesHeldOut2 = await run(new URL("./cases-dates-heldout-r2.jsonl", import.meta.url), "cases-dates-heldout-r2.jsonl");
 const datesHeldOut3 = await run(new URL("./cases-dates-heldout-r3.jsonl", import.meta.url), "cases-dates-heldout-r3.jsonl");
+// Pinning and density (operation set spec, 5.2 and 5.3), labelled for a grid that draws both, with 10 adversarial
+// cases. Each case runs on a Rows Adapter built with its `renders`, and with the Mock Provider each must match: 40
+// exact, 10 asked as labelled, of 50 (2026-11-14). `--grid=no-renders` runs them on a grid without `renders`.
+const viewWords = await run(new URL("./cases-view-words.jsonl", import.meta.url), "cases-view-words.jsonl");
+// The held-out set for pinning and density, labelled blind for a grid that draws both and run once (2026-11-14): 48
+// exact, 39 asked as labelled, 2 asked where a ready plan or a question is right, 1 wrong view ("pin rate and cleared
+// to the start" pinned Rate alone and filtered Cleared to Yes), of 90. Without `renders`, every case passed. After the
+// fix for that wrong view: 48 exact, 41 asked, 1 mismatch (that request, which now asks), no wrong view.
+const viewWordsHeldOut = await run(new URL("./cases-view-words-heldout.jsonl", import.meta.url), "cases-view-words-heldout.jsonl");
+// Round 2, labelled blind for a grid that draws both and run once (2026-11-14): 15 exact, 16 asked as labelled, 20
+// asked where the label is a ready plan (16 of them a yes-or-no column in a pin list), no wrong view, of 51. Without
+// `renders`, 49 passed; "use spacious rows" and "pin advisor and export the list" asked another question, and applied
+// nothing. After the review's fix for pin and density words said where no form reads them, all 51 pass without it (see
+// evals.test.ts); with it, the counts are unchanged.
+const viewWordsHeldOut2 = await run(new URL("./cases-view-words-heldout-r2.jsonl", import.meta.url), "cases-view-words-heldout-r2.jsonl");
+// Round 3, labelled blind after the review's fixes and run once (2026-11-15): 80 exact, 116 asked, 1 refused, 1 asked
+// where its label is a ready plan, no wrong view, of 198. Without `renders`, all 198 passed.
+const viewWordsHeldOut3 = await run(new URL("./cases-view-words-heldout-r3.jsonl", import.meta.url), "cases-view-words-heldout-r3.jsonl");
 
 // Applying a view the user did not ask for is release-blocking with any provider.
 // With the Mock Provider every core case must match exactly, because its answers are deterministic.
@@ -475,6 +527,10 @@ const all = [
   datesNaturalHeldOut,
   datesHeldOut2,
   datesHeldOut3,
+  viewWords,
+  viewWordsHeldOut,
+  viewWordsHeldOut2,
+  viewWordsHeldOut3,
 ];
 const mockMustMatch = [
   core,
@@ -487,6 +543,7 @@ const mockMustMatch = [
   providerPicks,
   notRequestsHeldOut,
   providerPicksHeldOut,
+  viewWords,
 ];
 if (all.some((counts) => (counts?.unsafe ?? 0) > 0) || (!live && mockMustMatch.some((counts) => counts.mismatch > 0))) process.exit(1);
 if (strict && all.some((counts) => (counts?.mismatch ?? 0) > 0)) process.exit(1);

@@ -157,7 +157,7 @@ type ViewOperation =
   | { type: "view.reset" };
 ```
 
-The first implementation supports the MVP subset named in the approved build spec under `docs/superpowers/specs/`. A declared-but-unimplemented operation returns `unsupported`; it is not silently dropped.
+The first implementation supports the MVP subset named in the approved build spec under `docs/superpowers/specs/`. `columns.pin` and `density.set` are reached by code that reads a closed list of words (ADR 0028), not by an Operation Family, so the protocol stays at 0.1 and the provider request does not change. An adapter lists them only when the Host's `renders` option says its table draws them (ADR 0029). A request for one the adapter doesn't list ends in a Clarification with no choices, "This grid can't pin columns." or "This grid can't change its density.", and nothing in the request applies. A plan that holds one fails validation with `PLAN_OPERATION_UNSUPPORTED`. `columns.pin` removes a column from both lists before it adds it, so a column is pinned once. `aggregation.set` is still declared and listed by no adapter; a declared-but-unimplemented operation returns `unsupported`, and is not silently dropped.
 
 Operation order is significant during compilation and preview, but the validator calculates one final state and the adapter applies it atomically.
 

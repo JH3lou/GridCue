@@ -5,7 +5,7 @@ description: Sets up GridCue, the open-source toolkit that lets people ask a dat
 
 # Set up GridCue
 
-GridCue turns a plain-language request into a change to a grid's **view**: filters, sorts, grouping, and which columns show. A model picks only among closed choices the app declares; code builds the plan, the User previews it, applies it, and can undo it. GridCue never changes data, and it never sends table rows to a model.
+GridCue turns a plain-language request into a change to a grid's **view**: filters, sorts, grouping, which columns show and in what order, which are pinned, and the density. A model picks only among closed choices the app declares; code builds the plan, the User previews it, applies it, and can undo it. GridCue never changes data, and it never sends table rows to a model.
 
 Your job is to add it to the User's app in small steps, checking each one works before the next.
 
@@ -36,6 +36,19 @@ When something doesn't work, read [references/troubleshooting.md](references/tro
 ## Counts
 
 "Top 10 accounts by market value" sets a count: the view keeps its first 10 rows. The Rows Adapter supports it. The TanStack Table adapter doesn't list `limit.set` yet, on any table, so there GridCue sorts alone and the Preview says the count was not applied. A count stays on the view until something clears it, so a change to the sort or the filters asks first ("Keep the first 10" or "Show every row"). That is expected, not a bug. To clear a count the User says "show every row", "show all rows", "remove the count" or "no count"; "show only the first 5 rows" sets one. Don't add code to clear or keep a count: the Controller does it, with a Preview, and Undo restores it. See [Requests](https://gridcue.dev/docs/concepts/requests).
+
+## Pins and density
+
+"Pin account number" pins a column to the start, "unpin everything" clears the pins, and "compact view" sets the density. GridCue's own code reads a closed list of these words ("pin", "unpin", "freeze the advisor column", "compact", "comfortable" or "spacious" before "view", "rows", "density" or "mode"), with no provider. A column is pinned by default unless it is `restricted` or its `capabilities` leave out `"pin"`.
+
+The adapter lists `columns.pin` and `density.set` only when the Host says its table draws them, with `renders`. **Set `renders` only for what the table draws, and draw it.** The default is none, and a request for either then asks "This grid can't pin columns." or "This grid can't change its density." and changes nothing. That is expected, not a bug.
+
+- **What to draw.** `renders: ["pinning"]` needs the table to keep pinned columns in place while the rest scroll. `renders: ["density"]` needs its own row height and cell spacing from the View State's `density`. With the Rows Adapter, `applyView` returns `pinned` and `density` beside `columns`, which already puts start-pinned columns first. With TanStack Table, register `columnPinningFeature` (and `columnSizingFeature`, for the offset from `column.getStart("start")`).
+- **`createRowsAdapter({ schema, initialState, renders: ["pinning", "density"] })`** and **`createTanStackAdapter({ schema, table, renders: ["pinning", "density"] })`.** TanStack throws `INPUT_CONFIG` for `"pinning"` when the table has no `setColumnPinning`. A name no adapter takes (`"totals"`, `"count"`) throws `INPUT_CONFIG` too: leave it out.
+- **GridCue can't check what the markup draws.** Never turn `renders` on to make a request pass. A Host that names a pin its table ignores gets a Preview and "View updated." with nothing to see.
+- **These asks are expected, not bugs,** so don't add words or aliases to make them pass: "freeze advisor" with no "column", "lock advisor", "pin advisor to my watchlist", "pin the Northgate accounts", "make it denser", "tighter" and "compact exceptions view". "Pin the account column" asks too when "account" is the grid's `rowNoun`: "pin the Account number column" is read. A pin or density said before or in the middle of another change ("compact view, top 10 by market value") asks; said as its own part or at the end ("top 10 by market value, compact view") it reads. "Unpin everything" with nothing pinned says "The grid already shows this view." "Left" and "right" mean the start and the end, which assumes a grid that reads left to right.
+
+See [Adapters](https://gridcue.dev/docs/api/adapters#renders), [Requests](https://gridcue.dev/docs/concepts/requests#pins-and-density) and [Views](https://gridcue.dev/docs/concepts/views).
 
 ## Text and empty forms
 

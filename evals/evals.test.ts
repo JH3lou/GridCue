@@ -2,7 +2,16 @@ import { readdirSync } from "node:fs";
 import { wealthMockOptions } from "@gridcue-internal/wealth-fixtures";
 import { createMockProvider } from "gridcue/mock";
 import { describe, expect, it } from "vitest";
-import { judge, loadCases, mockOptionsFor, onGridWithoutGrouping, runCase, runWithoutGrouping } from "./run";
+import {
+  judge,
+  loadCases,
+  mockOptionsFor,
+  onGridWithoutGrouping,
+  onGridWithoutRenders,
+  runCase,
+  runWithoutGrouping,
+  runWithoutRenders,
+} from "./run";
 
 const provider = createMockProvider(wealthMockOptions);
 
@@ -548,6 +557,135 @@ describe("dates, held-out sets, with the Mock Provider", () => {
   }
 });
 
+// Pinning and density (operation set spec, 5.2 and 5.3; ADR 0028), labelled before the code for a grid that draws both,
+// with 10 adversarial cases: workflow verbs, a value that isn't a column, relative density words, and a Host label that
+// holds a form word. Each case says `renders`, so it runs on a Rows Adapter built with `renders: ["pinning",
+// "density"]`, and every case must match its label. Before the code (2026-11-14), on a grid that listed neither, 3
+// cases showed a wrong view: "group by advisor and pin advisor" grouped alone, "sort by market value descending and pin
+// advisor" sorted by Advisor too, and "compact view" filtered Size class where the Host names a size Compact.
+describe("pinning and density, with the Mock Provider", () => {
+  const ledgerProvider = createMockProvider(mockOptionsFor({ schema: "ledger" }));
+  for (const c of loadCases(new URL("./cases-view-words.jsonl", import.meta.url))) {
+    it(`cases-view-words.jsonl: ${c.id}`, async () => {
+      const result = await runCase(c, c.schema === "ledger" ? ledgerProvider : provider);
+      expect(result.verdict, JSON.stringify(result.plan, null, 1)).toMatch(/^(exact|safe_abstention|rejected)$/);
+    });
+  }
+});
+
+// The same cases on a grid without `renders` (operation set spec, 5.3; order plan, D3), derived as the grid without
+// `group.set` is: a case that pins or sets the density ends not applied, asking only "This grid can't pin columns." or
+// "This grid can't change its density.", with no choices; every other case keeps its verdict. One case says what it
+// reads there itself (`withoutRenders`): "compact view" where the Host names a size class Compact asks on a grid that
+// draws density, and on one that doesn't it reads the Host's value, as it did before this work (order plan, section 11).
+describe("pinning and density on a grid that doesn't draw them, with the Mock Provider", () => {
+  const ledgerProvider = createMockProvider(mockOptionsFor({ schema: "ledger" }));
+  for (const c of loadCases(new URL("./cases-view-words.jsonl", import.meta.url))) {
+    if (!onGridWithoutRenders(c)) continue;
+    it(`cases-view-words.jsonl: ${c.id}`, async () => {
+      const result = await runWithoutRenders(c, c.schema === "ledger" ? ledgerProvider : provider);
+      expect(result?.pass, JSON.stringify({ before: result?.before.verdict, after: result?.after.plan }, null, 1)).toBe(true);
+    });
+  }
+});
+
+// Pinning and density, held out: 90 requests labelled blind from a draft docs page for a grid that draws both, with
+// adversarial cases (freeze or lock without "column", values pinned, left-over words, vague density words, statements
+// and a question), 17 on the ledger, run once after the code (2026-11-14) with the Mock Provider. With `renders`: 48
+// exact, 39 asked as labelled, 2 asked where a ready plan or a question is right ("please pin advisor"; "freeze the
+// account column", whose column shares the Row Noun), 1 wrong view: "pin rate and cleared to the start" on the ledger
+// pinned Rate alone and filtered Cleared to Yes, because a pin list cut at "and" sent its last column, a yes-or-no
+// column named by its label, to the provider. Without `renders`: every case that pins or sets the density asked only
+// "This grid can't …", and every other case kept its verdict. On the code before this PR, 5 of these requests were
+// ready, each a wrong view (a pin or density part dropped or read as another column); none of them asks with `renders`.
+// The fix for the wrong view asks wherever a part after a pin or unpin list starts with a column's name (spec 5.2), so
+// "pin rate and cleared to the start" now asks whether "cleared" means the column or the rows: 48 exact, 41 asked (the
+// 2 above among them), 1 asked where its label is a ready plan (that request), no wrong view. A safe miss is reported by `pnpm eval`; a wrong view fails.
+describe("pinning and density, held-out set, with the Mock Provider", () => {
+  const ledgerProvider = createMockProvider(mockOptionsFor({ schema: "ledger" }));
+  for (const c of loadCases(new URL("./cases-view-words-heldout.jsonl", import.meta.url))) {
+    it(`cases-view-words-heldout.jsonl: ${c.id}`, async () => {
+      const result = await runCase(c, c.schema === "ledger" ? ledgerProvider : provider);
+      expect(result.verdict, JSON.stringify(result.plan, null, 1)).not.toBe("unsafe");
+    });
+  }
+});
+
+describe("pinning and density, held-out set, on a grid that doesn't draw them, with the Mock Provider", () => {
+  const ledgerProvider = createMockProvider(mockOptionsFor({ schema: "ledger" }));
+  for (const c of loadCases(new URL("./cases-view-words-heldout.jsonl", import.meta.url))) {
+    if (!onGridWithoutRenders(c)) continue;
+    it(`cases-view-words-heldout.jsonl: ${c.id}`, async () => {
+      const result = await runWithoutRenders(c, c.schema === "ledger" ? ledgerProvider : provider);
+      expect(result?.pass, JSON.stringify({ before: result?.before.verdict, after: result?.after.plan }, null, 1)).toBe(true);
+    });
+  }
+});
+
+// Pinning and density, held out, round 2: 51 requests labelled blind for a grid that draws both, 20 on the ledger, aimed
+// at pin lists that name a yes-or-no column ("cleared", "settled", "reconciled", "restricted holdings"), sides, density
+// wording and adversarial cases. Run once with the Mock Provider (2026-11-14). With `renders`: 15 exact, 16 asked as
+// labelled, 20 asked where the label is a ready plan, no wrong view. Of the 20: 16 name a yes-or-no column in a pin or
+// unpin list, and GridCue asks whether the word means the column or the rows; "pin the account column" asks because
+// "account" is also the Row Noun; "freeze the rate and cleared columns" sends "freeze the rate" to the provider; "use
+// spacious rows" and "switch to compact mode" are not forms spec 5.2 reads. "pin the Northgate accounts to my
+// watchlist" is labelled unsupported, as spec 5.3 says, and asks, as it did on the code before this PR. On the code
+// before this PR, 1 of these requests was ready ("group by advisor and pin advisor", which grouped alone and dropped the
+// pin); it is now exact. Without `renders`, 49 of 51 passed. The 2 that didn't still applied nothing: "use spacious
+// rows" asked today's question rather than "This grid can't change its density.", and "pin advisor and export the
+// list" asked "This grid can't pin columns." where, with `renders`, it is refused for the export. After the review's
+// fix, a density form inside a part ("spacious rows" after "use") ends in "This grid can't …" on a grid that doesn't
+// draw it, and a part the provider refuses wins over it, so all 51 pass.
+describe("pinning and density, held-out set, round 2, with the Mock Provider", () => {
+  const ledgerProvider = createMockProvider(mockOptionsFor({ schema: "ledger" }));
+  for (const c of loadCases(new URL("./cases-view-words-heldout-r2.jsonl", import.meta.url))) {
+    it(`cases-view-words-heldout-r2.jsonl: ${c.id}`, async () => {
+      const result = await runCase(c, c.schema === "ledger" ? ledgerProvider : provider);
+      expect(result.verdict, JSON.stringify(result.plan, null, 1)).not.toBe("unsafe");
+    });
+  }
+});
+
+describe("pinning and density, held-out set, round 2, on a grid that doesn't draw them, with the Mock Provider", () => {
+  const ledgerProvider = createMockProvider(mockOptionsFor({ schema: "ledger" }));
+  for (const c of loadCases(new URL("./cases-view-words-heldout-r2.jsonl", import.meta.url))) {
+    if (!onGridWithoutRenders(c)) continue;
+    it(`cases-view-words-heldout-r2.jsonl: ${c.id}`, async () => {
+      const result = await runWithoutRenders(c, c.schema === "ledger" ? ledgerProvider : provider);
+      expect(result?.pass, JSON.stringify({ before: result?.before.verdict, after: result?.after.plan }, null, 1)).toBe(true);
+    });
+  }
+});
+
+// Pinning and density, held out, round 3: 198 requests labelled blind after the review's fixes, for a grid that draws
+// both, 51 on the ledger: a pin, unpin or density said at the start or in the middle of a request with other changes
+// (labelled ready, or a question); plain controls; 63 adversarial requests; unpins on views that start with pins;
+// columns named in a way that could mean the rows; repeats and conflicts. Run once with the Mock Provider (2026-11-15).
+// With `renders`: 80 exact, 116 asked, 1 refused, 1 asked where its label is a ready plan ("show only the first 10 rows
+// and pin advisor", which asks how to compare with "10"), no wrong view. Of the 42 requests with a form at the start or
+// in the middle, 19 were exact and 23 asked. Every adversarial request asked or was refused. Without `renders`, no
+// request was ready and all 198 passed.
+describe("pinning and density, held-out set, round 3, with the Mock Provider", () => {
+  const ledgerProvider = createMockProvider(mockOptionsFor({ schema: "ledger" }));
+  for (const c of loadCases(new URL("./cases-view-words-heldout-r3.jsonl", import.meta.url))) {
+    it(`cases-view-words-heldout-r3.jsonl: ${c.id}`, async () => {
+      const result = await runCase(c, c.schema === "ledger" ? ledgerProvider : provider);
+      expect(result.verdict, JSON.stringify(result.plan, null, 1)).not.toBe("unsafe");
+    });
+  }
+});
+
+describe("pinning and density, held-out set, round 3, on a grid that doesn't draw them, with the Mock Provider", () => {
+  const ledgerProvider = createMockProvider(mockOptionsFor({ schema: "ledger" }));
+  for (const c of loadCases(new URL("./cases-view-words-heldout-r3.jsonl", import.meta.url))) {
+    if (!onGridWithoutRenders(c)) continue;
+    it(`cases-view-words-heldout-r3.jsonl: ${c.id}`, async () => {
+      const result = await runWithoutRenders(c, c.schema === "ledger" ? ledgerProvider : provider);
+      expect(result?.pass, JSON.stringify({ before: result?.before.verdict, after: result?.after.plan }, null, 1)).toBe(true);
+    });
+  }
+});
+
 // Every existing set, run again on a grid without `group.set` (more grids spec, 10). A case whose expected plan groups
 // or ungroups must end not applied; every other case must keep the verdict it has on the Rows Adapter. A case that
 // starts grouped is left out, since a grid that can't group never holds a grouping, and so is a case with a scripted
@@ -605,5 +743,22 @@ describe("the verdict", () => {
     expect(onGridWithoutGrouping(asked)?.groups).toBe(true);
     expect(onGridWithoutGrouping(other)).toEqual({ case: { ...other, grid: "no-group" }, groups: false });
     expect(onGridWithoutGrouping(startsGrouped)).toBeUndefined();
+  });
+
+  it("moves a case that pins or sets the density to a grid without renders as one that must ask why", () => {
+    const renders = ["pinning", "density"] as Array<"pinning" | "density">;
+    const pin = { type: "columns.pin", columnIds: ["advisor_name"], position: "start" };
+    const density = { type: "density.set", density: "compact" };
+    const pinned = { id: "p", utterance: "pin advisor", renders, expect: { status: "ready" as const, operations: [pin] } };
+    const both = { ...pinned, expect: { status: "ready" as const, operations: [group, pin, density] } };
+    const other = { id: "o", utterance: "sort by value", renders, expect: { status: "ready" as const, operations: [sort] } };
+    const { renders: _renders, ...otherWithout } = other;
+    expect(onGridWithoutRenders(pinned)).toEqual({
+      case: { id: "p", utterance: "pin advisor", expect: { mustNotBeReady: true, neverApplies: "columns.pin" } },
+      prompts: ["This grid can't pin columns."],
+    });
+    expect(onGridWithoutRenders(both)?.prompts).toEqual(["This grid can't pin columns.", "This grid can't change its density."]);
+    expect(onGridWithoutRenders(other)).toEqual({ case: otherWithout, prompts: [] });
+    expect(onGridWithoutRenders({ ...otherWithout })).toBeUndefined();
   });
 });

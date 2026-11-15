@@ -1,5 +1,6 @@
 import type { ApplyResult, GridAdapter } from "./adapter";
 import { MVP_OPERATIONS } from "./adapter";
+import { GridCueError } from "./errors";
 import { isEmpty, matchesFilter } from "./evaluate";
 import { emptyViewState, type Scalar, type VersionedViewState, type ViewSchema, type ViewState } from "./protocol";
 import { isApplicable, resultingState } from "./validate";
@@ -9,6 +10,14 @@ export interface RowsAdapterOptions {
   initialState?: ViewState;
   maxSorts?: number;
   maxGroups?: number;
+  /**
+   * What the Host's table draws from `applyView`'s result beyond its rows and columns (operation set spec, 4.2; ADR
+   * 0029): `"pinning"` when it keeps `pinned` columns in place, `"density"` when it sets its row height from `density`.
+   * The adapter lists `columns.pin` and `density.set` only for what this names. The default is none, and a request for
+   * either then asks "This grid can't …" and changes nothing. Name only what the table draws: GridCue can't check it.
+   * Any other name throws `INPUT_CONFIG`.
+   */
+  renders?: ReadonlyArray<"pinning" | "density">;
 }
 
 export interface RowsAdapter extends GridAdapter {
@@ -16,8 +25,35 @@ export interface RowsAdapter extends GridAdapter {
   setState(update: (state: ViewState) => ViewState): VersionedViewState;
 }
 
+/** The operation each `renders` name lets the Rows Adapter list. */
+const RENDERED = { pinning: "columns.pin", density: "density.set" } as const;
+
+/**
+ * The operations a Rows Adapter's `renders` lists. Every name it doesn't take throws, "totals" included, which the Rows
+ * Adapter doesn't list yet: an adapter that took it and listed nothing would read as support.
+ */
+const renderedOperations = (renders: unknown): string[] => {
+  if (renders === undefined) return [];
+  if (!Array.isArray(renders)) throw new GridCueError("INPUT_CONFIG", "renders must be a list, such as [“pinning”, “density”].");
+  for (const name of renders) {
+    if (name === "pinning" || name === "density") continue;
+    if (name === "count") {
+      throw new GridCueError("INPUT_CONFIG", "renders names “count”: the Rows Adapter keeps a count with no option. Leave it out.");
+    }
+    if (name === "totals") {
+      throw new GridCueError("INPUT_CONFIG", "renders names “totals”, which the Rows Adapter can't list yet. Leave it out.");
+    }
+    throw new GridCueError(
+      "INPUT_CONFIG",
+      `renders names “${String(name)}”, which the Rows Adapter doesn't take. It takes “pinning” and “density”.`,
+    );
+  }
+  return (Object.keys(RENDERED) as Array<keyof typeof RENDERED>).filter((name) => renders.includes(name)).map((name) => RENDERED[name]);
+};
+
 /** A Grid Adapter for Hosts that keep rows in memory. Pair it with `applyView` and any table. */
 export const createRowsAdapter = (options: RowsAdapterOptions): RowsAdapter => {
+  const rendered = renderedOperations(options.renders);
   const defaultState = structuredClone(options.initialState ?? emptyViewState(options.schema.columns.map((c) => c.id)));
   let n = 0;
   let current: VersionedViewState = { revision: `rows:${n}`, state: structuredClone(defaultState) };
@@ -31,7 +67,7 @@ export const createRowsAdapter = (options: RowsAdapterOptions): RowsAdapter => {
     getSchema: () => options.schema,
     getCapabilities: () => ({
       // The rows are all in memory, so a count ("top 10") is exact here (ADR 0018).
-      operations: [...MVP_OPERATIONS, "limit.set"],
+      operations: [...MVP_OPERATIONS, "limit.set", ...rendered],
       maxSorts: options.maxSorts ?? 3,
       maxGroups: options.maxGroups ?? 2,
       supportsAtomicApply: true,
@@ -57,13 +93,32 @@ export const createRowsAdapter = (options: RowsAdapterOptions): RowsAdapter => {
 };
 
 export interface ViewResult<Row> {
-  /** Visible column IDs, in display order. */
+  /**
+   * Visible column IDs, in display order: the columns pinned to the start first, in their pin order, then the others in
+   * the column order, then the columns pinned to the end, in their pin order.
+   */
   columns: string[];
+  /**
+   * The visible columns pinned to the start and to the end, each in its pin order, for the Host to keep in place while
+   * the rest scroll. A hidden pinned column is in neither: it keeps its pin in the View State and shows again with it.
+   */
+  pinned: { start: string[]; end: string[] };
+  /** The row height the view asks for, for the Host to draw. */
+  density: ViewState["density"];
   /** Filtered and sorted rows. */
   rows: Row[];
   /** Present when the view is grouped: one entry per distinct key, in first-seen order. */
   groups?: Array<{ key: Record<string, Scalar>; rows: Row[] }>;
 }
+
+/** The visible columns in display order, and which of them are pinned (operation set spec, 5.3). */
+const placeColumns = (state: ViewState): Pick<ViewResult<never>, "columns" | "pinned"> => {
+  const visible = state.columnOrder.filter((id) => state.visibleColumnIds.includes(id));
+  const start = [...new Set(state.pinnedColumnIds.start)].filter((id) => visible.includes(id));
+  const end = [...new Set(state.pinnedColumnIds.end)].filter((id) => visible.includes(id) && !start.includes(id));
+  const middle = visible.filter((id) => !start.includes(id) && !end.includes(id));
+  return { columns: [...start, ...middle, ...end], pinned: { start, end } };
+};
 
 const compareValues = (a: unknown, b: unknown): number => {
   if (a === b) return 0;
@@ -100,8 +155,8 @@ export const applyView = <Row extends object>(rows: readonly Row[], state: ViewS
           return !isEmpty(v) && !Number.isNaN(v);
         });
   const limited = state.limit === undefined ? sorted : counted.slice(0, state.limit);
-  const columns = state.columnOrder.filter((id) => state.visibleColumnIds.includes(id));
-  if (state.groupBy.length === 0) return { columns, rows: limited };
+  const placed = { ...placeColumns(state), density: state.density };
+  if (state.groupBy.length === 0) return { ...placed, rows: limited };
   const groups = new Map<string, { key: Record<string, Scalar>; rows: Row[] }>();
   for (const row of limited) {
     const key = Object.fromEntries(state.groupBy.map((id) => [id, (cell(row, id) ?? null) as Scalar]));
@@ -110,5 +165,5 @@ export const applyView = <Row extends object>(rows: readonly Row[], state: ViewS
     group.rows.push(row);
     groups.set(k, group);
   }
-  return { columns, rows: limited, groups: [...groups.values()] };
+  return { ...placed, rows: limited, groups: [...groups.values()] };
 };

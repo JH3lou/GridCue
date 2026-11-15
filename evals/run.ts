@@ -24,15 +24,33 @@ import { type EvalLocalValues, ledgerLocalValues, wealthLocalValues } from "./lo
 export interface EvalCase {
   id: string;
   utterance: string;
-  /** Starts the grid from this view instead of the default, e.g. already grouped by custodian, or showing a count. */
-  state?: Partial<Pick<ViewState, "groupBy" | "sorts" | "filters" | "limit">>;
+  /**
+   * Starts the grid from this view instead of the default, e.g. already grouped by custodian, showing a count, with
+   * pinned columns, or with a column hidden.
+   */
+  state?: Partial<Pick<ViewState, "groupBy" | "sorts" | "filters" | "limit" | "pinnedColumnIds" | "visibleColumnIds" | "density">>;
   /**
    * Runs on another schema instead of the wealth fixture: "dated" for cases about dates, "group-names" for a schema
-   * where "group" is part of a value and of a column's label, "ledger" for the ledger fixture (fixtures/ledger).
+   * where "group" is part of a value and of a column's label, "form-words" for a schema whose names hold the pin and
+   * density form words ("Pin code", "Compact"), "ledger" for the ledger fixture (fixtures/ledger).
    */
-  schema?: "dated" | "group-names" | "ledger";
+  schema?: "dated" | "group-names" | "form-words" | "ledger";
   /** "no-group" runs on a grid that doesn't list `group.set` (more grids spec, 5.3). */
   grid?: "no-group";
+  /**
+   * What the Host's table draws, as the adapter's `renders` option says it (operation set spec, 4.2): a case with it
+   * runs on a Rows Adapter built with that `renders`, which lists `columns.pin` and `density.set`. A case without it
+   * runs on a grid that lists neither, as before. Every pin and density case is labelled for a grid that draws both.
+   * `onGridWithoutRenders` derives the same case's result on a grid without it.
+   */
+  renders?: Array<"pinning" | "density">;
+  /**
+   * With `renders`: what the same request must read on a grid without it, where that is not derived from `expect`. One
+   * kind of case needs it (order plan, section 11): words that are a pin or density form but for a name of the Host's
+   * ("compact view" where the Host names a size class Compact). On a grid that draws density they are in doubt and
+   * ask; on a grid that doesn't, they can only be the Host's value, and read as they did before density was read.
+   */
+  withoutRenders?: EvalCase["expect"];
   /**
    * Runs on a schema that declares its House Terms (evals/house-terms.ts): the wealth fixture's or the ledger's. Only
    * those two schemas declare terms. A case without it runs on the schema as the fixture defines it.
@@ -121,6 +139,37 @@ const groupNamesOptions: SchemaOptions = {
 };
 
 /**
+ * Vehicles whose names hold the pin and density form words (operation set spec, 5.2): a "Pin code" column, and a size
+ * class called "Compact". A Host's name is a Mention first, so "pin code" and "compact view" are not read as a pin or a
+ * density here; the provider gets the part, as before. Its rows are never read: a case judges the plan, not the rows.
+ */
+const formWordsColumns: ColumnInput[] = [
+  { id: "unit_number", label: "Unit number" },
+  { id: "pin_code", label: "Pin code" },
+  { id: "depot", label: "Depot" },
+  { id: "size_class", label: "Size class" },
+  { id: "mileage", label: "Mileage" },
+];
+const formWordsOptions: SchemaOptions = {
+  id: "fleet-units",
+  version: "1",
+  rowNoun: "vehicle",
+  columns: {
+    unit_number: { aliases: ["unit"] },
+    size_class: {
+      kind: "enum",
+      aliases: ["size"],
+      enumValues: [
+        { id: "compact", label: "Compact" },
+        { id: "midsize", label: "Midsize" },
+        { id: "full_size", label: "Full-size" },
+      ],
+    },
+    mileage: { kind: "number" },
+  },
+};
+
+/**
  * Every schema a case can run on, built as a Host would build it: by its name, with its House Terms when the case says
  * `terms`, and with the fixed Calendar of `evals/clock.ts` when it runs at the fixed clock. Each is built once.
  */
@@ -135,9 +184,11 @@ const schemaOf = (name: EvalCase["schema"], terms: boolean, calendar: boolean): 
       ? [datedColumns, datedOptions]
       : name === "group-names"
         ? [groupNamesColumns, groupNamesOptions]
-        : name === "ledger"
-          ? [ledgerColumns, { ...ledgerSchemaOptions, ...(terms ? { houseTerms: ledgerHouseTerms } : {}) }]
-          : [wealthColumns, { ...wealthSchemaOptions, ...(terms ? { houseTerms: wealthHouseTerms } : {}) }];
+        : name === "form-words"
+          ? [formWordsColumns, formWordsOptions]
+          : name === "ledger"
+            ? [ledgerColumns, { ...ledgerSchemaOptions, ...(terms ? { houseTerms: ledgerHouseTerms } : {}) }]
+            : [wealthColumns, { ...wealthSchemaOptions, ...(terms ? { houseTerms: wealthHouseTerms } : {}) }];
   const schema = defineSchema(columns, { ...options, ...dated });
   SCHEMAS.set(key, schema);
   return schema;
@@ -282,12 +333,15 @@ export const runCase = async (
   const clock = clockFor(c) ?? (options.calendar ? { now: evalNow, calendar: EVAL_CALENDAR } : undefined);
   // A case's state is the view the User is looking at. The default view, which a reset returns to, stays the fixture's.
   const schema = clock || terms ? schemaOf(c.schema, terms, !!clock) : undefined;
+  // A case with `renders` runs on a Rows Adapter that lists what it names; a case without it, on one that lists neither
+  // `columns.pin` nor `density.set`, as before.
+  const renders = c.renders ? { renders: c.renders } : {};
   const rows =
-    c.schema === "dated" || c.schema === "group-names"
-      ? createRowsAdapter({ schema: schema ?? schemaOf(c.schema, false, false) })
+    c.schema === "dated" || c.schema === "group-names" || c.schema === "form-words"
+      ? createRowsAdapter({ schema: schema ?? schemaOf(c.schema, false, false), ...renders })
       : c.schema === "ledger"
-        ? createRowsAdapter({ schema: schema ?? ledgerSchema, initialState: ledgerInitialState })
-        : createRowsAdapter({ schema: schema ?? wealthSchema, initialState: wealthInitialState });
+        ? createRowsAdapter({ schema: schema ?? ledgerSchema, initialState: ledgerInitialState, ...renders })
+        : createRowsAdapter({ schema: schema ?? wealthSchema, initialState: wealthInitialState, ...renders });
   const adapter = c.grid === "no-group" ? withoutGrouping(rows) : rows;
   if (c.state) adapter.setState((view) => ({ ...view, ...c.state }));
   const answer = c.providerAnswer;
@@ -337,4 +391,57 @@ export const runWithoutGrouping = async (c: EvalCase, provider: IntentProvider) 
   const after = await runCase(moved.case, provider);
   const pass = moved.groups ? after.verdict !== "unsafe" : after.verdict === before.verdict;
   return { id: c.id, groups: moved.groups, pass, before, after };
+};
+
+/** The one question a grid asks for a change its Host's table doesn't draw (operation set spec, 4.2 and 5.3; D3). */
+export const CANT_PROMPTS = {
+  "columns.pin": "This grid can't pin columns.",
+  "density.set": "This grid can't change its density.",
+} as const;
+
+/**
+ * A case labelled for a grid that draws pins and density, moved to a grid without `renders` (operation set spec, 5.3),
+ * with its expected result derived the way `onGridWithoutGrouping` derives grouping's. A case whose expected plan holds
+ * `columns.pin` or `density.set` must end not applied, asking only "This grid can't pin columns." or "This grid can't
+ * change its density.", one for each kind of change it holds. Every other case keeps its label, and must keep the
+ * verdict it has with `renders`. A case without `renders` already runs on such a grid: returns `undefined` for it.
+ */
+export const onGridWithoutRenders = (c: EvalCase): { case: EvalCase; prompts: string[]; exact?: true } | undefined => {
+  if (!c.renders) return undefined;
+  const { renders: _renders, withoutRenders, ...moved } = c;
+  // A case that says what it reads without `renders` is held to that, exactly.
+  if (withoutRenders) return { case: { ...moved, expect: withoutRenders }, prompts: [], exact: true };
+  const types = new Set((c.expect.operations ?? []).map((op) => (op as { type: string }).type));
+  const kinds = (["columns.pin", "density.set"] as const).filter((type) => types.has(type));
+  const prompts = kinds.map((type) => CANT_PROMPTS[type]);
+  // Any ready plan is a wrong view here; whether it asks the right question is checked apart, by `runWithoutRenders`.
+  const expect = kinds[0] ? { mustNotBeReady: true, neverApplies: kinds[0] } : c.expect;
+  return { case: { ...moved, expect }, prompts };
+};
+
+/**
+ * Runs a case labelled for a grid that draws pins and density, with its `renders` and without. A case whose expected
+ * plan pins or sets the density passes when, without `renders`, nothing applies and every question it asks is one of
+ * its "This grid can't …" questions, with no choices. One labelled `alsoAcceptsAsk` that already asked with `renders`
+ * also passes when it still asks without. A case that says what it reads without `renders` (`withoutRenders`) passes
+ * when it reads exactly that. Any other case passes when its verdict is the same on both grids.
+ */
+export const runWithoutRenders = async (c: EvalCase, provider: IntentProvider) => {
+  const moved = onGridWithoutRenders(c);
+  if (!moved) return undefined;
+  const before = await runCase(c, provider);
+  const after = await runCase(moved.case, provider);
+  const asked = after.plan?.clarifications ?? [];
+  const cant =
+    after.status === "needs_clarification" &&
+    (after.plan?.unsupportedSegments.length ?? 0) === 0 &&
+    asked.length > 0 &&
+    asked.every((q) => moved.prompts.includes(q.prompt) && (q.options?.length ?? 0) === 0);
+  const pass =
+    moved.prompts.length > 0
+      ? cant || (!!c.alsoAcceptsAsk && before.status !== "ready" && after.status !== "ready")
+      : moved.exact
+        ? after.verdict === "exact"
+        : after.verdict === before.verdict;
+  return { id: c.id, needsRenders: moved.prompts.length > 0, cant, pass, before, after };
 };

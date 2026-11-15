@@ -101,46 +101,47 @@ Spec 4.1 (count forms only), 5.1, 5.2 (count rows). ADR 0027, without the TanSta
 Spec 4.1 to 4.5 (pin and density rows), 5.2, 5.3, 9. ADR 0028, and ADR 0029's pinning and density half.
 
 ### Task 2.1: Prototype the grid (Sonnet)
-- [ ] One throwaway HTML page, outside the repo: a wide grid with two start-pinned columns and one end-pinned column, scrolled; all three densities; a group row and a footer with totals; the count caption. Light and dark, with the exact values in spec section 9.
+- [x] One throwaway HTML page, outside the repo: a wide grid with two start-pinned columns and one end-pinned column, scrolled; all three densities; a group row and a footer with totals; the count caption. Light and dark, with the exact values in spec section 9.
 - [ ] The owner looks at it. Changes go into spec section 9 before any grid code. This covers PR 3's and PR 4's grid changes too.
 
 ### Task 2.2: Label the pin and density cases (Sonnet)
 **Files:** new `evals/cases-view-words.jsonl`; a held-out set outside the repo.
-- [ ] Dev: 40, with 10 adversarial: workflow verbs ("pin to my watchlist", "freeze the account", "lock the Alder household"), values that aren't columns ("pin the Northgate accounts"), a Host label that contains a form word, relative density words.
-- [ ] Held-out: 40, the same mix, written from the draft docs page alone.
-- [ ] Baseline with the Mock Provider, with and without `renders`.
+- [x] Dev: 40, with 10 adversarial: workflow verbs ("pin to my watchlist", "freeze the account", "lock the Alder household"), values that aren't columns ("pin the Northgate accounts"), a Host label that contains a form word, relative density words.
+- [x] Held-out: 40, the same mix, written from the draft docs page alone.
+- [x] Baseline with the Mock Provider, with and without `renders`.
 
 ### Task 2.3: Words, validation, reducer, Preview (Opus)
 **Files:** `core/view-words.ts`, `core/compile.ts`, `core/reduce.ts`, `core/validate.ts`, `core/preview.ts`, `core/schema.ts`, tests.
-- [ ] Tests first: each pin, unpin and density form in spec 5.2, each with one leftover word; each validation row for pins in spec 4.4; "Unpin all columns".
-- [ ] The reducer removes a column from both pin lists before adding it.
-- [ ] "Pin X" on a hidden column adds "Show X" first.
-- [ ] `DEFAULT_CAPABILITIES` gains `"pin"`. A request for an operation the adapter doesn't list ends in "This grid can't …", with no choices and nothing applied, through the shared code that more grids' `fix/grid-cant-group` adds first (order plan). It is not an Unsupported Segment.
-- [ ] `ViewDiff.pinsChanged`, `densityChanged`.
-- [ ] Bars: 0 wrong views on the dev set and on every existing set; the payload test unchanged.
+- [x] Tests first: each pin, unpin and density form in spec 5.2, each with one leftover word; each validation row for pins in spec 4.4; "Unpin all columns".
+- [x] The reducer removes a column from both pin lists before adding it.
+- [x] "Pin X" on a hidden column adds "Show X" first.
+- [x] `DEFAULT_CAPABILITIES` gains `"pin"`. A request for an operation the adapter doesn't list ends in "This grid can't …", with no choices and nothing applied, through the shared code that more grids' `fix/grid-cant-group` adds first (order plan). It is not an Unsupported Segment.
+- [x] `ViewDiff.pinsChanged`, `densityChanged`.
+- [x] Bars: 0 wrong views on the dev set and on every existing set; the payload test unchanged.
 
 ### Task 2.4: Both adapters and the contract suite (Opus)
 **Files:** `core/rows-adapter.ts`, `tanstack/index.ts`, `test/adapter-contract.ts`, `test/rows-adapter.test.ts`, `test/tanstack.test.ts`. Needs 2.3.
-- [ ] Tests first: the suite's "does not advertise" check becomes "lists each only when `renders` names it". For each listed operation: apply, read back, restore, undo, one notification per apply. `limit.set` gets the same checks. Each adapter runs the suite with and without `renders`.
-- [ ] `renders` on both adapters. `ViewResult.pinned` and `density`; `columns` in pinned order.
-- [ ] TanStack: `setColumnPinning` and `columnPinning` on `TanStackTableLike`; density held by the adapter and read back; a manual pin reported as a change. `INPUT_CONFIG` when `"pinning"` is named and the table has no `setColumnPinning`.
+- [x] Tests first: the suite's "does not advertise" check becomes "lists each only when `renders` names it". For each listed operation: apply, read back, restore, undo, one notification per apply. `limit.set` gets the same checks. Each adapter runs the suite with and without `renders`.
+- [x] `renders` on both adapters. `ViewResult.pinned` and `density`; `columns` in pinned order.
+- [x] TanStack: `setColumnPinning` and `columnPinning` on `TanStackTableLike`; density held by the adapter and read back; a manual pin reported as a change. `INPUT_CONFIG` when `"pinning"` is named and the table has no `setColumnPinning`.
 
 ### Task 2.5: Held-out run (lead)
-- [ ] One run of the held-out set, with and without `renders`. Bar: 0 wrong views; every adversarial case asks or is refused. Report exact share and the unread wordings that recurred.
-- [ ] It joins the repo as `evals/cases-view-words-heldout.jsonl`.
+- [x] One run of the held-out set, with and without `renders`. Bar: 0 wrong views; every adversarial case asks or is refused. Report exact share and the unread wordings that recurred.
+- [x] It joins the repo as `evals/cases-view-words-heldout.jsonl`.
 
 ### Task 2.6: Grids, examples, Site, skill (Sonnet)
 **Files:** `apps/site/app/components/demo/wealth-table.tsx`, `use-wealth-demo.ts`, `apps/site/app/app.css`, `examples/vite/src/`, `examples/next/app/accounts-view.tsx`, `page.css`, Site docs, `skills/gridcue/SKILL.md`. Needs 2.1 and 2.4.
 - [ ] The Site demo and the Vite example register `columnPinningFeature`, turn on `renders: ["pinning", "density"]`, and draw them with spec section 9's values. The Next.js example does the same with the Rows Adapter.
 - [ ] Real-browser check in all three, light and dark, with a horizontally scrolled table. Before and after screenshots.
-- [ ] Site: `concepts/views`, `concepts/requests`, `api/adapters` (`renders`), `api/schema` (defaults), `guides/build-an-adapter` (the contract suite), `guides/vite-tanstack`, `guides/next-rows-adapter`.
-- [ ] `skills/gridcue`: the view includes pins and density; set `renders` only for what the table draws. `pnpm check:skills`.
-- [ ] `docs/internals/product.md` (lines 52 to 56 and 162), `docs/internals/intent-protocol.md`, and the four bets spec for pins and density: line 56, and 5.3's `unsaid` list and sentence order. The four bets plan's tasks 2.4, 3.2 and 4.2 gain pins and density (order plan, section 6). Changelog (Haiku).
+- [x] Site: `concepts/views`, `concepts/requests`, `api/adapters` (`renders`), `api/schema` (defaults), `guides/build-an-adapter` (the contract suite), `guides/vite-tanstack`, `guides/next-rows-adapter`.
+- [x] `skills/gridcue`: the view includes pins and density; set `renders` only for what the table draws. `pnpm check:skills`.
+- [x] `docs/internals/product.md` (lines 52 to 56 and 162), `docs/internals/intent-protocol.md`, and the four bets spec for pins and density: line 56, and 5.3's `unsaid` list and sentence order. The four bets plan's tasks 2.4, 3.2 and 4.2 gain pins and density (order plan, section 6). Changelog (Haiku).
 
 ### Task 2.7: Review (Opus), then gate
-- [ ] The reviewer hunts for a workflow phrase that reads as a pin, and a listed operation the Host's table might not draw.
-- [ ] The browser bundle check: nothing from `gridcue/server` is reachable.
-- [ ] `pnpm lint`, `pnpm check`.
+- [x] The reviewer hunts for a workflow phrase that reads as a pin, and a listed operation the Host's table might not draw.
+- [x] A third blind held-out round after the review's fixes (order plan, section 11): 198 cases, 0 wrong views on its first run, with `renders` and without. It joined the repo as `evals/cases-view-words-heldout-r3.jsonl`.
+- [x] The browser bundle check: nothing from `gridcue/server` is reachable.
+- [x] `pnpm lint`, `pnpm check`.
 
 ## PR 3: Totals and one group order (`feat/totals`)
 

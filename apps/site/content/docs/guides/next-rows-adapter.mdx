@@ -120,6 +120,8 @@ export function AccountsView({ rows }: { rows: Account[] }) {
 | --- | --- |
 | `columns` | Visible column IDs, in display order |
 | `rows` | The filtered and sorted rows |
+| `pinned` | The visible columns pinned to the start and to the end, `{ start, end }`, each in its pin order |
+| `density` | `"compact"`, `"comfortable"` or `"spacious"` |
 | `groups` | Present only when the view is grouped: one entry per distinct key, `{ key, rows }`, in first-seen order |
 
 To render groups, loop over `view.groups` when it is set and render each group's `rows`, as `examples/next` does. GridCue groups rows; it does not compute totals.
@@ -141,7 +143,19 @@ adapter.setState((s) => ({ ...s, sorts: [{ columnId: "market_value", direction: 
 
 A pending Preview built on the old Revision is then refused instead of overwriting the User's change.
 
-`createRowsAdapter` also takes `maxSorts` (default 3) and `maxGroups` (default 2). `initialState` is what "reset the view" returns to.
+`createRowsAdapter` also takes `maxSorts` (default 3), `maxGroups` (default 2) and `renders`. `initialState` is what "reset the view" returns to.
+
+### Pinning and density
+
+GridCue can pin columns and set the density, when your table draws them. The adapter lists those two operations only when you say so with `renders`, and the default is none: "pin account number" then asks "This grid can't pin columns." and changes nothing. The Rows Adapter hands your table what to draw in `view.pinned` and `view.density`, and `view.columns` already puts the start-pinned columns first and the end-pinned ones last.
+
+Turn on only what your table draws. Pins need your markup to keep those columns in place while the rest scroll. Density needs your own row height and cell spacing:
+
+```tsx
+const adapter = createRowsAdapter({ schema, initialState, renders: ["pinning", "density"] });
+```
+
+GridCue can't see what your markup draws. A Host that names one it doesn't draw gets a Preview and "View updated." with nothing to see. See [Adapters](/docs/api/adapters#renders).
 
 ## Let a request name a value
 
