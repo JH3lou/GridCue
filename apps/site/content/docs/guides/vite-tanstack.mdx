@@ -127,7 +127,7 @@ const table = useTable({
 createTanStackAdapter({ schema, table, renders: ["totals"] });
 ```
 
-`renders: ["totals"]` throws `INPUT_CONFIG` when it can see a missing piece: no `rowAggregationFeature`, or a column that doesn't use the two functions. Leave `aggregationFn` and `getAggregationValue` out of the columns' own definitions. A column you add or redefine after the adapter is made isn't checked. GridCue can't see whether your markup draws a total. See [`gridcueAggregationFn`](/docs/api/adapters#gridcueaggregationfn).
+`renders: ["totals"]` throws `INPUT_CONFIG` when it can see a missing piece: no `rowAggregationFeature`, a column the schema lets GridCue total that the table lacks, or a column that doesn't use the two functions. Leave `aggregationFn` and `getAggregationValue` out of the columns' own definitions. A column you add or redefine after the adapter is made isn't checked. GridCue can't see whether your markup draws a total. See [`gridcueAggregationFn`](/docs/api/adapters#gridcueaggregationfn).
 
 ### Show only the first rows
 
@@ -151,6 +151,7 @@ The table then shows the first rows of the view: sorted with GridCue's own compa
 
 - **`renders: ["count"]` throws `INPUT_CONFIG`** when the table sets `manualPagination`, `manualSorting`, `manualFiltering` or `manualGrouping`, since a table that pages on a server holds one page, and the first rows of a page are not the first rows of the view. It throws on a table with `getSubRows` too, since a count would keep each row with all of its sub-rows. It also throws when the table's `filteredRowModel` is not `gridcueCountRowModel(…)` or the table has no `gridcueCountFeature`, and on `useLegacyTable`, which builds its own row model.
 - **A manual setting or `getSubRows` turned on later stops the count.** The table shows every row it holds, the View State has no count, and "top 10" sorts with a note that the count isn't applied. A pending Preview is refused, and a write of a count fails and changes nothing.
+- **The rows a count keeps are picked with GridCue's comparison, before TanStack sorts them.** So they need not be the first rows your table shows with no count on a column with its own `sortFn`, or with a null in a later sorted number column, which TanStack reads as 0.
 - **Say the count in your markup.** `rowsBeforeCount(table)?.rows.length` is the number of rows before the count, for a caption such as "First 10 of 48 rows". GridCue can't see whether your markup shows the table's rows.
 - **After a count, a change to the sort or the filters asks first.** "Sort by advisor" asks "Keep only the first 10 rows of the new view, or show every row?", as on the Rows Adapter.
 

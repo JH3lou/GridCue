@@ -370,7 +370,7 @@ const adapter = createTanStackAdapter({ schema, table, renders: ["count"] });
 - **`createTanStackAdapter` throws `INPUT_CONFIG`** when `renders` names `"count"` and it can see a missing piece: the table's `filteredRowModel` is not `gridcueCountRowModel(…)`, or the table has no `gridcueCountFeature`. It reads the table's options as they are when the adapter is created. A table whose options the adapter can't read is refused as if the piece were missing.
 - **It can't take `useLegacyTable`,** which builds its own filtered row model. Move the table to `useTable`: see [TanStack Table v8](/docs/guides/tanstack-v8).
 - **The adapter draws nothing.** Your table shows the rows it holds, and your own words, such as "First 10 of 48 rows", tell the User the rest are not gone. GridCue can't check that your markup shows the table's rows, so name `"count"` only when it does.
-- **Where the two adapters differ.** With a count, both keep the same rows, grouped and not. The [five differences](#where-the-two-adapters-differ) stay as they were: they change how rows are ordered or grouped, never which rows a count keeps.
+- **Where the two adapters differ.** With a count, both keep the same rows, grouped and not. The [five differences](#where-the-two-adapters-differ) stay as they were: they change how rows are ordered or grouped, never which rows a count keeps. The count picks its rows with GridCue's comparison, before TanStack sorts them, so they need not be the first rows your table shows with no count on a column with its own `sortFn`, or with a null in a later sorted number column, which TanStack reads as 0.
 
 ## gridcueFilterFn
 
