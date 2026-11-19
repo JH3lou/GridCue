@@ -108,7 +108,7 @@ const verbFamily = (verb: string): string =>
  */
 /** Words that name rows and nothing else: "accounts", "the rows", "all those records". */
 const ROWS_ONLY = /^(?: (?:the|all|any|those|these|rows?|records?|ones|[a-z]+s))+ ?$/;
-const splitMidLine = (part: string, rows: RegExp): string[] => {
+const splitMidLine = (part: string): string[] => {
   const out: string[] = [];
   const bare = unquoted(part);
   let start = 0;
@@ -127,12 +127,13 @@ const splitMidLine = (part: string, rows: RegExp): string[] => {
     )
       continue;
     if (verbFamily(last[1] ?? "") === verbFamily(next)) continue;
-    // "Hide accounts where gain is below $0": the "where" says which rows to leave out, so it stays one part. So does
-    // "hide Northgate accounts where …" and "remove cleared entries where …", whose word before "where" is a row word;
-    // core asks about them.
-    const leave = [...before.matchAll(/\b(?:hide|exclude|remove|drop)\b/g)].at(-1);
-    const rest = before.slice((leave?.index ?? 0) + (leave?.[0].length ?? 0));
-    if (next === "where" && leave && (ROWS_ONLY.test(rest) || rows.test(rest.trimEnd()))) continue;
+    // "Hide accounts where gain is below $0": the "where" says which rows to leave out, so it stays one part.
+    if (
+      next === "where" &&
+      /^(?:hide|exclude|remove|drop)$/.test(last[1] ?? "") &&
+      ROWS_ONLY.test(before.slice((last.index ?? 0) + last[0].length))
+    )
+      continue;
     out.push(part.slice(start, at));
     start = at + 1;
   }
@@ -458,19 +459,13 @@ const splitKeep = (part: string): string[] => {
   return keep ? [part.slice(0, offset + keep.index), KEPT + part.slice(offset + keep.index + keep[0].length)] : [part];
 };
 
-/**
- * Deterministically splits a request into clauses and extracts literals code handles better than a model. `rowNoun`
- * is the schema's, so "hide pending entries where …" stays one part on a grid of entries, and core asks about it.
- */
-export const normalize = (raw: string, rowNoun?: string): NormalizedInput => {
+/** Deterministically splits a request into clauses and extracts literals code handles better than a model. */
+export const normalize = (raw: string): NormalizedInput => {
   const text = cleanText(raw);
-  const noun = rowNoun?.toLowerCase().replace(/[^\p{L}\p{N} ]/gu, "");
-  // The row words: rows, records, ones, and the schema's row noun with its plural ("entry", "entries").
-  const rows = new RegExp(` (?:rows?|records?|ones${noun ? `|${noun}(?:s|es)?|${noun.replace(/y$/, "ies")}` : ""})$`);
   // "group by account type, then by advisor": the second part leaves out its verb and continues the first.
   let levelVerb: string | undefined;
   const parts = splitOutsideQuotes(text)
-    .flatMap((p) => splitMidLine(p, rows))
+    .flatMap(splitMidLine)
     .map((p) =>
       p
         .trim()
