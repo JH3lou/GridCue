@@ -487,7 +487,7 @@ In the second table, the first five were found by the text-forms PR's reviews (w
 
 With this fix in, the can't-group question can narrow back to the grouping verb (more grids spec 5.3).
 
-**B. The TanStack Table adapter says a view applied that the table doesn't show.** The first four were found by the v8 guide's review; the guide and the skill give a workaround for each. The next five were found by the totals PR's rendered-rows test and its review, and the last two by the TanStack counts PR's. Each is older than totals, the test counts five of them, and ADR 0030 and the adapters page list them. One fix for the first two would be a GridCue sort function the Host registers, as it registers the filter function.
+**B. The TanStack Table adapter says a view applied that the table doesn't show.** The first four were found by the v8 guide's review; the guide and the skill give a workaround for each. The next five were found by the totals PR's rendered-rows test and its review, and the last two by the TanStack counts PR's. The two rows at the end of the table were found by the review of the totals PR and the check of its fixes. Each is older than totals, the test counts five of them, and ADR 0030 and the adapters page list them. One fix for the first two would be a GridCue sort function the Host registers, as it registers the filter function.
 
 | Table setup | Today |
 | --- | --- |
@@ -502,6 +502,8 @@ With this fix in, the can't-group question can narrow back to the grouping verb 
 | `null` and missing cells mixed in one sorted column, in the Rows Adapter | The comparison is inconsistent for that pair, so the row order, and the rows a count keeps, depend on the order the rows arrived in |
 | A `null` beside a `0` in a sorted number column | TanStack's basic sort reads `null` as 0 one way and not the other, so rows that hold values are drawn out of order. With zeros put beside the nulls, 13 of 500 seeded wealth views and 4 of 500 ledger views. A count keeps the same rows either way |
 | A count on a column with the Host's own `sortFn`, or a later sorted number column holding `null` | The count keeps the rows GridCue's comparison puts first, and the table draws them in its own order, so they need not be the first rows the table would show with no count |
+| A schema column the table doesn't have | A sort or a filter on it says "View updated." and the rows don't change. A total on such a column now fails at setup with `INPUT_CONFIG`; the same check for sorts and filters is a setup-wide rule, so it waits for the owner |
+| A footer total on an ungrouped view, when the Host gives the table a column order that never changes and no handler for it | The table doesn't draw again, so the footer keeps the old total while the View State holds the new one. On a grouped view the same Host now gets a failed apply and "Nothing was changed." |
 
 **C. A statement read as a request, in a part that holds a form or a House Term.** The text-forms PR reads a form by which words a part holds, not where they sit (named filters spec 4.2). Four rounds narrowed the statements its reviews found, and its three held-out rounds ended with none ready. The last independent check still found these ready as "Show only rows where Advisor is empty"; each asked in the release:
 
@@ -531,7 +533,7 @@ A relative form or a range said this way asks ("entries were booked last quarter
 
 The release reads statements this way where no form is involved: "the accounts are at Northgate" previews "Filter Custodian to Northgate". The owner decides between leaving these until the Local Resolver's grammar (ADR 0020), as the spec has it, and a stricter rule in a fix PR: read "C is empty" and "has a C" only in the shapes spec 5.2 lists, and ask on anything else around them.
 
-**D. Raised in the review of the open PRs.** CodeRabbit left 132 threads on PRs 19 to 35. Each was checked with a probe before a ruling: 67 were fixed on the PR they were raised on, 29 needed no change, and five were older wrong views, now rows of A. Two blind held-out sets were labelled before the fixes they test: `evals/cases-review-fixes-heldout.jsonl` (133 requests) and its `-r2` (57). On the first, wrong views went from 32 before the fixes to 0. An independent check after each pass found wrong views that two of the fixes had let through, and they were repaired before anything was pushed. The forms that check found which are older than the fixes are rows of A.
+**D. Raised in the review of the open PRs.** CodeRabbit left 132 threads on PRs 19 to 35. Each was checked with a probe before a ruling: 67 were fixed on the PR they were raised on, 29 needed no change, and five were older wrong views, now rows of A. Two blind held-out sets were labelled before the fixes they test: `evals/cases-review-fixes-heldout.jsonl` (133 requests) and its `-r2` (57). On the first, wrong views went from 32 before the fixes to 0. An independent check after each pass found wrong views that two of the fixes had let through, and they were repaired before anything was pushed. The forms that check found which are older than the fixes are rows of A. A second round left 24 more threads, on PRs 19, 20 and 36 to 38: 16 were fixed, 5 needed no change, and 3 are in the table below. Its reading fix has its own blind set, `evals/cases-review-fixes-totals-heldout.jsonl` (31 requests, two totals under two groupings): 4 wrong views before the fix and 0 after, and the independent check found no request that asked before and is ready now.
 
 Decisions for the owner. None shows a wrong view today unless its row says so. Each would change or add to an approved decision, so none was made in a review fix.
 
@@ -539,6 +541,8 @@ Decisions for the owner. None shows a wrong view today unless its row says so. E
 | --- | --- | --- |
 | 20 | `describeView` can't know the Host's input limit, which lives on the Controller | Add a `maxLength` option that defaults to 500 and that `ControllerState.view` fills in |
 | 20 | The spec doesn't say which text Tab replaces | The word from the last space before the caret to the caret; offer a completion only when the caret ends the word |
+| 20 | The `proposeView` bar says the applied view equals the saved one, and doesn't say that the ids of filters and filter groups are not compared | Say so in R1's plan: the reducer makes those ids, so a saved view's can never match |
+| 20 | The gate line says only live runs judge the live-only sets, and also that the Local Resolver runs every set | Say in the four bets PR 4 that the Local Resolver run covers every set, the live-only ones too, and fails on a wrong view among the results it resolves, as the table's row has it |
 | 21 | "Northgate and gain at or above $50k" asks "not either one", because of the "or" in "at or above" | Read it: skip the "or" of "at or above" and "at or below". It adds a ready reading |
 | 21 | "hide concentration where market value is over $1m" hides the column and adds the filter, as the docs say of "hide C where …". The second held-out set's labeller would ask: a column can't be hidden for some rows, and elsewhere "hide … where" leaves rows out (6 cases) | Keep the documented reading. The six cases are in `REVIEW_R2_FOR_THE_OWNER` in `evals/run.ts` until the owner rules |
 | 23 | Task 4.3 leaves the Next.js grid out of the count caption, which spec section 9 names | Name all three grids in the task |
@@ -554,6 +558,7 @@ Decisions for the owner. None shows a wrong view today unless its row says so. E
 | 34 | A Local Value that holds "or" ("Smith or Jones") trips the either-or question in one word order | Keep the question unless a real Host holds such values |
 | 34 | A tie between a declared name and a Local Value offers two column choices that lead to the same reading | Merge them into one choice, in the command bar's work on questions |
 | 35 | `defineSchema` accepts a numeric offset ("+05:30") where the spec says an IANA name | Reject it, so a schema that builds on one runtime can't throw on another |
+| 37 | An adapter may list fewer total functions than sum and average (`aggregationFunctions`), and the compiler can't see the list. "Average concentration" compiles ready and then ends unsupported, and so do the Yes of the average question and the Rank choice. Nothing applies | Add an optional `aggregationFunctions` to `CompileInput`, defaulting to sum and average, so these ask or drop the choice. It adds a field to a root export. Neither shipped adapter narrows the list |
 
 Not changed now. Each is an edge: it ends in a question, a refusal or an error unless its row says otherwise, and none is reached by a fixture, an example or the Host test.
 
