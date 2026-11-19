@@ -341,7 +341,7 @@ The review of each planning record left these to the lead. None changes an appro
 | 2 | The words table in named filters' spec, section 9 | The lead shows it to the owner when wave 1 clears. Wave 2 does not wait for an answer |
 | 2 | An empty form on a yes/no column (N2) | Said before the column ("no restricted holdings"), it keeps today's reading, as spec 5.2 says. Said after the column ("Cleared is empty"), it asks: today's reading of that was Cleared is Yes, a wrong view the held-out form set found |
 | 2 | An empty form, then an amount with no column of its own (N2) | Asks across "and", a comma and the next part too ("Advisor is empty and over 5%"). The spec's rule was only enforced inside one part. An amount with its column named stays ready |
-| 2 | A column asked for beside a form on another column (N2) | A column named in the singular right after a column-choosing word must end up in a change the plan holds, or the part asks ("show only household where advisor is empty"). "Every", "each", "all" or "any" before an entity word names the rows, as the plural does |
+| 2 | A column asked for beside a form on another column (N2) | A column named in the singular right after a column-choosing word must end up in a change the plan holds other than a sort, or the part asks ("show only household where advisor is empty"). "Every", "each", "all" or "any" before an entity word names the rows, as the plural does |
 | 2 | A statement that holds a form (N2) | It asks. "My", "our", "me" and "us" are placed only where they belong to the request. A form is not read after a quantifier, a possessive or a demonstrative before its column, after "is" or "are" before "without", after "has" with no relative word right before it, after a question word before its column, or before a trailing phrase that only names the rows. This is narrower than spec 4.2's small-word row and ADR 0023's "which words, not where they sit". Each sentence asked before this PR. Some such sentences are still ready: section 12 C lists them for the owner |
 | 2 | The two D4 narrowings the natural set called for (N2) | In a part with no form, a word for empty values ("sort by counterparty with the blanks last") asks, and so does a "show only these columns" part that holds other words ("just the accounts where the advisor is exactly Blake Moreno"). Both were wrong views in the release |
 | 2 | A column named right after a form (N2) | Read as the same words in the other order are: "entries with no vendor booked after 2026-01-01" is ready with both filters. Before, the question named the column as an unknown word |
@@ -436,7 +436,7 @@ Live Jev runs wait for the owner's command each time. So does every merge.
 
 ## 12. Wrong views found while building, not yet planned
 
-The reviews and held-out rounds of wave 1, and of wave 2's text-forms, House Terms, Local Values and dates PRs, found these. Each is in the release too. None is in an approved plan, and no wave 1 PR could fix them inside its one concern. For A and B the lead recommends two fix PRs, each with its own labelled sets, built the way the wave 1 fixes were: every change asks, and none adds a reading. They wait for the owner.
+The reviews and held-out rounds of wave 1, and of wave 2's text-forms, House Terms, Local Values and dates PRs, found these. Each is in the release too. None is in an approved plan, and no wave 1 PR could fix them inside its one concern. For A and B the lead recommends two fix PRs, each with its own labelled sets, built the way the wave 1 fixes were: every change asks, and none adds a reading. They wait for the owner. D holds what the review of the open PRs raised.
 
 **A. Reading: a word or symbol GridCue drops, in a part with no code-read filter.** Named filters' every-word rule does not reach these parts (its spec 4.2), and the Local Resolver that would is in the four bets.
 
@@ -471,8 +471,19 @@ The reviews and held-out rounds of wave 1, and of wave 2's text-forms, House Ter
 | "sort by owner units", "sort by amount units", and on the ledger "sort by total units" on a grid that draws no totals | Sorts by the first column and drops the second: a column named right after another is read as the rows |
 | "sort by advisor ascending, market value descending" | Sorts both descending: the first column's direction is lost |
 | "advisors with the most gain first" | Sorts the accounts by Unrealized gain and drops "advisors": the question about households as a whole is asked only for a size word right before the entity word |
+| "accounts except over $1m" | Shows the accounts above $1,000,000: "except" before an amount is read as the amount alone |
+| "clear the gain filter", with a provider that scores the column below the floor | Removes every filter: the floor drops the column before the clear looks for what it names |
+| `advisor "Lane" or advisor "Hale"`, after the User answers the column question with Advisor | Previews both filters joined with "and" |
+| `advisor "Lane" not restricted`, "accounts not restricted", with a provider that answers Yes for Restricted holdings | Shows the Yes rows |
+| "sort by gain, don't keep the grouping", on a grouped view | Sorts and keeps the grouping: "keep" with a negation before it is read as keeping |
+| "sort by balance for accounts with no advisor", on a view sorted by Advisor, with a provider that scores an added sort high | Adds Market value after Advisor, where the User asked for a new sort. The fix replaces the sort without asking, so it is a reading change and not a question |
+| "hide duplicates where amount is under $100", "hide losers where market value is under $10k", and on the ledger "hide counterparties where amount is under $100" | Keeps the rows at or above the amount and drops the word: one word ending in "s" before "where" is read as the rows, a column's plural among them |
+| "hide pending accounts whose gain is below $0", "… with gain below $0" | The same, with "whose" or "with": the review's fix asks only before "where" |
+| "top 5 by gain, then sort by advisor instead", "top 5 by gain, then clear the sort and sort by advisor" | Keeps the first 5 rows by Advisor |
+| "top 5 by gain, then clear the sort" | Keeps the first 5 rows in the order the Host gave them |
+| "sort by advisor, then top 5 by gain" | Sorts by Advisor first, so the count keeps the first 5 rows by Advisor |
 
-The five before the last six were found by the text-forms PR's reviews (wave 2), the next four by the House Terms PR's, and the last two by the Local Values PR's held-out sets. Each of the six reads the same in the release. The text-forms PR also found that the plural "entries" is not read as the ledger's Row Noun "entry" outside a part with a form: a miss, not a wrong view.
+In the second table, the first five were found by the text-forms PR's reviews (wave 2), the next four by the House Terms PR's, the next two by the Local Values PR's held-out sets, and the last eleven by the review of the open PRs (D) and the checks of its fixes. Each of the six from the House Terms and Local Values PRs reads the same in the release, and each of the last eleven read the same before the review's fixes. The text-forms PR also found that the plural "entries" is not read as the ledger's Row Noun "entry" outside a part with a form: a miss, not a wrong view.
 
 With this fix in, the can't-group question can narrow back to the grouping verb (more grids spec 5.3).
 
@@ -520,4 +531,54 @@ A relative form or a range said this way asks ("entries were booked last quarter
 
 The release reads statements this way where no form is involved: "the accounts are at Northgate" previews "Filter Custodian to Northgate". The owner decides between leaving these until the Local Resolver's grammar (ADR 0020), as the spec has it, and a stricter rule in a fix PR: read "C is empty" and "has a C" only in the shapes spec 5.2 lists, and ask on anything else around them.
 
-**Costs to win back.** Requests the wave 1 fixes made ask, which read correctly before: `advisor "Lane" in descending order of value`, `advisor "Lane" is trusts`, `advisor's name is "Lane"`, `advisor containing the text "Lane"`, and, on a grid that can't group, "clear the sort, leave the grouping and the filter alone".
+**D. Raised in the review of the open PRs.** CodeRabbit left 132 threads on PRs 19 to 35. Each was checked with a probe before a ruling: 67 were fixed on the PR they were raised on, 29 needed no change, and five were older wrong views, now rows of A. Two blind held-out sets were labelled before the fixes they test: `evals/cases-review-fixes-heldout.jsonl` (133 requests) and its `-r2` (57). On the first, wrong views went from 32 before the fixes to 0. An independent check after each pass found wrong views that two of the fixes had let through, and they were repaired before anything was pushed. The forms that check found which are older than the fixes are rows of A.
+
+Decisions for the owner. None shows a wrong view today unless its row says so. Each would change or add to an approved decision, so none was made in a review fix.
+
+| PR | Question | The lead's recommendation |
+| --- | --- | --- |
+| 20 | `describeView` can't know the Host's input limit, which lives on the Controller | Add a `maxLength` option that defaults to 500 and that `ControllerState.view` fills in |
+| 20 | The spec doesn't say which text Tab replaces | The word from the last space before the caret to the caret; offer a completion only when the caret ends the word |
+| 21 | "Northgate and gain at or above $50k" asks "not either one", because of the "or" in "at or above" | Read it: skip the "or" of "at or above" and "at or below". It adds a ready reading |
+| 21 | "hide concentration where market value is over $1m" hides the column and adds the filter, as the docs say of "hide C where …". The second held-out set's labeller would ask: a column can't be hidden for some rows, and elsewhere "hide … where" leaves rows out (6 cases) | Keep the documented reading. The six cases are in `REVIEW_R2_FOR_THE_OWNER` in `evals/run.ts` until the owner rules |
+| 23 | Task 4.3 leaves the Next.js grid out of the count caption, which spec section 9 names | Name all three grids in the task |
+| 24 | The Query Check compares ids as a set, so a Data Query that returns a row twice passes | `compare(ids)` fails on a repeated id and names it |
+| 24 | An empty operand (`eq ""`, `contains ""`) passes validation; the spec now states which rows each keeps | Leave validation as it is |
+| 25 | Undo of a save can remove a saved view the User changed on another screen | Keep the callbacks, and add a Host rule: `remove` may refuse a changed view by throwing |
+| 26 | A total kept per Revision goes stale when the Host's rows change | Drop the cache and count the total beside each plan's count |
+| 28 | "group by owner, then top 3 entries by amount" keeps the top 3 overall and shows them grouped, as the count's spec has it. The second held-out set's labeller would ask: it could mean 3 per owner (2 cases, in the same list) | Ask when a count is said after a grouping in one request. "Group by owner" on a view that already has a count stays ready |
+| 32 | "balance over 100 without an advisor" asks how to compare | Read "without" there as "with no" is read. It adds a ready reading |
+| 33 | When the Row Noun is also a column's alias, "account number column" beside a term is dropped as the rows, and the request asks | Scope the drop to the Row Noun's own words. It adds a ready reading |
+| 33 | A term changed in place after `defineSchema` is not read; the docs now say to call `defineSchema` again | Leave the `ViewSchema` type as it is |
+| 34 | "sort by market value, then Avery Lane" asks, where a declared value in that place filters | Keep the question |
+| 34 | A Local Value that holds "or" ("Smith or Jones") trips the either-or question in one word order | Keep the question unless a real Host holds such values |
+| 34 | A tie between a declared name and a Local Value offers two column choices that lead to the same reading | Merge them into one choice, in the command bar's work on questions |
+| 35 | `defineSchema` accepts a numeric offset ("+05:30") where the spec says an IANA name | Reject it, so a schema that builds on one runtime can't throw on another |
+
+Not changed now. Each is an edge: it ends in a question, a refusal or an error unless its row says otherwise, and none is reached by a fixture, an example or the Host test.
+
+| PR | What | Why not now |
+| --- | --- | --- |
+| 21 | On a column limited to `gt`, "exclude gain over $50k" ends unsupported | Needs a Host that limits a number column's operators, and the fix adds a ready reading |
+| 27 | On a text column that leaves out "contains", the column question offers that column, and picking it returns the same question | No fixture or example limits a text column's operators |
+| 28 | An empty OR group counts as no filters, so "clear the filters" on a counted view that holds one is ready where it should ask | No request and no Grid Adapter makes an empty OR group |
+| 28 | A reset to a default view that has a count, then "show every row", asks what to filter on | A safe miss; reading it adds a ready reading |
+| 30 | A recorded safe miss is labelled with "Group of Seven" where GridCue keeps quoted text in lower case | The label is the blind labeller's, and the case asks today |
+| 32 | The same text as a date in one part and as an exact value in another can ask in one order of the plan's filters | Only ever a question |
+| 32 | `household "who" and accounts have no advisor` asks about text that isn't there, where the question about the unread words would fit | The request asks either way, and the better question needs a new field on what code reads |
+| 33 | A column name over 200 characters right after a form is cut and asked about | No Host names a column that long |
+| 33 | A term's threshold with more than two decimals is rounded in the question's example | Only the question's hint |
+| 33 | "Show travel material cleared entries" previews its three filters in another order than the words | The view is right, and word order would move pinned Preview lines |
+| 33 | A term's date-and-time range written with two different offsets can be refused when it is in order | A setup error the Host sees at once |
+| 34 | A name that two columns hold, with "group" in it, on a grid that can't group, gets the can't-group question before the tie's | Nothing applies either way |
+| 34 | A value written twice in one list, beside an exact-text form of it, can ask | Only ever a question |
+| 35 | "Sort by this month", on a grid with a column named This Month, reads the clock before the words are checked against declared names | Matters only when the Host's `now` throws |
+| 35 | On a grid whose date columns all leave out `between`, "show rows this month" asks which date column, with no choices | Needs such a schema; a plain refusal would be better wording |
+| 35 | A date cell on the first day of year 1 or the last of year 9999 matches no date filter | End-of-time values only |
+| 35 | Validation accepts a date-and-time value in a form the filter can't read ("Nov 13 2026"), so a Host's own plan can keep no rows and say nothing | GridCue never writes a time from a request. The fix is to validate only what the filter reads |
+| 35 | A schema changed by hand after `defineSchema` can hold an unknown time zone, and "booked today" then ends in an error | The view does not change |
+| 35 | A write that changes only a filter's time zone reports done before a controlled table has taken it | Needs a Host that controls the table's filters and drops GridCue's write |
+
+Safe misses the two held-out sets show, each a request a careful reader finds clear and GridCue asks about: "clear the filters but don't clear the sort" (the review's fix made the negated verb ask, where it cleared both), two bounds on one named column ("gain over $10k and under $20k"), "show only the advisor column for taxable accounts, largest balance first", "remove the trust filter", "remove advisor from the grouping", "hide cleared entries", and "top 10 accounts by market value for taxable accounts".
+
+**Costs to win back.** Requests the wave 1 fixes made ask, which read correctly before: `advisor "Lane" in descending order of value`, `advisor "Lane" is trusts`, `advisor's name is "Lane"`, `advisor containing the text "Lane"`, and, on a grid that can't group, "clear the sort, leave the grouping and the filter alone". The review's fixes made one more form ask: "top 10 by market value, then sort by household", which sorted by Market value and then Household and kept the right ten rows, in an order the User did not ask for.
