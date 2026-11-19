@@ -297,7 +297,7 @@ A date in a filter means the whole day in the Calendar's time zone, so a cell st
 
 ## Pins and density
 
-GridCue's own code reads a small, closed set of words for pinning columns and for density, with no provider. A part is read only when every word is a form word, a column the grid names, or a filler the form allows. One word left over, and the part goes to the provider as it would before, and usually asks.
+GridCue's own code reads a small, closed set of words for pinning columns and for density. The provider still receives the request, but never decides what they mean. A part is read only when every word is a form word, a column the grid names, or a filler the form allows. One word left over, and the part goes to the provider as it would before, and usually asks.
 
 | Form | Reads | Doesn't read |
 | --- | --- | --- |

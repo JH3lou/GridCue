@@ -39,7 +39,7 @@ When something doesn't work, read [references/troubleshooting.md](references/tro
 
 ## Pins and density
 
-"Pin account number" pins a column to the start, "unpin everything" clears the pins, and "compact view" sets the density. GridCue's own code reads a closed list of these words ("pin", "unpin", "freeze the advisor column", "compact", "comfortable" or "spacious" before "view", "rows", "density" or "mode"), with no provider. A column is pinned by default unless it is `restricted` or its `capabilities` leave out `"pin"`.
+"Pin account number" pins a column to the start, "unpin everything" clears the pins, and "compact view" sets the density. GridCue's own code reads a closed list of these words ("pin", "unpin", "freeze the advisor column", "compact", "comfortable" or "spacious" before "view", "rows", "density" or "mode"). The provider still receives the request, but never decides what they mean. A column is pinned by default unless it is `restricted` or its `capabilities` leave out `"pin"`.
 
 The adapter lists `columns.pin` and `density.set` only when the Host says its table draws them, with `renders`. **Set `renders` only for what the table draws, and draw it.** The default is none, and a request for either then asks "This grid can't pin columns." or "This grid can't change its density." and changes nothing. That is expected, not a bug.
 
