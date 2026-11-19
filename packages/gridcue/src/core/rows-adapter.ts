@@ -170,14 +170,15 @@ const sortPositions = (positions: readonly number[], cell: CellAt, sorts: readon
       });
 
 /**
- * Sorted positions without the rows that have no value in the first sorted column: a row with no value never fills a
- * count (ADR 0027), so "top 10" shows 7 when only 7 have one. No value is what a filter's "is empty" means, plus a
- * number that isn't one (NaN), which no sort can place.
+ * Positions, in the order given, without the rows that have no value in the first sorted column: a row with no value
+ * never fills a count (ADR 0027), so "top 10" shows 7 when only 7 have one. No value is what a filter's "is empty"
+ * means, plus a number that isn't one (NaN), which no sort can place. A count drops them before it sorts, since a NaN
+ * left in would tie with every row and break the sort's order.
  */
-const withValueFirst = (sorted: number[], cell: CellAt, sorts: readonly SortSpec[]): number[] => {
+const withValueFirst = (positions: readonly number[], cell: CellAt, sorts: readonly SortSpec[]): number[] => {
   const first = sorts[0]?.columnId;
-  if (first === undefined) return sorted;
-  return sorted.filter((i) => {
+  if (first === undefined) return [...positions];
+  return positions.filter((i) => {
     const v = cell(i, first);
     return !isEmpty(v) && !Number.isNaN(v);
   });
@@ -191,7 +192,7 @@ const withValueFirst = (sorted: number[], cell: CellAt, sorts: readonly SortSpec
  * as the TanStack Table adapter's count piece, so both keep the same rows.
  */
 export const countOrder = (positions: readonly number[], cell: CellAt, sorts: readonly SortSpec[]): number[] =>
-  withValueFirst(sortPositions(positions, cell, sorts), cell, sorts);
+  sortPositions(withValueFirst(positions, cell, sorts), cell, sorts);
 
 /** One level of the groups: its rows (indexes, in the Host's order) and the groups inside it, in first-seen order. */
 interface GroupNode {
@@ -209,10 +210,10 @@ export const applyView = <Row extends object>(rows: readonly Row[], state: ViewS
   rows.forEach((row, i) => {
     if (matchesFilter(row as Record<string, unknown>, state.filters, schema)) filtered.push(i);
   });
-  const sorted = sortPositions(filtered, cell, state.sorts);
   // A count keeps the first rows of the sorted view, before grouping, so "top 10 grouped by advisor" is still ten rows.
-  // These are the same steps as `countOrder`, which the TanStack Table adapter's count piece takes.
-  const limited = state.limit === undefined ? sorted : withValueFirst(sorted, cell, state.sorts).slice(0, state.limit);
+  // It takes them as `countOrder` does, which the TanStack Table adapter's count piece takes too.
+  const limited =
+    state.limit === undefined ? sortPositions(filtered, cell, state.sorts) : countOrder(filtered, cell, state.sorts).slice(0, state.limit);
   // A total counts the rows the view shows, after its filters and its count (ADR 0030). Each column's cells are read
   // once, for the view's totals, each group's, and the totals that order the groups.
   const read = new Map<string, TotalCells>();

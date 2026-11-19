@@ -379,8 +379,8 @@ describe("A count's own cases, both adapters", () => {
     const rows: Row[] = [{ key: "a", amount: null }, { key: "b", amount: 3 }, { key: "c" }, { key: "e", amount: 1 }];
     expect(await both(rows, view({ sorts: [{ columnId: "amount", direction: "desc" }], limit: 4 }))).toEqual(["b", "e"]);
     expect(await both(rows, view({ sorts: [{ columnId: "amount", direction: "asc" }], limit: 1 }))).toEqual(["e"]);
-    // A number that isn't one (NaN) is never kept either. It leaves GridCue's comparison with no order among the rows,
-    // as it always has in applyView: both adapters take the same steps on the same rows, so they keep the same ones.
+    // A number that isn't one (NaN) is never kept either. A count drops it before it sorts, so the other rows keep their
+    // order: both adapters take the same steps on the same rows, so they keep the same ones.
     const nan: Row[] = [...rows, { key: "d", amount: Number.NaN }];
     for (const direction of ["asc", "desc"] as const) {
       expect(await both(nan, view({ sorts: [{ columnId: "amount", direction }], limit: 4 }))).not.toContain("d");
