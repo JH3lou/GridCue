@@ -531,23 +531,23 @@ export const readViewWords = (clause: Clause, mentions: readonly Mention[], sche
 
 /**
  * A part whose words read as forms but for a total that doesn't fit its column's kind (ADR 0030): "total
- * concentration", "average opened by advisor". With the first such total, where the words start (0 for the whole
- * part), and the reading with the total that fits in its place, where one fits. `undefined` when no form is read, or
- * every total fits. The compiler asks, and never reads such words another way.
+ * concentration", "average opened by advisor". With every such total, in the order said, where the words start (0 for
+ * the whole part), and the reading with each total that fits in its place, where one fits. `undefined` when no form is
+ * read, or every total fits. The compiler asks, and never reads such words another way.
  */
 export const totalsMisfit = (
   clause: Clause,
   mentions: readonly Mention[],
   schema: ViewSchema,
-): { misfit: TotalMisfit; from: number; reading: ViewWordsReading } | undefined => {
+): { misfits: TotalMisfit[]; from: number; reading: ViewWordsReading } | undefined => {
   if (clause.keeps || clause.continues) return undefined;
   const own = ownMentions(clause, mentions, schema);
   const tokens = tokensOf(clause, own, schema, false)?.tokens;
   const found = tokens && readPinsAndDensity(tokens, clause, schema);
-  const misfit = found?.read.misfits[0];
-  if (!found || !misfit || found.named || found.read.doubts.length > 0 || found.read.runsOn) return undefined;
+  const misfits = found?.read.misfits ?? [];
+  if (!found || misfits.length === 0 || found.named || found.read.doubts.length > 0 || found.read.runsOn) return undefined;
   return {
-    misfit,
+    misfits,
     from: found.from,
     reading: { operations: found.read.operations, spans: found.read.spans, ...(found.from > 0 ? { from: found.from } : {}) },
   };
