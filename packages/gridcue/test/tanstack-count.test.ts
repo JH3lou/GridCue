@@ -391,6 +391,22 @@ describe("without renders: [“count”], nothing changes", () => {
     expect(await cue.apply()).toBe(true);
     expect(shownKeys(table)).toHaveLength(accounts.length);
   });
+
+  // Without the piece the count is dropped, so a later sort would join its sort as a tiebreaker: it asks, as with it.
+  it("“top 10 by market value, then sort by advisor” asks about the count's part, with the piece or without", async () => {
+    for (const renders of [[], ["count"]] as const) {
+      const table = construct(counting);
+      const adapter = createTanStackAdapter({ schema, table, renders: [...renders] });
+      const cue = createGridCue({ schema, adapter, provider: mock });
+      const before = adapter.getState();
+      await cue.propose("top 10 by market value, then sort by advisor");
+      expect(cue.getState().status, `renders: ${renders}`).toBe("needs_clarification");
+      expect(cue.getState().message).toBe("I'm not sure what to do with “top 10 by market value”. Try rephrasing that part.");
+      expect(await cue.apply()).toBe(false);
+      expect(adapter.getState()).toEqual(before);
+      expect(shownKeys(table)).toHaveLength(accounts.length);
+    }
+  });
 });
 
 // --- The piece on a table -------------------------------------------------------------------------------------------
