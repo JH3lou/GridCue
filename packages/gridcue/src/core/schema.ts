@@ -325,6 +325,12 @@ export const defineSchema = (columns: readonly ColumnInput[], options: SchemaOpt
       };
     }),
   };
+  // The columns parse before the terms are checked, which read every column's names.
+  const base = ViewSchema.safeParse(schema);
+  if (!base.success) {
+    const detail = base.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`).join("; ");
+    throw new GridCueError("INPUT_SCHEMA", `Invalid schema: ${detail}`);
+  }
   const houseTerms = checkHouseTerms(options.houseTerms ?? [], schema);
   if (houseTerms.length > 0) schema.houseTerms = houseTerms;
   if (options.calendar !== undefined) schema.calendar = checkCalendar(options.calendar);

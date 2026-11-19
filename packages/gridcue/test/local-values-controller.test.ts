@@ -224,6 +224,39 @@ describe("a function that throws", () => {
     await run();
     expect(cue.getState().issues[0]?.code).toBe("INPUT_LOCAL_VALUES");
   });
+  it("leaves a request the function cancelled or replaced alone, and never calls the provider for it", async () => {
+    const { provider, requests } = watched();
+    let mode = "cancel and throw";
+    const { cue } = make({
+      provider,
+      localValues: {
+        advisor_name: () => {
+          if (mode === "cancel and throw") {
+            cue.cancel();
+            throw new Error("not loaded");
+          }
+          if (mode === "cancel") cue.cancel();
+          if (mode === "replace and throw") {
+            mode = "read";
+            void cue.propose("sort by market value");
+            throw new Error("not loaded");
+          }
+          return ADVISORS;
+        },
+      },
+    });
+    await cue.propose("accounts for Avery Lane");
+    expect(cue.getState().status).toBe("idle");
+    expect(cue.getState().issues).toEqual([]);
+    mode = "cancel";
+    await cue.propose("accounts for Avery Lane");
+    expect(cue.getState().status).toBe("idle");
+    expect(requests).toHaveLength(0);
+    mode = "replace and throw";
+    await cue.propose("accounts for Avery Lane");
+    expect(cue.getState().issues).toEqual([]);
+    expect(cue.getState().utterance).toBe("sort by market value");
+  });
   it("is called when a request is made, every time", async () => {
     let calls = 0;
     const { cue } = make({
@@ -515,6 +548,56 @@ describe("several values of one column", () => {
       expect(await lines(text), text).toBe(apart);
     }
   });
+  it("ask when each follows its column's name, unless “or” alone sits between them", async () => {
+    for (const text of [
+      "advisor is Avery Lane and advisor is Blake Moreno",
+      "advisor is Avery Lane, advisor is Blake Moreno",
+      "accounts where advisor is Avery Lane and advisor is Blake Moreno",
+    ]) {
+      expect(await lines(text), text).toBe(apart);
+    }
+    expect(await lines("household is Alder Household and household is Birch Household")).toBe(
+      "No row has two Household values. Ask for them as one list, such as “Alder Household or Birch Household”.",
+    );
+    expect(await lines("advisor is Avery Lane or advisor is Blake Moreno")).toEqual([
+      "Filter Advisor to any of “Avery Lane” and “Blake Moreno”",
+    ]);
+  });
+});
+
+describe("a value's own words", () => {
+  it("never say to keep the view's filters", async () => {
+    const values: LocalValues = {
+      advisor_name: () => ["Avery Lane", "Riley As Well", "Further Lane"],
+      household: () => ["Too Many Cooks"],
+    };
+    const read = async (text: string) => {
+      const adapter = createRowsAdapter({ schema });
+      adapter.setState((view) => ({
+        ...view,
+        filters: {
+          id: "root",
+          type: "group",
+          combinator: "and",
+          children: [{ id: "f1", type: "predicate", columnId: "custodian", operator: "eq", value: "northgate" }],
+        },
+      }));
+      const cue = createGridCue({ adapter, provider: mock, localValues: values });
+      await cue.propose(text);
+      return strip(cue.getState().plan?.operations);
+    };
+    for (const [text, columnId, value] of [
+      ["show Avery Lane", "advisor_name", "Avery Lane"],
+      ["show Riley As Well", "advisor_name", "Riley As Well"],
+      ["Riley As Well's accounts", "advisor_name", "Riley As Well"],
+      ["show Further Lane", "advisor_name", "Further Lane"],
+      ["accounts for Too Many Cooks", "household", "Too Many Cooks"],
+    ] as const) {
+      expect(await read(text), text).toEqual([{ type: "filter.clear" }, filter(columnId, "eq", value)]);
+    }
+    // The words beside the value still keep them.
+    expect(await read("also show Avery Lane")).toEqual([filter("advisor_name", "eq", "Avery Lane")]);
+  });
 });
 
 describe("values of two columns", () => {
@@ -768,6 +851,18 @@ describe("ties", () => {
     await again.propose("Northgate accounts");
     again.answer(question?.id ?? "", "v0");
     expect(again.getState().preview?.lines).toEqual(["Filter Household to exactly “Northgate”"]);
+  });
+  it("read a chosen value at its own words, so the words it leaves out still ask", async () => {
+    const { cue } = make({ localValues: { advisor_name: () => ["Avery Lane Keene", "Keene Morgan", "Morgan Reed Vale"] } });
+    await cue.propose("Avery Lane Keene Morgan Reed Vale");
+    // Picking Keene Morgan at each question that offers it was ready with that one filter, and dropped the other words.
+    for (let i = 0; i < 2; i++) {
+      const question = cue.getState().plan?.clarifications.find((q) => q.options?.some((o) => o.label === "Keene Morgan"));
+      if (!question) break;
+      cue.answer(question.id, question.options?.find((o) => o.label === "Keene Morgan")?.id ?? "");
+    }
+    expect(cue.getState().status).toBe("needs_clarification");
+    expect(cue.getState().message).toBe("I'm not sure what to do with “avery lane”. Try rephrasing that part.");
   });
 });
 

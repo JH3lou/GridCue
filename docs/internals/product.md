@@ -87,7 +87,7 @@ The host declares:
 
 ### 3. Data minimization is the normal path
 
-Most view commands can be resolved from the utterance plus schema metadata. Row contents remain local. A host may let GridCue read the values of named text columns from its own rows, in the browser, so a request can name a value ("Avery Lane's accounts"). These are Local Values (ADR 0025). Code reads them and the Preview states the filter; they are never sent to an Intent Provider, and the request and the number of provider calls are the same with them on or off. The only values a provider sees are the ones the user typed in the request. Sending values to a provider as Candidates would be a separate, explicit decision by the host, and core has no option for it.
+Most view commands can be resolved from the utterance plus schema metadata. Row contents remain local. A host may let GridCue read the values of named text columns from its own rows, in the browser, so a request can name a value ("Avery Lane's accounts"). These are Local Values (ADR 0025). Code reads them and the Preview states the filter; they are never sent to an Intent Provider, and the request and the number of provider calls are the same with them on or off. Apart from the approved values a host lists in `enumValues`, the only values a provider sees are the ones the user typed in the request. Sending values to a provider as Candidates would be a separate, explicit decision by the host, and core has no option for it.
 
 ### 4. Ambiguity is visible
 

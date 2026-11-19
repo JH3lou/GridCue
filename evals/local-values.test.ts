@@ -9,15 +9,24 @@ import { mockOptionsFor, runCase } from "./run";
  * schema with the Local Values of `evals/local-values.ts`, and must give the same verdict and the same operations as
  * without them. The dated and group-names schemas have no Local Values, so their cases are left out.
  *
- * `CHANGED` lists each request whose result the values change, with its verdict with them. The bar is none. One request
+ * `CHANGED` lists each request whose result the values change, with its verdict and operations with them. The bar is none. One request
  * changes, so the values stay in the eval harness and out of the fixtures (2026-11-14):
  * - "just the accounts where the advisor is Blake Moreno", from the second held-out set for the text forms, was
  *   labelled before Local Values to ask, since GridCue couldn't read the name then. With the values it reads as spec
  *   5.4's "advisor is Avery Lane" does: Advisor to exactly “Blake Moreno”. Its label still says ask, so the verdict is
  *   "unsafe" against that label, though the plan is the one the User asked for.
  */
-const CHANGED: Record<string, string> = {
-  "cases-text-forms-heldout-r2.jsonl: r2-just-advisor-is": "unsafe",
+const CHANGED: Record<string, { verdict: string; operations: unknown[] }> = {
+  "cases-text-forms-heldout-r2.jsonl: r2-just-advisor-is": {
+    verdict: "unsafe",
+    operations: [
+      {
+        type: "filter.add",
+        combineWith: "and",
+        predicate: { type: "predicate", columnId: "advisor_name", operator: "eq", value: "Blake Moreno" },
+      },
+    ],
+  },
 };
 
 const wealth = createMockProvider(mockOptionsFor({}));
@@ -43,9 +52,13 @@ describe("every existing labelled request, with the Local Values on", () => {
       const provider = c.schema === "ledger" ? ledger : wealth;
       const without = await runCase(c, provider);
       const withValues = await runCase({ ...c, values: true }, provider);
-      if (key in CHANGED) {
-        expect(withValues.verdict).toBe(CHANGED[key]);
+      const changed = CHANGED[key];
+      if (changed) {
+        // Any ready plan is "unsafe" against an ask label, so the plan itself is checked too.
+        expect(withValues.verdict).toBe(changed.verdict);
         expect(withValues.verdict).not.toBe(without.verdict);
+        expect(withValues.status).toBe("ready");
+        expect(stripIds(withValues.plan?.operations)).toEqual(changed.operations);
         return;
       }
       expect(withValues.verdict).toBe(without.verdict);

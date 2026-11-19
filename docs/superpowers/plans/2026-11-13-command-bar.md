@@ -221,6 +221,7 @@ The owner approved the five ADRs' decisions on 2026-11-13, with the edits they m
 
 ### Task 4.7: Held-out run (lead), review (Opus), gate
 - [ ] The held-out parts set and the second `proposeView` seed, once. Bar: never a different view. Report the share of parts with no ×.
+- [ ] The held-out count-removal set from Task 4.4, once. Bar: no removal changes which rows a count keeps without a question or a Preview line that says so.
 - [ ] Review against spec 4.2, 4.3, 5.4 and 9 only. `pnpm lint`, `pnpm check`.
 
 ## PR 5: Starters (`feat/starters`)
@@ -232,7 +233,7 @@ The owner approved the five ADRs' decisions on 2026-11-13, with the edits they m
 
 ### Task 5.2: Starters and recent requests in core (Opus)
 **Files:** new `core/starters.ts`, `core/controller.ts`, `src/index.ts`, tests.
-- [ ] Recent requests are off unless the Host sets `recent: true` or passes a store (order plan D45), which is what `AGENTS.md` asks for raw Utterances. With no `recent` option, no Utterance is kept.
+- [ ] Recent requests are off unless the Host sets `recent: true` or passes a store (order plan D45), which is what `AGENTS.md` asks for raw Utterances. With no `recent` option, no past request is kept.
 - [ ] Tests first: the order, the limit of five, duplicates left out, an edited plan, a `proposeView` plan, a save and a grid offer not recorded, no `recent` option (nothing kept), `recent: true`, `recent: false`, the Host's `initial` and `onChange`, and storage spied on.
 - [ ] Schema starters as View States through `proposeView`, left out when the view already has them.
 - [ ] On a view with a count, the sort starter asks the count question first, and the grouping starter does not. Tests for both, and at least five of the labelled views in 5.1 hold a count.
@@ -249,7 +250,8 @@ The owner approved the five ADRs' decisions on 2026-11-13, with the edits they m
 - [ ] Four bets plan: tasks 2.5 and 4.5 change as the order plan's section 6 says (the hint row exists; the demo's chips are the package's starters).
 - [ ] `skills/gridcue`: `examples` as a setup step. The changelog. `pnpm check:skills`.
 
-### Task 5.5: Review (Opus), gate
+### Task 5.5: Held-out run (lead), review (Opus), gate
+- [ ] The 20 held-out views from Task 5.1, on both schemas, once. Bar: each applied starter's view is what its label says.
 - [ ] Review against spec 5.5 and 9 only. `pnpm lint`, `pnpm check`, including the browser bundle check.
 
 ## Spec coverage
