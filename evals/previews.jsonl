@@ -1636,3 +1636,39 @@
 {"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-e-24","lines":["Pin Category to the start"],"notes":[]}
 {"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-f-12","lines":["Unpin all columns","Pin Advisor to the start"],"notes":[]}
 {"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-f-13","lines":["Pin Household to the start"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-hide-extra-word-10","lines":["Filter Unrealized gain at or above $0"],"notes":["Rows with no Unrealized gain are hidden too"]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-hide-extra-word-11","lines":["Filter Amount at or above $100"],"notes":["Rows with no Amount are hidden too"]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-hide-extra-word-12","lines":["Filter Concentration at or below 30%"],"notes":["Rows with no Concentration are hidden too"]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-hide-column-where-01","lines":["Hide Concentration","Filter Market value above $1,000,000"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-hide-column-where-02","lines":["Hide Restricted holdings","Filter Market value above $1,000,000"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-hide-column-where-03","lines":["Hide Advisor","Filter Custodian to Northgate"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-hide-column-where-04","lines":["Hide Concentration","Filter Unrealized gain below $0"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-hide-column-where-06","lines":["Hide Counterparty","Filter Amount above $1,000"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-hide-column-where-08","lines":["Hide Rate","Filter Category to Travel"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-hide-column-where-09","lines":["Hide Concentration"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-hide-column-where-10","lines":["Filter Market value above $1,000,000","Hide Concentration"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-hide-column-where-11","lines":["Hide Units","Filter Amount above $500"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-hide-column-where-12","lines":["Hide Restricted holdings"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-count-then-sort-07","lines":["Sort by Market value, descending","Show only the first 10 rows"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-count-then-sort-08","lines":["Sort by Household, ascending","Show only the first 10 rows"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-count-then-sort-10","lines":["Sort by Amount, ascending","Show only the first 5 rows"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-count-then-sort-11","lines":["Sort by Owner, ascending","Show only the first 5 rows"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-count-then-group-01","lines":["Show only the first 5 rows","Group by Advisor"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-count-then-group-02","lines":["Sort by Market value, descending","Show only the first 10 rows","Group by Custodian"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-count-then-group-06","lines":["Sort by Amount, ascending","Show only the first 5 rows","Group by Category"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-count-then-group-07","lines":["Group by Owner","Sort by Amount, descending","Show only the first 3 rows"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-count-then-group-08","lines":["Group by Custodian","Show only the first 5 rows"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-count-then-group-09","lines":["Group by Advisor"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-count-then-group-10","lines":["Group by Custodian"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-count-then-group-11","lines":["Group by Category"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-count-then-group-12","lines":["Group by Owner"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-controls-near-01","lines":["Hide Concentration"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-controls-near-02","lines":["Filter Registration type to Taxable"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-controls-near-03","lines":["Sort by Unrealized gain, descending","Show only the first 5 rows"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-controls-near-04","lines":["Sort by Advisor, ascending; then Market value, ascending"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-controls-near-05","lines":["Group by Custodian","Sort by Unrealized gain, ascending"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-controls-near-06","lines":["Filter Market value at or below $2,000,000","Sort by Unrealized gain, ascending"],"notes":["Rows with no Market value are hidden too"]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-controls-near-07","lines":["Hide Units"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-controls-near-08","lines":["Filter Category to Travel"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-controls-near-09","lines":["Sort by Amount, descending","Show only the first 5 rows"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-controls-near-10","lines":["Group by Owner","Sort by Amount, ascending"],"notes":[]}

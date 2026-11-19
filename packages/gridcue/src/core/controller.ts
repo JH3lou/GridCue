@@ -366,7 +366,7 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
         controller.signal.addEventListener("abort", () => reject(new GridCueError("PROVIDER_TIMEOUT", "Aborted.")), { once: true }),
       );
       abandoned.catch(() => {});
-      const normalized = normalize(utterance, undefined, schema.rowNoun);
+      const normalized = normalize(utterance);
       if (normalized.clauses.length > MAX_CLAUSES) {
         clearTimeout(timer);
         set({
