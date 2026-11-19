@@ -789,7 +789,10 @@ export const compile = (c: CompileInput): ViewPlan => {
   // The part that set the plan's count, and whether a sort or grouping was said after the count while one said before
   // it was still in effect. The later one would replace the sort or grouping the count was said with, so the part
   // that set the count is asked about (below), wherever the count's own sort was said.
+  // On a grid that keeps no count, "top 10 by ..." pushes no `limit.set`: `droppedCountAt` is where it would sit, so
+  // a sort or grouping said after it asks there too, rather than joining the count's own sort as a tiebreaker.
   let countPart: number | undefined;
+  let droppedCountAt: number | undefined;
   let levelAfterCount = false;
   const levelsOf = (type: "sort.set" | "group.set", replaces: boolean) => {
     const at = operations.findLastIndex((o) => o.type === type);
@@ -798,7 +801,7 @@ export const compile = (c: CompileInput): ViewPlan => {
     const levels =
       (current.type === "sort.set" && current.sorts.length > 0) || (current.type === "group.set" && current.columnIds.length > 0);
     const afterCount = operations.slice(at + 1).some((o) => o.type === "limit.set");
-    if (levels && afterCount) levelAfterCount = true;
+    if (levels && (afterCount || (droppedCountAt !== undefined && droppedCountAt > at))) levelAfterCount = true;
     return levels && !afterCount ? current : undefined;
   };
   const nameKey = (s: string) => (s.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []).join(" ");
@@ -2364,6 +2367,8 @@ export const compile = (c: CompileInput): ViewPlan => {
           note(`${key}.limit`, String(clause.limit), 1, "deterministic");
         } else {
           evidence.push({ key: `dropped:${key}.limit`, selectedId: String(clause.limit), confidence: 1, source: "host" });
+          droppedCountAt = operations.length;
+          countPart = clause.index;
         }
       }
       // G2. The provider proposes, code decides (AGENTS.md): a plan is never ready with fewer clears than the clear
