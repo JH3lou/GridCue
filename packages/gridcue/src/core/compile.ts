@@ -1574,14 +1574,17 @@ const keepPart = (
   const preds = current.children as FilterPredicate[];
   const keep = new Set<FilterPredicate>();
   const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+  // "Leave" before the column says to keep, as "keep" does: `clear filters but leave advisor "Lane"`. Blanked, so
+  // offsets hold.
+  const checked = { ...clause, text: clause.text.replace(/^(?:leave|leaving) /, (s) => " ".repeat(s.length)) };
   for (const lit of clause.literals) {
     if (lit.kind === "unreadable") return absent;
     const operator = lit.kind === "text" ? "contains" : (lit.comparator ?? "eq");
     const value = lit.comparator === "between" ? { min: lit.value, max: lit.upper ?? lit.value } : lit.value;
-    const quotedAfter = lit.kind === "text" ? columnBeforeText(clause, lit, own, column, rowNoun) : undefined;
+    const quotedAfter = lit.kind === "text" ? columnBeforeText(checked, lit, own, column, rowNoun) : undefined;
     if (quotedAfter && !quotedAfter.read) return absent;
     // The words beside the text are checked as they are for a new filter: `advisor "Lane" exactly` keeps nothing.
-    const unread = lit.kind === "text" ? textWordsQuestion(clause, lit, quotedAfter, own, rowNoun) : undefined;
+    const unread = lit.kind === "text" ? textWordsQuestion(checked, lit, quotedAfter, own, rowNoun) : undefined;
     if (unread) return { prompt: unread.prompt };
     // A column named right before the amount must be the filter's; with none, exactly one filter may match.
     const owner =

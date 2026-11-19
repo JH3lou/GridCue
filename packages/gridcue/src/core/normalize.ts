@@ -80,10 +80,11 @@ export const unquoted = (text: string): string => text.replace(QUOTED, (s) => " 
 const VERB_ALT = CLAUSE_VERBS.join("|");
 const VERB = `(?:${VERB_ALT})(?:ed)?\\b`;
 // "!=" is a comparison, not the end of a sentence. A "!" ends a sentence only right after a word ("show trusts!"):
-// one that starts the request, follows a space, or sits right before a name, quoted text or an amount says "not"
-// (`!advisor "Lane"`, `advisor "Lane" !trusts`), so it stays in the part, and the compiler asks about it.
+// one that starts the request, follows a space, a comma, a semicolon or a colon, or sits right before a name, quoted
+// text or an amount says "not" (`!advisor "Lane"`, `advisor "Lane",! trusts`), so it stays in the part, and the
+// compiler asks about it.
 const SPLIT = new RegExp(
-  `[;?]+|(?<=\\S)!+(?![=\\w"'$\\u00c0-\\uffff])|\\.(?=\\s|$)|,?\\s+then\\s+|,\\s*(?=${VERB})|\\s+and\\s+(?=${VERB})`,
+  `[;?]+|(?<=[^\\s,;:])!+(?![=\\w"'$\\u00c0-\\uffff])|\\.(?=\\s|$)|,?\\s+then\\s+|,\\s*(?=${VERB})|\\s+and\\s+(?=${VERB})`,
   "g",
 );
 
