@@ -20,7 +20,7 @@ The one group order:
 - **A sort on a column with a total orders the groups by that total.**
 - **A sort on a column with no total** orders the rows inside each group, and leaves the groups in the order they first appear in the rows before sorting.
 
-This is TanStack Table's order. It can't be changed from outside the Host's column definitions, so the Rows Adapter changes to match. That gives ranking groups one certain reading. "Largest households first" still asks, and gains a third choice, "Rank households by total Market value", when the request names a column or the View Schema has a `defaultMeasure`. That gives `defaultMeasure` (ADR 0018) one more use: the column a group ranking totals.
+This is TanStack Table's order. It can't be changed from outside the Host's column definitions, so the Rows Adapter changes to match. That gives ranking groups one certain reading. "Largest households first" still asks, and gains a third choice, "Rank households by total Market value", when the request names a column or the View Schema has a `defaultMeasure`, and that column can take a total and a sort. That gives `defaultMeasure` (ADR 0018) one more use: the column a group ranking totals.
 
 The cost falls on Hosts of the Rows Adapter. A grouped, sorted view that requests reach today changes its group order there, with no change to its View State. The changelog will say so. The aim is that no two adapters draw one View State differently. A shared test of what each adapter would draw is to hold both shipped adapters to that for rows, order, groups and totals. It is not written yet. One difference stays: where a row with no value in a sorted column sits. It changes order, never which rows show.
 
