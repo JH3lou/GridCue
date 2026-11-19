@@ -1601,19 +1601,55 @@ describe("review of PR 21", () => {
     expect(await from("clear the filters but not the sort")).toEqual([{ type: "filter.clear" }]);
   });
 
-  it("keeps “where” after rows a part leaves out in that part (T12)", async () => {
-    for (const text of [
-      "hide northgate accounts where gain is below $0",
-      "hide restricted accounts where market value is over $1m",
-      "drop northgate accounts where market value is under $100k",
-    ]) {
-      expect(normalize(text, "account").clauses, text).toHaveLength(1);
-      expect(await status(text), text).toBe("needs_clarification");
-    }
-    expect(normalize("hide advisor where advisor is exactly Avery").clauses).toHaveLength(2);
-  });
-
-  it("asks when a word other than “the” or “all” stands before the rows a “where” part leaves out (T12, second pass)", async () => {
+  it("asks when a part that leaves rows out goes on with “where”, unless the rows are named plainly (T12)", async () => {
+    const wealth = defineSchema(
+      [
+        { id: "account_number", label: "Account number" },
+        { id: "household", label: "Household" },
+        { id: "advisor_name", label: "Advisor" },
+        { id: "registration_type", label: "Registration type" },
+        { id: "custodian", label: "Custodian" },
+        { id: "market_value", label: "Market value" },
+        { id: "concentration", label: "Concentration" },
+        { id: "unrealized_gain", label: "Unrealized gain" },
+        { id: "has_restricted_holding", label: "Restricted holdings" },
+      ],
+      {
+        rowNoun: "account",
+        columns: {
+          account_number: { aliases: ["account", "account #", "acct"] },
+          household: { entity: "household" },
+          advisor_name: { aliases: ["advisor", "rep", "financial advisor"], entity: "advisor" },
+          registration_type: {
+            aliases: ["registration", "account type", "tax status"],
+            enumValues: [
+              { id: "taxable", label: "Taxable", aliases: ["brokerage", "non-qualified"] },
+              { id: "ira", label: "IRA", aliases: ["traditional ira"] },
+              { id: "roth_ira", label: "Roth IRA", aliases: ["roth"] },
+              { id: "trust", label: "Trust" },
+            ],
+          },
+          custodian: {
+            enumValues: [
+              { id: "northgate", label: "Northgate" },
+              { id: "harborline", label: "Harborline" },
+              { id: "summit_trust", label: "Summit Trust" },
+            ],
+          },
+          market_value: { kind: "currency", aliases: ["value", "balance", "aum", "assets"] },
+          concentration: { kind: "percent", aliases: ["largest position", "single position", "position concentration"] },
+          unrealized_gain: { kind: "currency", aliases: ["gain", "gains", "unrealized gains"] },
+          has_restricted_holding: { kind: "boolean", aliases: ["restricted holding", "restricted"] },
+        },
+      },
+    );
+    const wealthMock = createMockProvider({ defaultColumnForKind: { currency: "market_value", percent: "concentration" } });
+    const onWealth = async (text: string) => {
+      const cue = createGridCue({ adapter: createRowsAdapter({ schema: wealth }), provider: wealthMock });
+      await cue.propose(text);
+      const st = cue.getState();
+      return st.status === "ready" ? st.plan?.operations : st.status;
+    };
     const ledger = defineSchema(
       [
         { id: "entry_number", label: "Entry number" },
@@ -1650,6 +1686,47 @@ describe("review of PR 21", () => {
       await cue.propose(text);
       return cue.getState().status;
     };
+    for (const text of [
+      "hide northgate accounts where gain is below $0",
+      "remove northgate accounts where gain is below $0",
+      "hide taxable accounts where gain is below $0",
+      "hide pending accounts where gain is below $0",
+      "hide old accounts where gain is below $0",
+      "hide dormant accounts where market value is under $10k",
+      "remove inactive accounts where market value is under $10k",
+      "hide my accounts where gain is below $0",
+      "exclude pending accounts where gain is below $0",
+      "hide account where gain is below $0",
+      "remove account where gain is below $0",
+      "hide the account where gain is below $0",
+      "hide all of the accounts where gain is below $0",
+      "hide trusts where market value is over $1m",
+      "hide northgate where gain is below $0",
+      "hide northgate accounts, where gain is below $0",
+      "hide northgate accounts where gain is below $0, sorted by gain",
+    ])
+      expect(await onWealth(text), text).toBe("needs_clarification");
+    for (const text of ["hide accounts where gain is below $0", "hide all accounts where gain is below $0"])
+      expect(filters((await onWealth(text)) as ViewOperation[]), text).toEqual([["unrealized_gain", "gte", 0]]);
+    // A part that hides a column is no leave-out: the "where" part after it filters, as it did.
+    expect(await onWealth("hide restricted holdings where market value is over $1m")).toMatchObject([
+      { type: "columns.hide", columnIds: ["has_restricted_holding"] },
+      { type: "filter.add", predicate: { columnId: "market_value", operator: "gt", value: 1_000_000 } },
+    ]);
+    expect(await onWealth("hide concentration where market value is over $1m")).toMatchObject([
+      { type: "columns.hide", columnIds: ["concentration"] },
+      { type: "filter.add", predicate: { columnId: "market_value", operator: "gt", value: 1_000_000 } },
+    ]);
+    expect(await onWealth("hide advisor where gain is below $0")).toMatchObject([
+      { type: "columns.hide", columnIds: ["advisor_name"] },
+      { type: "filter.add", predicate: { columnId: "unrealized_gain", operator: "lt", value: 0 } },
+    ]);
+    expect(await onWealth("hide the advisor column where custodian is Northgate")).toMatchObject([
+      { type: "columns.hide", columnIds: ["advisor_name"] },
+      { type: "filter.add", predicate: { columnId: "custodian", operator: "eq", value: "northgate" } },
+    ]);
+    for (const text of ["hide entry where amount is under $100", "hide travel entries where amount is under $100"])
+      expect(await onLedger(text), text).toBe("needs_clarification");
     for (const text of [
       "hide pending accounts where gain is below $0",
       "hide old accounts where gain is below $0",
