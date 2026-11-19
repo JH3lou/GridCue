@@ -323,13 +323,20 @@ export const compile = (c: CompileInput): ViewPlan => {
       .map((col) => ({ id: col.id, label: col.label }));
   // Consecutive sorts or groupings are levels of one, in the order named: the first is the primary sort or the
   // outermost group. A clear, reset or count in between, or a part that says "instead", starts a new one.
+  // The part that set the plan's count, and whether a sort or grouping was said after the count while one said before
+  // it was still in effect. The later one would replace the sort or grouping the count was said with, so the part
+  // that set the count is asked about (below), wherever the count's own sort was said.
+  let countPart: number | undefined;
+  let levelAfterCount = false;
   const levelsOf = (type: "sort.set" | "group.set", replaces: boolean) => {
     const at = operations.findLastIndex((o) => o.type === type);
     const current = operations[at];
-    if (replaces || !current || operations.slice(at + 1).some((o) => o.type === "view.reset" || o.type === "limit.set")) return undefined;
-    if (current.type === "sort.set" && current.sorts.length > 0) return current;
-    if (current.type === "group.set" && current.columnIds.length > 0) return current;
-    return undefined;
+    if (replaces || !current || operations.slice(at + 1).some((o) => o.type === "view.reset")) return undefined;
+    const levels =
+      (current.type === "sort.set" && current.sorts.length > 0) || (current.type === "group.set" && current.columnIds.length > 0);
+    const afterCount = operations.slice(at + 1).some((o) => o.type === "limit.set");
+    if (levels && afterCount) levelAfterCount = true;
+    return levels && !afterCount ? current : undefined;
   };
   const nameKey = (s: string) => (s.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []).join(" ");
   const columnsNamed = (term: string) =>
@@ -375,11 +382,12 @@ export const compile = (c: CompileInput): ViewPlan => {
   const everyRowOfAll = new Set<number>();
   const canCount = c.operations?.includes("limit.set") ?? false;
   // One count per plan: a later one replaces an earlier one, which is then left unused and asked about (ADR 0019).
-  const setCount = (count: number | null): ViewOperation => {
+  const setCount = (count: number | null, part: number): ViewOperation => {
     const earlier = operations.findIndex((o) => o.type === "limit.set");
     if (earlier >= 0) operations.splice(earlier, 1);
     const op: ViewOperation = { type: "limit.set", count };
     operations.push(op);
+    countPart = part;
     return op;
   };
 
@@ -400,7 +408,7 @@ export const compile = (c: CompileInput): ViewPlan => {
           });
           continue;
         }
-        readWhole.set(clause.index, [setCount(readCount)]);
+        readWhole.set(clause.index, [setCount(readCount, clause.index)]);
         note(`${key}.words`, "limit.set", 1, "deterministic");
         continue;
       }
@@ -409,7 +417,7 @@ export const compile = (c: CompileInput): ViewPlan => {
       // filters leave out, and on a grid that keeps no count there is none to clear: both go to the provider, as before.
       const saysCount = clause.text.endsWith("count");
       if (readCount === null && canCount && (c.state.limit !== undefined || saysCount || predicatesIn(c.state.filters) === 0)) {
-        readWhole.set(clause.index, [setCount(null)]);
+        readWhole.set(clause.index, [setCount(null, clause.index)]);
         if (c.state.limit === undefined && !saysCount) everyRowOfAll.add(clause.index);
         note(`${key}.words`, "limit.set", 1, "deterministic");
         continue;
@@ -424,7 +432,7 @@ export const compile = (c: CompileInput): ViewPlan => {
         const answerKey = `${key}.rows`;
         const answer = answers[answerKey];
         if (answer === "count" || answer === "filters") {
-          const ops = [setCount(null)];
+          const ops = [setCount(null, clause.index)];
           if (answer === "filters") {
             const clear: ViewOperation = { type: "filter.clear" };
             operations.push(clear);
@@ -1087,11 +1095,16 @@ export const compile = (c: CompileInput): ViewPlan => {
             }
             return false;
           });
+          // Before "where", only "the", "all" and the like may stand before the rows: "hide pending accounts where …"
+          // would drop "pending", and "remove cleared entries where …" would read it as a second condition.
+          const beforeWhere = /^\s*(.*?)\s+where\b/.exec(afterExclusionLead(bare) ?? "")?.[1];
+          const wordsBeforeRows = !!beforeWhere && !/^(?:(?:the|all|any|those|these)\s+)*\S+$/.test(beforeWhere);
           if (
             excluding &&
             (conditions > 1 ||
               yes ||
               unreadName ||
+              wordsBeforeRows ||
               (mentionedValues.length > 0 && unclearValue) ||
               /\b(?:except|but|other than|apart from)\b/.test(unquoted(clause.text)))
           ) {
@@ -1390,7 +1403,7 @@ export const compile = (c: CompileInput): ViewPlan => {
       // plan sorts alone and keeps the count as dropped evidence, which the Preview names in its notes.
       if (clause.limit !== undefined) {
         if (canCount) {
-          setCount(clause.limit);
+          setCount(clause.limit, clause.index);
           note(`${key}.limit`, String(clause.limit), 1, "deterministic");
         } else {
           evidence.push({ key: `dropped:${key}.limit`, selectedId: String(clause.limit), confidence: 1, source: "host" });
@@ -1427,7 +1440,10 @@ export const compile = (c: CompileInput): ViewPlan => {
   //   or the first 5 of the new view. The View State holds only the second, and neither is certain (ADR 0027).
   // "Show only the first 5 rows" keeps the first rows of the sorted view as it stands when it is said. With no sort
   // there, nothing says which rows come first: ask, never pick a column.
+  // - a sort or grouping said after the count would replace the one said before it (above), so the count's rows would
+  //   not be the ones its part names.
   const undone = new Set<number>();
+  if (levelAfterCount && countPart !== undefined) undone.add(countPart);
   const viewOf = (v?: { sorts?: ViewState["sorts"]; filters?: ViewState["filters"] }): ViewState => ({
     ...emptyViewState([]),
     sorts: v?.sorts ?? [],
