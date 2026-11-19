@@ -901,6 +901,7 @@ describe("every existing set on a grid without group.set, with the Mock Provider
 // status, the operations, the questions and their choices, what is refused, and the Preview. And none may be a wrong
 // view by its labels, except in the live-only sets, which the Mock Provider is not judged on and which are held to the
 // Rows Adapter's result alone. First run (2026-11-19): 4019 cases, none different, no wrong view outside those sets.
+// With the review fixes' held-out set (133 cases): 4152 cases in 57 sets, none different, no wrong view outside them.
 describe("every set on the TanStack Table adapter, with the Mock Provider", () => {
   const ledgerProvider = createMockProvider(mockOptionsFor({ schema: "ledger" }));
   for (const file of caseFiles()) {
