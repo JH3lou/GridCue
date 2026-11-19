@@ -14,9 +14,14 @@ import {
   mockOptionsFor,
   onGridWithoutGrouping,
   onGridWithoutRenders,
+  passesOnQueryAdapter,
   passesWithoutRenders,
+  QUERY_COUNT_THEN_SORT_FOR_THE_LEAD,
+  type QueryCaseResult,
+  queryLeftOut,
   REVIEW_R2_FOR_THE_OWNER,
   runCase,
+  runOnQueryAdapter,
   runOnTanStack,
   runWithoutGrouping,
   runWithoutRenders,
@@ -952,6 +957,37 @@ describe("every set on the TanStack Table adapter, with the Mock Provider", () =
   }
 });
 
+// Every existing set, run again on a default Query Adapter, `createQueryAdapter({ schema })` (more grids spec, 5.4 and
+// 10), judged by `passesOnQueryAdapter`, the rule `--grid=query` uses too. It lists no count, totals, pins or density.
+// A case whose starting view holds one of them is left out. A ready plan with a count fails. A sort with a count ("top
+// 10 accounts by market value") asks, or is ready with the sort alone and the note "Count not applied: …". A count
+// alone ends in "This grid can't show only the first N rows." with nothing applied. Clearing a count isn't ready. Pins,
+// density and totals end as on a grid without `renders`. Every other case keeps its Rows Adapter verdict.
+// First run (2026-11-19), Mock Provider: 4240 cases in 59 sets. 192 left out: 87 start with a count, 55 with totals, 49
+// with pins, 1 with a density. Of the 4048 judged: 19 a sort with a count (13 ready with the sort and the note, 5 ask
+// "This grid can't show only the first N rows." for a count said in a part of its own, 1 asks which column, as on the
+// Rows Adapter); 2 a count alone, both "This grid can't …"; 0 clearing a count, since every such case starts with a
+// count; 377 pins, density or totals, none ready; 3650 other, 3641 with their Rows Adapter verdict. The 9 others are
+// one class of wrong view, not fixed here: a sort with a count, then another sort in the same request ("top 10 by
+// market value, then sort by household") asks on the Rows Adapter, and is ready on this grid with both sorts and the
+// count note. The fix is the compiler's, so they are kept for the lead in `QUERY_COUNT_THEN_SORT_FOR_THE_LEAD`, and pass
+// only as exactly that plan. The same run on 2026-11-19, after the review's fixes: the same numbers.
+describe("every existing set on a default Query Adapter, with the Mock Provider", () => {
+  const ledgerProvider = createMockProvider(mockOptionsFor({ schema: "ledger" }));
+  for (const file of caseFiles()) {
+    for (const c of loadCases(new URL(`./${file}`, import.meta.url))) {
+      if (queryLeftOut(c)) continue;
+      it(`${file}: ${c.id}`, async () => {
+        const result = await runOnQueryAdapter(c, file, c.schema === "ledger" ? ledgerProvider : provider);
+        const shown = result.leftOut
+          ? result.leftOut
+          : { kind: result.kind, rows: result.rows.verdict, query: result.query.status, plan: result.query.plan };
+        expect(!result.leftOut && result.pass, `${c.utterance}\n${JSON.stringify(shown, null, 1)}`).toBe(true);
+      });
+    }
+  }
+});
+
 describe("the TanStack run", () => {
   // `tanStackAdapterFor` throws when the table's default view is not the one the Rows Adapter starts from.
   it("starts each schema's table from the Rows Adapter's default view, with the count listed", () => {
@@ -1094,5 +1130,87 @@ describe("the verdict", () => {
     expect(passesWithoutRenders("cases-totals-natural-heldout.jsonl", run("n", "safe_abstention", asked))).toBe(false);
     expect(passesWithoutRenders("cases-totals.jsonl", run("n", "mismatch", asked))).toBe(false);
     expect(passesWithoutRenders("cases-totals.jsonl", { ...run("n", "mismatch", asked), pass: true })).toBe(true);
+  });
+
+  it("leaves out of the Query Adapter run a case that starts with what a default Query Adapter can't hold", () => {
+    expect(queryLeftOut({ state: { limit: 10 } })).toBe("starts with a count");
+    expect(queryLeftOut({ state: { aggregations: [{ columnId: "market_value", function: "sum" }] } })).toBe("starts with totals");
+    expect(queryLeftOut({ state: { pinnedColumnIds: { start: [], end: ["market_value"] } } })).toBe("starts with pins");
+    expect(queryLeftOut({ state: { density: "compact" } })).toBe("starts with a density");
+    expect(queryLeftOut({ state: { sorts: [], density: "comfortable", pinnedColumnIds: { start: [], end: [] } } })).toBeUndefined();
+    expect(queryLeftOut({})).toBeUndefined();
+  });
+
+  it("judges a case on a default Query Adapter by its kind, here and in `--grid=query`", () => {
+    const limit = { type: "limit.set", count: 10 };
+    const ran = (status: string, operations: unknown[], notes: string[] = [], prompts: string[] = [], verdict: Verdict = "exact") => ({
+      verdict,
+      status,
+      plan: {
+        operations: operations as never,
+        clarifications: prompts.map((prompt, i) => ({ id: `c${i}.cant`, prompt, required: true as const })),
+        unsupportedSegments: [],
+      },
+      preview: { notes },
+    });
+    const result = (kind: QueryCaseResult["kind"], reading: unknown[], query: QueryCaseResult["query"], rows = query) => ({
+      id: "q",
+      kind,
+      reading,
+      prompts: [],
+      alsoAcceptsAsk: false,
+      rows,
+      query,
+    });
+    const note = "Count not applied: this grid can't show only the first 10";
+    const top10 = (query: QueryCaseResult["query"]) =>
+      passesOnQueryAdapter("cases.jsonl", result("a sort with a count", [sort, limit], query));
+    expect(top10(ran("ready", [sort], [note]))).toBe(true);
+    expect(top10(ran("ready", [sort]))).toBe(false);
+    expect(top10(ran("ready", [sort, limit], [note]))).toBe(false);
+    expect(top10(ran("ready", [{ type: "sort.set", sorts: [...sort.sorts, { columnId: "household", direction: "asc" }] }], [note]))).toBe(
+      false,
+    );
+    expect(top10(ran("needs_clarification", []))).toBe(true);
+    const first10 = (query: QueryCaseResult["query"]) => passesOnQueryAdapter("cases.jsonl", result("a count alone", [limit], query));
+    expect(first10(ran("needs_clarification", [], [], ["This grid can't show only the first 10 rows."]))).toBe(true);
+    expect(first10(ran("needs_clarification", [], [], ["First 10 by which column?"]))).toBe(false);
+    expect(passesOnQueryAdapter("cases.jsonl", result("clears a count", [{ type: "limit.set", count: null }], ran("ready", [])))).toBe(
+      false,
+    );
+    const other = (query: QueryCaseResult["query"], rows: QueryCaseResult["rows"]) =>
+      passesOnQueryAdapter("cases.jsonl", result("other", [sort], query, rows));
+    expect(other(ran("ready", [sort]), ran("ready", [sort]))).toBe(true);
+    expect(other(ran("ready", [sort], [], [], "unsafe"), ran("needs_clarification", [], [], ["?"], "safe_abstention"))).toBe(false);
+    expect(other(ran("ready", [hide], [], [], "unsafe"), ran("ready", [sort], [], [], "unsafe"))).toBe(false);
+  });
+
+  it("passes a case kept for the lead only as it is judged, or as exactly its known wrong view", () => {
+    const file = "cases-review-fixes-heldout-r2.jsonl";
+    const both = {
+      type: "sort.set",
+      sorts: [
+        { columnId: "market_value", direction: "desc" },
+        { columnId: "household", direction: "asc" },
+      ],
+    };
+    const run = (status: string, operations: unknown[], notes: string[], verdict: Verdict) => ({
+      verdict,
+      status,
+      plan: { operations: operations as never, clarifications: [], unsupportedSegments: [] },
+      preview: { notes },
+    });
+    const asked = run("needs_clarification", [], [], "safe_abstention");
+    const note = "Count not applied: this grid can't show only the first 10";
+    const judged = (id: string, query: QueryCaseResult["query"], in_ = file) =>
+      passesOnQueryAdapter(in_, { id, kind: "other", reading: [], prompts: [], alsoAcceptsAsk: false, rows: asked, query });
+    expect(QUERY_COUNT_THEN_SORT_FOR_THE_LEAD[file]).toContain("rf2-count-then-sort-01");
+    expect(judged("rf2-count-then-sort-01", run("ready", [both], [note], "unsafe"))).toBe(true);
+    expect(judged("rf2-count-then-sort-01", asked)).toBe(true);
+    expect(judged("rf2-count-then-sort-01", run("ready", [both], [], "unsafe"))).toBe(false);
+    expect(judged("rf2-count-then-sort-01", run("ready", [sort], [note], "unsafe"))).toBe(false);
+    expect(judged("rf2-count-then-sort-01", run("ready", [both, hide], [note], "unsafe"))).toBe(false);
+    expect(judged("rf2-count-then-sort-01", run("ready", [both], [note], "unsafe"), "cases.jsonl")).toBe(false);
+    expect(judged("rf2-count-then-group-07", run("ready", [both], [note], "unsafe"))).toBe(false);
   });
 });

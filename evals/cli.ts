@@ -7,12 +7,15 @@ import {
   caseFiles,
   type EvalCase,
   failsTanStackRun,
+  isKnownCountThenSort,
   LIVE_ONLY_SETS,
   loadCases,
   mockOptionsFor,
   passesWithoutRenders,
+  QUERY_KINDS,
   REVIEW_R2_FOR_THE_OWNER,
   runCase,
+  runOnQueryAdapter,
   runOnTanStack,
   runWithoutGrouping,
   runWithoutRenders,
@@ -285,6 +288,60 @@ if (flag("grid") === "no-renders") {
     console.table(counts);
   }
   process.exit(failed > 0 ? 1 : 0);
+}
+
+// `--grid=query` runs every existing set on a default Query Adapter (more grids spec, 10), judged by
+// `passesOnQueryAdapter`, the rule `evals.test.ts` judges by too. A case whose starting view holds a count, totals, a pin
+// or a density is left out. One line for each set, then a table of the totals.
+if (flag("grid") === "query") {
+  const zero = () => ({
+    ...Object.fromEntries(QUERY_KINDS.flatMap((kind) => [[kind, 0] as const, [`${kind}, failed`, 0] as const])),
+    "kept the Rows Adapter's verdict": 0,
+    "the known count-then-sort wrong view, for the lead": 0,
+    "starts with a count, left out": 0,
+    "starts with totals, left out": 0,
+    "starts with pins, left out": 0,
+    "starts with a density, left out": 0,
+  });
+  const totals: Record<string, number> = zero();
+  let failed = 0;
+  for (const file of caseFiles()) {
+    const counts: Record<string, number> = zero();
+    for (const c of loadCases(new URL(file, import.meta.url))) {
+      useProviderFor(c);
+      const result = await runOnQueryAdapter(c, file, provider);
+      if (result.leftOut) {
+        counts[`${result.leftOut}, left out`] = (counts[`${result.leftOut}, left out`] ?? 0) + 1;
+        continue;
+      }
+      counts[result.kind] = (counts[result.kind] ?? 0) + 1;
+      if (result.query.verdict === result.rows.verdict)
+        counts["kept the Rows Adapter's verdict"] = (counts["kept the Rows Adapter's verdict"] ?? 0) + 1;
+      if (isKnownCountThenSort(file, result)) {
+        counts["the known count-then-sort wrong view, for the lead"] =
+          (counts["the known count-then-sort wrong view, for the lead"] ?? 0) + 1;
+        console.log(`FOR THE LEAD: ${file}: ${c.id} (“${c.utterance}”): ready with both sorts and the count note`);
+      }
+      if (!result.pass) {
+        failed++;
+        counts[`${result.kind}, failed`] = (counts[`${result.kind}, failed`] ?? 0) + 1;
+        const { rows, query } = result;
+        const got = query.plan?.clarifications.map((q) => q.prompt).join(" | ") || JSON.stringify(query.plan?.operations);
+        console.log(
+          `FAILED (${result.kind}): ${file}: ${c.id} (“${c.utterance}”; ${rows.verdict} on the Rows Adapter -> ${query.verdict} on the Query Adapter, ${query.status}: ${got})`,
+        );
+      } else if (verbose) console.log(`ok ${result.kind} ${file}: ${c.id} (${result.query.verdict})`);
+    }
+    for (const [k, n] of Object.entries(counts)) totals[k] = (totals[k] ?? 0) + n;
+    const line = Object.entries(counts)
+      .filter(([, n]) => n > 0)
+      .map(([k, n]) => `${n} ${k}`)
+      .join(", ");
+    console.log(`${file}: ${line}`);
+  }
+  console.log(`GridCue evals on a default Query Adapter, every set (${live ? "Jev" : "Mock Provider"})`);
+  console.table(totals);
+  await exit(failed > 0 ? 1 : 0);
 }
 
 const core = await run(new URL("./cases.jsonl", import.meta.url), "cases.jsonl");

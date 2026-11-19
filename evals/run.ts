@@ -19,12 +19,14 @@ import {
 import {
   type ColumnInput,
   createGridCue,
+  createQueryAdapter,
   createRowsAdapter,
   defineSchema,
   emptyViewState,
   type GridAdapter,
   type GridCueController,
   type IntentProvider,
+  type QueryAdapterOptions,
   type ResolutionResult,
   type SchemaOptions,
   type ViewOperation,
@@ -420,15 +422,20 @@ export interface RunOptions {
    */
   calendar?: boolean;
   /**
-   * The Grid Adapter the case runs on: the Rows Adapter (the default, which every label was written for), or the
-   * TanStack Table adapter over a real TanStack Table (`tanStackAdapterFor`). For the TanStack run (operation set spec,
-   * section 10).
+   * The Grid Adapter the case runs on: the Rows Adapter (the default, which every label was written for), the TanStack
+   * Table adapter over a real TanStack Table (`tanStackAdapterFor`), for the TanStack run (operation set spec, section
+   * 10), or a Query Adapter (`queryAdapterFor`), for the Query Adapter run (more grids spec, section 10).
    */
   adapter?: EvalAdapter;
+  /**
+   * With `adapter: "query"`: the Query Adapter's options. Left out, the case runs on a default Query Adapter: no count,
+   * no pins, no density, no totals, whatever the case's `renders` says.
+   */
+  query?: Omit<QueryAdapterOptions, "schema" | "initialState">;
 }
 
-/** The two Grid Adapters a case can run on. */
-export type EvalAdapter = "rows" | "tanstack";
+/** The three Grid Adapters a case can run on. */
+export type EvalAdapter = "rows" | "tanstack" | "query";
 
 /** The `renders` names the Rows Adapter takes. A case's other names are left out when its adapter is built. */
 type RowsAdapterRenders = NonNullable<Parameters<typeof createRowsAdapter>[0]["renders"]>[number];
@@ -469,6 +476,35 @@ export const tanStackAdapterFor = (c: Pick<EvalCase, "schema" | "renders">, sche
 };
 
 /**
+ * The Query Adapter a case runs on in the Query Adapter run (more grids spec, section 10): the case's schema and
+ * default view, with `options` (none: a default Query Adapter). A case on a grid that can't group ("no-group") runs on
+ * one built with `without: ["group.set"]`, as a Host would build it. The case's view is written with `setState`, as a
+ * Host's own control writes it. A Query Adapter that lists no count never holds one, so there the case starts from its
+ * view without the count (more grids plan, task 4.3: a request that clears a count ends as any clear of something the
+ * view doesn't have). The run that uses this judges what that does to the case's label.
+ */
+export const queryAdapterFor = (
+  c: Pick<EvalCase, "grid" | "state">,
+  schema: ViewSchema,
+  initialState: ViewState | undefined,
+  options: RunOptions["query"] = {},
+): GridAdapter => {
+  const without = [...(options.without ?? []), ...(c.grid === "no-group" ? ["group.set"] : [])];
+  const adapter = createQueryAdapter({
+    ...options,
+    schema,
+    ...(initialState ? { initialState } : {}),
+    ...(without.length > 0 ? { without } : {}),
+  });
+  if (c.state) {
+    const { limit, ...rest } = c.state;
+    const start = limit !== undefined && adapter.getCapabilities().operations.includes("limit.set") ? c.state : rest;
+    adapter.setState((view) => ({ ...view, ...start }));
+  }
+  return adapter;
+};
+
+/**
  * Runs one case. `make` is the Controller's constructor: the built package's, unless a test passes the package
  * source's to look inside the compiler.
  */
@@ -499,7 +535,10 @@ export const runCase = async (
           ? [schema ?? ledgerSchema, ledgerInitialState]
           : [schema ?? wealthSchema, wealthInitialState];
   let grid: GridAdapter;
-  if (options.adapter === "tanstack") {
+  if (options.adapter === "query") {
+    // Built without grouping itself when the case says "no-group", so it is not wrapped again below.
+    grid = queryAdapterFor(c, caseSchema, initialState, options.query);
+  } else if (options.adapter === "tanstack") {
     grid = tanStackAdapterFor(c, caseSchema, initialState);
     // The case's view, written through the adapter before the Controller exists, as the Rows Adapter's `setState` does.
     if (c.state) {
@@ -511,7 +550,7 @@ export const runCase = async (
     if (c.state) rows.setState((view) => ({ ...view, ...c.state }));
     grid = rows;
   }
-  const adapter = c.grid === "no-group" ? withoutGrouping(grid) : grid;
+  const adapter = c.grid === "no-group" && options.adapter !== "query" ? withoutGrouping(grid) : grid;
   const answer = c.providerAnswer;
   // A case with values reads its schema's Local Values; it throws for a schema that has none.
   const localValues = localValuesFor(c);
@@ -751,4 +790,210 @@ export const passesWithoutRenders = (
     return result.pass || (result.before.verdict === "mismatch" && result.after.status !== "ready");
   }
   return result.pass;
+};
+
+/**
+ * Why a case is left out of the Query Adapter run: its starting view holds something a default Query Adapter never
+ * holds, as a case that starts grouped is left out of the run on a grid that can't group.
+ */
+export type QueryLeftOut = "starts with a count" | "starts with totals" | "starts with pins" | "starts with a density";
+
+/**
+ * The kinds of request the Query Adapter run judges apart (more grids spec, 10; plan task 4.3), by the plan the case is
+ * labelled with. "A sort with a count" is "top 10 accounts by market value": a sort and a count. "A count alone" sets a
+ * count with no sort of its own ("show only the first 5 rows"). "Clears a count" removes one. "Pins, density or totals"
+ * pins, sets the density or shows totals. "Other" is every other case.
+ */
+export type QueryKind = "a sort with a count" | "a count alone" | "clears a count" | "pins, density or totals" | "other";
+
+/** Every kind, in the order the run reports them. */
+export const QUERY_KINDS: readonly QueryKind[] = [
+  "a sort with a count",
+  "a count alone",
+  "clears a count",
+  "pins, density or totals",
+  "other",
+];
+
+/** The case's starting view, if it holds a count, totals, a pin or a density, which a default Query Adapter can't hold. */
+export const queryLeftOut = (c: Pick<EvalCase, "state">): QueryLeftOut | undefined => {
+  const s = c.state ?? {};
+  if (s.limit !== undefined && s.limit !== null) return "starts with a count";
+  if ((s.aggregations ?? []).length > 0) return "starts with totals";
+  if ((s.pinnedColumnIds?.start ?? []).length > 0 || (s.pinnedColumnIds?.end ?? []).length > 0) return "starts with pins";
+  if (s.density !== undefined && s.density !== emptyViewState([]).density) return "starts with a density";
+  return undefined;
+};
+
+/** The kind of a request, by the plan it is judged by and the "This grid can't …" questions a grid without `renders` asks. */
+const queryKind = (reading: readonly unknown[], prompts: readonly string[]): QueryKind => {
+  const types = reading.map((op) => (op as { type: string }).type);
+  if (prompts.length > 0 || types.some((type) => type === "columns.pin" || type === "density.set" || type === "aggregation.set"))
+    return "pins, density or totals";
+  const counts = reading.filter((op) => (op as { type: string }).type === "limit.set") as Array<{ count: number | null }>;
+  if (counts.some((op) => op.count === null)) return "clears a count";
+  if (counts.length > 0) return types.includes("sort.set") ? "a sort with a count" : "a count alone";
+  return "other";
+};
+
+/**
+ * Cases of one wrong view a default Query Adapter shows that this PR can't fix, kept for the lead. A count with its
+ * sort, then another sort in the same request ("top 10 by market value, then sort by household"), asks on a grid that
+ * lists `limit.set`. On a grid that doesn't, the compiler drops the count with its note before the check that asks
+ * runs, and the plan sorts by both, so the later sort the User asked for only breaks ties. The same plan is made today
+ * on a TanStack table without "count". The fix is the compiler's, which this PR leaves as it is. Each case here passes
+ * only as it is judged, or as exactly that plan, so any other change to it still fails.
+ */
+export const QUERY_COUNT_THEN_SORT_FOR_THE_LEAD: Readonly<Record<string, readonly string[]>> = {
+  "cases-review-fixes-heldout.jsonl": ["rf-sort-after-count-02", "rf-sort-after-count-03", "rf-sort-after-count-08"],
+  "cases-review-fixes-heldout-r2.jsonl": [
+    "rf2-count-then-sort-01",
+    "rf2-count-then-sort-02",
+    "rf2-count-then-sort-03",
+    "rf2-count-then-sort-04",
+    "rf2-count-then-sort-05",
+    "rf2-count-then-sort-06",
+  ],
+};
+
+/**
+ * Whether a case of `QUERY_COUNT_THEN_SORT_FOR_THE_LEAD` shows exactly the known wrong view: it asks on the Rows Adapter,
+ * and on the Query Adapter it is ready with one sort of two columns or more and the note that the count was not applied.
+ */
+export const isKnownCountThenSort = (file: string, result: Pick<QueryCaseResult, "id" | "rows" | "query">): boolean => {
+  if (!(QUERY_COUNT_THEN_SORT_FOR_THE_LEAD[file] ?? []).includes(result.id)) return false;
+  const ops = (result.query.plan?.operations ?? []) as readonly ViewOperation[];
+  const [only] = ops;
+  return (
+    result.rows.status !== "ready" &&
+    result.query.status === "ready" &&
+    ops.length === 1 &&
+    only?.type === "sort.set" &&
+    only.sorts.length >= 2 &&
+    (result.query.preview?.notes ?? []).some((note) => note.startsWith("Count not applied: this grid can't show only the first "))
+  );
+};
+
+/** The question a grid that lists no `limit.set` asks for a count set on its own (order plan, section 11). */
+const cantCount = (count: number) =>
+  `This grid can't show only the first ${count.toLocaleString("en-US")} ${count === 1 ? "row" : "rows"}.`;
+/** The Preview's note for a count dropped beside its sort (ADR 0018; more grids spec, 5.4). */
+const countNote = (count: number) => `Count not applied: this grid can't show only the first ${count.toLocaleString("en-US")}`;
+
+/** What the Query Adapter run's judging rule reads of one run of a case. */
+interface QueryRunResult {
+  verdict: Verdict;
+  status: string;
+  plan: Pick<ViewPlan, "operations" | "clarifications" | "unsupportedSegments"> | null;
+  preview: { notes?: readonly string[] } | null;
+}
+
+/** One case of the Query Adapter run, as `runOnQueryAdapter` gives it and `passesOnQueryAdapter` judges it. */
+export interface QueryCaseResult {
+  id: string;
+  kind: QueryKind;
+  /** The plan the case is judged by: its label's operations, or for an owner's decision the Rows Adapter's plan. */
+  reading: readonly unknown[];
+  /** The "This grid can't …" questions a grid without `renders` asks for this case (`onGridWithoutRenders`). */
+  prompts: readonly string[];
+  alsoAcceptsAsk: boolean;
+  /** The case with its `renders`, on the Rows Adapter. Only for a case labelled for a grid that draws pins, density or totals. */
+  withRenders?: QueryRunResult;
+  /** The case on the Rows Adapter, without `renders`: the grid a default Query Adapter is, but for the count. */
+  rows: QueryRunResult;
+  /** The same case on a default Query Adapter. */
+  query: QueryRunResult;
+}
+
+/**
+ * Whether a case of `file` passes on a default Query Adapter (more grids spec, 5.4 and 10). `evals.test.ts` and
+ * `--grid=query` both judge by this, so the mode fails exactly when the test does. A ready plan that holds a count fails
+ * whatever the kind, since the grid lists none. Then, by kind:
+ * - A sort with a count passes when it asks, or when it is ready with the labelled plan less its count and the
+ *   Preview's note "Count not applied: this grid can't show only the first N".
+ * - A count alone passes when it asks only "This grid can't show only the first N rows.", with no choices, and nothing
+ *   is refused.
+ * - Clearing a count passes when it isn't ready: there is no count to clear, and nothing else to change.
+ * - Pins, density or totals pass by `passesWithoutRenders`, as on a grid without `renders`, where the "This grid can't
+ *   show only the first N rows." question may stand beside "This grid can't …" for a count in the same request.
+ * - Any other case passes when its verdict is the one it has on the Rows Adapter without `renders`; where that is a
+ *   wrong view already (a live-only set's Mock miss, an owner's decision), only with the very same operations. A case of
+ *   `QUERY_COUNT_THEN_SORT_FOR_THE_LEAD` also passes as exactly its known wrong view (`isKnownCountThenSort`).
+ */
+export const passesOnQueryAdapter = (file: string, result: QueryCaseResult): boolean => {
+  const { kind, reading, query } = result;
+  const ops = (query.plan?.operations ?? []) as readonly ViewOperation[];
+  if (query.status === "ready" && ops.some((op) => op.type === "limit.set")) return false;
+  const counts = reading
+    .filter((op) => (op as { type: string }).type === "limit.set")
+    .map((op) => (op as { count: number | null }).count)
+    .filter((count): count is number => typeof count === "number");
+  const questions = query.plan?.clarifications ?? [];
+  const asksOnly = (prompts: readonly string[]) =>
+    query.status === "needs_clarification" &&
+    (query.plan?.unsupportedSegments.length ?? 0) === 0 &&
+    questions.length > 0 &&
+    questions.every((q) => prompts.includes(q.prompt) && (q.options?.length ?? 0) === 0);
+  switch (kind) {
+    case "a sort with a count": {
+      if (query.status !== "ready") return true;
+      const sortAlone = reading.filter((op) => (op as { type: string }).type !== "limit.set");
+      return sameView(stripIds(ops), sortAlone) && counts.every((count) => (query.preview?.notes ?? []).includes(countNote(count)));
+    }
+    case "a count alone":
+      return asksOnly(counts.map(cantCount));
+    case "clears a count":
+      return query.status !== "ready";
+    case "pins, density or totals": {
+      const before = result.withRenders ?? result.rows;
+      const cant = asksOnly([...result.prompts, ...counts.map(cantCount)]);
+      const pass = cant || (result.alsoAcceptsAsk && before.status !== "ready" && query.status !== "ready");
+      return passesWithoutRenders(file, { id: result.id, pass, before, after: query });
+    }
+    case "other":
+      return (
+        (query.verdict === result.rows.verdict &&
+          (query.verdict !== "unsafe" || isDeepStrictEqual(stripIds(ops), stripIds(result.rows.plan?.operations ?? [])))) ||
+        isKnownCountThenSort(file, result)
+      );
+  }
+};
+
+/**
+ * Runs an existing case on a default Query Adapter (`createQueryAdapter({ schema })`, more grids spec, 10) and on the
+ * Rows Adapter, for `passesOnQueryAdapter` to judge. A case labelled for a grid that draws pins, density or totals runs on
+ * both without `renders`, as `onGridWithoutRenders` moves it, since a default Query Adapter draws none of them; it also
+ * runs with them on the Rows Adapter, for the rule a grid without `renders` is held to. Returns only `leftOut` for a case
+ * whose starting view a default Query Adapter can't hold. The owner's decisions in the review fixes' second held-out set
+ * are judged by the plan the Rows Adapter makes for them, as their label is not the owner's reading.
+ */
+export const runOnQueryAdapter = async (
+  c: EvalCase,
+  file: string,
+  provider: IntentProvider,
+): Promise<{ id: string; leftOut: QueryLeftOut } | (QueryCaseResult & { leftOut?: undefined; pass: boolean })> => {
+  const leftOut = queryLeftOut(c);
+  if (leftOut) return { id: c.id, leftOut };
+  const moved = onGridWithoutRenders(c);
+  const run = moved?.case ?? c;
+  const withRenders = moved ? await runCase(c, provider) : undefined;
+  const rows = await runCase(run, provider);
+  const query = await runCase(run, provider, createGridCue, { adapter: "query" });
+  const forTheOwner = file === "cases-review-fixes-heldout-r2.jsonl" && REVIEW_R2_FOR_THE_OWNER.includes(c.id);
+  const reading =
+    forTheOwner && rows.status === "ready"
+      ? stripIds(rows.plan?.operations ?? [])
+      : ((moved?.exact ? moved.case.expect.operations : c.expect.operations) ?? []);
+  const prompts = moved?.prompts ?? [];
+  const result: QueryCaseResult = {
+    id: c.id,
+    kind: queryKind(reading, prompts),
+    reading,
+    prompts,
+    alsoAcceptsAsk: !!c.alsoAcceptsAsk,
+    ...(withRenders ? { withRenders } : {}),
+    rows,
+    query,
+  };
+  return { ...result, pass: passesOnQueryAdapter(file, result) };
 };

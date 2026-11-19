@@ -145,17 +145,17 @@ Spec 5.4. ADR 0032.
 
 ### Task 4.2: The adapter (Opus)
 **Files:** new `packages/gridcue/src/core/state-adapter.ts` (the shared holder), `core/rows-adapter.ts`, new `core/query-adapter.ts`, `src/index.ts`, `test/query-adapter.test.ts`, `evals/run.ts`.
-- [ ] Tests first: operations with defaults, with `countBeforePaging`, with `without`; each bad `without` name throws `INPUT_CONFIG` naming it; `setState`; Revisions `query:n`; `renders` lists pins and density only when named, and `renders: ["totals"]` throws `INPUT_CONFIG`.
-- [ ] The contract suite on it.
-- [ ] The Rows Adapter moves onto the shared holder with no change in behaviour: its tests pass unchanged.
+- [x] Tests first: operations with defaults, with `countBeforePaging`, with `without`; each bad `without` name throws `INPUT_CONFIG` naming it; `setState`; Revisions `query:n`; `renders` lists pins and density only when named, and `renders: ["totals"]` throws `INPUT_CONFIG`.
+- [x] The contract suite on it.
+- [x] The Rows Adapter moves onto the shared holder with no change in behaviour: its tests pass unchanged.
 
 ### Task 4.3: Held-out run (lead)
 - [ ] Every existing set on a default Query Adapter. Bar: 0 wrong views. By kind of request: a size word with a count ("top 10") ends as a sort with the count note; a request that only sets a count ("show only the first 5 rows") ends in "This grid can't show only the first 5 rows." with nothing applied; a request that clears a count ends as any clear of something the view doesn't have. The operation set's count sets are among the existing sets by then.
 
 ### Task 4.4: Docs (Sonnet), changelog (Haiku)
-- [ ] Site: `api/adapters` (`createQueryAdapter`; the Rows Adapter is for rows in memory).
-- [ ] `skills/gridcue/references/setup.md`: a row for rows on a server that names the Query Adapter. PR 5 adds the link to its guide, since `pnpm check:skills` fails on a link to a page that doesn't exist yet. `pnpm check:skills`.
-- [ ] `packages/gridcue/CHANGELOG.md`.
+- [x] Site: `api/adapters` (`createQueryAdapter`; the Rows Adapter is for rows in memory).
+- [x] `skills/gridcue/references/setup.md`: a row for rows on a server that names the Query Adapter. PR 5 adds the link to its guide, since `pnpm check:skills` fails on a link to a page that doesn't exist yet. `pnpm check:skills`.
+- [x] `packages/gridcue/CHANGELOG.md`.
 
 ### Task 4.5: Review (Opus), gate
 

@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+**Query Adapter for rows the Host fetches** (ADR 0032)
+- `createQueryAdapter` is for rows your own server fetches. It holds the View State and never fetches, and it never writes a Data Query. Build your Data Query from the View State each time it changes, and show your own loading and fetch errors.
+- `countBeforePaging: true` lists `limit.set`, and only then. Set it when your server sorts, keeps the first N rows and then pages, and your Data Query keeps the rows `applyView` keeps for a count. Left out, a count ends as a sort with the note that the count was not applied.
+- `without` takes out operations your Data Query can't carry out, such as `["group.set"]`. A request that needs one ends in "This grid can't …", with nothing applied.
+- `renders` takes `"pinning"` and `"density"`, so the adapter lists `columns.pin` and `density.set` for what your table draws. `"totals"` and `"count"` throw `INPUT_CONFIG`: a total over rows on a server is a Data Query of its own.
+- Its View State never holds a count without `countBeforePaging`, totals, pins without `"pinning"` or a density without `"density"`. An `initialState` or `setState` that holds one throws `INPUT_CONFIG`, and `restore` of such a snapshot fails with `ADAPTER_NOT_APPLICABLE`.
+- The Rows Adapter is for rows your Host holds in memory. It shares the Query Adapter's holder, and two things change on both. A subscriber that throws no longer stops the change, the other subscribers or the Controller: its error is reported the way an event listener's is, with `reportError` where the runtime has it, and the apply succeeds. Before, the apply failed and the Controller said the view changed meanwhile while it put the old view back. A subscriber that changes the view as it hears of a change no longer has its change returned as the apply's: the apply returns its own Revision, so Undo is refused rather than erasing the subscriber's change.
+
 **Counts on TanStack Table** (operation set spec, 5.5; ADR 0027; ADR 0029)
 - "Top 10 accounts by market value" and "show only the first 5 rows" now apply on a TanStack table, where they sorted and added the note "Count not applied: this grid can't show only the first 10". A Host that changes nothing sees nothing change: that note still shows on a TanStack table with no `"count"` in `renders`, and every request reads as before.
 - `createTanStackAdapter` takes `"count"` in `renders`, and lists `limit.set` only then. The Host registers GridCue's count piece from `gridcue/tanstack-table`: `gridcueCountFeature`, which holds the count in the table's own store (`gridcueCount`, `onGridcueCountChange`, `table.setGridcueCount`), and `gridcueCountRowModel(createFilteredRowModel())`, which wraps the filtered row model and keeps the rows `applyView` keeps. The table sorts, groups and pages those rows as it does any others, and each group's total is over them.

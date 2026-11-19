@@ -9,9 +9,10 @@ Look at `package.json` and the table component:
 | You find | Use |
 | --- | --- |
 | `@tanstack/react-table` v9 (`useTable`, `tableFeatures`) | The TanStack adapter: `gridcue/tanstack-table` |
-| Rows in memory, rendered by any table | The Rows Adapter: `createRowsAdapter` and `applyView` from `gridcue` |
+| Rows in memory (all of them), rendered by any table | The Rows Adapter: `createRowsAdapter` and `applyView` from `gridcue` |
+| Rows fetched from a server by the app's own Data Query (paged, or filtered and sorted there) | The Query Adapter: `createQueryAdapter` from `gridcue`. It holds the View State and never fetches: subscribe to it and build the Data Query from the state. Never the Rows Adapter, which would preview a count the server doesn't keep. Leave `countBeforePaging` out unless the server sorts, cuts to the count, then pages. |
 | TanStack Table v8 (`useReactTable`) | The v8 steps below. Tell the User first that `useLegacyTable` is TanStack's deprecated bridge and the guide ends by moving to `useTable`. |
-| Another grid (AG Grid, MUI) | Stop and ask. The Rows Adapter works only if the app can render from a plain array of rows. |
+| Another grid (AG Grid, MUI) | Stop and ask. The Rows Adapter works only if the app can render from a plain array of rows it holds. For rows on a server, see the Query Adapter above. |
 
 **TanStack Table v8 steps.** Docs: [TanStack Table v8 apps](https://gridcue.dev/docs/guides/tanstack-v8). The app needs React 18 or later for v9, and React 19 for the command bar. If it can't move to v9, use the Rows Adapter.
 
