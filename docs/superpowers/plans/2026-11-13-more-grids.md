@@ -141,7 +141,7 @@ Spec 5.3.
 Spec 5.4. ADR 0032.
 
 ### Task 4.1: Label (lead)
-- [ ] The held-out run is every existing eval set on a default Query Adapter; no new labels. Confirm which cases expect `limit.set` (two today).
+- [x] The held-out run is every existing eval set on a default Query Adapter; no new labels. Confirm which cases expect `limit.set` (two today).
 
 ### Task 4.2: The adapter (Opus)
 **Files:** new `packages/gridcue/src/core/state-adapter.ts` (the shared holder), `core/rows-adapter.ts`, new `core/query-adapter.ts`, `src/index.ts`, `test/query-adapter.test.ts`, `evals/run.ts`.
@@ -150,7 +150,7 @@ Spec 5.4. ADR 0032.
 - [x] The Rows Adapter moves onto the shared holder with no change in behaviour: its tests pass unchanged.
 
 ### Task 4.3: Held-out run (lead)
-- [ ] Every existing set on a default Query Adapter. Bar: 0 wrong views. By kind of request: a size word with a count ("top 10") ends as a sort with the count note; a request that only sets a count ("show only the first 5 rows") ends in "This grid can't show only the first 5 rows." with nothing applied; a request that clears a count ends as any clear of something the view doesn't have. The operation set's count sets are among the existing sets by then.
+- [x] Every existing set on a default Query Adapter. Bar: 0 wrong views. By kind of request: a size word with a count ("top 10") ends as a sort with the count note; a request that only sets a count ("show only the first 5 rows") ends in "This grid can't show only the first 5 rows." with nothing applied; a request that clears a count ends as any clear of something the view doesn't have. The operation set's count sets are among the existing sets by then.
 
 ### Task 4.4: Docs (Sonnet), changelog (Haiku)
 - [x] Site: `api/adapters` (`createQueryAdapter`; the Rows Adapter is for rows in memory).
@@ -239,7 +239,7 @@ Spec 5.6. ADR 0033. Needs PRs 1, 3, 5.
 ### Task 6.7: Docs (Sonnet), entries and links (Haiku)
 - [ ] Site: the "AG Grid" guide (Community only, tested majors, `gridcueColDef`, the Infinite Row Model with the server guide); `api/adapters`; `meta.json`; the marketing page's grid list, if it has one.
 - [ ] `package.json` `exports` and `tsdown` entry for `./ag-grid`; `pnpm check:package`.
-- [ ] `AGENTS.md`: the two lists of entries and the list of Grid Adapters gain `gridcue/ag-grid` and the Query Adapter. The owner approved the edit with the order plan's D2.
+- [ ] `AGENTS.md`: the two lists of entries and the list of Grid Adapters gain `gridcue/ag-grid`. The Query Adapter joined the list of Grid Adapters in PR 4, where it landed (order plan, section 11). The owner approved the edit with the order plan's D2.
 - [ ] `skills/gridcue/references/setup.md`: the AG Grid row; `troubleshooting.md`: each `INPUT_CONFIG` message. `pnpm check:skills`. The changelog.
 
 ### Task 6.8: Review (Opus), gate
