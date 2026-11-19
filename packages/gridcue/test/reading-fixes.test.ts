@@ -1607,10 +1607,84 @@ describe("review of PR 21", () => {
       "hide restricted accounts where market value is over $1m",
       "drop northgate accounts where market value is under $100k",
     ]) {
-      expect(normalize(text).clauses, text).toHaveLength(1);
+      expect(normalize(text, undefined, "account").clauses, text).toHaveLength(1);
       expect(await status(text), text).toBe("needs_clarification");
     }
     expect(normalize("hide advisor where advisor is exactly Avery").clauses).toHaveLength(2);
+  });
+
+  it("asks when a word other than “the” or “all” stands before the rows a “where” part leaves out (T12, second pass)", async () => {
+    const ledger = defineSchema(
+      [
+        { id: "entry_number", label: "Entry number" },
+        { id: "owner", label: "Owner" },
+        { id: "counterparty", label: "Counterparty" },
+        { id: "units", label: "Units" },
+        { id: "amount", label: "Amount" },
+        { id: "rate", label: "Rate" },
+        { id: "category", label: "Category" },
+        { id: "cleared", label: "Cleared" },
+      ],
+      {
+        rowNoun: "entry",
+        columns: {
+          entry_number: { aliases: ["entry", "entry #", "reference"] },
+          counterparty: { aliases: ["vendor", "payee"] },
+          units: { kind: "number" },
+          amount: { kind: "currency", aliases: ["value", "total", "sum"] },
+          rate: { kind: "percent" },
+          category: {
+            kind: "enum",
+            enumValues: [
+              { id: "fees", label: "Fees" },
+              { id: "travel", label: "Travel" },
+            ],
+          },
+          cleared: { kind: "boolean", aliases: ["settled", "reconciled"] },
+        },
+      },
+    );
+    const ledgerMock = createMockProvider({ defaultColumnForKind: { currency: "amount", percent: "rate" } });
+    const onLedger = async (text: string) => {
+      const cue = createGridCue({ adapter: createRowsAdapter({ schema: ledger }), provider: ledgerMock });
+      await cue.propose(text);
+      return cue.getState().status;
+    };
+    for (const text of [
+      "hide pending accounts where gain is below $0",
+      "hide old accounts where gain is below $0",
+      "hide dormant accounts where market value is under $10k",
+      "remove inactive accounts where market value is under $10k",
+      "hide my accounts where gain is below $0",
+      "hide Avery Lane's accounts where gain is below $0",
+      "exclude pending accounts where gain is below $0",
+      "hide northgate accounts where gain is below $0",
+      "hide all of the accounts where gain is below $0",
+      "hide gains where market value is over $1m",
+    ])
+      expect(await status(text), text).toBe("needs_clarification");
+    for (const text of [
+      "hide uncleared entries where amount is under $100",
+      "hide reversed entries where amount is under $100",
+      "remove duplicate entries where amount is under $100",
+      "remove cleared entries where amount is below $50",
+      "hide units where amount is over $500",
+    ])
+      expect(await onLedger(text), text).toBe("needs_clarification");
+    // Only the rows, or "the" or "all" before them, read as before.
+    const ops = async (text: string) => (await propose(text)).plan?.operations;
+    expect(filters(await ops("hide accounts where gain is below $0"))).toEqual([["gain", "gte", 0]]);
+    expect(filters(await ops("hide all the accounts where gain is below $0"))).toEqual([["gain", "gte", 0]]);
+    expect(filters(await ops("hide those where gain is below $0"))).toEqual([["gain", "gte", 0]]);
+    expect(await onLedger("hide entries where amount is under $100")).toBe("ready");
+    expect(await ops("hide restricted holdings where market value is over $1m")).toMatchObject([
+      { type: "columns.hide", columnIds: ["flagged"] },
+      { type: "filter.add", predicate: { columnId: "value", operator: "gt", value: 1_000_000 } },
+    ]);
+    expect(await ops("hide concentration where market value is over $1m")).toMatchObject([
+      { type: "columns.hide", columnIds: ["weight"] },
+      { type: "filter.add", predicate: { columnId: "value", operator: "gt", value: 1_000_000 } },
+    ]);
   });
 
   it("asks about a range whose bounds carry different units (T13)", () => {
