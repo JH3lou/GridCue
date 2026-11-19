@@ -192,7 +192,7 @@ The typed name must be exactly a name on the Host's list, ignoring letter case, 
 | No name ("save this view") | Asked, no choices: "Give the view a name, as in “save this as my exceptions view”." |
 | Apply, and the view changed since the Preview | Rejected: "The view changed since this preview. Preview the request again." Nothing is saved |
 | Apply | `save({ name, state })` with the grid's current View State. Message: "Saved as “concentrated”." Undo shows |
-| `save` throws | Error `ADAPTER_SAVED_VIEW_FAILED`: "Couldn't save the view. Nothing was saved." |
+| `save` throws | Error `ADAPTER_SAVED_VIEW_FAILED`: "Couldn't save the view. Check your saved views before you save it again." |
 
 **Undo of a save** calls `remove(id)` with the id `save` returned. It follows today's undo rule: it is usable while the grid shows the Revision it had when the save ran. Message: "Removed the saved view “concentrated”." If `remove` throws, the error is `ADAPTER_SAVED_VIEW_FAILED` and the undo history is cleared, as for a failed restore.
 
@@ -276,7 +276,7 @@ createGridCue({
 <GridCueBar controller={householdsCue} initialRequest={request} />
 ```
 
-The bar puts it in the input and proposes it once, on mount. For that, the input's text moves from each component into the hook, as `text` and `setText` on the binding; the command bar's PR 3 and the four bets' `read` reuse them. The target grid's Controller reads it as any typed request, with its own schema and its own Row Noun, and shows its own Preview. Only the User's words move between grids, never rows or a view.
+The bar puts it in the input and proposes it once, on mount. A later change to `initialRequest` is not proposed. A Host that keeps the target bar mounted across routed requests gives it a new React `key` for each one, so it mounts again. For that, the input's text moves from each component into the hook, as `text` and `setText` on the binding; the command bar's PR 3 and the four bets' `read` reuse them. The target grid's Controller reads it as any typed request, with its own schema and its own Row Noun, and shows its own Preview. Only the User's words move between grids, never rows or a view.
 
 **Requests on the Accounts grid, with the four grids above (Mock Provider):**
 

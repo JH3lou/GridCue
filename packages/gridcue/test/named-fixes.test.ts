@@ -682,6 +682,11 @@ describe("a “!” before a name", () => {
       "sort by value !trusts",
       'advisor "Whitfield" ! trusts',
       'advisor "Whitfield"!trusts',
+      // Review fix: a "!" right after a comma, semicolon or colon split off, so the name after it read as wanted.
+      'advisor "Whitfield",! trusts',
+      "show trusts,! restricted",
+      'household "Hale";! trusts',
+      'advisor "Whitfield":! trusts',
     ])
       await asks(text, BANG);
   });
@@ -901,6 +906,8 @@ describe("the words beside quoted text in a filter a clear keeps", () => {
       ['clear filters except advisor "Lane" roughly', "roughly"],
       ['clear filters except "Lane" exactly', "exactly"],
       ['remove all filters except advisor "Lane" as prefix', "as prefix"],
+      ['clear filters but leave advisor "Lane" exactly', "exactly"],
+      ['clear filters but leave advisor "Lane" alone', "alone"],
     ] as const) {
       const state = await fromFiltered(text);
       expect(state.status, text).toBe("needs_clarification");
@@ -909,7 +916,12 @@ describe("the words beside quoted text in a filter a clear keeps", () => {
   });
 
   it("still keeps the filter the words name (controls)", async () => {
-    for (const text of ['clear filters except advisor "Lane"', 'clear filters except advisor "Lane" please']) {
+    // Review fix: "leave" before the column, as the release read it.
+    for (const text of [
+      'clear filters except advisor "Lane"',
+      'clear filters except advisor "Lane" please',
+      'clear filters but leave advisor "Lane"',
+    ]) {
       const state = await fromFiltered(text);
       expect(state.status, `${text}: ${state.message}`).toBe("ready");
       expect(state.plan?.operations[0], text).toEqual({ type: "filter.clear" });
