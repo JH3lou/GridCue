@@ -413,7 +413,8 @@ describe("a column asked for beside a code-read filter", () => {
     expect(unplaced("show household for accounts with no advisor", { ...empty, operations: [filter, sort] })).toEqual(["household"]);
     expect(unplaced("show household for accounts with no advisor", { ...empty, operations: [showHousehold] })).toEqual([]);
     expect(unplaced("show only market value for accounts with no advisor", { ...empty, operations: [filter] })).toEqual(["market value"]);
-    expect(unplaced("show only market value for accounts with no advisor", { ...empty, operations: [sort] })).toEqual([]);
+    // A sort that holds the column does not show it (review finding).
+    expect(unplaced("show only market value for accounts with no advisor", { ...empty, operations: [sort] })).toEqual(["market value"]);
     // In the plural the name may be the rows, so the plan need not hold it.
     expect(unplaced("show households for accounts with no advisor", { ...empty, operations: [] })).toEqual([]);
   });

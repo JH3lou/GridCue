@@ -2,7 +2,7 @@
 
 **Status:** accepted with the command bar spec (2026-11-13). Not yet built.
 
-At an empty input the bar offers a few Starters: the Host's own examples, recent requests, and changes built from the View Schema. GridCue keeps recent requests only when the Host asks for them, by setting `recent: true` or by passing its own store. With neither, GridCue keeps no Utterance at all.
+At an empty input the bar offers a few Starters: the Host's own examples, recent requests, and changes built from the View Schema. GridCue keeps recent requests only when the Host asks for them, by setting `recent: true` or by passing its own store. With neither, GridCue keeps no recent requests. The Utterance of the current interaction is still held, so the User can edit it.
 
 The first design kept this session's applied requests in the Controller's memory by default. `AGENTS.md` says raw Utterances are never recorded without explicit Host configuration. Memory is still a record: on a shared desk, the next User at the same screen would see what the last one asked. The owner approved off by default (order plan D45, 2026-11-13).
 

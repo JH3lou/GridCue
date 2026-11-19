@@ -148,7 +148,9 @@ const asks = async (text: string, prompt?: string, schema: ViewSchema = wealth) 
 };
 const notReady = async (text: string, schema: ViewSchema = wealth) => {
   const state = await propose(text, schema);
-  expect(state.status, `${text}: ${JSON.stringify(state.plan?.operations)}`).not.toBe("ready");
+  expect(["needs_clarification", "unsupported"], `${text}: ${state.status} ${JSON.stringify(state.plan?.operations)}`).toContain(
+    state.status,
+  );
 };
 const codeRead = (text: string, schema: ViewSchema = wealth) => {
   const normalized = normalize(text);
@@ -315,10 +317,7 @@ describe("the forms through the Controller, with the Mock Provider", () => {
   });
 
   it("accounts with no advisor over $1m: asks", async () => {
-    await asks(
-      "accounts with no advisor over $1m",
-      "I'm not sure what the amount after “no advisor” applies to. Name its column, or split it into separate parts.",
-    );
+    await asks("accounts with no advisor over $1m", "I'm not sure what the amount after “no advisor” applies to. Name its column.");
   });
 
   it("no gain: asks, since an amount column could be empty or zero", async () => {
@@ -379,8 +378,7 @@ describe("where an empty form is read", () => {
 
   it("asks when an amount follows with no name of its own, past “and”, a comma or the end of the part", async () => {
     // The amount names no column, so it could be the form's: "Advisor is empty and [Advisor is] over 5%".
-    const amountQuestion = (words: string) =>
-      `I'm not sure what the amount after “${words}” applies to. Name its column, or split it into separate parts.`;
+    const amountQuestion = (words: string) => `I'm not sure what the amount after “${words}” applies to. Name its column.`;
     await asks("Advisor is empty and over 5%", amountQuestion("advisor is empty"));
     await asks("Advisor is blank, over 5%", amountQuestion("advisor is blank"));
     await asks("no advisor and above 20%", amountQuestion("no advisor"));
@@ -392,22 +390,38 @@ describe("where an empty form is read", () => {
     await asks("Counterparty is empty and over $500", amountQuestion("counterparty is empty"), ledger);
   });
 
+  it("asks when two columns' names differ only in punctuation, whichever is declared first (review finding)", async () => {
+    const filterOnly: IntentProvider = {
+      resolve: async () => ({
+        clauses: [{ clauseIndex: 0, families: [{ id: "filter", confidence: 0.95 }], columns: [], values: [], unmatchedTerms: [] }],
+      }),
+    };
+    const spaced = { id: "vendor_name", label: "Vendor Name" };
+    const dashed = { id: "vendor_dashed", label: "Vendor-Name" };
+    for (const columns of [
+      [spaced, dashed],
+      [dashed, spaced],
+    ]) {
+      const schema = defineSchema(columns, { rowNoun: "entry" });
+      for (const text of ["vendor name is empty", "entries with no vendor name", 'vendor name starts with "Ac"']) {
+        const state = await propose(text, schema, filterOnly);
+        expect(state.status, `${text}: ${JSON.stringify(state.plan?.operations)}`).toBe("needs_clarification");
+      }
+    }
+  });
+
   it("says “the date” in that question when a date follows, and “the amount” when an amount does", async () => {
-    const dateQuestion = (words: string) =>
-      `I'm not sure what the date after “${words}” applies to. Name its column, or split it into separate parts.`;
+    const dateQuestion = (words: string) => `I'm not sure what the date after “${words}” applies to. Name its column.`;
     await asks("Counterparty is empty and after 2026-01-01", dateQuestion("counterparty is empty"), ledger);
     await asks("entries with no counterparty before 2026-01-01", dateQuestion("no counterparty"), ledger);
     await asks("no counterparty; since 2026-01-01", dateQuestion("no counterparty"), ledger);
     await asks("category is blank, 2026-03-31 or later", dateQuestion("category is blank"), ledger);
     await asks(
       "entries with no counterparty over $10k",
-      "I'm not sure what the amount after “no counterparty” applies to. Name its column, or split it into separate parts.",
+      "I'm not sure what the amount after “no counterparty” applies to. Name its column.",
       ledger,
     );
-    await asks(
-      "Advisor is empty and over 5%",
-      "I'm not sure what the amount after “advisor is empty” applies to. Name its column, or split it into separate parts.",
-    );
+    await asks("Advisor is empty and over 5%", "I'm not sure what the amount after “advisor is empty” applies to. Name its column.");
   });
 
   it("reads a change after the form that holds no amount", async () => {
@@ -481,6 +495,10 @@ describe("a part with no code-read filter that holds a word nothing reads", () =
         state.plan?.operations.find((op) => op.type === "columns.show"),
         text,
       ).toMatchObject({ columnIds: shown });
+      expect(
+        state.plan?.operations.map((op) => op.type),
+        text,
+      ).toEqual(["columns.show", "columns.hide", "columns.order"]);
     };
     await only("just the advisor", ["advisor_name"]);
     await only("show just the advisor column", ["advisor_name"]);
@@ -872,6 +890,15 @@ describe("a column asked for beside a form", () => {
     ]);
   });
 
+  it("asks when only a sort holds the column asked for (review finding)", async () => {
+    for (const text of [
+      "sort by market value, then show only market value column where advisor is empty, largest gain first",
+      "show only market value column where advisor is empty, largest gain first",
+    ])
+      await asks(text);
+    await asks("sort by amount, then show only amount column where counterparty is empty, largest units first", undefined, ledger);
+  });
+
   it("asks when a provider's answer would drop the column", async () => {
     // "Household" is a Mention here, and this provider reads it as the rows: the plan would be the filter alone.
     const rows: IntentProvider = {
@@ -1258,6 +1285,16 @@ describe("a statement around a form, read as a request", () => {
     );
   });
 
+  it("is not read after “has” or “have” when the “who”, “which” or “that” before it is quoted text (review finding)", async () => {
+    for (const text of [
+      'household exactly "who" and accounts have no advisor',
+      'advisor exactly "which" and accounts have no household',
+      'household starts with "that" and accounts have no advisor',
+    ])
+      await asks(text);
+    await asks('counterparty exactly "who" and entries have no category', undefined, ledger);
+  });
+
   it("is not read after a question word right before its column, with no name for the rows before it", async () => {
     await each([
       "which advisor is missing",
@@ -1472,6 +1509,16 @@ describe("beside other changes", () => {
       confidence: 1,
       source: "deterministic",
     });
+  });
+
+  it("records the filter family code adds as code's, not the provider's (review finding)", async () => {
+    const none: IntentProvider = {
+      resolve: async () => ({ clauses: [{ clauseIndex: 0, families: [], columns: [], values: [], unmatchedTerms: [] }] }),
+    };
+    const state = await propose("advisor is empty", wealth, none);
+    expect(state.status).toBe("ready");
+    expect(state.plan?.evidence).toContainEqual({ key: "c0.codeRead", selectedId: "filter", confidence: 1, source: "deterministic" });
+    expect(state.plan?.evidence.filter((e) => e.key === "c0.family")).toEqual([]);
   });
 
   it("is in the plan when the provider proposes nothing", async () => {
