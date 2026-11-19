@@ -163,7 +163,7 @@ const verbFamily = (verb: string): string =>
  */
 /** Words that name rows and nothing else: "accounts", "the rows", "all those records". */
 const ROWS_ONLY = /^(?: (?:the|all|any|those|these|rows?|records?|ones|[a-z]+s))+ ?$/;
-const splitMidLine = (part: string, rows: RegExp): string[] => {
+const splitMidLine = (part: string): string[] => {
   const out: string[] = [];
   const bare = unquoted(part);
   let start = 0;
@@ -182,12 +182,13 @@ const splitMidLine = (part: string, rows: RegExp): string[] => {
     )
       continue;
     if (verbFamily(last[1] ?? "") === verbFamily(next)) continue;
-    // "Hide accounts where gain is below $0": the "where" says which rows to leave out, so it stays one part. So does
-    // "hide Northgate accounts where …" and "remove cleared entries where …", whose word before "where" is a row word;
-    // core asks about them.
-    const leave = [...before.matchAll(/\b(?:hide|exclude|remove|drop)\b/g)].at(-1);
-    const rest = before.slice((leave?.index ?? 0) + (leave?.[0].length ?? 0));
-    if (next === "where" && leave && (ROWS_ONLY.test(rest) || rows.test(rest.trimEnd()))) continue;
+    // "Hide accounts where gain is below $0": the "where" says which rows to leave out, so it stays one part.
+    if (
+      next === "where" &&
+      /^(?:hide|exclude|remove|drop)$/.test(last[1] ?? "") &&
+      ROWS_ONLY.test(before.slice((last.index ?? 0) + last[0].length))
+    )
+      continue;
     out.push(part.slice(start, at));
     start = at + 1;
   }
@@ -757,11 +758,8 @@ export interface NormalizeOptions {
  * literal, and with `today` each relative form ("last 90 days", "this quarter", "ytd") becomes a date literal of its
  * fixed days, with its words in `Literal.words`. Without `today`, relative forms are not read, and the compiler asks
  * about them. Without `options`, the literals are exactly the ones the Intent Provider is sent.
- *
- * `rowNoun` is the schema's, so "hide pending entries where …" stays one part on a grid of entries, and core asks about
- * it.
  */
-export const normalize = (raw: string, options?: NormalizeOptions, rowNoun?: string): NormalizedInput => {
+export const normalize = (raw: string, options?: NormalizeOptions): NormalizedInput => {
   if (options?.today !== undefined && !isDay(options.today)) {
     throw new GridCueError("INPUT_CLOCK", "today must be a real day, written like 2026-11-13.");
   }
@@ -770,13 +768,10 @@ export const normalize = (raw: string, options?: NormalizeOptions, rowNoun?: str
     ...(options.calendar?.fiscalYearStart !== undefined ? { fiscalYearStart: options.calendar.fiscalYearStart } : {}),
   };
   const text = cleanText(raw);
-  const noun = rowNoun?.toLowerCase().replace(/[^\p{L}\p{N} ]/gu, "");
-  // The row words: rows, records, ones, and the schema's row noun with its plural ("entry", "entries").
-  const rows = new RegExp(` (?:rows?|records?|ones${noun ? `|${noun}(?:s|es)?|${noun.replace(/y$/, "ies")}` : ""})$`);
   // "group by account type, then by advisor": the second part leaves out its verb and continues the first.
   let levelVerb: string | undefined;
   const parts = splitOutsideQuotes(text)
-    .flatMap((p) => splitMidLine(p, rows))
+    .flatMap(splitMidLine)
     .map((p) =>
       p
         .trim()
