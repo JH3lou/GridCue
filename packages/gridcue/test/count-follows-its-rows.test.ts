@@ -850,6 +850,108 @@ describe("a grid that keeps no count", () => {
   });
 });
 
+// On a grid that keeps no count, "top 10 by market value" sorts alone, with the note. A sort said after it would join
+// that sort as a tiebreaker nobody can see, where a grid that keeps a count asks about the count's part. Both ask.
+describe("a sort said after a count, on a grid that keeps no count", () => {
+  const wealth = defineSchema(
+    [
+      { id: "household", label: "Household" },
+      { id: "advisor_name", label: "Advisor" },
+      { id: "registration_type", label: "Registration type" },
+      { id: "custodian", label: "Custodian" },
+      { id: "market_value", label: "Market value" },
+      { id: "unrealized_gain", label: "Unrealized gain" },
+    ],
+    {
+      rowNoun: "account",
+      columns: {
+        household: { entity: "household" },
+        advisor_name: { aliases: ["advisor"], entity: "advisor" },
+        registration_type: { aliases: ["registration"], enumValues: [{ id: "taxable", label: "Taxable" }] },
+        custodian: { enumValues: [{ id: "northgate", label: "Northgate" }] },
+        market_value: { kind: "currency", aliases: ["value", "aum"] },
+        unrealized_gain: { kind: "currency", aliases: ["gain"] },
+      },
+    },
+  );
+  const provider = createMockProvider({ defaultColumnForKind: { currency: "market_value" } });
+  const grid = (canCount: boolean) => {
+    const rows = createRowsAdapter({ schema: wealth });
+    const adapter = canCount ? rows : { ...rows, getCapabilities: () => ({ ...rows.getCapabilities(), operations: [...MVP_OPERATIONS] }) };
+    return { adapter, cue: createGridCue({ adapter, provider }) };
+  };
+
+  it.each([
+    ["top 10 by market value, then sort by household", "top 10 by market value"],
+    ["top 10 by market value then sort them by household", "top 10 by market value"],
+    ["top 5 accounts by gain, then sort by advisor", "top 5 accounts by gain"],
+    ["top 10 by market value; sort those by advisor", "top 10 by market value"],
+    ["largest 10 accounts by market value, sorted by household", "largest 10 accounts by market value"],
+    ["smallest 5 by market value then sort by household", "smallest 5 by market value"],
+    ["largest 10 by aum then sort by household", "largest 10 by aum"],
+    ["top 10 by market value, then sort by market value ascending", "top 10 by market value"],
+    ["group by custodian, then top 10 by market value, sorted by advisor", "top 10 by market value"],
+  ])("asks about “%s” on both kinds of grid", async (request, countPart) => {
+    for (const canCount of [false, true]) {
+      const { adapter, cue } = grid(canCount);
+      const before = adapter.getState();
+      const plan = await cue.propose(request);
+      expect(cue.getState().status, `canCount: ${canCount}`).toBe("needs_clarification");
+      expect(cue.getState().preview).toBeNull();
+      expect(plan?.clarifications.map((q) => q.prompt)).toEqual([`I'm not sure what to do with “${countPart}”. Try rephrasing that part.`]);
+      expect(await cue.apply()).toBe(false);
+      expect(adapter.getState()).toEqual(before);
+    }
+  });
+
+  it.each([
+    [
+      "top 10 accounts by market value",
+      [{ type: "sort.set", sorts: [{ columnId: "market_value", direction: "desc" }] }],
+      ["Sort by Market value, descending"],
+    ],
+    [
+      "sort by household, then top 10 by market value",
+      [
+        {
+          type: "sort.set",
+          sorts: [
+            { columnId: "household", direction: "asc" },
+            { columnId: "market_value", direction: "desc" },
+          ],
+        },
+      ],
+      ["Sort by Household, ascending; then Market value, descending"],
+    ],
+    [
+      "top 10 by market value, then group by household",
+      [
+        { type: "sort.set", sorts: [{ columnId: "market_value", direction: "desc" }] },
+        { type: "group.set", columnIds: ["household"] },
+      ],
+      ["Sort by Market value, descending", "Group by Household"],
+    ],
+  ])("keeps “%s” ready, sorting alone with the note", async (request, operations, lines) => {
+    const { cue } = grid(false);
+    const plan = await cue.propose(request);
+    expect(cue.getState().status).toBe("ready");
+    expect(plan?.operations).toEqual(operations);
+    expect(cue.getState().preview?.lines).toEqual(lines);
+    expect(cue.getState().preview?.notes).toEqual(["Count not applied: this grid can't show only the first 10"]);
+  });
+
+  it.each([
+    ["top 10 accounts by market value for taxable accounts", "Which column should be sorted by?"],
+    ["show only the first 5 rows", "This grid can't show only the first 5 rows."],
+    ["sort by gain, show only the first 5 rows, then sort by advisor", "This grid can't show only the first 5 rows."],
+  ])("asks “%s” as before", async (request, prompt) => {
+    const { cue } = grid(false);
+    const plan = await cue.propose(request);
+    expect(cue.getState().status).toBe("needs_clarification");
+    expect(plan?.clarifications.map((q) => q.prompt)).toEqual([prompt]);
+  });
+});
+
 describe("diffViews", () => {
   it("says when the count changed", () => {
     const view = createRowsAdapter({ schema }).getState().state;
