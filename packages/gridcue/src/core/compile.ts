@@ -740,21 +740,28 @@ export const compile = (c: CompileInput): ViewPlan => {
     const misfit = reading === undefined && lists("aggregation.set") ? totalsMisfit(clause, allMentions, c.schema) : undefined;
     if (misfit && (misfit.from === 0 ? ownWhole(misfit.reading) : ownTail(misfit.from))) {
       const kindKey = `c${clause.index}.total.kind`;
-      const label = column(misfit.misfit.columnId)?.label ?? misfit.misfit.columnId;
-      if (misfit.misfit.fits && answers[kindKey] === "avg") {
+      const labelOf = (id: string) => column(id)?.label ?? id;
+      // "Yes" averages every column the part totals that can't be totalled, so the question names each of them. One
+      // that no average fits is said on its own, with no choices.
+      const noFit = misfit.misfits.find((m) => !m.fits);
+      const labels = [...new Set(misfit.misfits.map((m) => m.columnId))].map(labelOf);
+      if (!noFit && answers[kindKey] === "avg") {
         reading = misfit.reading;
         evidence.push({ key: kindKey, selectedId: "avg", confidence: 1, source: "user" });
         confidences.push(1);
-      } else if (misfit.misfit.fits && answers[kindKey] === "none") {
+      } else if (!noFit && answers[kindKey] === "none") {
         totalsKindAsks.set(clause.index, {
           id: `c${clause.index}.declined`,
           prompt: "Okay, nothing will change. Rephrase or edit your request.",
           required: true,
         });
-      } else if (misfit.misfit.fits) {
+      } else if (!noFit) {
         totalsKindAsks.set(clause.index, {
           id: kindKey,
-          prompt: `${label} can't be totalled. Show its average instead?`,
+          prompt:
+            labels.length === 1
+              ? `${labels[0]} can't be totalled. Show its average instead?`
+              : `${listed(labels)} can't be totalled. Show their averages instead?`,
           options: [
             { id: "avg", label: "Yes" },
             { id: "none", label: "No" },
@@ -762,8 +769,8 @@ export const compile = (c: CompileInput): ViewPlan => {
           required: true,
         });
       } else {
-        const verb = misfit.misfit.asked === "sum" ? "totalled" : "averaged";
-        totalsKindAsks.set(clause.index, { id: kindKey, prompt: `${label} can't be ${verb}.`, required: true });
+        const verb = noFit.asked === "sum" ? "totalled" : "averaged";
+        totalsKindAsks.set(clause.index, { id: kindKey, prompt: `${labelOf(noFit.columnId)} can't be ${verb}.`, required: true });
       }
     }
     const own = reading !== undefined && (reading.from === undefined ? ownWhole(reading) : ownTail(reading.from));
@@ -923,6 +930,8 @@ export const compile = (c: CompileInput): ViewPlan => {
   const viewSoFar = () => applyOperations(c.state, operations, { ...c.state, ...c.defaultState });
   // Set when a pin or unpin code read changes nothing: every column it names is already where it asks.
   let alreadyShown = false;
+  // The last grouping a "total X by Y" said, placed or no change, and where the plan stood when it was said.
+  let groupingSaid: { columnIds: readonly string[]; at: number } | undefined;
   // The totals code read in this request so far, by column, said as a change or not.
   const totalsSaid = new Map<string, AggregationSpec["function"]>();
   /**
@@ -1017,21 +1026,29 @@ export const compile = (c: CompileInput): ViewPlan => {
         return undefined;
       }
     }
-    // "Total X by Y" replaces the grouping (spec 5.4). A grouping the same request set before it ("group by advisor,
-    // total market value by custodian") would be dropped without a word, with its line still in the Preview: the part
-    // asks. The same grouping said twice is no change.
-    const regroups = filled.find((op) => op.type === "group.set");
+    // "Total X by Y" replaces the grouping (spec 5.4). A grouping the same request said before it ("group by advisor,
+    // total market value by custodian", "total market value by advisor and total unrealized gain by custodian") would
+    // be dropped without a word, with its line still in the Preview, or with none where the view already had it: the
+    // part asks. A grouping said before counts until a reset. The same grouping said twice is no change.
     const groupedAt = operations.findLastIndex((o) => o.type === "group.set");
     const grouped = operations[groupedAt];
-    if (
-      regroups?.type === "group.set" &&
-      grouped?.type === "group.set" &&
-      grouped.columnIds.length > 0 &&
-      !operations.slice(groupedAt + 1).some((o) => o.type === "view.reset") &&
-      JSON.stringify(grouped.columnIds) !== JSON.stringify(regroups.columnIds)
-    ) {
+    const earlier =
+      groupingSaid && groupingSaid.at > groupedAt
+        ? groupingSaid
+        : grouped?.type === "group.set"
+          ? { columnIds: grouped.columnIds, at: groupedAt }
+          : undefined;
+    const groupings = [
+      ...(earlier && earlier.columnIds.length > 0 && !operations.slice(earlier.at).some((o) => o.type === "view.reset")
+        ? [earlier.columnIds]
+        : []),
+      ...filled.flatMap((op) => (op.type === "group.set" ? [op.columnIds] : [])),
+    ];
+    const [first] = groupings;
+    const regroups = groupings.find((ids) => JSON.stringify(ids) !== JSON.stringify(first));
+    if (first && regroups) {
       const names = (ids: readonly string[]) => ids.map((id) => c.schema.columns.find((col) => col.id === id)?.label ?? id);
-      const [before, after] = [names(grouped.columnIds), names(regroups.columnIds)];
+      const [before, after] = [names(first), names(regroups)];
       clarifications.push({
         id: `${key}.total`,
         prompt: `GridCue can't group by ${before.join(", then ")} and by ${after.join(", then ")} too. To group by both, say “group by ${[...before, ...after].join(", then ").toLowerCase()}”.`,
@@ -1065,6 +1082,7 @@ export const compile = (c: CompileInput): ViewPlan => {
       // "Total X by Y" groups by Y, replacing the grouping, as "group by Y" does. A grouping the view already has is no
       // change, and has no line.
       if (said.type === "group.set") {
+        groupingSaid = { columnIds: said.columnIds, at: operations.length };
         if (JSON.stringify(viewSoFar().groupBy) === JSON.stringify(said.columnIds)) {
           alreadyShown = true;
           continue;
@@ -1532,9 +1550,11 @@ export const compile = (c: CompileInput): ViewPlan => {
       // groups and sorts, for a request that says which way ("largest", "smallest"), by the one column the part names,
       // or else the one the provider picks with confidence, or else the column its ranking word is made from ("most
       // concentrated"), or else the Host's main value column for a size word (`defaultMeasure`). That column must take a total and a sort. A sum where its kind takes one, else an average.
+      // The records' own column must take a grouping.
       const rankFor = (entity: ColumnDescriptor) => {
         const direction = clause.direction;
         if (!direction || !lists("aggregation.set") || !lists("group.set") || !lists("sort.set")) return undefined;
+        if (!entity.capabilities.includes("group")) return undefined;
         const fits = (col: ColumnDescriptor | undefined): col is ColumnDescriptor =>
           !!col &&
           col.id !== entity.id &&

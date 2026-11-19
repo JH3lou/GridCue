@@ -364,6 +364,40 @@ describe("totals on a grid that lists them (spec 5.4)", () => {
     expect(cant.operations).toEqual([]);
   });
 
+  it("asks the same when the first “total X by Y” names the grouping the view already has", async () => {
+    // Before, the grouping by Advisor was no change and had no line, so the later grouping replaced it without a word,
+    // and Market value's total ended up grouped by Custodian.
+    const view = { groupBy: ["advisor"] };
+    for (const request of [
+      "total market value by advisor and total unrealized gain by custodian",
+      "total market value by advisor, total unrealized gain by custodian",
+      "total market value by advisor then total unrealized gain by custodian",
+      "total market value by advisor. total unrealized gain by custodian",
+    ]) {
+      const result = await propose(request, { view });
+      expect(result.status, request).toBe("needs_clarification");
+      expect(result.operations, request).toEqual([]);
+      expect(
+        result.questions.map((q) => q.prompt),
+        request,
+      ).toEqual(["GridCue can't group by Advisor and by Custodian too. To group by both, say “group by advisor, then custodian”."]);
+      expect(await result.cue.apply(), request).toBe(false);
+      expect(result.adapter.getState().state.groupBy, request).toEqual(["advisor"]);
+    }
+    // The same grouping said twice, and a grouping the view already has said once, stay ready with no group line.
+    const same = await propose("total market value by advisor and total unrealized gain by advisor", { view });
+    expect(same.status).toBe("ready");
+    expect(same.operations).toEqual([totals(sum("value"), sum("gain"))]);
+    const once = await propose("total market value by advisor", { view });
+    expect(once.status).toBe("ready");
+    expect(once.operations).toEqual([totals(sum("value"))]);
+    // A reset between them starts over: the grouping after it replaces the default view's.
+    const reset = await propose("total market value by advisor, reset the view, total unrealized gain by custodian", { view });
+    expect(reset.questions.map((q) => q.prompt)).not.toContain(
+      "GridCue can't group by Advisor and by Custodian too. To group by both, say “group by advisor, then custodian”.",
+    );
+  });
+
   it("reads a total at the end of a part, and keeps of the provider's proposal only what the rest of the part names", async () => {
     // Before, the provider read both columns as grouping levels, or as two sorts, and the totals word was dropped.
     const grouped = await propose("group by advisor and total market value");
@@ -578,6 +612,45 @@ describe("totals on a grid that lists them (spec 5.4)", () => {
       expect(date.questions.map((q) => q.prompt)).toEqual(["Opened can't be averaged."]);
       const yesNo = await propose("total restricted holdings");
       expect(yesNo.questions.map((q) => q.prompt)).toEqual(["Restricted holdings can't be totalled."]);
+    });
+
+    describe("two totals that don't fit in one part", () => {
+      const withYield = defineSchema([...columns, { id: "yield", label: "Yield", kind: "percent" as const }], options);
+
+      it.each(["total concentration and total yield", "total concentration, total yield"])(
+        "names every column “Yes” would average for “%s”",
+        async (request) => {
+          const asked = await propose(request, { s: withYield });
+          expect(asked.status).toBe("needs_clarification");
+          expect(asked.operations).toEqual([]);
+          const [question] = asked.questions;
+          expect(asked.questions.map((q) => q.prompt)).toEqual(["Concentration and Yield can't be totalled. Show their averages instead?"]);
+          expect(question?.options?.map((o) => o.label)).toEqual(["Yes", "No"]);
+          const plan = asked.cue.answer(question?.id ?? "", question?.options?.[0]?.id ?? "");
+          expect(plan?.status).toBe("ready");
+          expect(plan?.operations).toEqual([totals(avg("concentration"), avg("yield"))]);
+        },
+      );
+
+      it("still asks about the one column when the other total fits, and “Yes” keeps that total", async () => {
+        const asked = await propose("total market value and total concentration");
+        expect(asked.questions.map((q) => q.prompt)).toEqual([PERCENT]);
+        const [question] = asked.questions;
+        const plan = asked.cue.answer(question?.id ?? "", question?.options?.[0]?.id ?? "");
+        expect(plan?.status).toBe("ready");
+        expect(plan?.operations).toEqual([totals(sum("value"), avg("concentration"))]);
+      });
+
+      it("says which column can't take a total, with no choices, when one of them has no average", async () => {
+        const asked = await propose("total concentration and total advisor");
+        expect(asked.status).toBe("needs_clarification");
+        expect(asked.questions.map((q) => q.prompt)).toEqual(["Advisor can't be totalled."]);
+        expect(asked.questions[0]?.options).toBeUndefined();
+        // An answer meant for the average question changes nothing.
+        expect(asked.cue.answer(asked.questions[0]?.id ?? "", "avg")?.status).not.toBe("ready");
+        expect(await asked.cue.apply()).toBe(false);
+        expect(asked.adapter.getState().state.aggregations).toEqual([]);
+      });
     });
   });
 
@@ -984,6 +1057,27 @@ describe("the third choice of the ranked-group question (spec 5.4; ADR 0030)", (
     const fees = defineSchema(columns, { ...options, defaultMeasure: "fee" });
     const result = await propose("largest households first", { s: fees });
     expect(result.questions).toEqual([{ id: "c0.reading.household", prompt: WHOLE, options: [GROUP, COLUMN], required: true }]);
+  });
+
+  it("doesn't offer to rank by a column the grid may not group by", async () => {
+    // Household's capabilities leave group out, so a ranked group of households would fail validation.
+    const ungroupable = defineSchema(columns, {
+      ...options,
+      defaultMeasure: "value",
+      columns: {
+        ...options.columns,
+        household: {
+          entity: "household",
+          capabilities: ["filter" as const, "sort" as const, "show" as const, "hide" as const, "reorder" as const, "pin" as const],
+        },
+      },
+    });
+    const asked = await propose("largest households first", { s: ungroupable });
+    expect(labels(asked.questions[0])).not.toContain("Rank households by total Market value");
+    // An answer for the choice it no longer offers ranks nothing.
+    expect(asked.cue.answer("c0.reading.household", "rank")?.status).not.toBe("ready");
+    expect(await asked.cue.apply()).toBe(false);
+    expect(asked.adapter.getState().state.groupBy).toEqual([]);
   });
 
   /** Proposes `request`, picks the question's third choice, and returns the plan it makes. */

@@ -603,6 +603,14 @@ const reviewFixesHeldOut2 = await run(
   "cases-review-fixes-heldout-r2.jsonl",
   REVIEW_R2_FOR_THE_OWNER,
 );
+// The held-out set for two totals under two groupings, labelled blind before the fixes for pull request 37's second
+// review, and first run after them (2026-11-19), once: 14 exact, 16 asked as labelled (one where the label also takes
+// a question), 1 safe miss ("total market value and unrealized gain by advisor" asks where the label is a ready plan),
+// no wrong view, of 31. Its safe misses are reported, not failed; a wrong view fails.
+const reviewFixesTotalsHeldOut = await run(
+  new URL("./cases-review-fixes-totals-heldout.jsonl", import.meta.url),
+  "cases-review-fixes-totals-heldout.jsonl",
+);
 
 // Applying a view the user did not ask for is release-blocking with any provider.
 // With the Mock Provider every core case must match exactly, because its answers are deterministic.
@@ -665,6 +673,7 @@ const all = [
   totalsHeldOut3,
   reviewFixesHeldOut,
   reviewFixesHeldOut2,
+  reviewFixesTotalsHeldOut,
 ];
 const mockMustMatch = [
   core,
