@@ -67,6 +67,23 @@ describe("screenRestricted", () => {
   it("keeps whole-word boundaries so a longer word is not a false match", () => {
     expect(screenRestricted(normalize("show taxidermy"), schema)).toEqual([]);
   });
+
+  it("finds a restricted name whose trailing symbol is left off, as the release did (#21 T14)", () => {
+    const symbols = defineSchema(
+      [
+        { id: "advisor", label: "Advisor" },
+        { id: "client", label: "Client ID!" },
+        { id: "ssn", label: "SSN*" },
+      ],
+      {
+        restricted: ["client", "ssn"],
+        columns: { advisor: { aliases: ["rep"] }, client: { aliases: ["tin!"] } },
+      },
+    );
+    for (const text of ["show client id!", "show client id", "show tin", "show tin!"])
+      expect(screenRestricted(normalize(text), symbols), text).toEqual([{ clauseIndex: 0, columnId: "client" }]);
+    expect(screenRestricted(normalize("show ssn"), symbols)).toEqual([{ clauseIndex: 0, columnId: "ssn" }]);
+  });
 });
 
 describe("findMentions", () => {

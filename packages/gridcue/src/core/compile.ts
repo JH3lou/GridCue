@@ -322,11 +322,11 @@ export const compile = (c: CompileInput): ViewPlan => {
       .filter((col) => isExposed(col) && col.capabilities.includes(capability as never) && (!kinds || kinds.includes(col.kind)))
       .map((col) => ({ id: col.id, label: col.label }));
   // Consecutive sorts or groupings are levels of one, in the order named: the first is the primary sort or the
-  // outermost group. A clear or reset in between, or a part that says "instead", starts a new one.
+  // outermost group. A clear, reset or count in between, or a part that says "instead", starts a new one.
   const levelsOf = (type: "sort.set" | "group.set", replaces: boolean) => {
     const at = operations.findLastIndex((o) => o.type === type);
     const current = operations[at];
-    if (replaces || !current || operations.slice(at + 1).some((o) => o.type === "view.reset")) return undefined;
+    if (replaces || !current || operations.slice(at + 1).some((o) => o.type === "view.reset" || o.type === "limit.set")) return undefined;
     if (current.type === "sort.set" && current.sorts.length > 0) return current;
     if (current.type === "group.set" && current.columnIds.length > 0) return current;
     return undefined;
@@ -1400,10 +1400,12 @@ export const compile = (c: CompileInput): ViewPlan => {
       // verb governs. "Clear filters, grouping" that would clear only the filters asks instead.
       const governedHere = governedClears(unquoted(namesBlankedOf(clause.text, ownMentions)));
       const added = operations.slice(opsBefore);
+      // A sort or grouping that still holds a column the part names ("clear the gain sort" sorted by Gain) clears nothing.
+      const namedHere = new Set(ownMentions.filter((m) => m.valueId === undefined).map((m) => m.columnId));
       const clearedHere: Record<string, boolean> = {
         filter: added.some((o) => o.type === "filter.clear"),
-        sort: added.some((o) => o.type === "sort.set"),
-        group: added.some((o) => o.type === "group.set"),
+        sort: added.some((o) => o.type === "sort.set" && !o.sorts.some((s) => namedHere.has(s.columnId))),
+        group: added.some((o) => o.type === "group.set" && !o.columnIds.some((id) => namedHere.has(id))),
         view: added.some((o) => o.type === "view.reset"),
       };
       const missed = [...governedHere.governed].filter((thing) => !clearedHere[thing] && !clearedHere.view);
@@ -1546,9 +1548,11 @@ const namesBlankedOf = (text: string, own: readonly Mention[]) =>
 /** Whether a name appears in the part only inside quoted text: `advisor containing "restricted"`. */
 const onlyQuoted = (text: string, names: readonly string[]) => {
   const bare = unquoted(text);
+  // Every occurrence: "unrestricted restricted" holds "restricted" whole after a hit inside a longer word.
   const has = (t: string, n: string) => {
-    const at = t.indexOf(n);
-    return at >= 0 && !/[\p{L}\p{N}]/u.test(t[at - 1] ?? "") && !/[\p{L}\p{N}]/u.test(t[at + n.length] ?? "");
+    for (let at = t.indexOf(n); at >= 0; at = t.indexOf(n, at + 1))
+      if (!/[\p{L}\p{N}]/u.test(t[at - 1] ?? "") && !/[\p{L}\p{N}]/u.test(t[at + n.length] ?? "")) return true;
+    return false;
   };
   const lower = names.map((n) => n.toLowerCase()).filter(Boolean);
   return lower.some((n) => has(text, n)) && !lower.some((n) => has(bare, n));
@@ -1768,14 +1772,17 @@ const keepPart = (
   const preds = current.children as FilterPredicate[];
   const keep = new Set<FilterPredicate>();
   const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+  // "Leave" before the column says to keep, as "keep" does: `clear filters but leave advisor "Lane"`. Blanked, so
+  // offsets hold.
+  const checked = { ...clause, text: clause.text.replace(/^(?:leave|leaving) /, (s) => " ".repeat(s.length)) };
   for (const lit of clause.literals) {
     if (lit.kind === "unreadable") return absent;
     const operator = lit.kind === "text" ? "contains" : (lit.comparator ?? "eq");
     const value = lit.comparator === "between" ? { min: lit.value, max: lit.upper ?? lit.value } : lit.value;
-    const quotedAfter = lit.kind === "text" ? columnBeforeText(clause, lit, own, column, rowNoun) : undefined;
+    const quotedAfter = lit.kind === "text" ? columnBeforeText(checked, lit, own, column, rowNoun) : undefined;
     if (quotedAfter && !quotedAfter.read) return absent;
     // The words beside the text are checked as they are for a new filter: `advisor "Lane" exactly` keeps nothing.
-    const unread = lit.kind === "text" ? textWordsQuestion(clause, lit, quotedAfter, own, rowNoun) : undefined;
+    const unread = lit.kind === "text" ? textWordsQuestion(checked, lit, quotedAfter, own, rowNoun) : undefined;
     if (unread) return { prompt: unread.prompt };
     // A column named right before the amount must be the filter's; with none, exactly one filter may match.
     const owner =
