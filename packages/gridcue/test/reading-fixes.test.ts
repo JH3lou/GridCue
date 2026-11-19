@@ -1530,6 +1530,109 @@ describe("round seven: provider proposals that code narrows (fake provider)", ()
     const provider = fake([{ families: [p("columns.hide", 0.95)], columns: [p("household", 0.95)] }]);
     expect(await run("tuck away the family name", provider)).toEqual([{ type: "columns.hide", columnIds: ["household"] }]);
   });
+
+  it("G2: a sort or grouping that keeps the named column is no clear of it (#21 T8)", async () => {
+    const sorted: ViewState = {
+      ...base,
+      sorts: [
+        { columnId: "unrealized_gain", direction: "desc" },
+        { columnId: "custodian", direction: "asc" },
+      ],
+    };
+    const sort = fake([{ families: [p("sort", 0.95)], columns: [p("unrealized_gain", 0.95)], direction: p("desc", 0.95) }]);
+    for (const text of ["clear the gain sort", "remove the gain sort"])
+      expect(await run(text, sort, sorted), text).toBe("needs_clarification");
+    const custodian = fake([{ families: [p("sort", 0.95)], columns: [p("custodian", 0.95)] }]);
+    expect(await run("clear the custodian sort", custodian, sorted)).toBe("needs_clarification");
+    const grouped: ViewState = { ...base, groupBy: ["custodian", "advisor_name"] };
+    const group = fake([{ families: [p("group", 0.95)], columns: [p("custodian", 0.95)] }]);
+    expect(await run("ungroup custodian", group, grouped)).toBe("needs_clarification");
+  });
+
+  it("G1: drops a quoted pick when a name is whole later in the quotes (#21 T9)", async () => {
+    const provider = fake([
+      {
+        families: [p("filter", 0.95)],
+        columns: [p("advisor_name", 0.95), p("has_restricted_holding", 0.95)],
+        values: [{ columnId: "has_restricted_holding", valueId: "true", confidence: 0.95 }],
+      },
+    ]);
+    for (const text of ['advisor containing "unrestricted restricted"', 'advisor containing "nonrestricted restricted"'])
+      expect(filters((await run(text, provider)) as ViewOperation[]), text).toEqual([["advisor_name", "contains", text.split('"')[1]]]);
+  });
+});
+
+describe("review of PR 21", () => {
+  const status = async (text: string) => (await propose(text)).status;
+  const base = emptyViewState(schema.columns.map((c) => c.id));
+  const pred = (id: string, columnId: string, operator: "eq" | "gt", value: unknown) =>
+    ({ id, type: "predicate", columnId, operator, value }) as never;
+  const view: Partial<ViewState> = {
+    filters: {
+      id: "g",
+      type: "group",
+      combinator: "and",
+      children: [pred("a", "value", "gt", 1_000_000), pred("b", "gain", "gt", 50_000), pred("c", "custodian", "eq", "northgate")],
+    },
+    sorts: [
+      { columnId: "gain", direction: "desc" },
+      { columnId: "custodian", direction: "asc" },
+    ],
+    groupBy: ["custodian", "owner"],
+  };
+  const from = async (text: string) => {
+    const adapter = createRowsAdapter({ schema, initialState: base });
+    adapter.setState((current) => ({ ...current, ...view }));
+    const cue = createGridCue({ adapter, provider });
+    await cue.propose(text);
+    const st = cue.getState();
+    return st.status === "ready" ? st.plan?.operations : st.status;
+  };
+
+  it("never lets a negated clear verb govern its object (T11)", async () => {
+    for (const text of [
+      "clear filters but don't clear the sort",
+      "clear the filters and don't clear the sort",
+      "clear the sort, don't clear the filters",
+      "clear the filters, never clear the sort",
+      "ungroup but don't clear the sort",
+    ])
+      expect(await from(text), text).toBe("needs_clarification");
+    expect(await from("clear the filters but not the sort")).toEqual([{ type: "filter.clear" }]);
+  });
+
+  it("keeps “where” after rows a part leaves out in that part (T12)", async () => {
+    for (const text of [
+      "hide northgate accounts where gain is below $0",
+      "hide restricted accounts where market value is over $1m",
+      "drop northgate accounts where market value is under $100k",
+    ]) {
+      expect(normalize(text).clauses, text).toHaveLength(1);
+      expect(await status(text), text).toBe("needs_clarification");
+    }
+    expect(normalize("hide advisor where advisor is exactly Avery").clauses).toHaveLength(2);
+  });
+
+  it("asks about a range whose bounds carry different units (T13)", () => {
+    for (const text of ["market value between $10 and 20%", "gain between $5 and 10%", "from $10 to 20% market value"])
+      expect(literal(text)?.kind, text).toBe("unreadable");
+    expect(literal("concentration between 10 and 20%")).toMatchObject({ value: 0.1, upper: 0.2 });
+    expect(literal("market value between $1-2m")).toMatchObject({ value: 1_000_000, upper: 2_000_000 });
+  });
+
+  it("gives the Mock's second bound no column when the first bound's column is named (T17)", async () => {
+    for (const text of [
+      "gain > $10k and < $20k",
+      "gain over $10k, under $20k",
+      "gain over $10k but under $20k",
+      "gain over $10k and also under $20k",
+    ]) {
+      const state = await propose(text);
+      expect(state.status, text).toBe("needs_clarification");
+      expect(state.message, text).toBe("Which column should be below $20,000?");
+    }
+    expect(filters((await propose("accounts over $1M sorted by gain")).plan?.operations)).toEqual([["value", "gt", 1_000_000]]);
+  });
 });
 
 describe("round seven addendum: released readings restored", () => {

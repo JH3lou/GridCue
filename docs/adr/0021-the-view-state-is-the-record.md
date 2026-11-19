@@ -10,7 +10,7 @@ The first idea was that the sentence itself would be the stored form: save the t
 - **Prose can't carry everything.** A value containing a quote mark, a label that is an instruction word, the order of hidden columns, and some decimals do not survive being written and read.
 - **A stored sentence needs a second grammar,** with escapes for the awkward values, that Users must then be kept from typing by accident.
 
-So GridCue promises one thing about the sentence: typed on the default view, with no provider, it reproduces the view. A property test over random views enforces that. When a view holds something prose can't carry, `describeView` says so (`roundTrips: false`) and names it.
+So GridCue promises one thing about the sentence: typed on the default view, with no provider, it reproduces the view. A property test over random views enforces that. When a view holds something prose can't carry, or its sentence is longer than the Host's input limit, `describeView` says so (`roundTrips: false`) and names it.
 
 `proposeView` exists so that a saved view never bypasses the third rule in `AGENTS.md`. The state it is given is untrusted: it may come from a link. It is parsed, turned into the operations that change the current view into it, and validated against the View Schema and the grid's capabilities. A column that no longer exists, a restricted column, or a setting the grid can't apply fails closed, and nothing is applied in part. A Host that calls `adapter.restore` with a stored state gets none of this.
 

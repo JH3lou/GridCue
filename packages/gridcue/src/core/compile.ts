@@ -1212,10 +1212,12 @@ export const compile = (c: CompileInput): ViewPlan => {
       // verb governs. "Clear filters, grouping" that would clear only the filters asks instead.
       const governedHere = governedClears(unquoted(namesBlankedOf(clause.text, ownMentions)));
       const added = operations.slice(opsBefore);
+      // A sort or grouping that still holds a column the part names ("clear the gain sort" sorted by Gain) clears nothing.
+      const namedHere = new Set(ownMentions.filter((m) => m.valueId === undefined).map((m) => m.columnId));
       const clearedHere: Record<string, boolean> = {
         filter: added.some((o) => o.type === "filter.clear"),
-        sort: added.some((o) => o.type === "sort.set"),
-        group: added.some((o) => o.type === "group.set"),
+        sort: added.some((o) => o.type === "sort.set" && !o.sorts.some((s) => namedHere.has(s.columnId))),
+        group: added.some((o) => o.type === "group.set" && !o.columnIds.some((id) => namedHere.has(id))),
         view: added.some((o) => o.type === "view.reset"),
       };
       const missed = [...governedHere.governed].filter((thing) => !clearedHere[thing] && !clearedHere.view);
@@ -1297,9 +1299,11 @@ const namesBlankedOf = (text: string, own: readonly Mention[]) =>
 /** Whether a name appears in the part only inside quoted text: `advisor containing "restricted"`. */
 const onlyQuoted = (text: string, names: readonly string[]) => {
   const bare = unquoted(text);
+  // Every occurrence: "unrestricted restricted" holds "restricted" whole after a hit inside a longer word.
   const has = (t: string, n: string) => {
-    const at = t.indexOf(n);
-    return at >= 0 && !/[\p{L}\p{N}]/u.test(t[at - 1] ?? "") && !/[\p{L}\p{N}]/u.test(t[at + n.length] ?? "");
+    for (let at = t.indexOf(n); at >= 0; at = t.indexOf(n, at + 1))
+      if (!/[\p{L}\p{N}]/u.test(t[at - 1] ?? "") && !/[\p{L}\p{N}]/u.test(t[at + n.length] ?? "")) return true;
+    return false;
   };
   const lower = names.map((n) => n.toLowerCase()).filter(Boolean);
   return lower.some((n) => has(text, n)) && !lower.some((n) => has(bare, n));
