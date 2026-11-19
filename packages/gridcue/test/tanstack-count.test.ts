@@ -272,6 +272,7 @@ describe("a manual setting or getSubRows the Host turns on while the table holds
       expect(now.state).toMatchObject({ sorts: byValue });
       expect(now.state.limit).toBeUndefined();
       expect(now.revision).not.toBe(before);
+      expect(heard).toHaveLength(1);
       expect(heard.at(-1)?.limit).toBeUndefined();
       expect(adapter.getCapabilities().operations).toEqual([...MVP_OPERATIONS]);
 
@@ -326,6 +327,30 @@ describe("a manual setting or getSubRows the Host turns on while the table holds
     await waitFor(() => expect([...shownKeys(latest())].sort()).toEqual(keysOf(page).sort()));
     expect(adapter.getState().state.limit).toBeUndefined();
     expect(adapter.getCapabilities().operations).not.toContain("limit.set");
+  });
+
+  it("in React: a setting turned on in a later render, before anything reads the rows, refuses a count", async () => {
+    const hook = renderHook(
+      ({ manual }: { manual: boolean }) =>
+        useTable({
+          features: counting,
+          columns: tableColumns,
+          data: accounts,
+          defaultColumn: GRIDCUE_COLUMN,
+          manualPagination: manual,
+          initialState: { pagination: { pageIndex: 0, pageSize: 1000 } },
+        } as never),
+      { initialProps: { manual: false } },
+    );
+    // Made from the first render's object, whose options stay a render behind, before any row model is built.
+    const adapter = createTanStackAdapter({ schema, table: hook.result.current as never, renders: ["count"] });
+    hook.rerender({ manual: true });
+    expect(adapter.getCapabilities().operations).not.toContain("limit.set");
+    const refused = await adapter.restore({ revision: adapter.getState().revision, state: view({ sorts: byValue, limit: 3 }) });
+    expect(refused).toMatchObject({ ok: false, code: "ADAPTER_UNSUPPORTED_COUNT" });
+    const latest = () => hook.result.current as unknown as Shown;
+    await waitFor(() => expect(shownKeys(latest())).toHaveLength(accounts.length));
+    expect(adapter.getState().state.limit).toBeUndefined();
   });
 
   it("the setting off again: the count the table still holds cuts again, and the View State has it", async () => {
@@ -633,7 +658,10 @@ describe("spec 5.1's follow-ups after “top 10 accounts by market value”: Tan
           grid.cue.answer(asked.id, answer);
         }
         expect(outcome(table.cue), `answer ${answer}`).toEqual(outcome(rows.cue));
+        // Every choice offered reaches a Preview to apply.
+        expect(rows.cue.getState().status, `answer ${answer}`).toBe("ready");
       }
+      // A question with no choices ends here.
       if (rows.cue.getState().status !== "ready") continue;
       const before = rows.adapter.getState().state;
       for (const grid of grids) expect(await grid.cue.apply(), grid.name).toBe(true);

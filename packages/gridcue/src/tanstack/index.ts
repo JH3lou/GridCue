@@ -278,6 +278,8 @@ export const gridcueCountFeature = {
   },
   constructTableAPIs: (table: unknown) => {
     const core = table as CoreTable;
+    // Known from the start, so the adapter reads the latest options before anything builds the table's rows.
+    coreTables.set(core.store, core);
     core.setGridcueCount = (updater: Updater) => {
       const onChange = core.options.onGridcueCountChange as ((u: (old: unknown) => unknown) => void) | undefined;
       onChange?.((old) => {
