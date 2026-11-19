@@ -6,7 +6,7 @@ import { type Mention, matchMentions } from "./mentions";
 import { type NormalizedInput, normalize, withoutNamedSizes } from "./normalize";
 import { screenRestricted } from "./policy";
 import { type AuditEvent, type AuditPolicy, type Preview, renderPreview, toAuditEvent } from "./preview";
-import type { VersionedViewState, ViewPlan, ViewSchema } from "./protocol";
+import type { FilterGroup, VersionedViewState, ViewPlan, ViewSchema } from "./protocol";
 import { buildResolutionRequest, type IntentProvider, MAX_UTTERANCE_LENGTH, ResolutionResult } from "./resolution";
 import { isExposed } from "./schema";
 import { type ApplicableViewPlan, resultingState, validatePlan } from "./validate";
@@ -356,14 +356,22 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
         // holds its old value, or the value this plan wrote there. Put the previous view back only when every part is
         // GridCue's own: any other value is a newer change, such as the User's header click, and restoring would erase it.
         // The visible columns are judged as a set. Their order is the column order's, judged on its own, so a write that
-        // stops after the column order but before the visibility still counts as GridCue's own.
+        // stops after the column order but before the visibility still counts as GridCue's own. The filters are judged
+        // the way a grid that keeps one entry per column holds them, grouped by column, each column in its own order.
         let restored = false;
         let untouched = false;
         try {
           const now = adapter.getState().state;
           const after = resultingState(recheck.plan);
           const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
-          const part = (s: typeof now, k: keyof typeof now) => (k === "visibleColumnIds" ? [...s.visibleColumnIds].sort() : s[k]);
+          const byColumn = (f: FilterGroup | null) => {
+            if (!f) return f;
+            const first = (c: FilterGroup["children"][number]) =>
+              f.children.findIndex((d) => "columnId" in d && "columnId" in c && d.columnId === c.columnId);
+            return { ...f, children: [...f.children].sort((a, b) => first(a) - first(b)) };
+          };
+          const part = (s: typeof now, k: keyof typeof now) =>
+            k === "visibleColumnIds" ? [...s.visibleColumnIds].sort() : k === "filters" ? byColumn(s.filters) : s[k];
           untouched = same(now, before.state);
           const ours = (Object.keys(now) as Array<keyof typeof now>).every(
             (k) => same(part(now, k), part(before.state, k)) || same(part(now, k), part(after, k)),

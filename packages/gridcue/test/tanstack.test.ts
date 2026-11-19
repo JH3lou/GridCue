@@ -498,6 +498,52 @@ describe("The Controller's recovery on a TanStack table", () => {
     expect(adapter.getState().state.columnOrder).toEqual(before.columnOrder);
     expect(adapter.getState().state.visibleColumnIds).toEqual(before.visibleColumnIds);
   });
+
+  it("puts the previous view back when the table holds the new filter beside the other filter on its column", async () => {
+    const table = makeTable();
+    const schema = schemaFromTanStack(table);
+    const adapter = createTanStackAdapter({ schema, table });
+    const predicate = (id: string, columnId: string, operator: string, value: unknown) => ({
+      type: "filter.add" as const,
+      combineWith: "and" as const,
+      predicate: { id, type: "predicate" as const, columnId, operator, value },
+    });
+    const start = validatePlan(
+      {
+        protocolVersion: "0.1",
+        id: "p_start",
+        baseRevision: adapter.getState().revision,
+        source: { channel: "api" },
+        status: "ready",
+        operations: [predicate("f1", "value", "gt", 1), predicate("f2", "team", "contains", "b")],
+        evidence: [],
+        clarifications: [],
+        unsupportedSegments: [],
+      } as never,
+      { schema, capabilities: adapter.getCapabilities(), current: adapter.getState(), defaultState: adapter.getDefaultState() },
+    );
+    if (!start.ok) throw new Error(start.issues.map((i) => i.code).join(","));
+    expect((await adapter.apply(start.plan)).ok).toBe(true);
+    const before = adapter.getState().state.filters;
+    const cue = createGridCue({ schema, adapter, provider: createMockProvider() });
+    await cue.propose("also value under 100");
+    expect(cue.getState().status).toBe("ready");
+    // The Host's visibility handler throws once, after GridCue has written the filters. The table keeps one
+    // filter entry per column, so it holds the new Value filter beside the old one, ahead of the Team filter.
+    const real = table.setColumnVisibility.bind(table);
+    let thrown = false;
+    table.setColumnVisibility = (visibility) => {
+      if (!thrown) {
+        thrown = true;
+        throw new Error("Host handler threw");
+      }
+      real(visibility);
+    };
+    expect(await cue.apply()).toBe(false);
+    expect(thrown).toBe(true);
+    expect(cue.getState().message).toBe("The grid couldn't apply that change. The previous view is back.");
+    expect(adapter.getState().state.filters).toEqual(before);
+  });
 });
 
 describe("schemaFromTanStack", () => {

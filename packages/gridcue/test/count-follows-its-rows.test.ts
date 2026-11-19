@@ -190,6 +190,10 @@ describe("a count follows its rows (spec 5.1)", () => {
     ["show only the first 5 rows and only the taxable ones", { limit: undefined }],
     ["show only the first 5 rows, sorted by gain", { sorts: [], limit: undefined }],
     ["hide custodian, show only the first 5 rows, then sort by advisor", {}],
+    // A sort after the count is its own sort, not a level of the sort said before the count.
+    ["sort by gain, show only the first 5 rows, then sort by advisor", {}],
+    ["sort by gain, show only the first 5 rows; sort by advisor", {}],
+    ["sort by gain, show only the first 5 rows, then also sort by advisor", { sorts: [], limit: undefined }],
   ])("asks about “%s”: the count is said before a change to its rows", async (request, view) => {
     const { adapter, cue } = counted(view);
     const before = adapter.getState();

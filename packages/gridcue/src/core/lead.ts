@@ -90,6 +90,8 @@ export const governedClears = (text: string): { governed: Set<string>; hasClearV
   let hasClearVerb = false;
   for (const m of text.matchAll(CLEAR_HEAD)) {
     hasClearVerb = true;
+    // A negated verb governs nothing: "clear the filters but don't clear the sort".
+    if (/\b(?:don't|dont|do not|never|not|no longer)\s+$/.test(text.slice(0, m.index ?? 0))) continue;
     const verb = m[1];
     if (verb === "ungroup") governed.add("group");
     if (verb === "unsort") governed.add("sort");
