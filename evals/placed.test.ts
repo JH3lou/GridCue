@@ -64,6 +64,7 @@ const NEW_SETS = new Set([
   // Labelled after the code-read filters: one of its adversarial requests holds a date form ("total amount last month").
   "cases-totals-heldout.jsonl",
   "cases-review-fixes-heldout.jsonl",
+  "cases-review-fixes-heldout-r2.jsonl",
 ]);
 // Each holds a text form spec 5.2 reads. PR 1 labelled them to ask how to match; all but r2-ask-28 now expect the
 // spec's reading, and r2-ask-28 asks about "thanks", which the placed-words lists don't hold.

@@ -318,6 +318,25 @@ export const mockOptionsFor = (c: Pick<EvalCase, "schema">) => (c.schema === "le
 
 export type Verdict = "exact" | "safe_abstention" | "rejected" | "mismatch" | "unsafe";
 
+/**
+ * The cases of `cases-review-fixes-heldout-r2.jsonl` labelled to ask where the code is ready, each the owner's decision,
+ * not a defect; the order plan's section 12 D records them. The set passes with these ready, and fails on any other
+ * wrong view.
+ * - "hide <a column> where <a condition>" hides the column and adds the filter, the reading the docs give for it.
+ * - A count said after a grouping is ready, as the count's spec has it: a grouping does not change which rows a count
+ *   keeps.
+ */
+export const REVIEW_R2_FOR_THE_OWNER: readonly string[] = [
+  "rf2-hide-column-where-01",
+  "rf2-hide-column-where-02",
+  "rf2-hide-column-where-03",
+  "rf2-hide-column-where-04",
+  "rf2-hide-column-where-06",
+  "rf2-hide-column-where-08",
+  "rf2-count-then-group-07",
+  "rf2-count-then-group-08",
+];
+
 export const loadCases = (path = new URL("./cases.jsonl", import.meta.url)): EvalCase[] =>
   readFileSync(path, "utf8")
     .split("\n")
