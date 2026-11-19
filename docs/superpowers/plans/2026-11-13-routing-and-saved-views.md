@@ -80,7 +80,7 @@ Spec 5.1. ADR 0021 and ADR 0034. Needs PR 0.
 - [ ] An internal entry point that keeps a typed request's channel and text, for PR 2.
 - [ ] `proposeView` on the binding.
 - [ ] The adapter contract suite runs `proposeView` on the Rows Adapter and the TanStack Table adapter.
-- [ ] The property test: 1,500 views on each of two schemas (wealth and ledger), from random starting views, fixed seeds. Bar: the applied view equals the saved one, or the result is unsupported.
+- [ ] The property test: 1,500 views on each of two schemas (wealth and ledger), from random starting views, fixed seeds. Bar: the applied view equals the saved one. The result is unsupported only for a view holding a setting the grid can't apply or a column the schema no longer allows, and the test works out for itself which views those are and checks the result agrees. Never a different view.
 - [ ] A test that the operation set's count question never fires on a `proposeView` plan: the saved view states its count.
 
 ### Task 1.3: Held-out run (lead)
