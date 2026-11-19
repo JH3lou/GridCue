@@ -143,7 +143,7 @@ A few rules are worth knowing:
 - **A term is a name for rows, not a column or an amount.** "Sort by large" and "group by large" ask, and so do "large or taxable accounts" and "accounts under large".
 - **A term can't be left out.** "Accounts that aren't large" and "hide large accounts" ask: GridCue can't leave out a term yet. The question says what to ask for instead, such as "market value at or below $1,000,000".
 - **"Largest" is a size word, not the term.** "Largest accounts" still sorts by size, and asks which column when you declare no [`defaultMeasure`](/docs/api/schema#schemaoptions). A term is found as a whole word with no plural form.
-- **A term is never sent to the provider.** Not its name, its conditions, or whether a request used one. See [Safety and protocol](/docs/safety#the-data-boundary).
+- **A term's definition is never sent to the provider.** Not its label, its aliases or its conditions: the request the provider receives is the same with terms declared or not. The words the User typed are sent as always, as part of the request, so a term's word reaches the provider like any other word. See [Safety and protocol](/docs/safety#the-data-boundary).
 
 A term is also the way to name a placeholder. "Accounts with no advisor" finds rows with no value. It does not find rows where your data holds the text "Unassigned". Declare `{ label: "Unassigned", aliases: ["orphaned"], where: [{ columnId: "advisor_name", operator: "eq", value: "Unassigned" }] }` and "unassigned accounts" previews `Filter Advisor to exactly “Unassigned” (Unassigned)`. If the field is empty instead, use `operator: "isEmpty"` with no `value`, and the line reads `Show only rows where Advisor is empty (Unassigned)`.
 

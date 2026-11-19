@@ -765,6 +765,82 @@
 {"file":"cases-reading.jsonl","id":"rd6-z4-dollar-both-small","lines":["Filter Market value between $999 and $2,000"],"notes":[]}
 {"file":"cases-reading.jsonl","id":"rd6-z4-dollar-both-gain","lines":["Filter Unrealized gain between $500 and $5,000"],"notes":[]}
 {"file":"cases-reading.jsonl","id":"rd6-z4-ctl-full","lines":["Filter Market value between $1,000,000 and $2,000,000"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-negated-clear-02","lines":["Clear grouping"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-negated-clear-06","lines":["Remove the filter Registration type to Trust"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-negated-clear-07","lines":["Clear sorting","Clear grouping"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-negated-clear-08","lines":["Remove the filter Registration type to Trust"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-clear-one-01","lines":["Sort by Market value, descending"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-clear-one-02","lines":["Remove the filters Custodian to Northgate; Registration type to Trust","Filter Registration type to Trust"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-clear-one-03","lines":["Group by Advisor"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-clear-one-07","lines":["Clear sorting"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-clear-one-08","lines":["Remove the filters Custodian to Northgate; Registration type to Trust"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-clear-one-09","lines":["Clear grouping"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-clear-one-10","lines":["Sort by Units, ascending"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-clear-one-11","lines":["Remove the filters Category to Travel; Cleared is Yes","Show only rows where Cleared is Yes"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-clear-one-12","lines":["Group by Category"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-quoted-inside-01","lines":["Filter Advisor containing “unrestricted restricted”"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-quoted-inside-02","lines":["Filter Household containing “taxable”"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-quoted-inside-03","lines":["Filter Advisor containing “northgate”"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-quoted-inside-04","lines":["Filter Advisor containing “gainsborough”"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-quoted-inside-05","lines":["Filter Household containing “custodianship”","Sort by Market value, ascending"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-quoted-inside-06","lines":["Filter Advisor containing “ira”"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-quoted-inside-07","lines":["Filter Advisor containing “lane”"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-quoted-inside-08","lines":["Filter Registration type to Taxable","Filter Advisor containing “lane”"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-quoted-inside-09","lines":["Filter Counterparty containing “travel”"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-quoted-inside-10","lines":["Filter Counterparty containing “software”"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-quoted-inside-11","lines":["Filter Counterparty containing “cedar”"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-hide-where-04","lines":["Filter Unrealized gain at or above $0"],"notes":["Rows with no Unrealized gain are hidden too"]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-hide-where-05","lines":["Filter Custodian to any of Harborline and Summit Trust"],"notes":["Rows with no Custodian are hidden too"]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-hide-where-06","lines":["Filter Market value at or above $100,000"],"notes":["Rows with no Market value are hidden too"]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-hide-where-07","lines":["Filter Custodian to Northgate","Filter Unrealized gain below $0"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-hide-where-10","lines":["Filter Amount at or below $5,000"],"notes":["Rows with no Amount are hidden too"]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-mixed-range-05","lines":["Filter Concentration between 10% and 20%"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-mixed-range-06","lines":["Filter Market value between $1,000,000 and $2,000,000"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-mixed-range-07","lines":["Filter Market value between $1,000,000 and $2,000,000"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-mixed-range-10","lines":["Filter Rate between 5% and 10%"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-mixed-range-11","lines":["Filter Amount between $100 and $500"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-two-bounds-07","lines":["Filter Unrealized gain between $10,000 and $20,000"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-two-bounds-08","lines":["Filter Unrealized gain above $10,000"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-bang-after-comma-05","lines":["Filter Registration type to Trust"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-bang-after-comma-06","lines":["Show only rows where Restricted holdings is Yes","Filter Registration type to Trust"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-bang-after-comma-07","lines":["Filter Registration type to Trust","Filter Advisor containing “lane”"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-bang-after-comma-11","lines":["Filter Category to Travel"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-keep-quoted-01","lines":["Remove the filters Advisor containing “lane”; Custodian to Northgate","Filter Advisor containing “lane”"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-keep-quoted-02","lines":["Remove the filters Advisor containing “lane”; Custodian to Northgate","Filter Advisor containing “lane”"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-keep-quoted-03","lines":["Remove the filters Advisor containing “lane”; Custodian to Northgate","Filter Advisor containing “lane”"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-keep-quoted-05","lines":["Remove the filters Advisor containing “lane”; Market value above $1,000,000","Filter Advisor containing “lane”"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-keep-quoted-06","lines":["Remove the filters Advisor containing “lane”; Custodian to Northgate"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-keep-quoted-07","lines":["Remove the filters Advisor containing “lane”; Custodian to Northgate","Filter Custodian to Northgate"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-keep-quoted-08","lines":["Remove the filters Owner containing “casey”; Category to Travel","Filter Owner containing “casey”"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-keep-quoted-09","lines":["Remove the filters Owner containing “casey”; Category to Travel","Filter Owner containing “casey”"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-keep-quoted-10","lines":["Remove the filters Owner containing “casey”; Category to Travel","Filter Owner containing “casey”"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-keep-quoted-11","lines":["Remove the filters Owner containing “casey”; Category to Travel","Filter Category to Travel"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-sort-after-count-04","lines":["Sort by Unrealized gain, ascending","Show only the first 5 rows"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-sort-after-count-05","lines":["Sort by Market value, descending","Show only the first 10 rows"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-sort-after-count-06","lines":["Sort by Advisor, ascending","Show only the first 5 rows"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-sort-after-count-07","lines":["Sort by Market value, descending","Show only the first 10 rows","Hide Custodian"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-sort-after-count-10","lines":["Sort by Amount, descending","Show only the first 5 rows"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-sort-after-count-11","lines":["Sort by Booked, ascending","Show only the first 10 rows"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-quoted-question-word-02","lines":["Filter Advisor to exactly “which”"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-quoted-question-word-03","lines":["Filter Household to exactly “who”","Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-quoted-question-word-04","lines":["Filter Advisor to exactly “that”","Sort by Unrealized gain, ascending"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-quoted-question-word-06","lines":["Filter Advisor to exactly “lane”"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-quoted-question-word-07","lines":["Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-quoted-question-word-08","lines":["Filter Counterparty to exactly “who”"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-quoted-question-word-10","lines":["Filter Counterparty to exactly “that”","Show only rows where Category is empty"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-quoted-question-word-11","lines":["Show only rows where Counterparty is empty"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-only-column-and-sort-02","lines":["Sort by Market value, ascending","Show only rows where Household is empty","Show Advisor","Hide Account number, Household, Registration type, Custodian, Market value, Concentration, Unrealized gain and Restricted holdings","Put Advisor first"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-only-column-and-sort-04","lines":["Show only rows where Advisor is empty","Show Household","Hide Account number, Advisor, Registration type, Custodian, Market value, Concentration, Unrealized gain and Restricted holdings","Put Household first","Sort by Unrealized gain, ascending"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-only-column-and-sort-06","lines":["Show Household","Hide Account number, Advisor, Registration type, Custodian, Market value, Concentration, Unrealized gain and Restricted holdings","Put Household first"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-only-column-and-sort-07","lines":["Show only rows where Advisor is empty","Sort by Unrealized gain, descending"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-only-column-and-sort-09","lines":["Sort by Amount, ascending","Show only rows where Category is empty","Show Owner","Hide Entry number, Counterparty, Booked, Posted at, Units, Amount, Rate, Category and Cleared","Put Owner first"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-only-column-and-sort-11","lines":["Show Owner","Hide Entry number, Counterparty, Booked, Posted at, Units, Amount, Rate, Category and Cleared","Put Owner first"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-same-column-twice-04","lines":["Filter Advisor to any of “Avery Lane” and “Blake Moreno”"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-same-column-twice-05","lines":["Filter Advisor to any of “Avery Lane” and “Blake Moreno”"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-same-column-twice-06","lines":["Filter Advisor to exactly “Avery Lane”"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-same-column-twice-07","lines":["Filter Advisor to exactly “Avery Lane”","Filter Household to exactly “Alder Household”"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-same-column-twice-10","lines":["Filter Owner to any of “Gale Ivers” and “Casey Ortiz”"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-same-column-twice-11","lines":["Filter Owner to exactly “Casey Ortiz”","Filter Counterparty to exactly “Cedar Works”"],"notes":[]}
 {"file":"cases-text-forms.jsonl","id":"tf-spec-empty-then-amount","lines":["Filter Market value above $1,000,000"],"notes":[]}
 {"file":"cases-text-forms.jsonl","id":"tf-spec-no-restricted","lines":["Show only rows where Restricted holdings is No"],"notes":[]}
 {"file":"cases-text-forms.jsonl","id":"tf-spec-no-accounts-over","lines":["Filter Market value at or below $1,000,000"],"notes":["Rows with no Market value are hidden too"]}
