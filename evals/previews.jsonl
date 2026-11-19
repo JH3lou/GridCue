@@ -1828,3 +1828,17 @@
 {"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-controls-near-08","lines":["Filter Category to Travel"],"notes":[]}
 {"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-controls-near-09","lines":["Sort by Amount, descending","Show only the first 5 rows"],"notes":[]}
 {"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-controls-near-10","lines":["Group by Owner","Sort by Amount, ascending"],"notes":[]}
+{"file":"cases-review-fixes-totals-heldout.jsonl","id":"rft-same-grouping-01","lines":["Group by Advisor","Show the total of Market value and the total of Unrealized gain"],"notes":[]}
+{"file":"cases-review-fixes-totals-heldout.jsonl","id":"rft-same-grouping-03","lines":["Show the total of Market value and the average of Concentration"],"notes":[]}
+{"file":"cases-review-fixes-totals-heldout.jsonl","id":"rft-same-grouping-04","lines":["Show the total of Unrealized gain"],"notes":[]}
+{"file":"cases-review-fixes-totals-heldout.jsonl","id":"rft-same-grouping-05","lines":["Group by Registration type","Show the total of Market value and the average of Concentration"],"notes":[]}
+{"file":"cases-review-fixes-totals-heldout.jsonl","id":"rft-same-grouping-06","lines":["Group by Owner","Show the average of Amount and the average of Rate"],"notes":[]}
+{"file":"cases-review-fixes-totals-heldout.jsonl","id":"rft-same-grouping-07","lines":["Show the average of Amount and the average of Rate"],"notes":[]}
+{"file":"cases-review-fixes-totals-heldout.jsonl","id":"rft-grouping-then-total-02","lines":["Group by Advisor","Show the total of Market value"],"notes":[]}
+{"file":"cases-review-fixes-totals-heldout.jsonl","id":"rft-grouping-then-total-04","lines":["Group by Registration type","Show the total of Unrealized gain"],"notes":[]}
+{"file":"cases-review-fixes-totals-heldout.jsonl","id":"rft-grouping-then-total-06","lines":["Group by Category","Show the average of Rate"],"notes":[]}
+{"file":"cases-review-fixes-totals-heldout.jsonl","id":"rft-control-01","lines":["Show the total of Market value"],"notes":[]}
+{"file":"cases-review-fixes-totals-heldout.jsonl","id":"rft-control-02","lines":["Group by Custodian","Show the total of Market value"],"notes":[]}
+{"file":"cases-review-fixes-totals-heldout.jsonl","id":"rft-control-03","lines":["Group by Advisor","Show the average of Concentration"],"notes":[]}
+{"file":"cases-review-fixes-totals-heldout.jsonl","id":"rft-control-04","lines":["Show the average of Concentration"],"notes":[]}
+{"file":"cases-review-fixes-totals-heldout.jsonl","id":"rft-control-06","lines":["Group by Owner","Show the average of Rate"],"notes":[]}
