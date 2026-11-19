@@ -551,6 +551,19 @@ describe("dates, held-out sets, with the Mock Provider", () => {
   }
 });
 
+// The review fixes' held-out set, labelled blind before the fixes for the stack's review findings, and first run after
+// them (2026-11-19), once, with the Mock Provider: 76 exact, 36 asked as labelled, 21 safe misses, no wrong view, of
+// 133. A safe miss is reported by `pnpm eval`; a wrong view fails.
+describe("review fixes, held-out set, with the Mock Provider", () => {
+  const ledgerProvider = createMockProvider(mockOptionsFor({ schema: "ledger" }));
+  for (const c of loadCases(new URL("./cases-review-fixes-heldout.jsonl", import.meta.url))) {
+    it(`cases-review-fixes-heldout.jsonl: ${c.id}`, async () => {
+      const result = await runCase(c, c.schema === "ledger" ? ledgerProvider : provider);
+      expect(result.verdict, JSON.stringify(result.plan, null, 1)).not.toBe("unsafe");
+    });
+  }
+});
+
 // Every existing set, run again on a grid without `group.set` (more grids spec, 10). A case whose expected plan groups
 // or ungroups must end not applied; every other case must keep the verdict it has on the Rows Adapter. A case that
 // starts grouped is left out, since a grid that can't group never holds a grouping, and so is a case with a scripted

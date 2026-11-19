@@ -427,6 +427,10 @@ const datesNaturalHeldOut = await run(new URL("./cases-dates-natural-heldout.jso
 // exact, 121 asked, 3 safe misses, no wrong view, of 172.
 const datesHeldOut2 = await run(new URL("./cases-dates-heldout-r2.jsonl", import.meta.url), "cases-dates-heldout-r2.jsonl");
 const datesHeldOut3 = await run(new URL("./cases-dates-heldout-r3.jsonl", import.meta.url), "cases-dates-heldout-r3.jsonl");
+// The review fixes' held-out set, labelled blind before the fixes for the stack's review findings, and first run after
+// them (2026-11-19), once: 76 exact, 36 asked as labelled, 21 safe misses, no wrong view, of 133. Its safe misses are
+// reported, not failed; a wrong view fails.
+const reviewFixesHeldOut = await run(new URL("./cases-review-fixes-heldout.jsonl", import.meta.url), "cases-review-fixes-heldout.jsonl");
 
 // Applying a view the user did not ask for is release-blocking with any provider.
 // With the Mock Provider every core case must match exactly, because its answers are deterministic.
@@ -477,6 +481,7 @@ const all = [
   datesNaturalHeldOut,
   datesHeldOut2,
   datesHeldOut3,
+  reviewFixesHeldOut,
 ];
 const mockMustMatch = [
   core,
