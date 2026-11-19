@@ -1087,11 +1087,16 @@ export const compile = (c: CompileInput): ViewPlan => {
             }
             return false;
           });
+          // Before "where", only "the", "all" and the like may stand before the rows: "hide pending accounts where …"
+          // would drop "pending", and "remove cleared entries where …" would read it as a second condition.
+          const beforeWhere = /^\s*(.*?)\s+where\b/.exec(afterExclusionLead(bare) ?? "")?.[1];
+          const wordsBeforeRows = !!beforeWhere && !/^(?:(?:the|all|any|those|these)\s+)*\S+$/.test(beforeWhere);
           if (
             excluding &&
             (conditions > 1 ||
               yes ||
               unreadName ||
+              wordsBeforeRows ||
               (mentionedValues.length > 0 && unclearValue) ||
               /\b(?:except|but|other than|apart from)\b/.test(unquoted(clause.text)))
           ) {
