@@ -1704,6 +1704,8 @@ describe("review of PR 21", () => {
       "hide northgate where gain is below $0",
       "hide northgate accounts, where gain is below $0",
       "hide northgate accounts where gain is below $0, sorted by gain",
+      "hide restricted accounts where market value is over $1m",
+      "drop northgate accounts where market value is under $100k",
     ])
       expect(await onWealth(text), text).toBe("needs_clarification");
     for (const text of ["hide accounts where gain is below $0", "hide all accounts where gain is below $0"])
