@@ -322,11 +322,11 @@ export const compile = (c: CompileInput): ViewPlan => {
       .filter((col) => isExposed(col) && col.capabilities.includes(capability as never) && (!kinds || kinds.includes(col.kind)))
       .map((col) => ({ id: col.id, label: col.label }));
   // Consecutive sorts or groupings are levels of one, in the order named: the first is the primary sort or the
-  // outermost group. A clear or reset in between, or a part that says "instead", starts a new one.
+  // outermost group. A clear, reset or count in between, or a part that says "instead", starts a new one.
   const levelsOf = (type: "sort.set" | "group.set", replaces: boolean) => {
     const at = operations.findLastIndex((o) => o.type === type);
     const current = operations[at];
-    if (replaces || !current || operations.slice(at + 1).some((o) => o.type === "view.reset")) return undefined;
+    if (replaces || !current || operations.slice(at + 1).some((o) => o.type === "view.reset" || o.type === "limit.set")) return undefined;
     if (current.type === "sort.set" && current.sorts.length > 0) return current;
     if (current.type === "group.set" && current.columnIds.length > 0) return current;
     return undefined;
