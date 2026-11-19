@@ -16,7 +16,8 @@ import {
 } from "@tanstack/table-core";
 import { storeReactivityBindings } from "@tanstack/table-core/store-reactivity-bindings";
 import { cleanup, renderHook } from "@testing-library/react";
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { useState } from "react";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import type { GridAdapter } from "../src/core/adapter";
 import { createGridCue } from "../src/core/controller";
 import { isGridCueError } from "../src/core/errors";
@@ -115,6 +116,21 @@ const appliedGroups = (state: ViewState, totalled: readonly string[]) =>
     totals: Object.fromEntries(totalled.map((id) => [id, g.totals.find((t) => t.columnId === id)?.value ?? null])),
   }));
 
+/** Runs `p` under fake timers past the adapter's 1,000 ms bound on a write, and says how it ended. */
+const pastBound = async (p: () => Promise<unknown>) => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  try {
+    const running = p().then(
+      (v) => ({ resolved: v }),
+      (e) => ({ rejected: isGridCueError(e) ? e.code : String(e) }),
+    );
+    await vi.advanceTimersByTimeAsync(1_100);
+    return await running;
+  } finally {
+    vi.useRealTimers();
+  }
+};
+
 const configError = (make: () => unknown) => {
   try {
     make();
@@ -152,6 +168,22 @@ describe("TanStack Table adapter: totals", () => {
       defaultColumn: { aggregationFn: gridcueAggregationFn, getAggregationValue: gridcueAggregationValue },
     } as never) as unknown as TotalsTable;
     expect(configError(build(bare))).toMatchObject({ code: "INPUT_CONFIG", message: expect.stringContaining("rowAggregationFeature") });
+    // A column the schema lets GridCue total that the table lacks: a total on it would be applied and never drawn.
+    const wider = defineSchema(
+      [
+        { id: "key" },
+        { id: "advisor" },
+        { id: "value", kind: "currency" },
+        { id: "rate", kind: "percent" },
+        { id: "name" },
+        { id: "amount", kind: "currency" },
+      ],
+      {},
+    );
+    expect(configError(() => createTanStackAdapter({ schema: wider, table: makeTable(), renders: ["totals"] }))).toMatchObject({
+      code: "INPUT_CONFIG",
+      message: expect.stringContaining("“amount”"),
+    });
     // Without "totals" the adapter never reads them, so each builds as before.
     expect(createTanStackAdapter({ schema, table: own }).getCapabilities().operations).not.toContain("aggregation.set");
     expect(createTanStackAdapter({ schema, table: bare }).getCapabilities().operations).not.toContain("aggregation.set");
@@ -365,4 +397,79 @@ describe("TanStack Table adapter: totals on useTable", () => {
       }
     });
   }
+
+  // A Host that passes TanStack the grouping and column order it had while their items are the same, as one that keeps
+  // them through a shallow-equal memo when it draws, and keeps its columns from one render to the next. Writing the
+  // same grouping again then gives TanStack the same array, so it doesn't group again, and each group keeps the total
+  // it had. With no grouping the footer is read again on every render, so it shows the new total.
+  const stableColumns = COLUMNS.map((id) => ({ accessorKey: id as keyof Row, header: id }));
+  const stableDefaultColumn = {
+    filterFn: gridcueFilterFn,
+    aggregationFn: gridcueAggregationFn,
+    getAggregationValue: gridcueAggregationValue,
+  };
+  const keptHost = (grouping: string[]) => {
+    const kept: { grouping?: string[]; columnOrder?: string[] } = {};
+    const keep = (key: keyof typeof kept, next: string[]) => {
+      const old = kept[key];
+      if (!old || old.length !== next.length || old.some((id, i) => id !== next[i])) kept[key] = next;
+      return kept[key] as string[];
+    };
+    const view = { drawn: [] as unknown[] };
+    const hook = renderHook(() => {
+      const [groupingHeld, setGrouping] = useState<string[]>(grouping);
+      const [columnOrderHeld, setColumnOrder] = useState<string[]>([...COLUMNS]);
+      const table = useTable({
+        features: reactFeatures,
+        data: ROWS,
+        columns: stableColumns,
+        defaultColumn: stableDefaultColumn,
+        state: { grouping: keep("grouping", groupingHeld), columnOrder: keep("columnOrder", columnOrderHeld) },
+        onGroupingChange: setGrouping,
+        onColumnOrderChange: setColumnOrder,
+      });
+      // What the Host's markup shows: each group row's total, or with no grouping the footer's.
+      view.drawn = grouping.length
+        ? (table as unknown as TotalsTable).getRowModel().rows.map((g) => g.getValue("value") ?? null)
+        : [table.getColumn("value")?.getAggregationValue() ?? null];
+      return table;
+    });
+    return { table: hook.result.current as unknown as TotalsTable, view };
+  };
+
+  it("fails a totals change on a grouped view the table doesn't group again for, and changes nothing", async () => {
+    const { table, view } = keptHost(["advisor"]);
+    const adapter = createTanStackAdapter({ schema, table, renders: ["totals"] });
+    const before = adapter.getState().state;
+    expect(view.drawn).toEqual([null, null, null]);
+    // The table never draws the sums, so the write fails past its bound rather than report them (ADR 0031)…
+    const result = await pastBound(() =>
+      adapter.apply(planWith(adapter, [{ type: "aggregation.set", aggregations: [{ columnId: "value", function: "sum" }] }])),
+    );
+    expect(result).toEqual({ rejected: "ADAPTER_FAILED" });
+    await new Promise((r) => setTimeout(r, 0));
+    // …and the View State is the one the table still draws.
+    expect(view.drawn).toEqual([null, null, null]);
+    expect(adapter.getState().state).toEqual(before);
+    // Through the Controller: no "View updated.", and nothing changed.
+    const cue = createGridCue({ schema, adapter, provider: createMockProvider() });
+    await cue.propose("total value");
+    expect(cue.getState().status).toBe("ready");
+    expect(await pastBound(() => cue.apply())).toEqual({ resolved: false });
+    expect(cue.getState().message).toBe("The grid couldn't apply that change. Nothing was changed.");
+    expect(adapter.getState().state.aggregations).toEqual([]);
+    expect(view.drawn).toEqual([null, null, null]);
+  });
+
+  it("applies and draws a footer total under the same Host with no grouping", async () => {
+    const { table, view } = keptHost([]);
+    const adapter = createTanStackAdapter({ schema, table, renders: ["totals"] });
+    const result = await adapter.apply(
+      planWith(adapter, [{ type: "aggregation.set", aggregations: [{ columnId: "value", function: "sum" }] }]),
+    );
+    expect(result.ok).toBe(true);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(adapter.getState().state.aggregations).toEqual([{ columnId: "value", function: "sum" }]);
+    expect(view.drawn).toEqual([180.05]);
+  });
 });

@@ -253,14 +253,19 @@ export interface TanStackAdapterOptions {
 
 /**
  * Why a table can't show the Totals GridCue holds, or `undefined` when it can (operation set spec, 4.2). Every column
- * the schema lets GridCue total must take its totals from GridCue's two functions, so no group row or footer shows a
- * total GridCue didn't apply, or misses one it did. The adapter sees the definitions the columns have when it is made;
+ * the schema lets GridCue total must be a column of the table and take its totals from GridCue's two functions, so no
+ * group row or footer shows a total GridCue didn't apply, or misses one it did. The adapter sees the definitions the columns have when it is made;
  * a column the Host adds or redefines later is not checked.
  */
 const totalsIssue = (schema: ViewSchema, table: TanStackTableLike): string | undefined => {
   const totalled = new Set(
     schema.columns.filter((c) => c.sensitivity !== "restricted" && c.capabilities.includes("aggregate")).map((c) => c.id),
   );
+  const leaves = new Set(table.getAllLeafColumns().map((c) => c.id));
+  const absent = [...totalled].find((id) => !leaves.has(id));
+  if (absent !== undefined) {
+    return `the schema lets GridCue total “${absent}”, which is not a column of this table. Add the column, or take “aggregate” off it`;
+  }
   for (const column of table.getAllLeafColumns()) {
     if (!totalled.has(column.id)) continue;
     if (typeof column.getAggregationFns !== "function") return "the table has no rowAggregationFeature. Register it";
@@ -401,23 +406,24 @@ export const createTanStackAdapter = ({ schema, table, maxSorts = 3, maxGroups =
    *
    * It resolves with the Revision read at the moment the table first holds `expected`, not after the await: a change
    * made between that moment and the caller resuming is newer than the write, so undo must find it and refuse.
+   * `drawn`, when given, must also hold: what the View State can't show, such as a group row's total.
    */
-  const untilHeld = (expected: string): Promise<VersionedViewState> => {
+  const untilHeld = (expected: string, drawn: () => boolean = () => true): Promise<VersionedViewState> => {
     sync();
-    if (lastFingerprint === expected) return Promise.resolve(current());
+    if (lastFingerprint === expected && drawn()) return Promise.resolve(current());
     return new Promise((resolve, reject) => {
       const done = () => {
         clearTimeout(timer);
         waiters.delete(check);
       };
       const check = () => {
-        if (lastFingerprint !== expected) return;
+        if (lastFingerprint !== expected || !drawn()) return;
         done();
         resolve(current());
       };
       const timer = setTimeout(() => {
         sync();
-        if (lastFingerprint === expected) return check();
+        if (lastFingerprint === expected && drawn()) return check();
         done();
         reject(new GridCueError("ADAPTER_FAILED", `The table didn't hold the change within ${HOLD_WAIT_MS} ms.`));
       }, HOLD_WAIT_MS);
@@ -484,6 +490,12 @@ export const createTanStackAdapter = ({ schema, table, maxSorts = 3, maxGroups =
     // anew and each total read from `gridcueAggregationFn`. With no grouping, the column order is, so a table drawn
     // from the store draws again and reads its footer.
     const totalsChanged = JSON.stringify(nextHeld.totals) !== JSON.stringify(own.totals);
+    // TanStack groups again only for a grouping array it hasn't seen. A Host that hands it back the array it had, as a
+    // shallow-equal memo does, leaves each group row with its old totals, so the write isn't held until the array is new.
+    const regroups = totalsChanged && slices.grouping.length > 0;
+    const groupingBefore = table.store.state.grouping;
+    const regrouped = () => !regroups || table.store.state.grouping !== groupingBefore;
+    const heldBefore = own;
     // The View State the table reads as once it holds every slice written here, in the form `read` gives.
     const expected = JSON.stringify(read({ ...table.store.state, ...slices, ...(columnPinning ? { columnPinning } : {}) }, nextHeld));
     writing++;
@@ -503,7 +515,17 @@ export const createTanStackAdapter = ({ schema, table, maxSorts = 3, maxGroups =
         if (columnPinning) table.setColumnPinning?.(columnPinning);
       });
       // Done only when the table holds it, with the Revision that change produced (ADR 0031).
-      return { ok: true, state: await untilHeld(expected) };
+      try {
+        return { ok: true, state: await untilHeld(expected, regrouped) };
+      } catch (error) {
+        // A table that never grouped again still draws the totals it had, so the adapter holds those again.
+        if (!regrouped()) {
+          own = heldBefore;
+          totalsByStore.set(table.store, appliedTotals(heldBefore.totals));
+          sync();
+        }
+        throw error;
+      }
     } finally {
       writing--;
       if (writing === 0 && held) {
