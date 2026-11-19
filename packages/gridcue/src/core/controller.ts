@@ -38,7 +38,7 @@ export type LocalValues = Record<string, () => readonly unknown[]>;
 export interface GridCueOptions {
   adapter: GridAdapter;
   provider: IntentProvider;
-  /** Defaults to the adapter's schema. */
+  /** Defaults to the adapter's schema. Its Calendar must be the one the grid filters rows with. */
   schema?: ViewSchema;
   confidence?: ConfidencePolicy;
   audit?: { onEvent: (event: AuditEvent) => void; policy?: AuditPolicy };
@@ -400,10 +400,13 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
           try {
             codeRead = readCodeFilters(input, mentions, schema, { today: readToday });
           } catch (error) {
+            // A clock that cancelled this request, or made a newer one, before it failed leaves that state alone.
+            if (controller.signal.aborted) return stopped();
             if (!isGridCueError(error) || error.code !== "INPUT_CLOCK") throw error;
             set({ status: "error", message: CLOCK_FAILED, issues: [{ code: "INPUT_CLOCK", message: CLOCK_FAILED }] });
             return null;
           }
+          if (controller.signal.aborted) return stopped();
           // Local Values are read only once the request is built, and nothing read from them reaches it: the provider
           // is sent the same request, and called once, whether or not the grid holds a name (spec 4.3; ADR 0025).
           if (sources.length > 0) {

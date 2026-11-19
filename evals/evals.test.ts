@@ -510,7 +510,10 @@ describe("dates, with the Mock Provider", () => {
 //   19 asked as labelled, 1 refused as labelled, 19 safe misses, no wrong view, of 50. Most safe misses are wordings
 //   spec 5.5 asks about (a month name, "N days ago", "two weeks" in words, a year), or a word 4.2 doesn't place
 //   ("what", "everything", "uncleared"). The label checker wrote its ranges in the form set's shape and moved four
-//   "last N" starts to the spec's day before the run.
+//   "last N" starts to the spec's day before the run. Three of its no-column requests (n1-nocol-yesterday,
+//   n1-nocol-today, n1-nocol-last-30) are labelled to ask, where spec 5.5 lets the provider's pick of one date column
+//   decide; the form set labels the same shape ready-or-ask (dr1-nocol-*). With the Mock Provider they ask. With
+//   `--live`, a provider that picks Booked there is counted a wrong view by these labels.
 // The independent date checks (evals/dates-property.test.ts) passed with TZ set to UTC, America/New_York and
 // Pacific/Auckland. 1 of these requests showed a view the User didn't ask for before the code and now asks ("entries
 // from March, largest amount first" sorted by Amount and dropped "March"). A safe miss is reported by `pnpm eval`; a

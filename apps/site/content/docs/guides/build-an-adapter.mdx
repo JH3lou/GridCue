@@ -74,7 +74,7 @@ A date in a filter means the whole day in the schema's [Calendar](/docs/api/sche
 - **A date string** such as `"2026-01-31"` is that day.
 - **A `Date`, or a string with a time and an offset** (`"2026-01-31T23:30:00-05:00"`, `"2026-02-01T04:30:00Z"`) is the day that instant falls on in the Calendar's time zone. The same instant is the 31st in `America/New_York` and the 1st in `UTC`.
 - **A string with a time and no offset** (`"2026-01-31T23:30:00"`) is its own date part, the 31st, in any zone.
-- **A cell that can't be read as a date** matches no date filter: text such as `"13/11/2026"` or `"soon"`, a number, `null`. "Empty" is unchanged, since an unreadable cell still holds a value, so it is not empty.
+- **A cell that can't be read as a date** matches no date comparison (on, before, after, between): text such as `"13/11/2026"` or `"soon"`, or a number. An empty cell (`undefined`, `null` or `""`) matches none either, and still matches `isEmpty`. Text or a number that can't be read as a date holds a value, so it is not empty.
 
 This is a change. Before, a date filter compared cells as they were, so a column of epoch numbers or `"11/13/2026"` text matched a filter written the same way, the Host's own View State included. Now no filter on a `date` or `datetime` column matches such a cell. If your rows hold dates in another form, turn each cell into an ISO date, an ISO date and time, or a `Date` before the rows reach the grid, or declare the column as `number` or `string`.
 
@@ -179,7 +179,8 @@ Every Grid Adapter in GridCue passes the same contract suite: `packages/gridcue/
 The suite is not part of the npm package. Copy the file into your tests, change its imports from `../src/...` to `gridcue`, and run it with Vitest:
 
 ```ts
-import { runAdapterContract } from "./adapter-contract";
+import { defineSchema } from "gridcue";
+import { DATED_COLUMNS, DATED_ROWS, runAdapterContract } from "./adapter-contract";
 import { createMyGridAdapter } from "../src/my-grid-adapter";
 
 runAdapterContract("My grid adapter", () => {
@@ -190,6 +191,12 @@ runAdapterContract("My grid adapter", () => {
     manualChange: () => grid.sortBy("team", "asc"), // the User changing the view by hand
     numericColumn: "value", // supports filter and sort, and is numeric
     otherColumn: "name", // supports filter and sort
+    // A fresh grid over the suite's dated rows, its schema read from them: a date column and two date-and-time ones.
+    dated: () =>
+      createMyGridAdapter(
+        defineSchema(DATED_COLUMNS.map((id) => ({ id })), { sampleRows: DATED_ROWS }),
+        createTestGrid(DATED_ROWS),
+      ),
   };
 });
 ```

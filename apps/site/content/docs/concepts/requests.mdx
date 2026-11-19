@@ -227,7 +227,7 @@ With the Mock Provider, a part that starts with a word it doesn't know, such as 
 
 ## Dates
 
-GridCue's own code reads a closed list of date words, with no provider, and turns them into fixed days. A relative form is worked out once, when the request is made, from the Controller's [clock](/docs/api/create-grid-cue#now) and the schema's [Calendar](/docs/api/schema#calendar). The view keeps the two days, never the words: see [Views](/docs/concepts/views#a-view-keeps-fixed-dates).
+GridCue's own code reads a closed list of date words and turns them into fixed days. The provider still receives the request, but never decides which days the words mean. A relative form is worked out once, when the request is made, from the Controller's [clock](/docs/api/create-grid-cue#now) and the schema's [Calendar](/docs/api/schema#calendar). The view keeps the two days, never the words: see [Views](/docs/concepts/views#a-view-keeps-fixed-dates).
 
 The examples in this section use GridCue's synthetic ledger grid, where Booked holds dates and Posted at holds dates and times. Today is 2026-11-13, the Calendar's `timeZone` is `America/New_York`, and the year starts in January.
 
