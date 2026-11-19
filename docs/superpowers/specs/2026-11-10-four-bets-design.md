@@ -273,11 +273,11 @@ Every set is synthetic. Every held-out set is written and labelled before the co
 | Marks (5.2) | Every labelled request, typed one character at a time; a fresh held-out set of 40 | At the last keystroke, every mark is in the final plan. A mark shown and then withdrawn, while its words are unchanged, in at most 2% of requests (20% today) |
 | Matcher cost (5.2) | A synthetic schema: 200 columns, 20 values each | Median at most 1 ms per call, worst at most 8 ms (12 ms and 73 ms today) |
 | Round trip (5.3) | 1,500 random reachable views on each of two schemas, fixed seeds | For every view, one of two things holds. `roundTrips` is true and the text reproduces the view exactly with the Local Resolver alone. Or it is false and `unsaid` names a reason listed in 5.3. The test works out for itself whether a view holds a listed reason, and `roundTrips` must agree, so false is never a way around a failed round trip. The share of false views is reported for each schema, by reason, with no bar |
-| `proposeView` (5.3) | The same random views, proposed from random starting views | The applied view equals the proposed one, or the result is unsupported. Never a different view |
+| `proposeView` (5.3) | The same random views, proposed from random starting views | The applied view equals the saved one. The result is unsupported only for a view holding a setting the grid can't apply or a column the schema no longer allows, and the test works out for itself which views those are and checks the result agrees. Never a different view |
 | Local Resolver (5.4) | All existing sets (188), the reading sets, the terse sets, and two fresh sets of at least 60, one on a second schema | 0 wrong views among locally resolved results. The local share is reported for each set, with no bar |
 | Terse (5.5) | The 24 compressed lines from the first test (now seen, so a dev set) and a fresh held-out set of at least 30 | 0 wrong views. At least 90% exact on the held-out set, locally |
 
-- The gate (`pnpm check`) runs every set with the Mock Provider and with the Local Resolver alone. A wrong view in any of them fails it.
+- The gate (`pnpm check`) runs every set with the Mock Provider, except the sets whose labels need a live model, which only live runs judge. From PR 4 it also runs every set with the Local Resolver alone. A wrong view in any of them fails it.
 - Live runs with Jev need the owner's command. Before PR 1 and PR 5 merge, one `--live` run each confirms 0 wrong views and no drop in exact results against the last recorded run.
 - A second schema for the evals is added to `fixtures/`: a different domain, with a number column and a date column, which the wealth fixture lacks.
 
