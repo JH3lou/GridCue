@@ -215,6 +215,7 @@ createTanStackAdapter({ schema, table, renders: ["pinning", "density", "totals",
 | "group by advisor and show total market value" | Asked what to filter on | Ready, the same two lines |
 | "total concentration" | Asked | Asked: "Concentration can't be totalled. Show its average instead?" |
 | "total market value" (no grouping) | Asked | Ready: "Show the total of Market value"; one grand total |
+| "total market value" (Market value hidden) | Asked | Ready: "Show Market value; Show the total of Market value" |
 | "also total gain" (view has a total) | Asked | Ready: "Show the total of Unrealized gain"; both totals show |
 | "remove the totals" | Asked | Ready: "Remove the totals" |
 | "how many accounts per advisor" | Asked | Asked (unchanged) |
@@ -223,6 +224,7 @@ createTanStackAdapter({ schema, table, renders: ["pinning", "density", "totals",
 | "largest households first" (no `defaultMeasure`) | Asked, two choices | Unchanged |
 
 - **A new total is added** to the view's totals, and the plan's `aggregation.set` carries the whole list. A total on another column never disappears unless a request says to remove it.
+- **A total on a hidden column shows the column first,** as a pin does: "total market value" with Market value hidden previews "Show Market value" and "Show the total of Market value".
 - **A column holds one total at a time.** "Average market value" on a view that shows the total of Market value replaces that total, and the Preview says so: "Show the average of Market value instead of its total". So a sort on a column with a total always has one total to order the groups by, and TanStack's one aggregation function for each column is enough. A sum and an average of the same column side by side is out of scope.
 - **"Total X by Y"** also sets the grouping to Y, replacing the current one, as "group by Y" does today.
 - **A total counts the rows the view shows,** after its filters and its count. Empty values are skipped. With no values, the total is empty.
@@ -324,7 +326,7 @@ The _Avoid_ lines are about prose. `limit.set`, `aggregation.set` and the `aggre
 | — | A density change has no transition | It follows a request the User just confirmed; padding can't animate cheaply, and keyboard-driven changes never animate |
 | Group row: "Northgate · 12 accounts" in one cell | With totals, the group row has one cell per visible column. The first holds the label and count as today; each total column holds its value, `font-medium tabular-nums`, after a `text-xs text-muted-foreground` word: "total" or "avg" | The word is the cue, so a total never reads as a row's own value |
 | — | Ungrouped with a total: a `<tfoot>` row, `border-top: 1px solid var(--border)`, background `bg-muted/40`, the first cell "All 48 accounts" muted, total cells as above | One grand total, set apart by structure |
-| Caption: "48 rows, showing the first 20" (display cap) | With a count: "First 10 of 48 rows". The display cap wording stays for views without a count | The User sees that rows were left out, and how many |
+| Caption: "48 rows, showing the first 20" (display cap) | With a count: "First 10 of 48 rows", where 10 is the number of rows shown. When fewer rows have a value in the sorted column than the count, it is that number: "First 7 of 48 rows". The display cap wording stays for views without a count | The User sees that rows were left out, and how many |
 | `.changed-header` marks a changed header for 1.2s | Also marks a header whose pin or total changed | Same cue for every column change, no new motion |
 | Command bar, Preview, questions, Undo | Unchanged | — |
 
