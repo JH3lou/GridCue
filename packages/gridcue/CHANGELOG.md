@@ -44,11 +44,13 @@
 - A date compared with a date-and-time column, including a column of `Date` objects, is asked about: "last contact after 2026-01-31" kept a row stamped 09:00 on the 31st. A date that is not a real day ("2026-02-31") is asked about.
 
 - "Reset to default", "reset my accounts view" and "remove the account name filter and the sort" are read as before.
+- A negated clear verb governs nothing: "clear the filters but don't clear the sort" cleared both and is asked about. "Hide Northgate accounts where gain is below $0" stays one part and is asked about, and a range with a "$" bound and a "%" bound ("between $10 and 20%") is asked about. A restricted name that ends in a symbol ("Client ID!") is refused without the symbol too, as in 0.2.0.
 
 **Provider proposals** (ADR 0022)
 - A column or value a provider picks from a word that appears only inside quoted text is dropped: `advisor containing "restricted"` added a Restricted holdings filter with Jev.
 - A plan that clears fewer things than the clear verb governs is asked about: "clear filters, grouping" cleared only the filters with Jev. A governed clear the provider scores at or above the Host's `clarify` band is used.
 - In a part that only clears or resets, any other change a provider proposes is dropped: "clear everything but the sort" previewed a hide of columns nobody named.
+- A sort or grouping that still holds the column a clear names is no clear: "clear the gain sort" sorted by Gain and "ungroup custodian" grouped by Custodian; both are asked about. A quoted name is found whole even after a hit inside a longer word (`advisor containing "unrestricted restricted"`).
 
 **Preview**
 - An amount is stated exactly, below a cent too ("$0.0004"). "Market value $1.50" previewed "to $2", and a percentage was rounded to one decimal.
@@ -57,7 +59,7 @@
 
 **Mock Provider**
 - A yes/no column in a column list ("the advisor and restricted holdings columns", "hide the restricted holdings column") is a column, not a filter. "Hide restricted accounts" hides those rows; "hide restricted households" and "hide restricted accounts at Northgate" are asked about.
-- It answers which column each amount belongs to (`literalColumns`): the column named right before it, else the one named column free to hold it, else the Host's default for its kind.
+- It answers which column each amount belongs to (`literalColumns`): the column named right before it, else the one named column free to hold it, else the Host's default for its kind. A second bound right after an owned one ("gain over $10k but under $20k") gets no column, so GridCue asks which column it is for.
 - It reads a part as a filter only when its first word is one it knows, or names something ("clients with more than $5M").
 
 ## 0.2.0 (2026-10-27)
