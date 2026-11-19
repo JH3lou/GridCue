@@ -35,8 +35,8 @@ npm adds a trusted publisher only to a package that already exists, so 0.1.0 is 
 3. **Tag the merge commit and push the tag.** The tag is read from that commit's `packages/gridcue/package.json`, so it always matches the version you merged:
    ```bash
    git fetch origin && RELEASE_SHA=<merge-sha>   # the merge commit from step 2
-   VERSION=$(git show "$RELEASE_SHA:packages/gridcue/package.json" | node -p 'JSON.parse(require("fs").readFileSync(0)).version')
-   git tag "v$VERSION" "$RELEASE_SHA" && git push origin "v$VERSION"
+   VERSION=$(git show "$RELEASE_SHA:packages/gridcue/package.json" | node -p 'JSON.parse(require("fs").readFileSync(0)).version') &&
+     echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+' && git tag "v$VERSION" "$RELEASE_SHA" && git push origin "v$VERSION"
    ```
 4. **The Release workflow**:
    - checks that the tag matches the package version;
