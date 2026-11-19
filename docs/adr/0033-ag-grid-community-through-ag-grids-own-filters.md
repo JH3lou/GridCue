@@ -19,7 +19,7 @@ What was decided:
 
 This changes no accepted ADR. It follows ADR 0007: a new grid is a new subpath, not a new package.
 
-The grill weighed a GridCue custom filter and an external filter, and the owner approved AG Grid's own filters. Only that choice keeps one filter in three places: AG Grid's menus, GridCue's Preview, and what a Host's datasource receives. A custom filter would hand every existing datasource a form it can't read. An external filter never shows in the menus and works on rows in the browser only.
+The grill weighed a GridCue custom filter and an external filter, and the owner approved AG Grid's own filters. Only that choice keeps one filter in AG Grid's menus and GridCue's Preview. It does not keep an existing Infinite Row Model datasource working unchanged: GridCue's custom filter options and meanings are not AG Grid's, so the Host builds its Data Query from the View State and its own filters (more grids spec 5.5). A custom filter would hide GridCue's filters from the menus too. An external filter never shows in the menus and works on rows in the browser only.
 
 The cost is a setting every Host must add, and no grouping on the grid most common in finance. An AG Grid major nobody tested is found when the adapter is created, not at install. A filter AG Grid can't hold, such as an OR across two columns, fails at Apply with nothing changed, not before the Preview.
 
