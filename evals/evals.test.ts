@@ -480,6 +480,7 @@ describe("Local Values, second held-out set, with the Mock Provider", () => {
 // starts grouped is left out, since a grid that can't group never holds a grouping, and so is a case with a scripted
 // provider answer, written for a grid that can.
 describe("every existing set on a grid without group.set, with the Mock Provider", () => {
+  const ledgerProvider = createMockProvider(mockOptionsFor({ schema: "ledger" }));
   const dir = new URL("./", import.meta.url);
   const files = readdirSync(dir)
     .filter((name) => /^cases.*\.jsonl$/.test(name))
@@ -488,11 +489,28 @@ describe("every existing set on a grid without group.set, with the Mock Provider
     for (const c of loadCases(new URL(file, dir))) {
       if (!onGridWithoutGrouping(c)) continue;
       it(`${file}: ${c.id}`, async () => {
-        const result = await runWithoutGrouping(c, provider);
+        const result = await runWithoutGrouping(c, c.schema === "ledger" ? ledgerProvider : provider);
         expect(result?.pass, JSON.stringify({ before: result?.before.verdict, after: result?.after.plan }, null, 1)).toBe(true);
       });
     }
   }
+});
+
+// A held-out set checks only that no case is unsafe, and a request that ends in an error has no plan, which the verdict
+// counts as a safe miss. So every case in every set must end with a plan (review finding).
+describe("every existing set, with the Mock Provider", () => {
+  it("ends each case with a plan", { timeout: 120_000 }, async () => {
+    const ledgerProvider = createMockProvider(mockOptionsFor({ schema: "ledger" }));
+    const dir = new URL("./", import.meta.url);
+    const files = readdirSync(dir)
+      .filter((name) => /^cases.*\.jsonl$/.test(name))
+      .sort();
+    for (const file of files)
+      for (const c of loadCases(new URL(file, dir))) {
+        const result = await runCase(c, c.schema === "ledger" ? ledgerProvider : provider);
+        expect(result.plan, `${file}: ${c.id} ended with status ${result.status}`).not.toBeNull();
+      }
+  });
 });
 
 describe("the verdict", () => {

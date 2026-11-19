@@ -119,6 +119,8 @@ const run = async (file: URL, label: string) => {
 
 // `--grid=no-group` runs every existing set on a grid that doesn't list `group.set` instead (more grids spec, 10).
 // A case whose expected plan groups must end not applied; every other case must keep its verdict on the Rows Adapter.
+// A case unsafe on both grids fails too, except in the live-only sets, whose Mock wrong views are known and not judged.
+const LIVE_ONLY_SETS = ["cases-live.jsonl", "cases-fanout.jsonl", "cases-chassis.jsonl"];
 if (flag("grid") === "no-group") {
   const dir = new URL("./", import.meta.url);
   const files = readdirSync(dir)
@@ -137,7 +139,7 @@ if (flag("grid") === "no-group") {
         continue;
       }
       counts[result.groups ? "grouping" : "other"]++;
-      if (!result.pass) {
+      if (!result.pass || (result.after.verdict === "unsafe" && !LIVE_ONLY_SETS.includes(file))) {
         failed++;
         counts[result.groups ? "grouping, ready" : "other, verdict changed"]++;
         const { before, after } = result;

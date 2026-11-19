@@ -214,6 +214,19 @@ describe("a size or age word gives its direction only to an amount or a date", (
   });
 
   it.each([
+    "order id, largest first",
+    "accounts by order id, largest first",
+    "sort code, largest first",
+    "accounts by sort code, largest first",
+  ])("asks for “%s”: a column's own name says no “sort” or “order”", async (text) => {
+    const schema = defineSchema([...columns, { id: "order_id", label: "Order ID" }, { id: "sort_code", label: "Sort code" }], options);
+    const cue = setup(schema);
+    await cue.propose(text);
+    expect(cue.getState().status, `${text}: ${JSON.stringify(cue.getState().plan?.operations)}`).toBe("needs_clarification");
+    expect(cue.getState().message, text).toBe(ask);
+  });
+
+  it.each([
     ["largest accounts by market value", "value", "desc"],
     ["smallest market value", "value", "asc"],
     ["sort by market value, largest", "value", "desc"],

@@ -80,6 +80,8 @@ The guide, the Query Check, and the AG Grid settings all copy one table. It is t
 | `isEmpty` | `null`, missing, `""` | everything else, **including whitespace-only text** | AG Grid's "blank" includes whitespace-only text |
 | A count (`limit`) | the first N rows of the sorted, filtered rows, before grouping | the rest | cutting after paging keeps the first N of one page |
 
+An empty operand (`""`) follows `matchesPredicate` too: `eq` and `in` keep exactly the empty cells, and `contains` and `startsWith` keep every row, empty cells included. The Query Check has a case for each.
+
 The table states sorting only as "by each sort column in turn, in its direction". Where empty cells go is not stated yet (section 3, Out).
 
 The table follows core. Two rows change before the Query Check is built (order plan): a count never keeps a row with no value in the first sorted column (operation set 5.1), and a date in a filter means the whole day in the calendar's time zone, on date and date-and-time columns alike (named filters 5.5). The guide, the Query Check and the AG Grid settings copy the table as it stands when they are built, with those two rows in it.
@@ -338,7 +340,7 @@ The new example pages (`/paged` and `/ag-grid` in the Next.js example, and `exam
 
 ## 10. Evals and evidence
 
-Every set and every row is synthetic. Every held-out set is written and labelled, or its seeds chosen, before the code it tests, by someone who has not seen that code.
+Every set and every row is synthetic. Every held-out set of requests or filter models is written and labelled before the code it tests, by someone who has not seen that code. Seeds and harnesses are the exception the table names: the lead picks them after the build and before the run, and the builder never sees them.
 
 | Mechanism | Dev | Held-out | Bar | Reported, with no bar |
 | --- | --- | --- | --- | --- |

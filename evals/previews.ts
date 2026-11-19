@@ -12,6 +12,10 @@ import { mockOptionsFor, runCase } from "./run";
  * When a change means to alter a Preview, or adds a labelled set, record again and say what changed in the pull
  * request:
  *   pnpm build && pnpm eval:previews
+ *
+ * Recording writes each Preview as the code gives it now, the ones `CHANGED` in previews.test.ts lists included, so
+ * the same change empties `CHANGED`. Otherwise the test that each listed Preview differs from the record fails. A
+ * later change lists its own changes there again.
  */
 export const PREVIEWS = new URL("./previews.jsonl", import.meta.url);
 

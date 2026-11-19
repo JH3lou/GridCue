@@ -242,6 +242,21 @@ describe("finding a term", () => {
   it("only where the schema declares terms", () => {
     expect(found("large accounts", withoutTerms)).toEqual([]);
   });
+
+  it("by an alias that differs from the label only in where the words break", async () => {
+    const whale: HouseTerm = {
+      label: "WhaleWatch",
+      aliases: ["Whale Watch"],
+      where: [{ columnId: "market_value", operator: "gt", value: 5_000_000 }],
+    };
+    const schema = defineSchema(columns, { ...options, houseTerms: [whale] });
+    expect(found("whalewatch accounts", schema)).toEqual(["whalewatch: WhaleWatch market_value gt"]);
+    expect(found("whale watch accounts", schema)).toEqual(["whale watch: WhaleWatch market_value gt"]);
+    expect(found("whale-watch accounts", schema)).toEqual(["whale-watch: WhaleWatch market_value gt"]);
+    const state = await propose("show whale watch accounts", schema);
+    expect(state.status, `${state.message}`).toBe("ready");
+    expect(state.preview?.lines).toEqual(["Filter Market value above $5,000,000 (WhaleWatch)"]);
+  });
 });
 
 describe("a term's filters", () => {
@@ -694,6 +709,20 @@ describe("an adverb nothing reads, in a part that keeps rows", () => {
     await readsBoth("show taxable accounts quickly", [["registration_type", "eq", "taxable"]]);
     // Any other adverb still asks: "held indirectly" may mean through a trust, which no filter here holds.
     await asksBoth("taxable accounts held indirectly", "indirectly");
+  });
+
+  it("reads a Row Noun ending in “ly” as the Row Noun, as before", async () => {
+    const family = { ...options, rowNoun: "family" };
+    for (const schema of [defineSchema(columns, family), defineSchema(columns, { ...family, houseTerms: TERMS })]) {
+      for (const text of ["show taxable family", "taxable family", "show the taxable family"]) {
+        const state = await propose(text, schema);
+        expect(state.status, `${text}: ${state.message}`).toBe("ready");
+        expect(filters(state.plan?.operations), text).toEqual([["registration_type", "eq", "taxable"]]);
+      }
+      const mostly = await propose("show mostly taxable family", schema);
+      expect(mostly.status).toBe("needs_clarification");
+      expect(mostly.message).toBe(about("mostly"));
+    }
   });
 });
 

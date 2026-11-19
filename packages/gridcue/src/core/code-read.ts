@@ -231,7 +231,7 @@ const rowsAfterWhich = (text: string, rows: readonly Span[], from: number): numb
  * something about the rows.
  */
 const asksWhichHave = (said: Said, rows: readonly Span[], verb: number): boolean => {
-  const before = said.text.slice(0, verb);
+  const before = unquoted(said.text).slice(0, verb);
   const named = [...rows, ...said.names];
   const relative = (r: Span) => named.some((n) => n.end <= r.start) || !named.some((n) => n.start >= r.end && n.end <= verb);
   if ([...before.matchAll(RELATIVE)].some((r) => relative({ start: r.index, end: r.index + r[0].length }))) return true;
@@ -446,6 +446,7 @@ export const unreadAdverbs = (clause: Clause, mentions: readonly Mention[], sche
   if (clause.literals.length === 0 && !own.some((m) => m.valueId !== undefined || yesNo(m))) return [];
   const read: Span[] = [
     ...own,
+    ...rowNouns(clause.text, schema),
     ...clause.literals.flatMap((lit) => [
       { start: lit.at, end: lit.at + literalText(clause.text, lit).length },
       ...comparisonSpans(clause.text, lit),
@@ -618,15 +619,17 @@ const emptyForms = (
  */
 const columnNames = (clause: Clause, mentions: readonly Mention[], schema: ViewSchema): Mention[] => {
   const columns = schema.columns.filter(isExposed);
+  // Keyed by the words `findMentions` matches, so "Vendor Name" and "Vendor-Name" are one name two columns share.
+  const keyOf = (name: string) => (name.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []).join(" ");
   const owners = new Map<string, Set<string>>();
   for (const col of columns)
     for (const name of [col.label, ...(col.aliases ?? [])]) {
-      const key = name.trim().toLowerCase();
+      const key = keyOf(name);
       owners.set(key, (owners.get(key) ?? new Set()).add(col.id));
     }
   const entries = columns.map((col) => ({
     item: col.id,
-    names: [col.label, ...(col.aliases ?? [])].filter((name) => owners.get(name.trim().toLowerCase())?.size === 1),
+    names: [col.label, ...(col.aliases ?? [])].filter((name) => owners.get(keyOf(name))?.size === 1),
   }));
   const values = mentions.filter((m) => m.clauseIndex === clause.index && m.valueId !== undefined);
   const masked = values.reduce((t, m) => t.slice(0, m.start) + " ".repeat(m.end - m.start) + t.slice(m.end), unquoted(clause.text));
@@ -729,8 +732,10 @@ const termNames = (terms: readonly HouseTerm[]): TermNames => {
     const own = [term.label, ...(term.aliases ?? [])].map(nameTokens);
     for (const tokens of own) {
       const key = tokens.join("");
-      if (!key || byKey.has(key)) continue;
-      byKey.set(key, term);
+      if (!key) continue;
+      if (!byKey.has(key)) byKey.set(key, term);
+      // "WhaleWatch" and "Whale Watch" share a key, but only the second's pattern matches "whale watch".
+      if (names.some((n) => n.join(" ") === tokens.join(" "))) continue;
       names.push(tokens);
       const [head = "", ...rest] = tokens;
       const inflected = own.some(
