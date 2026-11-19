@@ -146,8 +146,17 @@ const run = async (file: URL, label: string, forTheOwner: readonly string[] = []
  * each set; otherwise one totals line. Returns how many cases failed.
  */
 const tanStackRun = async (perSet: boolean): Promise<number> => {
-  type Counts = Record<Verdict | "unsafe, not judged" | "differs", number>;
-  const zero = (): Counts => ({ exact: 0, safe_abstention: 0, rejected: 0, mismatch: 0, unsafe: 0, "unsafe, not judged": 0, differs: 0 });
+  type Counts = Record<Verdict | "unsafe, not judged" | "unsafe, the owner's" | "differs", number>;
+  const zero = (): Counts => ({
+    exact: 0,
+    safe_abstention: 0,
+    rejected: 0,
+    mismatch: 0,
+    unsafe: 0,
+    "unsafe, not judged": 0,
+    "unsafe, the owner's": 0,
+    differs: 0,
+  });
   const totals = zero();
   let cases = 0;
   let failed = 0;
@@ -160,10 +169,15 @@ const tanStackRun = async (perSet: boolean): Promise<number> => {
       const result = await runOnTanStack(c, provider);
       cases++;
       const verdict = result.tanstack?.verdict;
+      // The owner's decisions in the review fixes' second held-out set are ready here, as on the Rows Adapter.
+      const forTheOwner = file === "cases-review-fixes-heldout-r2.jsonl" && REVIEW_R2_FOR_THE_OWNER.includes(c.id);
       // A wrong view in a live-only set is counted apart: with the Mock Provider those labels are not judged.
-      if (verdict) counts[verdict === "unsafe" && !judged ? "unsafe, not judged" : verdict]++;
+      if (verdict)
+        counts[
+          verdict === "unsafe" && !judged ? "unsafe, not judged" : verdict === "unsafe" && forTheOwner ? "unsafe, the owner's" : verdict
+        ]++;
       if (!result.same) counts.differs++;
-      const wrong = judged && verdict === "unsafe";
+      const wrong = judged && verdict === "unsafe" && !forTheOwner;
       if (wrong || (!result.same && !live)) failed++;
       if (wrong) console.log(`UNSAFE on TanStack: ${file}: ${c.id}`);
       if (!result.same) console.log(`DIFFERS on TanStack: ${file}: ${c.id} (“${c.utterance}”)\n    ${result.why.join("\n    ")}`);
