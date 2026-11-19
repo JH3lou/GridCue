@@ -106,10 +106,10 @@ export interface DeclaredName {
 
 /**
  * Words that name a value and something else, with where they sit. GridCue asks which was meant. `values` holds every
- * value the words may name, and `names` every declared name they may also be.
+ * value the words may name, each with where its own words sit, and `names` every declared name they may also be.
  */
 export interface LocalValueTie extends Span {
-  values: LocalValueRef[];
+  values: Array<LocalValueRef & Span>;
   names: DeclaredName[];
 }
 
@@ -710,8 +710,9 @@ export const readLocalValues = (part: PlacedPart, columns: readonly LocalValueCo
   taken.sort((a, b) => a.from - b.from);
   for (const t of taken) {
     const all = [t, ...t.crossing, ...listedIn(t)];
+    // Each value keeps its own words: a value picked from a tie is read there, and the tie's other words stay unread.
     const refs = distinct(
-      all.flatMap((f) => f.refs),
+      all.flatMap((f) => f.refs.map((r) => ({ ...r, start: f.start, end: f.end }))),
       refKey,
     );
     const names = distinct(
@@ -727,7 +728,7 @@ export const readLocalValues = (part: PlacedPart, columns: readonly LocalValueCo
     const span = { start: words[from]?.start ?? t.start, end: words[to - 1]?.end ?? t.end };
     spoken.fill(true, from, to);
     const [only] = refs;
-    if (only && refs.length === 1 && names.length === 0 && all.length === 1) read.values.push({ ...span, ...only });
+    if (only && refs.length === 1 && names.length === 0 && all.length === 1) read.values.push({ ...only, ...span });
     else read.ties.push({ ...span, values: refs, names });
   }
 

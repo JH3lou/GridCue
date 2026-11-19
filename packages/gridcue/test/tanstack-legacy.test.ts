@@ -297,6 +297,17 @@ describe("a v8 column with its own filter input, through besideGridCue", () => {
     expect((await applyFilter(adapter, "value", "gt", 6)).ok).toBe(true);
     expect(rows()).toEqual(["Blue/12"]);
   });
+
+  it("keeps GridCue's filter when the Host's input writes its value through `host`, as the guide says", async () => {
+    const { adapter, table, rows } = mountHoldings(columns);
+    act(() => table.setColumnFilters([{ id: "value", value: [0, 15] }]));
+    expect((await applyFilter(adapter, "value", "gt", 10)).ok).toBe(true);
+    const isGridCue = (v: unknown): v is { gridcue: 1; host?: unknown } =>
+      typeof v === "object" && v !== null && (v as { gridcue?: unknown }).gridcue === 1;
+    act(() => table.getColumn("value")?.setFilterValue((old: unknown) => (isGridCue(old) ? { ...old, host: [0, 30] } : [0, 30])));
+    expect(rows()).toEqual(["Red/20", "Blue/12"]);
+    expect(JSON.stringify(adapter.getState().state.filters)).toContain('"operator":"gt"');
+  });
 });
 
 // The TanStack adapter doesn't read a column's sort options (reported to the owner). On a column with
