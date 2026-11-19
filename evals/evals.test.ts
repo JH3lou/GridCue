@@ -16,7 +16,6 @@ import {
   onGridWithoutRenders,
   passesOnQueryAdapter,
   passesWithoutRenders,
-  QUERY_COUNT_THEN_SORT_FOR_THE_LEAD,
   type QueryCaseResult,
   queryLeftOut,
   REVIEW_R2_FOR_THE_OWNER,
@@ -967,11 +966,9 @@ describe("every set on the TanStack Table adapter, with the Mock Provider", () =
 // with pins, 1 with a density. Of the 4048 judged: 19 a sort with a count (13 ready with the sort and the note, 5 ask
 // "This grid can't show only the first N rows." for a count said in a part of its own, 1 asks which column, as on the
 // Rows Adapter); 2 a count alone, both "This grid can't …"; 0 clearing a count, since every such case starts with a
-// count; 377 pins, density or totals, none ready; 3650 other, 3641 with their Rows Adapter verdict. The 9 others are
-// one class of wrong view, not fixed here: a sort with a count, then another sort in the same request ("top 10 by
-// market value, then sort by household") asks on the Rows Adapter, and is ready on this grid with both sorts and the
-// count note. The fix is the compiler's, so they are kept for the lead in `QUERY_COUNT_THEN_SORT_FOR_THE_LEAD`, and pass
-// only as exactly that plan. The same run on 2026-11-19, after the review's fixes: the same numbers.
+// count; 377 pins, density or totals, none ready; 3650 other, all 3650 with their Rows Adapter verdict. That includes
+// the 9 where a sort with a count is followed by another sort ("top 10 by market value, then sort by household"): they
+// ask on this grid, as on the Rows Adapter, since a sort said after a count the grid can't show asks there too.
 describe("every existing set on a default Query Adapter, with the Mock Provider", () => {
   const ledgerProvider = createMockProvider(mockOptionsFor({ schema: "ledger" }));
   for (const file of caseFiles()) {
@@ -1183,34 +1180,5 @@ describe("the verdict", () => {
     expect(other(ran("ready", [sort]), ran("ready", [sort]))).toBe(true);
     expect(other(ran("ready", [sort], [], [], "unsafe"), ran("needs_clarification", [], [], ["?"], "safe_abstention"))).toBe(false);
     expect(other(ran("ready", [hide], [], [], "unsafe"), ran("ready", [sort], [], [], "unsafe"))).toBe(false);
-  });
-
-  it("passes a case kept for the lead only as it is judged, or as exactly its known wrong view", () => {
-    const file = "cases-review-fixes-heldout-r2.jsonl";
-    const both = {
-      type: "sort.set",
-      sorts: [
-        { columnId: "market_value", direction: "desc" },
-        { columnId: "household", direction: "asc" },
-      ],
-    };
-    const run = (status: string, operations: unknown[], notes: string[], verdict: Verdict) => ({
-      verdict,
-      status,
-      plan: { operations: operations as never, clarifications: [], unsupportedSegments: [] },
-      preview: { notes },
-    });
-    const asked = run("needs_clarification", [], [], "safe_abstention");
-    const note = "Count not applied: this grid can't show only the first 10";
-    const judged = (id: string, query: QueryCaseResult["query"], in_ = file) =>
-      passesOnQueryAdapter(in_, { id, kind: "other", reading: [], prompts: [], alsoAcceptsAsk: false, rows: asked, query });
-    expect(QUERY_COUNT_THEN_SORT_FOR_THE_LEAD[file]).toContain("rf2-count-then-sort-01");
-    expect(judged("rf2-count-then-sort-01", run("ready", [both], [note], "unsafe"))).toBe(true);
-    expect(judged("rf2-count-then-sort-01", asked)).toBe(true);
-    expect(judged("rf2-count-then-sort-01", run("ready", [both], [], "unsafe"))).toBe(false);
-    expect(judged("rf2-count-then-sort-01", run("ready", [sort], [note], "unsafe"))).toBe(false);
-    expect(judged("rf2-count-then-sort-01", run("ready", [both, hide], [note], "unsafe"))).toBe(false);
-    expect(judged("rf2-count-then-sort-01", run("ready", [both], [note], "unsafe"), "cases.jsonl")).toBe(false);
-    expect(judged("rf2-count-then-group-07", run("ready", [both], [note], "unsafe"))).toBe(false);
   });
 });

@@ -836,44 +836,6 @@ const queryKind = (reading: readonly unknown[], prompts: readonly string[]): Que
   return "other";
 };
 
-/**
- * Cases of one wrong view a default Query Adapter shows that this PR can't fix, kept for the lead. A count with its
- * sort, then another sort in the same request ("top 10 by market value, then sort by household"), asks on a grid that
- * lists `limit.set`. On a grid that doesn't, the compiler drops the count with its note before the check that asks
- * runs, and the plan sorts by both, so the later sort the User asked for only breaks ties. The same plan is made today
- * on a TanStack table without "count". The fix is the compiler's, which this PR leaves as it is. Each case here passes
- * only as it is judged, or as exactly that plan, so any other change to it still fails.
- */
-export const QUERY_COUNT_THEN_SORT_FOR_THE_LEAD: Readonly<Record<string, readonly string[]>> = {
-  "cases-review-fixes-heldout.jsonl": ["rf-sort-after-count-02", "rf-sort-after-count-03", "rf-sort-after-count-08"],
-  "cases-review-fixes-heldout-r2.jsonl": [
-    "rf2-count-then-sort-01",
-    "rf2-count-then-sort-02",
-    "rf2-count-then-sort-03",
-    "rf2-count-then-sort-04",
-    "rf2-count-then-sort-05",
-    "rf2-count-then-sort-06",
-  ],
-};
-
-/**
- * Whether a case of `QUERY_COUNT_THEN_SORT_FOR_THE_LEAD` shows exactly the known wrong view: it asks on the Rows Adapter,
- * and on the Query Adapter it is ready with one sort of two columns or more and the note that the count was not applied.
- */
-export const isKnownCountThenSort = (file: string, result: Pick<QueryCaseResult, "id" | "rows" | "query">): boolean => {
-  if (!(QUERY_COUNT_THEN_SORT_FOR_THE_LEAD[file] ?? []).includes(result.id)) return false;
-  const ops = (result.query.plan?.operations ?? []) as readonly ViewOperation[];
-  const [only] = ops;
-  return (
-    result.rows.status !== "ready" &&
-    result.query.status === "ready" &&
-    ops.length === 1 &&
-    only?.type === "sort.set" &&
-    only.sorts.length >= 2 &&
-    (result.query.preview?.notes ?? []).some((note) => note.startsWith("Count not applied: this grid can't show only the first "))
-  );
-};
-
 /** The question a grid that lists no `limit.set` asks for a count set on its own (order plan, section 11). */
 const cantCount = (count: number) =>
   `This grid can't show only the first ${count.toLocaleString("en-US")} ${count === 1 ? "row" : "rows"}.`;
@@ -917,8 +879,7 @@ export interface QueryCaseResult {
  * - Pins, density or totals pass by `passesWithoutRenders`, as on a grid without `renders`, where the "This grid can't
  *   show only the first N rows." question may stand beside "This grid can't …" for a count in the same request.
  * - Any other case passes when its verdict is the one it has on the Rows Adapter without `renders`; where that is a
- *   wrong view already (a live-only set's Mock miss, an owner's decision), only with the very same operations. A case of
- *   `QUERY_COUNT_THEN_SORT_FOR_THE_LEAD` also passes as exactly its known wrong view (`isKnownCountThenSort`).
+ *   wrong view already (a live-only set's Mock miss, an owner's decision), only with the very same operations.
  */
 export const passesOnQueryAdapter = (file: string, result: QueryCaseResult): boolean => {
   const { kind, reading, query } = result;
@@ -952,9 +913,8 @@ export const passesOnQueryAdapter = (file: string, result: QueryCaseResult): boo
     }
     case "other":
       return (
-        (query.verdict === result.rows.verdict &&
-          (query.verdict !== "unsafe" || isDeepStrictEqual(stripIds(ops), stripIds(result.rows.plan?.operations ?? [])))) ||
-        isKnownCountThenSort(file, result)
+        query.verdict === result.rows.verdict &&
+        (query.verdict !== "unsafe" || isDeepStrictEqual(stripIds(ops), stripIds(result.rows.plan?.operations ?? [])))
       );
   }
 };

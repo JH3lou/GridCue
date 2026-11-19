@@ -7,7 +7,6 @@ import {
   caseFiles,
   type EvalCase,
   failsTanStackRun,
-  isKnownCountThenSort,
   LIVE_ONLY_SETS,
   loadCases,
   mockOptionsFor,
@@ -297,7 +296,6 @@ if (flag("grid") === "query") {
   const zero = () => ({
     ...Object.fromEntries(QUERY_KINDS.flatMap((kind) => [[kind, 0] as const, [`${kind}, failed`, 0] as const])),
     "kept the Rows Adapter's verdict": 0,
-    "the known count-then-sort wrong view, for the lead": 0,
     "starts with a count, left out": 0,
     "starts with totals, left out": 0,
     "starts with pins, left out": 0,
@@ -317,11 +315,6 @@ if (flag("grid") === "query") {
       counts[result.kind] = (counts[result.kind] ?? 0) + 1;
       if (result.query.verdict === result.rows.verdict)
         counts["kept the Rows Adapter's verdict"] = (counts["kept the Rows Adapter's verdict"] ?? 0) + 1;
-      if (isKnownCountThenSort(file, result)) {
-        counts["the known count-then-sort wrong view, for the lead"] =
-          (counts["the known count-then-sort wrong view, for the lead"] ?? 0) + 1;
-        console.log(`FOR THE LEAD: ${file}: ${c.id} (“${c.utterance}”): ready with both sorts and the count note`);
-      }
       if (!result.pass) {
         failed++;
         counts[`${result.kind}, failed`] = (counts[`${result.kind}, failed`] ?? 0) + 1;
