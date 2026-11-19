@@ -196,25 +196,25 @@ Spec 4.3 to 4.5 (totals rows), 5.2, 5.4, 9. ADR 0030, and ADR 0029's totals half
 Spec 5.5, 9. ADR 0027's TanStack part.
 
 ### Task 4.1: The count spike (Opus)
-- [ ] Outside the repo, both shapes from spec 5.5: a `filteredRowModel` wrapper with the count held by the adapter, and a GridCue table feature with the count in the table's store.
-- [ ] Run the rendered-rows test on views with a count, grouped and not, for each shape. Keep the one at 100% that redraws when only the count changes.
-- [ ] If neither meets the bar, stop here, keep today's note, and report to the owner.
+- [x] Outside the repo, both shapes from spec 5.5: a `filteredRowModel` wrapper with the count held by the adapter, and a GridCue table feature with the count in the table's store.
+- [x] Run the rendered-rows test on views with a count, grouped and not, for each shape. Keep the one at 100% that redraws when only the count changes.
+- [x] If neither meets the bar, stop here, keep today's note, and report to the owner.
 
 ### Task 4.2: The count piece and the adapter (Opus)
 **Files:** `tanstack/index.ts`, `test/rendered-rows.ts`, `test/tanstack.test.ts`, the contract suite, `evals/run.ts`. Needs 4.1.
-- [ ] Tests first: the rendered-rows test with counts; the contract suite's `limit.set` checks on TanStack with `renders: ["count"]`; 5.1's follow-ups on TanStack; `renders: ["count"]` on a table with manual pagination, sorting or filtering, which must throw `INPUT_CONFIG`.
-- [ ] Export the piece under the name the spike chose. `renders: ["count"]` lists `limit.set`, never on a manual table.
-- [ ] The lead runs the rendered-rows test with counts once more on seeds drawn after the build. Bar: 100% equal, grouped and not.
-- [ ] The eval runner gains a TanStack run, so every set runs on both adapters in the gate. Bar: 0 wrong views on both.
+- [x] Tests first: the rendered-rows test with counts; the contract suite's `limit.set` checks on TanStack with `renders: ["count"]`; 5.1's follow-ups on TanStack; `renders: ["count"]` on a table with manual pagination, sorting or filtering, which must throw `INPUT_CONFIG`.
+- [x] Export the piece under the name the spike chose. `renders: ["count"]` lists `limit.set`, never on a manual table.
+- [x] The lead runs the rendered-rows test with counts once more on seeds drawn after the build. Bar: 100% equal, grouped and not.
+- [x] The eval runner gains a TanStack run, so every set runs on both adapters in the gate. Bar: 0 wrong views on both.
 
 ### Task 4.3: Grids, Site, skill (Sonnet)
 - [ ] The Site demo and the Vite example register the piece and show "First 10 of 48 rows".
 - [ ] Real-browser check, light and dark. Before and after screenshots.
-- [ ] Site: `api/adapters`, `guides/vite-tanstack`, `concepts/requests` (the note now appears only without the piece). ADR 0018's count bullet is rewritten: the TanStack Table adapter lists `limit.set` with GridCue's count piece (ADR 0027). If more grids' ADR 0032 has changed that bullet first, this PR edits its wording.
-- [ ] `skills/gridcue`. `pnpm check:skills`. The four bets spec's line 58. Changelog (Haiku).
+- [x] Site: `api/adapters`, `guides/vite-tanstack`, `concepts/requests` (the note now appears only without the piece). ADR 0018's count bullet is rewritten: the TanStack Table adapter lists `limit.set` with GridCue's count piece (ADR 0027). If more grids' ADR 0032 has changed that bullet first, this PR edits its wording.
+- [x] `skills/gridcue`. `pnpm check:skills`. The four bets spec's line 58. Changelog (Haiku).
 
 ### Task 4.4: Review (Opus), then gate
-- [ ] `pnpm lint`, `pnpm check`.
+- [x] `pnpm lint`, `pnpm check`.
 
 ## Spec coverage
 

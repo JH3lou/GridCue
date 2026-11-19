@@ -36,6 +36,8 @@ import {
   createTanStackAdapter,
   gridcueAggregationFn,
   gridcueAggregationValue,
+  gridcueCountFeature,
+  gridcueCountRowModel,
   gridcueFilterFn,
   localValuesFromTable,
   schemaFromTanStack,
@@ -69,6 +71,14 @@ const features = tableFeatures(featureList);
 const pinningFeatures = tableFeatures({ ...featureList, columnPinningFeature });
 /** With `columnPinningFeature` and `rowAggregationFeature`, which `renders: ["totals"]` needs. */
 const drawingFeatures = tableFeatures({ ...featureList, columnPinningFeature, rowAggregationFeature });
+/** And GridCue's count piece, which `renders: ["count"]` needs. */
+const countingFeatures = tableFeatures({
+  ...featureList,
+  columnPinningFeature,
+  rowAggregationFeature,
+  ...{ gridcueCountFeature },
+  filteredRowModel: gridcueCountRowModel(createFilteredRowModel()),
+});
 /** What a Host registers on `defaultColumn` for GridCue: its filter function, and its two total functions. */
 const GRIDCUE_COLUMN = { filterFn: gridcueFilterFn, aggregationFn: gridcueAggregationFn, getAggregationValue: gridcueAggregationValue };
 
@@ -78,10 +88,11 @@ type TestTable = TanStackTableLike & {
   setRowSelection(selection: Record<string, boolean>): void;
 };
 
-/** A table with no pinning feature, with `columnPinningFeature`, or with it and the totals GridCue reads. */
-type Drawn = boolean | "totals";
-const featuresFor = (drawn: Drawn) => (drawn === "totals" ? drawingFeatures : drawn ? pinningFeatures : features);
-const defaultColumnFor = (drawn: Drawn) => (drawn === "totals" ? GRIDCUE_COLUMN : { filterFn: gridcueFilterFn });
+/** A table with no pinning feature, with `columnPinningFeature`, with it and the totals GridCue reads, or with the count too. */
+type Drawn = boolean | "totals" | "count";
+const featuresFor = (drawn: Drawn) =>
+  drawn === "count" ? countingFeatures : drawn === "totals" ? drawingFeatures : drawn ? pinningFeatures : features;
+const defaultColumnFor = (drawn: Drawn) => (drawn === "totals" || drawn === "count" ? GRIDCUE_COLUMN : { filterFn: gridcueFilterFn });
 
 const makeTable = (pinning: Drawn = false) =>
   constructTable({
@@ -125,8 +136,11 @@ const makeDatedTable = (pinning: Drawn = false) =>
 const BOTH = ["pinning", "density"] as const;
 /** And when they draw all three: the totals too, through `gridcueAggregationFn`. */
 const ALL = ["pinning", "density", "totals"] as const;
-type Renders = ReadonlyArray<"pinning" | "density" | "totals">;
-const drawnFor = (renders: Renders | undefined): Drawn => (renders?.includes("totals") ? "totals" : !!renders);
+/** And with the count, through GridCue's count piece. */
+const COUNTED = ["pinning", "density", "totals", "count"] as const;
+type Renders = ReadonlyArray<"pinning" | "density" | "totals" | "count">;
+const drawnFor = (renders: Renders | undefined): Drawn =>
+  renders?.includes("count") ? "count" : renders?.includes("totals") ? "totals" : !!renders;
 
 const constructedHarness = (renders?: Renders) => () => {
   const table = makeTable(drawnFor(renders));
@@ -147,6 +161,11 @@ runAdapterContract("TanStack Table adapter", constructedHarness());
 runAdapterContract("TanStack Table adapter, renders pinning and density", constructedHarness(BOTH), { renders: BOTH });
 runAdapterContract("TanStack Table adapter, renders totals", constructedHarness(["totals"]), { renders: ["totals"] });
 runAdapterContract("TanStack Table adapter, renders pinning, density and totals", constructedHarness(ALL), { renders: ALL });
+// With GridCue's count piece: the adapter lists limit.set, and the count is held in the table's own store.
+runAdapterContract("TanStack Table adapter, renders count", constructedHarness(["count"]), { renders: ["count"] });
+runAdapterContract("TanStack Table adapter, renders pinning, density, totals and count", constructedHarness(COUNTED), {
+  renders: COUNTED,
+});
 
 // The same suite through React's `useTable` and `useLegacyTable`, where the Host may control a slice of the
 // table's state. A controlled table updates on its next render, so an apply is done only when the table holds
@@ -173,6 +192,13 @@ const reactFeatureList = {
 const reactFeatures = tableFeatures(reactFeatureList);
 const reactPinningFeatures = tableFeatures({ ...reactFeatureList, columnPinningFeature });
 const reactDrawingFeatures = tableFeatures({ ...reactFeatureList, columnPinningFeature, rowAggregationFeature });
+const reactCountingFeatures = tableFeatures({
+  ...reactFeatureList,
+  columnPinningFeature,
+  rowAggregationFeature,
+  ...{ gridcueCountFeature },
+  filteredRowModel: gridcueCountRowModel(createFilteredRowModel()),
+});
 const reactColumns = [
   { accessorKey: "value", header: "Value" },
   { accessorKey: "team", header: "Team" },
@@ -210,7 +236,7 @@ const useHostOptions = (control: Control, grid: Grid) => {
   return {
     columns: grid.columns,
     data: grid.data,
-    defaultColumn: control.renders?.includes("totals") ? GRIDCUE_COLUMN : { filterFn: gridcueFilterFn },
+    defaultColumn: control.renders?.some((r) => r === "totals" || r === "count") ? GRIDCUE_COLUMN : { filterFn: gridcueFilterFn },
     state: {
       ...(control.sorting ? { sorting } : {}),
       ...(control.filters ? { columnFilters } : {}),
@@ -227,11 +253,13 @@ const useHostOptions = (control: Control, grid: Grid) => {
 const useHostTable = (control: Control, grid: Grid) =>
   useTable({
     ...useHostOptions(control, grid),
-    features: control.renders?.includes("totals")
-      ? reactDrawingFeatures
-      : control.renders?.includes("pinning") || control.pinning
-        ? reactPinningFeatures
-        : reactFeatures,
+    features: control.renders?.includes("count")
+      ? reactCountingFeatures
+      : control.renders?.includes("totals")
+        ? reactDrawingFeatures
+        : control.renders?.includes("pinning") || control.pinning
+          ? reactPinningFeatures
+          : reactFeatures,
   } as never);
 
 const useHostLegacyTable = (control: Control, grid: Grid) =>
@@ -305,6 +333,20 @@ runAdapterContract(
   "TanStack Table adapter, Host-controlled sorting, filters, pins and grouping with handlers, useLegacyTable, renders pinning, density and totals",
   harnessOf({ sorting: "handler", filters: "handler", pinning: "handler", grouping: "handler", renders: ALL }, true),
   { renders: ALL },
+);
+// And with the count, held in the table's own store. `useLegacyTable` builds its own filtered row model, so it can't
+// take the count piece (tanstack-count.test.ts).
+runAdapterContract(
+  "TanStack Table adapter, table-owned, useTable, renders pinning, density, totals and count",
+  harnessOf({ renders: COUNTED }, false),
+  {
+    renders: COUNTED,
+  },
+);
+runAdapterContract(
+  "TanStack Table adapter, Host-controlled sorting, filters, pins and grouping with handlers, useTable, renders pinning, density, totals and count",
+  harnessOf({ sorting: "handler", filters: "handler", pinning: "handler", grouping: "handler", renders: COUNTED }, false),
+  { renders: COUNTED },
 );
 
 describe("TanStack Table adapter, Host-controlled sorting with no change handler", () => {
@@ -1042,7 +1084,8 @@ describe("TanStack Table adapter: renders", () => {
     expect(configError(build("pinning"))).toMatchObject({ code: "INPUT_CONFIG" });
   });
 
-  it("throws INPUT_CONFIG for count, which it can't list yet, and for totals on a table that can't draw them", () => {
+  it("throws INPUT_CONFIG for count and for totals on a table that can't draw them", () => {
+    // This table has no count piece: tanstack-count.test.ts has the rest.
     const table = pinTable();
     const schema = schemaFromTanStack(table);
     expect(configError(() => createTanStackAdapter({ schema, table, renders: ["count"] } as never))).toMatchObject({

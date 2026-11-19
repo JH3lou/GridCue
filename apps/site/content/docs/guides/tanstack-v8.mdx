@@ -233,6 +233,8 @@ const schema = schemaFromTanStack(table, {
 
 A table with `enableSorting: false` in its options needs this on every column. See [ColumnOverride](/docs/api/schema#columnoverride).
 
+**Leave `renders: ["count"]` for step 4.** GridCue's count piece wraps the table's filtered row model, which `useLegacyTable` builds itself. `createTanStackAdapter` throws `INPUT_CONFIG` for `renders: ["count"]` on a legacy table, so a request for a count sorts and says "Count not applied: this grid can't show only the first 10" until you have moved to `useTable`. Then see [Show only the first rows](/docs/guides/vite-tanstack#show-only-the-first-rows).
+
 **If your app controls the table's state,** read [If your app controls the table's state](/docs/guides/vite-tanstack#if-your-app-controls-the-tables-state). It applies to a legacy table as it does to any other: every controlled slice needs its change handler, and the handler stores exactly what it is given.
 
 ## 4. Move to `useTable`
@@ -300,7 +302,7 @@ export function Accounts({ data }: { data: Account[] }) {
 
 If you use pagination, expanding, selection, pinning, or the other features your v8 table had, add each one's feature to `tableFeatures` as well. A legacy table registered them all, and `useTable` registers only what you list.
 
-`besideGridCue`, `withGridCueFilter` and a column's capabilities work the same on a `useTable` table.
+`besideGridCue`, `withGridCueFilter` and a column's capabilities work the same on a `useTable` table. On `useTable` you can also register GridCue's count piece: see [Show only the first rows](/docs/guides/vite-tanstack#show-only-the-first-rows).
 
 ## Limits
 

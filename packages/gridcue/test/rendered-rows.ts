@@ -1,18 +1,3 @@
-import {
-  columnFilteringFeature,
-  columnGroupingFeature,
-  columnOrderingFeature,
-  columnPinningFeature,
-  columnVisibilityFeature,
-  constructTable,
-  createFilteredRowModel,
-  createGroupedRowModel,
-  createSortedRowModel,
-  rowAggregationFeature,
-  rowSortingFeature,
-  tableFeatures,
-} from "@tanstack/table-core";
-import { storeReactivityBindings } from "@tanstack/table-core/store-reactivity-bindings";
 import { describe, expect, it } from "vitest";
 import type { Scalar, ViewSchema, ViewState } from "../src/core/protocol";
 import { applyView } from "../src/core/rows-adapter";
@@ -20,9 +5,12 @@ import {
   createTanStackAdapter,
   gridcueAggregationFn,
   gridcueAggregationValue,
+  gridcueCountFeature,
+  gridcueCountRowModel,
   gridcueFilterFn,
   type TanStackTableLike,
 } from "../src/tanstack";
+import { tanStackTables } from "./tanstack-table";
 
 /**
  * The rows a view shows, the same through every Grid Adapter (named filters spec, section 10). Each case is one set
@@ -31,6 +19,8 @@ import {
  *
  * Named filters' dates PR starts it with the whole-day, empty and exact-text cases. The operation set's PR 2 adds the
  * columns in display order, the pinned columns and the density. Its PR 3 adds the groups, their order and the totals.
+ * Its PR 4 adds the count: the TanStack Table here registers GridCue's count piece, so it keeps a count as `applyView`
+ * does (`rendered-rows-counts.test.ts`).
  */
 export type Row = Record<string, unknown> & { key: string };
 
@@ -58,7 +48,7 @@ export interface DrawnGroup {
 /**
  * What a Grid Adapter renders for a view: its rows, its visible columns in display order, the columns pinned to each
  * side, its density, its groups in order, and its Totals for the whole view (the footer). Both tables here draw pins,
- * density and totals (`renders: ["pinning", "density", "totals"]`). A grouped view's `rows` are its groups' rows, group
+ * density, totals and a count (`renders: DRAWN`). A grouped view's `rows` are its groups' rows, group
  * after group, as the Host draws them.
  */
 export interface Rendered {
@@ -86,23 +76,12 @@ export const renderWithRows = async ({ rows, state, schema }: RenderedCase): Pro
   };
 };
 
-const features = tableFeatures({
-  coreReactivityFeature: storeReactivityBindings(),
-  columnFilteringFeature,
-  rowSortingFeature,
-  columnGroupingFeature,
-  columnVisibilityFeature,
-  columnOrderingFeature,
-  columnPinningFeature,
-  rowAggregationFeature,
-  filteredRowModel: createFilteredRowModel(),
-  sortedRowModel: createSortedRowModel(),
-  groupedRowModel: createGroupedRowModel(),
-});
+/** Everything the TanStack Table here draws, so the adapter lists every operation. */
+export const DRAWN = ["pinning", "density", "totals", "count"] as const;
 
 type Leaf = { id: string };
 type TableRow = { original: Row; subRows: TableRow[]; getValue(columnId: string): unknown };
-type RenderedTable = TanStackTableLike & {
+export type RenderedTable = TanStackTableLike & {
   getRowModel(): { rows: TableRow[] };
   getColumn(id: string): { getAggregationValue(): unknown } | undefined;
   getStartVisibleLeafColumns(): Leaf[];
@@ -113,22 +92,38 @@ type RenderedTable = TanStackTableLike & {
 const orEmpty = (value: unknown): number | null => (typeof value === "number" ? value : null);
 
 /**
- * The TanStack Table adapter: a table over the same rows, with `gridcueFilterFn`, `gridcueAggregationFn` and
- * `gridcueAggregationValue`, given the view through the adapter. Its columns are what a Host draws from TanStack's
- * start, center and end lists; its density is the adapter's. Its groups are the group rows at the last grouping level,
- * in the order the row model gives them, each with its leaf rows and its total cells; its Totals are
- * `column.getAggregationValue()`.
+ * A TanStack Table over `rows`, as a Host builds one for GridCue, with a column for each of the schema's: TanStack's
+ * own features and row models, and GridCue's count piece around its filtering (`tanstack-table.ts`, which `evals/`
+ * builds its tables with too).
+ */
+const buildTable = tanStackTables({
+  gridcueCountFeature,
+  gridcueCountRowModel,
+  gridcueFilterFn,
+  gridcueAggregationFn,
+  gridcueAggregationValue,
+});
+export const tanStackTableOver = (rows: readonly Row[], schema: ViewSchema): RenderedTable => buildTable<RenderedTable>(rows, schema);
+
+/**
+ * The TanStack Table adapter: a table over the same rows, with `gridcueFilterFn`, `gridcueAggregationFn`,
+ * `gridcueAggregationValue` and the count piece, given the view through the adapter, which must read it back with the
+ * same count. Its columns are what a Host draws from TanStack's start, center and end lists; its density is the
+ * adapter's. Its groups are the group rows at the last grouping level, in the order the row model gives them, each with
+ * its leaf rows and its total cells; its Totals are `column.getAggregationValue()`.
  */
 export const renderWithTanStack = async ({ rows, state, schema }: RenderedCase): Promise<Rendered> => {
-  const table = constructTable({
-    features,
-    data: rows,
-    defaultColumn: { filterFn: gridcueFilterFn, aggregationFn: gridcueAggregationFn, getAggregationValue: gridcueAggregationValue },
-    columns: schema.columns.map((c) => ({ accessorKey: c.id, header: c.label })),
-  } as never) as unknown as RenderedTable;
-  const adapter = createTanStackAdapter({ schema, table, renders: ["pinning", "density", "totals"] });
+  const table = tanStackTableOver(rows, schema);
+  const adapter = createTanStackAdapter({ schema, table, renders: DRAWN });
   const written = await adapter.restore({ revision: adapter.getState().revision, state });
   if (!written.ok) throw new Error(`The TanStack Table adapter refused the view: ${written.code}`);
+  const back = adapter.getState().state;
+  if (back.limit !== state.limit) throw new Error(`The TanStack Table adapter read back the count ${back.limit} for ${state.limit}.`);
+  return drawTanStack(table, state, back.density);
+};
+
+/** What a Host draws from a TanStack Table that shows `state`. */
+export const drawTanStack = (table: RenderedTable, state: ViewState, density: ViewState["density"]): Rendered => {
   const ids = (leaves: Leaf[]) => leaves.map((c) => c.id);
   const start = ids(table.getStartVisibleLeafColumns());
   const end = ids(table.getEndVisibleLeafColumns());
@@ -154,7 +149,7 @@ export const renderWithTanStack = async ({ rows, state, schema }: RenderedCase):
     rows: state.groupBy.length > 0 ? groups.flatMap((g) => g.rows) : top.map((r) => r.original),
     columns: [...start, ...ids(table.getCenterVisibleLeafColumns()), ...end],
     pinned: { start, end },
-    density: adapter.getState().state.density,
+    density,
     ...(state.groupBy.length > 0 ? { groups } : {}),
     totals: Object.fromEntries(totalled.map((id) => [id, orEmpty(table.getColumn(id)?.getAggregationValue())])),
   };

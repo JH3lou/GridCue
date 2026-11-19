@@ -1,22 +1,47 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { isDeepStrictEqual } from "node:util";
-import { ledgerColumns, ledgerInitialState, ledgerMockOptions, ledgerSchema, ledgerSchemaOptions } from "@gridcue-internal/ledger-fixtures";
-import { wealthColumns, wealthInitialState, wealthMockOptions, wealthSchema, wealthSchemaOptions } from "@gridcue-internal/wealth-fixtures";
+import {
+  generateLedger,
+  ledgerColumns,
+  ledgerInitialState,
+  ledgerMockOptions,
+  ledgerSchema,
+  ledgerSchemaOptions,
+} from "@gridcue-internal/ledger-fixtures";
+import {
+  generateAccounts,
+  wealthColumns,
+  wealthInitialState,
+  wealthMockOptions,
+  wealthSchema,
+  wealthSchemaOptions,
+} from "@gridcue-internal/wealth-fixtures";
 import {
   type ColumnInput,
   createGridCue,
   createRowsAdapter,
   defineSchema,
+  emptyViewState,
+  type GridAdapter,
   type GridCueController,
   type IntentProvider,
   type ResolutionResult,
-  type RowsAdapter,
   type SchemaOptions,
   type ViewOperation,
   type ViewPlan,
   type ViewSchema,
   type ViewState,
 } from "gridcue";
+import {
+  createTanStackAdapter,
+  gridcueAggregationFn,
+  gridcueAggregationValue,
+  gridcueCountFeature,
+  gridcueCountRowModel,
+  gridcueFilterFn,
+  type TanStackTableLike,
+} from "gridcue/tanstack-table";
+import { tanStackTables } from "../packages/gridcue/test/tanstack-table";
 import { clockFor, EVAL_CALENDAR, evalNow } from "./clock";
 import { type EvalHouseTerm, ledgerHouseTerms, wealthHouseTerms } from "./house-terms";
 import { type EvalLocalValues, ledgerLocalValues, wealthLocalValues } from "./local-values";
@@ -248,7 +273,7 @@ const schemaOf = (name: EvalCase["schema"], terms: boolean, calendar: boolean): 
  * A grid that can't group rows, built as a Host would build one: the Rows Adapter with `group.set` taken out of the
  * operations it lists. Everything else, the rows and the View State included, is the Rows Adapter's own.
  */
-const withoutGrouping = (adapter: RowsAdapter): RowsAdapter => ({
+const withoutGrouping = <A extends GridAdapter>(adapter: A): A => ({
   ...adapter,
   getCapabilities: () => {
     const capabilities = adapter.getCapabilities();
@@ -375,12 +400,54 @@ export interface RunOptions {
    * as a case that says `"clock": true` runs. For the check that a Calendar changes nothing old (`evals/calendar.test.ts`).
    */
   calendar?: boolean;
+  /**
+   * The Grid Adapter the case runs on: the Rows Adapter (the default, which every label was written for), or the
+   * TanStack Table adapter over a real TanStack Table (`tanStackAdapterFor`). For the TanStack run (operation set spec,
+   * section 10).
+   */
+  adapter?: EvalAdapter;
 }
+
+/** The two Grid Adapters a case can run on. */
+export type EvalAdapter = "rows" | "tanstack";
 
 /** The `renders` names the Rows Adapter takes. A case's other names are left out when its adapter is built. */
 type RowsAdapterRenders = NonNullable<Parameters<typeof createRowsAdapter>[0]["renders"]>[number];
 const ROWS_ADAPTER_RENDERS: readonly RowsAdapterRenders[] = ["pinning", "density", "totals"];
 const takenByRowsAdapter = (name: string): name is RowsAdapterRenders => (ROWS_ADAPTER_RENDERS as readonly string[]).includes(name);
+
+/** The TanStack Tables the TanStack run builds: the one way the tests build one, with the built package's pieces. */
+const buildTable = tanStackTables({
+  gridcueCountFeature,
+  gridcueCountRowModel,
+  gridcueFilterFn,
+  gridcueAggregationFn,
+  gridcueAggregationValue,
+});
+/** Each fixture's rows, made once. The eval-only schemas have none: a case judges the plan, not the rows. */
+const FIXTURE_ROWS = { wealth: generateAccounts(), ledger: generateLedger() } as const;
+
+/**
+ * The TanStack Table adapter a case runs on in the TanStack run: a real TanStack Table over its fixture's rows, with
+ * the case's schema and starting view, and the case's `renders` plus `"count"`. The Rows Adapter keeps a count with no
+ * option, and every label was written for a grid that does, so the TanStack table registers GridCue's count piece and
+ * names it. A default view other than every column in order (the wealth fixture hides Tax ID) is the table's own
+ * `initialState`, so a reset goes back to the same view on both adapters; it throws when the two differ.
+ */
+export const tanStackAdapterFor = (c: Pick<EvalCase, "schema" | "renders">, schema: ViewSchema, initialState?: ViewState): GridAdapter => {
+  const rows =
+    c.schema === "ledger" ? FIXTURE_ROWS.ledger : c.schema === undefined || c.schema === "wealth-measure" ? FIXTURE_ROWS.wealth : [];
+  const start = initialState
+    ? { columnVisibility: Object.fromEntries(initialState.columnOrder.map((id) => [id, initialState.visibleColumnIds.includes(id)])) }
+    : undefined;
+  const table = buildTable<TanStackTableLike>(rows, schema, start);
+  const adapter = createTanStackAdapter({ schema, table, renders: [...(c.renders ?? []), "count"] });
+  const want = initialState ?? emptyViewState(schema.columns.map((col) => col.id));
+  if (!isDeepStrictEqual(adapter.getDefaultState(), want)) {
+    throw new Error(`The TanStack table's default view is not the Rows Adapter's: ${JSON.stringify(adapter.getDefaultState())}`);
+  }
+  return adapter;
+};
 
 /**
  * Runs one case. `make` is the Controller's constructor: the built package's, unless a test passes the package
@@ -404,16 +471,28 @@ export const runCase = async (
   // A case with `renders` runs on a Rows Adapter that lists what it names; a case without it, on one that lists none of
   // `columns.pin`, `density.set` and `aggregation.set`, as before.
   const renders = c.renders ? { renders: c.renders.filter(takenByRowsAdapter) } : {};
-  const rows =
+  const [caseSchema, initialState]: [ViewSchema, ViewState | undefined] =
     c.schema === "dated" || c.schema === "group-names" || c.schema === "form-words" || c.schema === "total-names"
-      ? createRowsAdapter({ schema: schema ?? schemaOf(c.schema, false, false), ...renders })
+      ? [schema ?? schemaOf(c.schema, false, false), undefined]
       : c.schema === "wealth-measure"
-        ? createRowsAdapter({ schema: schema ?? schemaOf(c.schema, false, false), initialState: wealthInitialState, ...renders })
+        ? [schema ?? schemaOf(c.schema, false, false), wealthInitialState]
         : c.schema === "ledger"
-          ? createRowsAdapter({ schema: schema ?? ledgerSchema, initialState: ledgerInitialState, ...renders })
-          : createRowsAdapter({ schema: schema ?? wealthSchema, initialState: wealthInitialState, ...renders });
-  const adapter = c.grid === "no-group" ? withoutGrouping(rows) : rows;
-  if (c.state) adapter.setState((view) => ({ ...view, ...c.state }));
+          ? [schema ?? ledgerSchema, ledgerInitialState]
+          : [schema ?? wealthSchema, wealthInitialState];
+  let grid: GridAdapter;
+  if (options.adapter === "tanstack") {
+    grid = tanStackAdapterFor(c, caseSchema, initialState);
+    // The case's view, written through the adapter before the Controller exists, as the Rows Adapter's `setState` does.
+    if (c.state) {
+      const written = await grid.restore({ revision: grid.getState().revision, state: { ...grid.getState().state, ...c.state } });
+      if (!written.ok) throw new Error(`The TanStack table can't start from the case's view: ${written.code}: ${written.message}`);
+    }
+  } else {
+    const rows = createRowsAdapter({ schema: caseSchema, ...(initialState ? { initialState } : {}), ...renders });
+    if (c.state) rows.setState((view) => ({ ...view, ...c.state }));
+    grid = rows;
+  }
+  const adapter = c.grid === "no-group" ? withoutGrouping(grid) : grid;
   const answer = c.providerAnswer;
   // A case with values reads its schema's Local Values; it throws for a schema that has none.
   const localValues = localValuesFor(c);
@@ -426,6 +505,62 @@ export const runCase = async (
   const plan = await cue.propose(c.utterance);
   const { status, preview } = cue.getState();
   return { id: c.id, verdict: judge(c, plan, status), plan, status, preview };
+};
+
+type CaseResult = Awaited<ReturnType<typeof runCase>>;
+
+/**
+ * The sets whose labels need a live model's common sense. `pnpm eval` judges them only with `--live`, so with the Mock
+ * Provider the TanStack run holds them to the Rows Adapter's result alone. On the Rows Adapter, the Mock gives 4 wrong
+ * views by their labels (f-sort-with-hidden, live-how-concentrated, live-who-manages, h3-account-owner).
+ */
+export const LIVE_ONLY_SETS: readonly string[] = ["cases-live.jsonl", "cases-fanout.jsonl", "cases-chassis.jsonl"];
+
+/** Every labelled set, by file name, in order. */
+export const caseFiles = (): string[] =>
+  readdirSync(new URL("./", import.meta.url))
+    .filter((name) => /^cases.*\.jsonl$/.test(name))
+    .sort();
+
+/**
+ * How a case's TanStack run differs from its Rows Adapter run, one line for each part that differs: the verdict, the
+ * status, the plan's operations (generated IDs dropped), the questions and their choices, what is refused, and the
+ * Preview. Empty when the two are the same.
+ */
+export const differences = (rows: CaseResult, tanstack: CaseResult): string[] => {
+  const show = (v: unknown) => JSON.stringify(v) ?? "none";
+  const parts: Array<[string, unknown, unknown]> = [
+    ["verdict", rows.verdict, tanstack.verdict],
+    ["status", rows.status, tanstack.status],
+    ["operations", stripIds(rows.plan?.operations ?? []), stripIds(tanstack.plan?.operations ?? [])],
+    [
+      "questions",
+      (rows.plan?.clarifications ?? []).map((q) => [q.prompt, ...(q.options ?? []).map((o) => o.label)]),
+      (tanstack.plan?.clarifications ?? []).map((q) => [q.prompt, ...(q.options ?? []).map((o) => o.label)]),
+    ],
+    ["refused", rows.plan?.unsupportedSegments ?? [], tanstack.plan?.unsupportedSegments ?? []],
+    ["preview", rows.preview, tanstack.preview],
+  ];
+  return parts
+    .filter(([, a, b]) => !isDeepStrictEqual(a, b))
+    .map(([part, a, b]) => `${part}: ${show(a)} on the Rows Adapter, ${show(b)} on TanStack`);
+};
+
+/**
+ * Runs a case on the Rows Adapter and on the TanStack Table adapter (operation set spec, section 10), with the same
+ * schema, starting view, House Terms, Local Values, clock, provider and Controller. `tanstack` is judged with the same
+ * labels; `why` lists every part of its result that differs from the Rows Adapter's. A TanStack table that can't start
+ * from the case's view is a difference too, with no TanStack result.
+ */
+export const runOnTanStack = async (c: EvalCase, provider: IntentProvider, options: Omit<RunOptions, "adapter"> = {}) => {
+  const rows = await runCase(c, provider, createGridCue, options);
+  try {
+    const tanstack = await runCase(c, provider, createGridCue, { ...options, adapter: "tanstack" });
+    const why = differences(rows, tanstack);
+    return { id: c.id, same: why.length === 0, why, rows, tanstack };
+  } catch (error) {
+    return { id: c.id, same: false, why: [error instanceof Error ? error.message : String(error)], rows, tanstack: undefined };
+  }
 };
 
 /** "group", "grouped", "grouping", "ungroup", in any case. */

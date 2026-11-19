@@ -1,16 +1,23 @@
 import { readdirSync } from "node:fs";
-import { wealthMockOptions } from "@gridcue-internal/wealth-fixtures";
+import { ledgerInitialState } from "@gridcue-internal/ledger-fixtures";
+import { wealthInitialState, wealthMockOptions } from "@gridcue-internal/wealth-fixtures";
 import { createMockProvider } from "gridcue/mock";
 import { describe, expect, it } from "vitest";
 import {
+  caseFiles,
+  caseSchemaFor,
+  differences,
   judge,
+  LIVE_ONLY_SETS,
   loadCases,
   mockOptionsFor,
   onGridWithoutGrouping,
   onGridWithoutRenders,
   runCase,
+  runOnTanStack,
   runWithoutGrouping,
   runWithoutRenders,
+  tanStackAdapterFor,
 } from "./run";
 
 const provider = createMockProvider(wealthMockOptions);
@@ -890,6 +897,47 @@ describe("every existing set on a grid without group.set, with the Mock Provider
       });
     }
   }
+});
+
+// Every set, run again on the TanStack Table adapter over a real TanStack Table (operation set spec, section 10): the
+// same schema, starting view, House Terms, Local Values, clock and provider, with the case's `renders` plus "count", so
+// the TanStack count path is in the gate. Each case must give exactly what it gives on the Rows Adapter: the verdict, the
+// status, the operations, the questions and their choices, what is refused, and the Preview. And none may be a wrong
+// view by its labels, except in the live-only sets, which the Mock Provider is not judged on and which are held to the
+// Rows Adapter's result alone. First run (2026-11-19): 4019 cases, none different, no wrong view outside those sets.
+describe("every set on the TanStack Table adapter, with the Mock Provider", () => {
+  const ledgerProvider = createMockProvider(mockOptionsFor({ schema: "ledger" }));
+  for (const file of caseFiles()) {
+    for (const c of loadCases(new URL(`./${file}`, import.meta.url))) {
+      it(`${file}: ${c.id}`, async () => {
+        const result = await runOnTanStack(c, c.schema === "ledger" ? ledgerProvider : provider);
+        expect(result.why, `${c.utterance}\n${JSON.stringify(result.tanstack?.plan, null, 1)}`).toEqual([]);
+        if (!LIVE_ONLY_SETS.includes(file)) expect(result.tanstack?.verdict).not.toBe("unsafe");
+      });
+    }
+  }
+});
+
+describe("the TanStack run", () => {
+  // `tanStackAdapterFor` throws when the table's default view is not the one the Rows Adapter starts from.
+  it("starts each schema's table from the Rows Adapter's default view, with the count listed", () => {
+    for (const schema of [undefined, "ledger", "dated", "wealth-measure"] as const) {
+      const c = { id: "t", utterance: "", ...(schema ? { schema } : {}), expect: {} };
+      const fixture = schema === "ledger" ? ledgerInitialState : schema === "dated" ? undefined : wealthInitialState;
+      const adapter = tanStackAdapterFor(c, caseSchemaFor(c), fixture);
+      expect(adapter.getDefaultState()).toEqual(fixture ?? adapter.getDefaultState());
+      expect(adapter.getCapabilities().operations).toContain("limit.set");
+    }
+  });
+
+  it("tells apart a TanStack result that differs from the Rows Adapter's", async () => {
+    const c = loadCases(new URL("./cases-count.jsonl", import.meta.url))[0];
+    if (!c) throw new Error("no count case");
+    const rows = await runCase(c, provider);
+    expect(differences(rows, rows)).toEqual([]);
+    const other = { ...rows, status: "unsupported" as const, verdict: "rejected" as const };
+    expect(differences(rows, other).map((line) => line.split(":")[0])).toEqual(["verdict", "status"]);
+  });
 });
 
 describe("the verdict", () => {

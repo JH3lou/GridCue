@@ -30,6 +30,7 @@ export { createRemoteProvider, type RemoteProviderOptions } from "./core/remote"
 export * from "./core/resolution";
 export {
   applyView,
+  countOrder,
   createRowsAdapter,
   type RowsAdapter,
   type RowsAdapterOptions,

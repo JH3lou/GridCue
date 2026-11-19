@@ -35,7 +35,7 @@ interface GridAdapter {
 
 | Field | Meaning |
 | --- | --- |
-| `operations` | The operation types you support. Start from `[...MVP_OPERATIONS]`: `filter.add`, `filter.clear`, `sort.set`, `group.set`, `columns.show`, `columns.hide`, `columns.order`, `view.reset`. Add `columns.pin`, `density.set` and `aggregation.set` only when your grid draws them, and `limit.set` only when it keeps the first rows exactly. See [List an operation only when your grid draws it](#list-an-operation-only-when-your-grid-draws-it) |
+| `operations` | The operation types you support. Start from `[...MVP_OPERATIONS]`: `filter.add`, `filter.clear`, `sort.set`, `group.set`, `columns.show`, `columns.hide`, `columns.order`, `view.reset`. Add `columns.pin`, `density.set` and `aggregation.set` only when your grid draws them, and `limit.set` only when it keeps the first rows exactly: the ones `applyView` keeps, which `countOrder` chooses from any rows. See [List an operation only when your grid draws it](#list-an-operation-only-when-your-grid-draws-it) |
 | `maxSorts`, `maxGroups` | Optional limits. Plans that exceed them fail validation |
 | `supportsAtomicApply` | Every operation applies or none do |
 | `supportsSnapshotRestore` | `restore` puts back an exact earlier view |
@@ -179,7 +179,7 @@ Every Grid Adapter in GridCue passes the same contract suite: `packages/gridcue/
 - reports manual changes, so a stale plan is refused;
 - restores an exact snapshot;
 - writes, and clears, filters on a date column, on a date-and-time column of strings and on one of `Date` objects;
-- lists `columns.pin`, `density.set` and `aggregation.set` each only when its `renders` names it, and `limit.set` only when the adapter keeps a count with no option;
+- lists `columns.pin`, `density.set` and `aggregation.set` each only when its `renders` names it, and `limit.set` only when the adapter keeps a count with no option or its `renders` names `"count"`;
 - for each operation it lists beyond the first-release ones, applies it, reads it back, restores an exact snapshot, undoes it, and notifies once per apply;
 - refuses a plan that holds an operation it doesn't list, before it reaches the grid;
 - hands out capabilities a caller can't use to corrupt the adapter;

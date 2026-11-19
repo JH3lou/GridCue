@@ -1,6 +1,6 @@
 # A count follows its rows
 
-**Status:** accepted with the operation set spec (2026-11-13). Not yet built.
+**Status:** accepted with the operation set spec (2026-11-13). Built: the count question, the count words and the empty-value rule in the Rows Adapter, and the TanStack Table adapter's count piece.
 
 A count keeps the first N rows of the sorted view. A row with no value in the first sorted column never fills a count. A plan that changes which rows a count keeps, and sets no count of its own, is not ready: GridCue asks whether to keep the first N rows of the new view or to show every row.
 
@@ -19,10 +19,10 @@ What is decided:
 - **Both answers show in the Preview.** "Keep the first 10" and "Show every row" each become a line of the plan, so nothing about the count changes unseen.
 - **The rule is about a plan and the view it applies to,** not about the request's words. Core applies it after compiling, for every Intent Provider, and to any plan made another way that could change which rows a count keeps. A plan that states its whole target view, count included, is exempt.
 - **A count can be cleared and set in the Preview's own words:** "show every row", "show only the first 5 rows". Code reads them (ADR 0028).
-- **Every Grid Adapter that lists `limit.set` keeps the same rows** for the same View State and rows. The TanStack Table adapter lists it only when the Host registers GridCue's count piece, and never on a table that holds one page of its rows. That piece waits on a spike, which has not run.
+- **Every Grid Adapter that lists `limit.set` keeps the same rows** for the same View State and rows. The TanStack Table adapter lists it only when the Host registers GridCue's count piece and names `"count"` in `renders`, and never on a table that holds one page of its rows or rows with sub-rows: `createTanStackAdapter` throws `INPUT_CONFIG` for a manual setting, for `getSubRows`, or for a piece it can see is missing. The piece is a feature that holds the count in the table's own store and a wrapper around the filtered row model that keeps the rows `applyView` keeps, so the table sorts, groups and pages them as it does any rows. When the Host turns one of those settings on later, the piece stops cutting, and the adapter reads no count and lists no `limit.set` while it is on, so the View State still says what the table shows.
 
 This refines the count bullet of ADR 0018: an empty value never fills a count, and the TanStack Table adapter can list `limit.set`. The rest of ADR 0018 stands, and a grid that can't keep a count still sorts alone and says the count was not applied.
 
 The cost is a question after a count, each time the sort or the filters change. It is also a change to what "top 10" shows: on a column where only 7 rows have a value, the grid shows 7.
 
-What would change it: a labelled set where Users change the sort or the filters after a count far more often than anything else, and nearly always mean one reading. For TanStack Table: if the spike finds no piece that keeps exactly the Rows Adapter's rows, that adapter keeps today's note and this ADR loses that line.
+What would change it: a labelled set where Users change the sort or the filters after a count far more often than anything else, and nearly always mean one reading. For TanStack Table: a view where the piece keeps different rows than the Rows Adapter does would send that adapter back to today's note.

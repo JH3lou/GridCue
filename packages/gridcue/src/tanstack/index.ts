@@ -2,6 +2,7 @@ import {
   type AggregationSpec,
   type ApplyResult,
   type ColumnDescriptor,
+  countOrder,
   defineSchema,
   emptyViewState,
   type FilterPredicate,
@@ -30,6 +31,8 @@ type TanStackState = {
   columnVisibility?: Record<string, boolean>;
   columnOrder?: string[];
   columnPinning?: Partial<ColumnPinning>;
+  /** GridCue's count, from `gridcueCountFeature`: `null` for none. */
+  gridcueCount?: unknown;
 };
 
 /**
@@ -46,6 +49,8 @@ export interface TanStackLeafColumnLike {
  * The parts of a TanStack Table v9 instance GridCue uses. Any table from `useTable`
  * or `constructTable` with the filtering, sorting, grouping, visibility, and ordering features fits.
  * `setColumnPinning` is there when the table registers `columnPinningFeature`, which `renders: ["pinning"]` needs.
+ * `setGridcueCount` is there when it registers `gridcueCountFeature`, which `renders: ["count"]` needs; the adapter
+ * also reads `options` there, to see the count piece, the table's manual settings and `getSubRows`.
  */
 export interface TanStackTableLike {
   store: { state: TanStackState; subscribe(listener: () => void): { unsubscribe(): void } | (() => void) };
@@ -56,6 +61,8 @@ export interface TanStackTableLike {
   setColumnVisibility(visibility: Record<string, boolean>): void;
   setColumnOrder(order: string[]): void;
   setColumnPinning?(pinning: ColumnPinning): void;
+  setGridcueCount?(count: number | null): void;
+  options?: object;
   getAllLeafColumns(): TanStackLeafColumnLike[];
   getCoreRowModel(): { rows: Array<{ getValue(columnId: string): unknown }>; flatRows?: Array<{ getValue(columnId: string): unknown }> };
 }
@@ -219,6 +226,201 @@ export const gridcueAggregationValue = (context: {
   };
 };
 
+// --- The count piece (operation set spec, 5.5; ADR 0027) ----------------------------------------------------------
+// A count ("top 10") keeps the first rows of the sorted view. TanStack Table has no count, so GridCue brings one in two
+// parts the Host registers: a feature that holds the count in the table's own store, and a wrapper around the table's
+// filtered row model that keeps the rows `applyView` keeps for it, in the table's own order. TanStack then sorts,
+// groups and pages those rows as it does any others, so the group order and the totals follow them.
+
+/** A count as the table's store holds it: a whole number above 0, or no count. Anything else is no count. */
+const countIn = (value: unknown): number | undefined =>
+  typeof value === "number" && Number.isSafeInteger(value) && value > 0 ? value : undefined;
+
+type Updater = unknown;
+const updated = (updater: Updater, old: unknown) => (typeof updater === "function" ? (updater as (o: unknown) => unknown)(old) : updater);
+type WritableAtom = { set(updater: (old: unknown) => unknown): void };
+
+/** The parts of TanStack's own core table the count piece uses. It imports nothing from TanStack. */
+type CoreTable = {
+  store: object;
+  options: Record<string, unknown> & { atoms?: Record<string, WritableAtom | undefined> };
+  atoms: Record<string, { get(): unknown } | undefined>;
+  baseAtoms: Record<string, WritableAtom | undefined>;
+  _reactivity: { schedule?(fn: () => void): void; untrack?(fn: () => unknown): unknown };
+  autoResetPageIndex?(): void;
+  [api: string]: unknown;
+};
+
+/**
+ * Register beside `gridcueCountRowModel` in the table's `features`, so the table holds GridCue's count in its own store:
+ * a `gridcueCount` state slice (`null` for none), `onGridcueCountChange` and `table.setGridcueCount`. The adapter writes
+ * the count there, so the table draws again when only the count changes, and undo and restore keep it. A Host that
+ * puts `gridcueCount` in the table's `state` controls it, and gives an `onGridcueCountChange` handler, as for sorting.
+ *
+ * TanStack's types name only TanStack's own features, so spread it in:
+ *
+ * ```ts
+ * const features = tableFeatures({
+ *   ...yourFeatures,
+ *   ...{ gridcueCountFeature },
+ *   filteredRowModel: gridcueCountRowModel(createFilteredRowModel()),
+ * });
+ * ```
+ */
+export const gridcueCountFeature = {
+  getInitialState: <S extends object>(state: S): S & { gridcueCount: number | null } => ({ gridcueCount: null, ...state }),
+  getDefaultTableOptions: (table: unknown) => {
+    const core = table as CoreTable;
+    return {
+      onGridcueCountChange: (updater: Updater) =>
+        (core.options.atoms?.gridcueCount ?? core.baseAtoms.gridcueCount)?.set((old) => updated(updater, old)),
+    };
+  },
+  constructTableAPIs: (table: unknown) => {
+    const core = table as CoreTable;
+    core.setGridcueCount = (updater: Updater) => {
+      const onChange = core.options.onGridcueCountChange as ((u: (old: unknown) => unknown) => void) | undefined;
+      onChange?.((old) => {
+        const next = updated(updater, old);
+        return Object.is(old, next) ? old : next;
+      });
+    };
+  },
+};
+
+type CountRow = { id: string; subRows?: readonly CountRow[]; getValue(columnId: string): unknown };
+type CountRowModel = { rows: readonly CountRow[]; flatRows: readonly CountRow[]; rowsById: Record<string, CountRow> };
+type TanStackSort = { id: string; desc: boolean };
+
+/** The settings that make a table hold one page of its rows, which no count can be taken from. */
+const MANUAL_SETTINGS = ["manualPagination", "manualSorting", "manualFiltering", "manualGrouping"] as const;
+
+/**
+ * The setting a table's options turn on that keeps a count from being the first rows of the view, if one is on: a
+ * manual setting, so the table holds one page of its rows, or `getSubRows`, so a row can hold sub-rows that would come
+ * with it. The count piece doesn't cut while one is on, and the adapter then reads no count and lists no `limit.set`.
+ */
+const uncountable = (options: unknown): string | undefined => {
+  const o = (options ?? {}) as Record<string, unknown>;
+  const manual = MANUAL_SETTINGS.find((name) => !!o[name]);
+  if (manual) return manual;
+  return typeof o.getSubRows === "function" ? "getSubRows" : undefined;
+};
+
+/** Why a table with `setting` on can't keep a count, as a clause. */
+const whyUncountable = (setting: string) =>
+  setting === "getSubRows"
+    ? "the table sets getSubRows, so a row can hold sub-rows, and a count would keep each of the first rows with every one of its sub-rows"
+    : `the table sets ${setting}, so it holds one page of its rows, and the first rows of a page are not the first rows of the view`;
+
+/** The count row models GridCue made, so the adapter can see a table registers one. */
+const countRowModels = new WeakSet<object>();
+/** The rows before the count, by the table's store, for a caption such as "First 10 of 48 rows". */
+const beforeCount = new WeakMap<object, () => CountRowModel>();
+/** TanStack's own core table, by its store: `useTable` hands the Host a copy whose options can be a render behind. */
+const coreTables = new WeakMap<object, CoreTable>();
+
+/** `model` cut to the rows at `kept`, which are positions in its rows in their own order. */
+const cutTo = (model: CountRowModel, kept: readonly number[]): CountRowModel => {
+  if (kept.length === model.rows.length) return model;
+  const rows = kept.map((i) => model.rows[i] as CountRow);
+  const flatRows: CountRow[] = [];
+  const rowsById: Record<string, CountRow> = {};
+  const add = (row: CountRow) => {
+    flatRows.push(row);
+    rowsById[row.id] = row;
+    for (const sub of row.subRows ?? []) add(sub);
+  };
+  for (const row of rows) add(row);
+  return { rows, flatRows, rowsById };
+};
+
+/**
+ * Cuts a filtered row model to the count. GridCue's order of the rows is kept while the rows and the sorting are the
+ * same, so a change of the count alone only cuts again.
+ */
+const cutter = () => {
+  let rowsRead: unknown;
+  let sortingRead: unknown;
+  let order: number[] = [];
+  return (model: CountRowModel, sorting: readonly TanStackSort[] | undefined, count: number | undefined): CountRowModel => {
+    if (count === undefined) return model;
+    const { rows } = model;
+    if (rows !== rowsRead || sorting !== sortingRead) {
+      const cells = new Map<string, unknown[]>();
+      const cell = (i: number, id: string) => {
+        let column = cells.get(id);
+        if (!column) {
+          column = rows.map((row) => row.getValue(id));
+          cells.set(id, column);
+        }
+        return column[i];
+      };
+      const sorts = (sorting ?? []).map((s) => ({ columnId: s.id, direction: s.desc ? ("desc" as const) : ("asc" as const) }));
+      order = countOrder(
+        rows.map((_, i) => i),
+        cell,
+        sorts,
+      );
+      rowsRead = rows;
+      sortingRead = sorting;
+    }
+    return cutTo(
+      model,
+      order.slice(0, count).sort((a, b) => a - b),
+    );
+  };
+};
+
+/**
+ * Wrap the table's filtered row model in this, and register `gridcueCountFeature` beside it (its doc shows both), for
+ * `renders: ["count"]`. With a count in the table's store, it keeps the rows `applyView` keeps: the filtered rows sorted with GridCue's own
+ * comparison, with no row that has no value in the first sorted column, the first N of them. It returns them in their
+ * own order, so TanStack sorts, groups and pages them as it does any rows; groups and their totals are over the rows the
+ * count keeps. With no count it returns the filtered rows as they are. It reads each cell with `row.getValue`, which is
+ * the row's own field for an `accessorKey` column, as `applyView` reads it. A Host's own filters and global filter apply
+ * first, so the count keeps the first rows of what they leave. While the table sets a manual setting or `getSubRows`, it
+ * keeps no count. `useLegacyTable` builds its own filtered row model, so it can't take this.
+ */
+export const gridcueCountRowModel = <F extends (table: never) => () => unknown>(filteredRowModel: F): F => {
+  const factory = (table: unknown) => {
+    const core = table as CoreTable;
+    const inner = (filteredRowModel as unknown as (t: unknown) => () => CountRowModel)(core);
+    const cut = cutter();
+    beforeCount.set(core.store, inner);
+    coreTables.set(core.store, core);
+    // TanStack's memo, by hand: the same model while the rows, the sorting, the count and the settings are the same.
+    let deps: unknown[] | undefined;
+    let result: CountRowModel | undefined;
+    return () => {
+      // With a manual setting or getSubRows on, no count is kept: the rows are the filtered rows as they are.
+      const blocked = uncountable(core.options);
+      const count = blocked === undefined ? countIn(core.atoms.gridcueCount?.get()) : undefined;
+      const next = [inner(), core.atoms.sorting?.get(), count, blocked];
+      if (result && deps && next.every((d, i) => d === deps?.[i])) return result;
+      const previous = result;
+      deps = next;
+      result = cut(next[0] as CountRowModel, next[1] as TanStackSort[] | undefined, count);
+      // As TanStack's own row models do: when the rows change, go back to the first page.
+      if (previous !== undefined && result !== previous) {
+        const reset = () => core.autoResetPageIndex?.();
+        const { schedule, untrack } = core._reactivity;
+        if (schedule) schedule(() => (untrack ? untrack(reset) : reset()));
+        else reset();
+      }
+      return result;
+    };
+  };
+  countRowModels.add(factory);
+  return factory as unknown as F;
+};
+
+/**
+ * The rows before the count: every row the table's filters leave, for a caption such as "First 10 of 48 rows". It is
+ * `undefined` until the table has built its rows once, and on a table with no `gridcueCountRowModel`.
+ */
+export const rowsBeforeCount = (table: { store: object }): { rows: readonly unknown[] } | undefined => beforeCount.get(table.store)?.();
+
 /** Builds a GridCue schema from a table's existing columns and a sample of its rows. */
 export const schemaFromTanStack = (table: TanStackTableLike, options: Omit<SchemaOptions, "sampleRows"> = {}): ViewSchema => {
   const columns = table.getAllLeafColumns();
@@ -247,9 +449,38 @@ export interface TanStackAdapterOptions {
    * lists `columns.pin`, `density.set` and `aggregation.set` only for what this names. The default is none, and a
    * request for any of them then asks "This grid can't …" and changes nothing. Name only what the table draws: GridCue
    * can't check it. Any other name throws `INPUT_CONFIG`.
+   *
+   * `"count"` when the table shows only the first rows of the view for a count ("top 10"), which needs
+   * `gridcueCountFeature` and `gridcueCountRowModel` registered; the count is held in the table's store. The adapter then
+   * lists `limit.set`. Without it, "top 10" sorts and the Preview notes that the count isn't applied (ADR 0018). A table
+   * that pages, sorts, filters or groups on a server (`manualPagination`, `manualSorting`, `manualFiltering`,
+   * `manualGrouping`) holds one page of its rows, and the first rows of a page are not the first rows of the view, so
+   * `"count"` on one throws `INPUT_CONFIG`, as it does on a table with `getSubRows`, whose rows can hold sub-rows, and
+   * when the adapter sees the piece is not registered. When the Host turns one of those settings on later, the piece
+   * stops cutting, and the adapter reads no count and lists no `limit.set` while it is on.
    */
-  renders?: ReadonlyArray<"pinning" | "density" | "totals">;
+  renders?: ReadonlyArray<"pinning" | "density" | "totals" | "count">;
 }
+
+/**
+ * Why a table can't keep GridCue's count, or `undefined` when it can (operation set spec, 5.5). The adapter reads the
+ * options of the table it is given; `useTable` gives the options of the render that made it. A manual setting or
+ * `getSubRows` turned on later is seen when the adapter next reads the View State (`uncountable`).
+ */
+const countIssue = (table: TanStackTableLike): string | undefined => {
+  const options = (table.options ?? {}) as { features?: { filteredRowModel?: unknown } };
+  const setting = uncountable(options);
+  if (setting) return whyUncountable(setting);
+  const model = options.features?.filteredRowModel;
+  if (typeof model !== "function" || !countRowModels.has(model)) {
+    return "its filteredRowModel is not gridcueCountRowModel(createFilteredRowModel()). Register it in the table's features";
+  }
+  const atoms = (table as { atoms?: Record<string, unknown> }).atoms;
+  if (!atoms || !("gridcueCount" in atoms) || typeof table.setGridcueCount !== "function") {
+    return "the table has no gridcueCountFeature. Register it in the table's features";
+  }
+  return undefined;
+};
 
 /**
  * Why a table can't show the Totals GridCue holds, or `undefined` when it can (operation set spec, 4.2). Every column
@@ -275,26 +506,27 @@ const totalsIssue = (schema: ViewSchema, table: TanStackTableLike): string | und
 };
 
 /**
- * Reads `renders` against the table (operation set spec, 4.2). Every name the adapter doesn't take throws, "count"
- * included, which it can't list yet: an adapter that took a name and listed nothing would read as support.
+ * Reads `renders` against the table (operation set spec, 4.2). Every name the adapter doesn't take throws, and so does
+ * a name the table can be seen not to draw: an adapter that took a name and listed something the table can't show
+ * would read as support.
  */
 const readRenders = (
   renders: unknown,
   table: TanStackTableLike,
   schema: ViewSchema,
-): { pinning: boolean; density: boolean; totals: boolean } => {
-  if (renders === undefined) return { pinning: false, density: false, totals: false };
+): { pinning: boolean; density: boolean; totals: boolean; count: boolean } => {
+  if (renders === undefined) return { pinning: false, density: false, totals: false, count: false };
   if (!Array.isArray(renders)) throw new GridCueError("INPUT_CONFIG", "renders must be a list, such as [“pinning”, “density”].");
   for (const name of renders) {
-    if (name === "pinning" || name === "density" || name === "totals") continue;
-    if (name === "count") {
-      throw new GridCueError("INPUT_CONFIG", "renders names “count”, which the TanStack Table adapter can't list yet. Leave it out.");
-    }
+    if (name === "pinning" || name === "density" || name === "totals" || name === "count") continue;
     throw new GridCueError(
       "INPUT_CONFIG",
-      `renders names “${String(name)}”, which the TanStack Table adapter doesn't take. It takes “pinning”, “density” and “totals”.`,
+      `renders names “${String(name)}”, which the TanStack Table adapter doesn't take. It takes “pinning”, “density”, “totals” and “count”.`,
     );
   }
+  const count = renders.includes("count");
+  const countProblem = count ? countIssue(table) : undefined;
+  if (countProblem) throw new GridCueError("INPUT_CONFIG", `renders names “count”, but ${countProblem}.`);
   const totals = renders.includes("totals");
   const issue = totals ? totalsIssue(schema, table) : undefined;
   if (issue) throw new GridCueError("INPUT_CONFIG", `renders names “totals”, but ${issue}.`);
@@ -314,7 +546,7 @@ const readRenders = (
       "renders names “pinning”, but the table holds its column pins as “left” and “right”, as TanStack Table v8 did. Keep them as “start” and “end”.",
     );
   }
-  return { pinning, density: renders.includes("density"), totals };
+  return { pinning, density: renders.includes("density"), totals, count };
 };
 
 /** The totals a table applies, by column: a sum or an average. */
@@ -341,6 +573,14 @@ export const createTanStackAdapter = ({ schema, table, maxSorts = 3, maxGroups =
   type Held = { density: ViewState["density"]; totals: AggregationSpec[] };
   let own: Held = { density: emptyViewState([]).density, totals: [] };
   const leafIds = () => table.getAllLeafColumns().map((c) => c.id);
+  // A table that keeps a count can stop keeping one when the Host turns a manual setting or getSubRows on. TanStack's
+  // own core table has the options of the latest render, which the count piece reads too; the object `useTable` returns
+  // can be a render behind. Before the table has built its rows, the adapter has only that object.
+  const countBlocked = (): string | undefined => {
+    if (!draws.count) return undefined;
+    const core = coreTables.get(table.store);
+    return uncountable(core ? core.options : table.options);
+  };
   const read = (s: TanStackState = table.store.state, kept: Held = own): ViewState => {
     const leaves = leafIds();
     const order = s.columnOrder?.length ? [...s.columnOrder, ...leaves.filter((id) => !s.columnOrder?.includes(id))] : leaves;
@@ -348,6 +588,8 @@ export const createTanStackAdapter = ({ schema, table, maxSorts = 3, maxGroups =
     // Pins come from TanStack's own state, and only when the table draws them. Like TanStack's own column lists, an id
     // that is no column of the table is skipped.
     const pinned = (ids: readonly string[] | undefined) => (draws.pinning ? (ids ?? []).filter((id) => leaves.includes(id)) : []);
+    // While a setting keeps the table from cutting, the count it still holds is not shown, so it is not read.
+    const count = draws.count && countBlocked() === undefined ? countIn(s.gridcueCount) : undefined;
     return {
       ...emptyViewState(order),
       visibleColumnIds: order.filter((id) => s.columnVisibility?.[id] !== false),
@@ -358,6 +600,8 @@ export const createTanStackAdapter = ({ schema, table, maxSorts = 3, maxGroups =
       // Like pins, a total on an id that is no column of the table is skipped.
       aggregations: kept.totals.filter((a) => leaves.includes(a.columnId)).map((a) => ({ ...a })),
       density: kept.density,
+      // The count comes from the table's own store, and only when the table keeps one.
+      ...(count === undefined ? {} : { limit: count }),
     };
   };
   const defaultState = read();
@@ -388,6 +632,14 @@ export const createTanStackAdapter = ({ schema, table, maxSorts = 3, maxGroups =
     else notify();
   };
   const waiters = new Set<() => void>();
+  /**
+   * The View State now, counted first if it changed. A setting the Host turns on that stops the count changes the View
+   * State with no store notification, as `setOptions` sends none; it is counted, and reported, when it is next read.
+   */
+  const fresh = (): VersionedViewState => {
+    if (draws.count) sync();
+    return current();
+  };
   const sub = table.store.subscribe(() => {
     sync();
     for (const w of [...waiters]) w();
@@ -484,8 +736,24 @@ export const createTanStackAdapter = ({ schema, table, maxSorts = 3, maxGroups =
     // anew and each total read from `gridcueAggregationFn`. With no grouping, the column order is, so a table drawn
     // from the store draws again and reads its footer.
     const totalsChanged = JSON.stringify(nextHeld.totals) !== JSON.stringify(own.totals);
+    // The count goes to the table's own store, and only on a table that keeps one.
+    const counted = draws.count ? { gridcueCount: next.limit ?? null } : undefined;
+    if (counted?.gridcueCount != null) {
+      // Seen at setup, but a Host can turn a manual setting or getSubRows on later.
+      const setting = countBlocked();
+      if (setting) {
+        const why = whyUncountable(setting);
+        return {
+          ok: false,
+          code: "ADAPTER_UNSUPPORTED_COUNT",
+          message: `The table can't show only the first rows of the view: ${why}.`,
+        };
+      }
+    }
     // The View State the table reads as once it holds every slice written here, in the form `read` gives.
-    const expected = JSON.stringify(read({ ...table.store.state, ...slices, ...(columnPinning ? { columnPinning } : {}) }, nextHeld));
+    const expected = JSON.stringify(
+      read({ ...table.store.state, ...slices, ...(columnPinning ? { columnPinning } : {}), ...(counted ?? {}) }, nextHeld),
+    );
     writing++;
     try {
       // Held before the table's slices, so the notification their write sends carries them, and a write that changes
@@ -501,6 +769,7 @@ export const createTanStackAdapter = ({ schema, table, maxSorts = 3, maxGroups =
         table.setColumnOrder(slices.columnOrder);
         table.setColumnVisibility(slices.columnVisibility);
         if (columnPinning) table.setColumnPinning?.(columnPinning);
+        if (counted) table.setGridcueCount?.(counted.gridcueCount);
       });
       // Done only when the table holds it, with the Revision that change produced (ADR 0031).
       return { ok: true, state: await untilHeld(expected) };
@@ -521,6 +790,7 @@ export const createTanStackAdapter = ({ schema, table, maxSorts = 3, maxGroups =
         ...(draws.pinning ? ["columns.pin"] : []),
         ...(draws.density ? ["density.set"] : []),
         ...(draws.totals ? ["aggregation.set"] : []),
+        ...(draws.count && countBlocked() === undefined ? ["limit.set"] : []),
       ],
       maxSorts,
       maxGroups,
@@ -528,12 +798,11 @@ export const createTanStackAdapter = ({ schema, table, maxSorts = 3, maxGroups =
       supportsSnapshotRestore: true,
       observesChanges: true,
     }),
-    getState: current,
+    getState: fresh,
     getDefaultState: () => structuredClone(defaultState),
     async apply(plan) {
       if (!isApplicable(plan)) return { ok: false, code: "ADAPTER_NOT_APPLICABLE", message: "Only validated plans can be applied." };
-      if (plan.baseRevision !== current().revision)
-        return { ok: false, code: "ADAPTER_STALE_REVISION", message: "The view changed first." };
+      if (plan.baseRevision !== fresh().revision) return { ok: false, code: "ADAPTER_STALE_REVISION", message: "The view changed first." };
       return write(resultingState(plan));
     },
     async restore(snapshot) {
