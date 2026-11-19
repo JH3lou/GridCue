@@ -194,6 +194,11 @@ describe("a count follows its rows (spec 5.1)", () => {
     ["sort by gain, show only the first 5 rows, then sort by advisor", {}],
     ["sort by gain, show only the first 5 rows; sort by advisor", {}],
     ["sort by gain, show only the first 5 rows, then also sort by advisor", { sorts: [], limit: undefined }],
+    // A grouping after the count is its own grouping too, and it would replace the one said before the count.
+    [
+      "group by custodian, show only the first 5 rows, then group by advisor",
+      { sorts: [{ columnId: "gain", direction: "desc" as const }], limit: undefined },
+    ],
   ])("asks about “%s”: the count is said before a change to its rows", async (request, view) => {
     const { adapter, cue } = counted(view);
     const before = adapter.getState();
@@ -205,6 +210,43 @@ describe("a count follows its rows (spec 5.1)", () => {
     );
     expect(await cue.apply()).toBe(false);
     expect(adapter.getState()).toEqual(before);
+  });
+
+  // "Top 10 by market value, sorted by advisor": the count and its own sort are said in one part, so the later sort
+  // would replace the sort the count keeps its rows by. The applied view would hold the first 10 by Advisor.
+  it.each([
+    ["top 10 accounts by market value, sorted by advisor", "top 10 accounts by market value"],
+    ["top 10 by market value, then sort by custodian", "top 10 by market value"],
+    ["show the top 10 accounts by market value, then sort them by custodian", "show the top 10 accounts by market value"],
+    ["top 5 by gain, then sort by advisor", "top 5 by gain"],
+    ["top 5 accounts by gain, sorted by advisor", "top 5 accounts by gain"],
+    ["top 5 by gain and sort by advisor", "top 5 by gain"],
+    ["largest 5 accounts by market value, sorted by custodian", "largest 5 accounts by market value"],
+    ["smallest 5 accounts by gain, then sort by custodian", "smallest 5 accounts by gain"],
+  ])("asks about “%s”: a sort said after the count's own sort", async (request, countPart) => {
+    for (const view of [{ sorts: [], limit: undefined }, {}]) {
+      const { adapter, cue } = counted(view);
+      const before = adapter.getState();
+      const plan = await cue.propose(request);
+      expect(cue.getState().status).toBe("needs_clarification");
+      expect(cue.getState().preview).toBeNull();
+      expect(plan?.clarifications.map((q) => q.prompt)).toContainEqual(
+        `I'm not sure what to do with “${countPart}”. Try rephrasing that part.`,
+      );
+      expect(await cue.apply()).toBe(false);
+      expect(adapter.getState()).toEqual(before);
+    }
+  });
+
+  it.each([
+    ["sort by gain, show only the first 5 rows", [{ columnId: "gain", direction: "asc" }], 5],
+    ["top 10 accounts by market value", byValue, 10],
+  ])("keeps “%s” ready, with the rows it names", async (request, sorts, limit) => {
+    const { adapter, cue } = counted({ sorts: [], limit: undefined });
+    await cue.propose(request);
+    expect(cue.getState().status).toBe("ready");
+    expect(await cue.apply()).toBe(true);
+    expect(adapter.getState().state).toMatchObject({ sorts, limit, groupBy: [] });
   });
 
   it("leaves a count ready beside a change that keeps its rows", async () => {
