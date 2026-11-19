@@ -344,7 +344,7 @@ The form counts wherever it is said in the request, and whatever column it names
 
 ## Totals
 
-GridCue's own code also reads a small, closed set of words for totals, with no provider. The same rules apply as for pins: a part is read only when every word is a form word, a column the grid names, or a filler the form allows, and one word left over sends the part to the provider as before.
+GridCue's own code also reads a small, closed set of words for totals. The provider still receives the request, but never decides what they mean. The same rules apply as for pins: a part is read only when every word is a form word, a column the grid names, or a filler the form allows, and one word left over sends the part to the provider as before.
 
 | Form | Reads | Doesn't read |
 | --- | --- | --- |
