@@ -163,7 +163,7 @@ const rowsAfterWhich = (text: string, rows: readonly Span[], from: number): numb
  * something about the rows.
  */
 const asksWhichHave = (said: Said, rows: readonly Span[], verb: number): boolean => {
-  const before = said.text.slice(0, verb);
+  const before = unquoted(said.text).slice(0, verb);
   const named = [...rows, ...said.names];
   const relative = (r: Span) => named.some((n) => n.end <= r.start) || !named.some((n) => n.start >= r.end && n.end <= verb);
   if ([...before.matchAll(RELATIVE)].some((r) => relative({ start: r.index, end: r.index + r[0].length }))) return true;
@@ -410,15 +410,17 @@ const emptyForms = (
  */
 const columnNames = (clause: Clause, mentions: readonly Mention[], schema: ViewSchema): Mention[] => {
   const columns = schema.columns.filter(isExposed);
+  // Keyed by the words `findMentions` matches, so "Vendor Name" and "Vendor-Name" are one name two columns share.
+  const keyOf = (name: string) => (name.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []).join(" ");
   const owners = new Map<string, Set<string>>();
   for (const col of columns)
     for (const name of [col.label, ...(col.aliases ?? [])]) {
-      const key = name.trim().toLowerCase();
+      const key = keyOf(name);
       owners.set(key, (owners.get(key) ?? new Set()).add(col.id));
     }
   const entries = columns.map((col) => ({
     item: col.id,
-    names: [col.label, ...(col.aliases ?? [])].filter((name) => owners.get(name.trim().toLowerCase())?.size === 1),
+    names: [col.label, ...(col.aliases ?? [])].filter((name) => owners.get(keyOf(name))?.size === 1),
   }));
   const values = mentions.filter((m) => m.clauseIndex === clause.index && m.valueId !== undefined);
   const masked = values.reduce((t, m) => t.slice(0, m.start) + " ".repeat(m.end - m.start) + t.slice(m.end), unquoted(clause.text));

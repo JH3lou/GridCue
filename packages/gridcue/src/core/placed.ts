@@ -418,8 +418,8 @@ const tokens = (text: string): UnplacedWord[] =>
  *   change for that column.
  *
  * A column the part asks for (`askedColumns`) is a name of another kind: it is placed only when the plan holds a change
- * that names its column, other than a code-read filter's own filter. So "show only household where advisor is empty" is
- * never ready with the Advisor filter alone. Before the plan is built, it counts as placed when the Mentions hold it,
+ * that names its column, other than a code-read filter's own filter or a sort. So "show only household where advisor is
+ * empty" is never ready with the Advisor filter alone, nor with a sort by Household. Before the plan is built, it counts as placed when the Mentions hold it,
  * since the plan may yet; a name the Mentions read as the rows can be in no change, and is returned at once.
  *
  * A part read whole as view words (ADR 0028) has every word placed. Any other word is returned, in the order written.
@@ -445,13 +445,14 @@ export const unplacedWords = (part: PlacedPart): UnplacedWord[] => {
   const columns = sorts || groups || holds((op) => op.type.startsWith("columns."));
   const ranking = sorts ? directionWords(clause, scan) : [];
   placed.push(...ranking);
-  // The columns the plan's changes name. A code-read filter's own filter is no change for a column asked for beside it.
+  // The columns the plan's changes name. A code-read filter's own filter is no change for a column asked for beside it,
+  // and a sort that holds the column, inherited or the part's own, does not show it.
   const own = (op: ViewOperation) =>
     op.type === "filter.add" &&
     part.codeRead.some(
       (r) => r.predicate?.columnId === op.predicate.columnId && (r.predicate.operator ?? op.predicate.operator) === op.predicate.operator,
     );
-  const changed = operations && new Set(operations.filter((op) => !own(op)).flatMap(namesOf));
+  const changed = operations && new Set(operations.filter((op) => !own(op) && op.type !== "sort.set").flatMap(namesOf));
   const dropped = asked.filter(
     (a) => !whole.some((s) => within(a, s)) && !(changed ? changed.has(a.columnId) : names.some((m) => m.start === a.start)),
   );

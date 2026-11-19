@@ -966,15 +966,19 @@ export const compile = (c: CompileInput): ViewPlan => {
         evidence.push({ key: `${key}.continued-value`, selectedId: "filter", confidence: 1, source: "deterministic" });
       }
       // A code-read filter is code's own reading: the part filters whatever the provider proposed (spec 4.1).
+      let codeReadPick: Pick | undefined;
       if (readFilters.length > 0 && !accepted.some((f) => f.id === "filter")) {
-        accepted.push({ id: "filter", confidence: 1 });
+        codeReadPick = { id: "filter", confidence: 1 };
+        accepted.push(codeReadPick);
         evidence.push({ key: `${key}.codeRead`, selectedId: "filter", confidence: 1, source: "deterministic" });
       }
       const settled = settleFamilies(accepted, middling, viable, { separable, kind: res.kind });
       const families = settled.kept;
       if (settled.byKind && res.kind)
         evidence.push({ key: `${key}.kind`, selectedId: res.kind.id, confidence: res.kind.confidence, source: "provider" });
-      for (const f of families) if (answers[`${key}.family.${f.id}`] === undefined) note(`${key}.family`, f.id, f.confidence, "provider");
+      // The family code added for a code-read filter is recorded above as code's, not again as the provider's.
+      for (const f of families)
+        if (f !== codeReadPick && answers[`${key}.family.${f.id}`] === undefined) note(`${key}.family`, f.id, f.confidence, "provider");
       for (const f of settled.dropped)
         evidence.push({ key: `dropped:${key}.family`, selectedId: f.id, confidence: f.confidence, source: "deterministic" });
       for (const f of settled.ask) {
@@ -1846,7 +1850,7 @@ const codeReadQuestion = (
     return `GridCue can't tell whether “${words}” means ${label} is empty or zero. Ask for an amount instead.`;
   }
   const follows = r.kind === "empty" ? amountWithoutName(clause, r.end, mentions, next) : undefined;
-  if (follows) return `I'm not sure what the ${follows} after “${words}” applies to. Name its column, or split it into separate parts.`;
+  if (follows) return `I'm not sure what the ${follows} after “${words}” applies to. Name its column.`;
   if (!operatorsFor(col).includes(r.predicate.operator)) return `GridCue can't filter ${label} ${FORM_WORDS[r.predicate.operator]} here.`;
   return undefined;
 };
