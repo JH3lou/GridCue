@@ -177,7 +177,7 @@ An Intent Provider that answers from fixed rules instead of a model, so GridCue 
 _Avoid_: Fake model, stub, dummy provider
 
 **Local Resolver**:
-GridCue's own deterministic reader, which runs in the User's browser. It resolves a request it can read in full and declines the rest, so an Intent Provider is called only for what it declines.
+GridCue's own deterministic reader, which runs in the User's browser. It resolves a request it can read in full and declines the rest. With no Intent Provider it runs alone; with one and `local: true` it reads first, and the provider is called only for what it declines.
 _Avoid_: Rules engine, offline mode, fast path
 
 **Server Handler**:
