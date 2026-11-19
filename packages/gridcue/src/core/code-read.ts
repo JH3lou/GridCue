@@ -405,6 +405,7 @@ export const unreadAdverbs = (clause: Clause, mentions: readonly Mention[], sche
   if (clause.literals.length === 0 && !own.some((m) => m.valueId !== undefined || yesNo(m))) return [];
   const read: Span[] = [
     ...own,
+    ...rowNouns(clause.text, schema),
     ...clause.literals.flatMap((lit) => [
       { start: lit.at, end: lit.at + literalText(clause.text, lit).length },
       ...comparisonSpans(clause.text, lit),
@@ -690,8 +691,10 @@ const termNames = (terms: readonly HouseTerm[]): TermNames => {
     const own = [term.label, ...(term.aliases ?? [])].map(nameTokens);
     for (const tokens of own) {
       const key = tokens.join("");
-      if (!key || byKey.has(key)) continue;
-      byKey.set(key, term);
+      if (!key) continue;
+      if (!byKey.has(key)) byKey.set(key, term);
+      // "WhaleWatch" and "Whale Watch" share a key, but only the second's pattern matches "whale watch".
+      if (names.some((n) => n.join(" ") === tokens.join(" "))) continue;
       names.push(tokens);
       const [head = "", ...rest] = tokens;
       const inflected = own.some(

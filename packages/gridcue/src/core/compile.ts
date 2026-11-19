@@ -1629,7 +1629,7 @@ export const compile = (c: CompileInput): ViewPlan => {
           const blanked = family === "sort" && !answered && clause.direction ? namesBlankedOf(clause.text, partMentions) : undefined;
           if (
             blanked !== undefined &&
-            (directionFromSizeAlone(blanked) || (directionBySize(blanked) && !SAYS_SORT.test(unquoted(clause.text))))
+            (directionFromSizeAlone(blanked) || (directionBySize(blanked) && !SAYS_SORT.test(unquoted(blanked))))
           ) {
             if (cols.some((col) => !SIZED_KINDS.has(col.kind))) {
               clarifications.push({
