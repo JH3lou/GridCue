@@ -129,10 +129,11 @@ const VERB_ALT = CLAUSE_VERBS.join("|");
 const VERB = `(?:${VERB_ALT})(?:ed)?\\b`;
 const WHOLE_VERB = new RegExp(`^${VERB}$`);
 // "!=" is a comparison, not the end of a sentence. A "!" ends a sentence only right after a word ("show trusts!"):
-// one that starts the request, follows a space, or sits right before a name, quoted text or an amount says "not"
-// (`!advisor "Lane"`, `advisor "Lane" !trusts`), so it stays in the part, and the compiler asks about it.
+// one that starts the request, follows a space, a comma, a semicolon or a colon, or sits right before a name, quoted
+// text or an amount says "not" (`!advisor "Lane"`, `advisor "Lane",! trusts`), so it stays in the part, and the
+// compiler asks about it.
 const SPLIT = new RegExp(
-  `[;?]+|(?<=\\S)!+(?![=\\w"'$\\u00c0-\\uffff])|\\.(?=\\s|$)|,?\\s+then\\s+|,\\s*(?=${VERB})|\\s+and\\s+(?=${VERB})`,
+  `[;?]+|(?<=[^\\s,;:])!+(?![=\\w"'$\\u00c0-\\uffff])|\\.(?=\\s|$)|,?\\s+then\\s+|,\\s*(?=${VERB})|\\s+and\\s+(?=${VERB})`,
   "g",
 );
 
@@ -160,8 +161,6 @@ const verbFamily = (verb: string): string =>
  * and "show only trusts" never splits after "show". A second verb of the same kind ("show accounts where …") stays in
  * its part.
  */
-/** Words that name rows and nothing else: "accounts", "the rows", "all those records". */
-const ROWS_ONLY = /^(?: (?:the|all|any|those|these|rows?|records?|ones|[a-z]+s))+ ?$/;
 const splitMidLine = (part: string): string[] => {
   const out: string[] = [];
   const bare = unquoted(part);
@@ -181,11 +180,12 @@ const splitMidLine = (part: string): string[] => {
     )
       continue;
     if (verbFamily(last[1] ?? "") === verbFamily(next)) continue;
-    // "Hide accounts where gain is below $0": the "where" says which rows to leave out, so it stays one part.
+    // "Hide accounts where gain is below $0": the "where" says which rows to leave out, so it stays one part. So does
+    // "hide Northgate accounts where …", whose words before "where" end in a row word.
     if (
       next === "where" &&
       /^(?:hide|exclude|remove|drop)$/.test(last[1] ?? "") &&
-      ROWS_ONLY.test(before.slice((last.index ?? 0) + last[0].length))
+      / (?:rows?|records?|ones|[a-z]+s)$/.test(before.slice((last.index ?? 0) + last[0].length).trimEnd())
     )
       continue;
     out.push(part.slice(start, at));
@@ -523,6 +523,8 @@ const range = (clause: string, a: Literal, b: Literal, gap: string): Literal => 
   let value = a.value as number;
   let upper = b.value as number;
   const unclear: Literal = { kind: "unreadable", value: `${aText}${gap}${bText}`.replace(/\s+/g, " "), at: a.at };
+  // A "$" bound beside a "%" bound ("between $10 and 20%") shares no unit.
+  if (a.kind !== b.kind && a.kind !== "number" && b.kind !== "number") return unclear;
   const aBare = !aScale && !aUnit;
   // A bound written in full ("$500,000", "250000") is complete next to a scaled one ("$1m"): nothing to borrow.
   const complete = (text: string) => /\d,\d{3}|\d{4}/.test(text);

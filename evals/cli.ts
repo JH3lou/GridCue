@@ -9,6 +9,7 @@ import {
   LIVE_ONLY_SETS,
   loadCases,
   mockOptionsFor,
+  passesWithoutRenders,
   runCase,
   runOnTanStack,
   runWithoutGrouping,
@@ -187,6 +188,7 @@ if (flag("adapter") !== undefined && flag("adapter") !== "rows")
 
 // `--grid=no-group` runs every existing set on a grid that doesn't list `group.set` instead (more grids spec, 10).
 // A case whose expected plan groups must end not applied; every other case must keep its verdict on the Rows Adapter.
+// A case unsafe on both grids fails too, except in the live-only sets, whose Mock wrong views are known and not judged.
 if (flag("grid") === "no-group") {
   const dir = new URL("./", import.meta.url);
   const files = readdirSync(dir)
@@ -205,7 +207,7 @@ if (flag("grid") === "no-group") {
         continue;
       }
       counts[result.groups ? "grouping" : "other"]++;
-      if (!result.pass) {
+      if (!result.pass || (result.after.verdict === "unsafe" && !LIVE_ONLY_SETS.includes(file))) {
         failed++;
         counts[result.groups ? "grouping, ready" : "other, verdict changed"]++;
         const { before, after } = result;
@@ -225,7 +227,8 @@ if (flag("grid") === "no-group") {
 
 // `--grid=no-renders` runs every case labelled for a grid that draws pins and density on a grid without `renders`
 // (operation set spec, 5.3). A case whose expected plan pins or sets the density must end not applied, asking only
-// "This grid can't …"; every other case must keep the verdict it has with `renders`.
+// "This grid can't …"; every other case must keep the verdict it has with `renders`. The totals held-out sets allow
+// what `passesWithoutRenders` says, the rule `evals.test.ts` judges by too.
 if (flag("grid") === "no-renders") {
   const dir = new URL("./", import.meta.url);
   const files = readdirSync(dir)
@@ -240,7 +243,7 @@ if (flag("grid") === "no-renders") {
       const result = await runWithoutRenders(c, provider);
       if (!result) continue;
       counts[result.needsRenders ? "pins or density" : "other"]++;
-      if (!result.pass) {
+      if (!passesWithoutRenders(file, result)) {
         failed++;
         counts[result.needsRenders ? "pins or density, not asked why" : "other, verdict changed"]++;
         const { before, after } = result;

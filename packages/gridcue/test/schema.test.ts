@@ -63,6 +63,14 @@ describe("defineSchema validation", () => {
     failsWith(() => defineSchema([{ id: "" }]), "columns.0.id");
   });
 
+  it("reports a column name that is not text as INPUT_SCHEMA, with terms declared or not", () => {
+    const label = [{ id: "balance", label: 42 as unknown as string }];
+    failsWith(() => defineSchema(label), "columns.0.label");
+    failsWith(() => defineSchema(label, { houseTerms: [] }), "columns.0.label");
+    const alias = { columns: { balance: { aliases: [7 as unknown as string] } } };
+    failsWith(() => defineSchema([{ id: "balance" }], alias), "columns.0.aliases.0");
+  });
+
   it("still accepts valid schemas", () => {
     expect(() =>
       defineSchema([{ id: "market_value", kind: "currency" }, { id: "tax_id" }], { restricted: ["tax_id"], columns: { tax_id: {} } }),

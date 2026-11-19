@@ -580,6 +580,26 @@ describe("the Calendar and the clock", () => {
     }
   });
 
+  it("leaves a request the clock cancelled idle, and never calls the provider for it", async () => {
+    for (const fails of [true, false]) {
+      const { provider, requests } = scripted({ families: [], columns: [], values: [], unmatchedTerms: [] });
+      const adapter = createRowsAdapter({ schema: accounts });
+      const cue = createGridCue({
+        adapter,
+        provider,
+        now: () => {
+          cue.cancel();
+          if (fails) throw new Error("No clock.");
+          return new Date(NOW);
+        },
+      });
+      expect(await cue.propose("accounts opened last month")).toBeNull();
+      expect(cue.getState().status, `fails: ${fails}`).toBe("idle");
+      expect(cue.getState().issues).toEqual([]);
+      expect(requests, `fails: ${fails}`).toHaveLength(0);
+    }
+  });
+
   it("reads the clock only for a relative form", async () => {
     let calls = 0;
     const now = () => {

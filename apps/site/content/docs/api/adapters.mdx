@@ -390,7 +390,7 @@ import { withGridCueFilter } from "gridcue/tanstack-table";
 function withGridCueFilter(fallback: FilterFn): FilterFn;
 ```
 
-Wraps a column's own filter function so it keeps working alongside GridCue filters. When the column holds a GridCue filter, a row must pass GridCue's predicates and, if a Host value is stored too, the wrapped function. Otherwise the wrapped function runs as usual.
+Wraps a column's own filter function so it keeps working alongside GridCue filters. When the column holds a GridCue filter, a row must pass GridCue's predicates and, if a Host value is stored too, the wrapped function. Otherwise the wrapped function runs as usual. The Host's value is the `host` field of GridCue's entry.
 
 ```ts
 const columns = [

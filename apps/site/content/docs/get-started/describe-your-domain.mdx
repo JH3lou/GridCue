@@ -169,7 +169,7 @@ With a TanStack Table, `localValuesFromTable(table, ["advisor_name", "household"
 Which columns to name:
 
 - **Columns whose values are names of people, households, firms or counterparties.** A User says "Avery Lane", not a code. A name is a whole value of one column, and GridCue reads it as an exact filter.
-- **Text columns only, and only ones the provider may know about.** A column must be a text column that is exposed, not `restricted`, and not turned off for filtering, or `createGridCue` throws `INPUT_CONFIG`. A restricted column's values are never read.
+- **Text columns only, and only ones the provider may know about.** A column must be a text column that is exposed, not `restricted`, and not turned off for filtering, and if it sets `allowedOperators`, they must include `eq` and `in`, or `createGridCue` throws `INPUT_CONFIG`. A restricted column's values are never read.
 - **Not a category with a few values.** Registration type belongs in `enumValues`, where a User's word for each value is an alias. A column with a handful of values and a short list of words is a poor Local Value.
 - **Not a column whose values are made of GridCue's own words.** A value such as "Top 10" is never read from the grid, because its words mean something else in a request: "top 10 accounts" still asks for a count. It can still be quoted: `advisor is exactly "Top 10"`.
 - **Names that GridCue also uses stay a question.** A value that two of the columns you name both hold ("Dunmore" is an owner and a counterparty), or that is also a label or alias you declared, asks which was meant.

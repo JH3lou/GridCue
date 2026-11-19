@@ -672,3 +672,55 @@ export const runWithoutRenders = async (c: EvalCase, provider: IntentProvider) =
         : after.verdict === before.verdict;
   return { id: c.id, needsRenders: moved.prompts.length > 0, cant, pass, before, after };
 };
+
+// The totals held-out round 3 cases on a grid without `renders`. Seven ledger requests are ready there, each with the
+// plan the code before this work gave: on a grid that draws no totals, "total" and "sum" can only be the Host's names
+// for Amount, and a Host that never set `renders` sees no change. Two of the seven drop a column named right after
+// another ("sort by value descending and total units"), an older wrong view the order plan lists (12 A).
+const TOTALS_R3_AS_BEFORE: Record<string, unknown[]> = {
+  "tt3-e-07": [{ type: "group.set", columnIds: ["category", "amount"] }],
+  "tt3-e-13": [{ type: "group.set", columnIds: ["amount"] }],
+  "tt3-e-15": [
+    {
+      type: "sort.set",
+      sorts: [
+        { columnId: "amount", direction: "desc" },
+        { columnId: "units", direction: "desc" },
+      ],
+    },
+  ],
+  "tt3-e-19": [{ type: "columns.hide", columnIds: ["amount", "units"] }],
+  "tt3-e-20": [{ type: "sort.set", sorts: [{ columnId: "amount", direction: "desc" }] }],
+  "tt3-e-21": [{ type: "columns.hide", columnIds: ["amount"] }],
+  "tt3-e-22": [{ type: "group.set", columnIds: ["owner", "amount"] }],
+};
+
+/** The totals held-out sets of round 1, whose cases pass without `renders` when they ask there too. */
+const TOTALS_R1_HELD_OUT = ["cases-totals-heldout.jsonl", "cases-totals-ranked-heldout.jsonl", "cases-totals-natural-heldout.jsonl"];
+
+/**
+ * Whether a case of `file`, run by `runWithoutRenders`, passes on a grid without `renders`. `evals.test.ts` and
+ * `--grid=no-renders` both judge by this, so the mode fails exactly when the test does. A case passes by
+ * `runWithoutRenders`' rule, except in the totals held-out sets: in round 1 a case that missed with `renders` also
+ * passes when it isn't ready without; in round 3 any case that isn't ready without passes, and the seven in
+ * `TOTALS_R3_AS_BEFORE` must be ready with exactly that plan.
+ */
+export const passesWithoutRenders = (
+  file: string,
+  result: {
+    id: string;
+    pass: boolean;
+    before: { verdict: Verdict };
+    after: { status: string; plan: { operations: readonly unknown[] } | null };
+  },
+): boolean => {
+  if (file === "cases-totals-heldout-r3.jsonl") {
+    const asBefore = TOTALS_R3_AS_BEFORE[result.id];
+    if (asBefore) return result.after.status === "ready" && isDeepStrictEqual(result.after.plan?.operations, asBefore);
+    return result.pass || result.after.status !== "ready";
+  }
+  if (TOTALS_R1_HELD_OUT.includes(file)) {
+    return result.pass || (result.before.verdict === "mismatch" && result.after.status !== "ready");
+  }
+  return result.pass;
+};

@@ -13,11 +13,13 @@ import {
   mockOptionsFor,
   onGridWithoutGrouping,
   onGridWithoutRenders,
+  passesWithoutRenders,
   runCase,
   runOnTanStack,
   runWithoutGrouping,
   runWithoutRenders,
   tanStackAdapterFor,
+  type Verdict,
 } from "./run";
 
 const provider = createMockProvider(wealthMockOptions);
@@ -526,7 +528,10 @@ describe("dates, with the Mock Provider", () => {
 //   19 asked as labelled, 1 refused as labelled, 19 safe misses, no wrong view, of 50. Most safe misses are wordings
 //   spec 5.5 asks about (a month name, "N days ago", "two weeks" in words, a year), or a word 4.2 doesn't place
 //   ("what", "everything", "uncleared"). The label checker wrote its ranges in the form set's shape and moved four
-//   "last N" starts to the spec's day before the run.
+//   "last N" starts to the spec's day before the run. Three of its no-column requests (n1-nocol-yesterday,
+//   n1-nocol-today, n1-nocol-last-30) are labelled to ask, where spec 5.5 lets the provider's pick of one date column
+//   decide; the form set labels the same shape ready-or-ask (dr1-nocol-*). With the Mock Provider they ask. With
+//   `--live`, a provider that picks Booked there is counted a wrong view by these labels.
 // The independent date checks (evals/dates-property.test.ts) passed with TZ set to UTC, America/New_York and
 // Pacific/Auckland. 1 of these requests showed a view the User didn't ask for before the code and now asks ("entries
 // from March, largest amount first" sorted by Amount and dropped "March"). A safe miss is reported by `pnpm eval`; a
@@ -774,7 +779,7 @@ describe("totals, held-out sets, on a grid that doesn't draw them, with the Mock
       if (!onGridWithoutRenders(c)) continue;
       it(`${file}: ${c.id}`, async () => {
         const result = await runWithoutRenders(c, c.schema === "ledger" ? ledgerProvider : provider);
-        const pass = result?.pass || (result?.before.verdict === "mismatch" && result.after.status !== "ready");
+        const pass = !!result && passesWithoutRenders(file, result);
         expect(pass, JSON.stringify({ before: result?.before.verdict, after: result?.after.plan }, null, 1)).toBe(true);
       });
     }
@@ -840,40 +845,17 @@ describe("totals, held-out set, round 3, with the Mock Provider", () => {
 });
 
 // The same cases on a grid without `renders`. A case passes the derived check, or applies nothing there. Seven ledger
-// requests are ready there, each with the plan the code before this work gave: on a grid that draws no totals, "total"
-// and "sum" can only be the Host's names for Amount, and a Host that never set `renders` sees no change. Two of the
-// seven drop a column named right after another ("sort by value descending and total units"), an older wrong view the
-// order plan lists (12 A).
-const TOTALS_R3_AS_BEFORE: Record<string, unknown[]> = {
-  "tt3-e-07": [{ type: "group.set", columnIds: ["category", "amount"] }],
-  "tt3-e-13": [{ type: "group.set", columnIds: ["amount"] }],
-  "tt3-e-15": [
-    {
-      type: "sort.set",
-      sorts: [
-        { columnId: "amount", direction: "desc" },
-        { columnId: "units", direction: "desc" },
-      ],
-    },
-  ],
-  "tt3-e-19": [{ type: "columns.hide", columnIds: ["amount", "units"] }],
-  "tt3-e-20": [{ type: "sort.set", sorts: [{ columnId: "amount", direction: "desc" }] }],
-  "tt3-e-21": [{ type: "columns.hide", columnIds: ["amount"] }],
-  "tt3-e-22": [{ type: "group.set", columnIds: ["owner", "amount"] }],
-};
+// requests are ready there, each with the plan the code before this work gave (`TOTALS_R3_AS_BEFORE` in `run.ts`): on a
+// grid that draws no totals, "total" and "sum" can only be the Host's names for Amount, and a Host that never set
+// `renders` sees no change. Two of the seven drop a column named right after another ("sort by value descending and
+// total units"), an older wrong view the order plan lists (12 A).
 describe("totals, held-out set, round 3, on a grid that doesn't draw them, with the Mock Provider", () => {
   const ledgerProvider = createMockProvider(mockOptionsFor({ schema: "ledger" }));
   for (const c of loadCases(new URL("./cases-totals-heldout-r3.jsonl", import.meta.url))) {
     if (!onGridWithoutRenders(c)) continue;
     it(`cases-totals-heldout-r3.jsonl: ${c.id}`, async () => {
       const result = await runWithoutRenders(c, c.schema === "ledger" ? ledgerProvider : provider);
-      const asBefore = TOTALS_R3_AS_BEFORE[c.id];
-      if (asBefore) {
-        expect(result?.after.status).toBe("ready");
-        expect(result?.after.plan?.operations).toEqual(asBefore);
-        return;
-      }
-      const pass = result?.pass || result?.after.status !== "ready";
+      const pass = !!result && passesWithoutRenders("cases-totals-heldout-r3.jsonl", result);
       expect(pass, JSON.stringify({ before: result?.before.verdict, after: result?.after.plan }, null, 1)).toBe(true);
     });
   }
@@ -884,6 +866,7 @@ describe("totals, held-out set, round 3, on a grid that doesn't draw them, with 
 // starts grouped is left out, since a grid that can't group never holds a grouping, and so is a case with a scripted
 // provider answer, written for a grid that can.
 describe("every existing set on a grid without group.set, with the Mock Provider", () => {
+  const ledgerProvider = createMockProvider(mockOptionsFor({ schema: "ledger" }));
   const dir = new URL("./", import.meta.url);
   const files = readdirSync(dir)
     .filter((name) => /^cases.*\.jsonl$/.test(name))
@@ -892,7 +875,7 @@ describe("every existing set on a grid without group.set, with the Mock Provider
     for (const c of loadCases(new URL(file, dir))) {
       if (!onGridWithoutGrouping(c)) continue;
       it(`${file}: ${c.id}`, async () => {
-        const result = await runWithoutGrouping(c, provider);
+        const result = await runWithoutGrouping(c, c.schema === "ledger" ? ledgerProvider : provider);
         expect(result?.pass, JSON.stringify({ before: result?.before.verdict, after: result?.after.plan }, null, 1)).toBe(true);
       });
     }
@@ -937,6 +920,23 @@ describe("the TanStack run", () => {
     expect(differences(rows, rows)).toEqual([]);
     const other = { ...rows, status: "unsupported" as const, verdict: "rejected" as const };
     expect(differences(rows, other).map((line) => line.split(":")[0])).toEqual(["verdict", "status"]);
+  });
+});
+
+// A held-out set checks only that no case is unsafe, and a request that ends in an error has no plan, which the verdict
+// counts as a safe miss. So every case in every set must end with a plan (review finding).
+describe("every existing set, with the Mock Provider", () => {
+  it("ends each case with a plan", { timeout: 120_000 }, async () => {
+    const ledgerProvider = createMockProvider(mockOptionsFor({ schema: "ledger" }));
+    const dir = new URL("./", import.meta.url);
+    const files = readdirSync(dir)
+      .filter((name) => /^cases.*\.jsonl$/.test(name))
+      .sort();
+    for (const file of files)
+      for (const c of loadCases(new URL(file, dir))) {
+        const result = await runCase(c, c.schema === "ledger" ? ledgerProvider : provider);
+        expect(result.plan, `${file}: ${c.id} ended with status ${result.status}`).not.toBeNull();
+      }
   });
 });
 
@@ -994,5 +994,21 @@ describe("the verdict", () => {
     expect(onGridWithoutRenders(both)?.prompts).toEqual(["This grid can't pin columns.", "This grid can't change its density."]);
     expect(onGridWithoutRenders(other)).toEqual({ case: otherWithout, prompts: [] });
     expect(onGridWithoutRenders({ ...otherWithout })).toBeUndefined();
+  });
+
+  it("judges a case run without renders by one rule for its set, here and in `--grid=no-renders`", () => {
+    const sorts = [{ type: "sort.set", sorts: [{ columnId: "amount", direction: "desc" }] }];
+    const ready = { status: "ready", plan: { operations: sorts } };
+    const asked = { status: "needs_clarification", plan: { operations: [] } };
+    const run = (id: string, before: Verdict, after: typeof ready) => ({ id, pass: false, before: { verdict: before }, after });
+    const r3 = "cases-totals-heldout-r3.jsonl";
+    expect(passesWithoutRenders(r3, run("tt3-e-20", "safe_abstention", ready))).toBe(true);
+    expect(passesWithoutRenders(r3, run("tt3-e-20", "safe_abstention", asked))).toBe(false);
+    expect(passesWithoutRenders(r3, run("tt3-b-17", "mismatch", asked))).toBe(true);
+    expect(passesWithoutRenders(r3, run("tt3-b-17", "mismatch", ready))).toBe(false);
+    expect(passesWithoutRenders("cases-totals-natural-heldout.jsonl", run("n", "mismatch", asked))).toBe(true);
+    expect(passesWithoutRenders("cases-totals-natural-heldout.jsonl", run("n", "safe_abstention", asked))).toBe(false);
+    expect(passesWithoutRenders("cases-totals.jsonl", run("n", "mismatch", asked))).toBe(false);
+    expect(passesWithoutRenders("cases-totals.jsonl", { ...run("n", "mismatch", asked), pass: true })).toBe(true);
   });
 });

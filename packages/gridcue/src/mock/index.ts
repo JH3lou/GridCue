@@ -1,7 +1,7 @@
 import { ADJACENT_COMPARISON } from "../core/compile";
 import { governedClears, LEAD_IN, leavesRowsOut, viewRequest } from "../core/lead";
 import { LITERAL_COLUMN_KINDS, matchMentions } from "../core/mentions";
-import { unquoted } from "../core/normalize";
+import { literalText, unquoted } from "../core/normalize";
 import { unknownTerm } from "../core/terms";
 import type { ClauseResolution, IntentProvider, LiteralKind, Pick, ResolutionRequest, ResolutionResult } from "../index";
 
@@ -187,6 +187,16 @@ export const createMockProvider = (options: MockProviderOptions = {}): IntentPro
           const fits = (m: Hit) => LITERAL_COLUMN_KINDS[lit.kind].includes(byId.get(m.columnId)?.kind ?? "string");
           const owner = ownerOf(lit);
           if (owner) return fits(owner) ? [{ literalIndex, columnId: owner.columnId, confidence: 0.9 }] : [];
+          // A second bound right after an owned one ("gain over $10k but under $20k") gets no pick, so core asks.
+          const prev = clause.literals.filter((l) => l.at < lit.at).at(-1);
+          if (
+            prev &&
+            ownerOf(prev) &&
+            /^[^a-z]*(?:,|and|but|and also)?\s*(?:under|below|over|above|less than|more than|at most|at least|<|>)\s*$/i.test(
+              clause.text.slice(prev.at + literalText(clause.text, prev).length, lit.at),
+            )
+          )
+            return [];
           const free = [
             ...new Set(
               columnHits
