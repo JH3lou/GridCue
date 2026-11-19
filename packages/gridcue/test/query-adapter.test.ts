@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { MVP_OPERATIONS } from "../src/core/adapter";
 import { createGridCue } from "../src/core/controller";
 import { isGridCueError } from "../src/core/errors";
@@ -267,17 +267,10 @@ describe("Query Adapter: it never holds what it doesn't list", () => {
   });
 });
 
+// The holder keeps the Rows Adapter's subscriber rules as they were before the Query Adapter shared it. These tests pin
+// them, on both adapters.
 describe("Query Adapter: the Host's subscribers", () => {
-  // A subscriber's error is reported as an event listener's is. Where the runtime has no `reportError`, it is thrown
-  // on its own in a microtask; these tests stand one in, so they can see it.
-  const reported: unknown[] = [];
-  beforeEach(() => {
-    reported.length = 0;
-    vi.stubGlobal("reportError", (error: unknown) => reported.push(error));
-  });
-  afterEach(() => vi.unstubAllGlobals());
-
-  it("a subscriber that throws, such as a Data Query that fails at once, stops neither the write nor the others", async () => {
+  it("a subscriber's error, such as a Data Query that fails at once, comes out of the write, after the view changed", async () => {
     const adapter = createQueryAdapter({ schema });
     const failure = new Error("the Host's fetch failed");
     adapter.subscribe(() => {
@@ -285,49 +278,36 @@ describe("Query Adapter: the Host's subscribers", () => {
     });
     const later: string[] = [];
     adapter.subscribe((s) => later.push(s.revision));
-    const applied = await adapter.apply(validated(adapter, [byValue]));
-    expect(applied).toMatchObject({ ok: true, state: { revision: "query:1" } });
-    expect(adapter.getState().state.sorts).toEqual([valueDesc]);
-    expect(later).toEqual(["query:1"]);
-    expect(reported).toEqual([failure]);
-    expect(adapter.setState((s) => ({ ...s, sorts: [] })).revision).toBe("query:2");
-    expect(await adapter.restore({ revision: "query:0", state: adapter.getDefaultState() })).toMatchObject({ ok: true });
-    expect(later).toEqual(["query:1", "query:2", "query:3"]);
-    expect(reported).toEqual([failure, failure, failure]);
+    await expect(adapter.apply(validated(adapter, [byValue]))).rejects.toBe(failure);
+    expect(adapter.getState()).toMatchObject({ revision: "query:1", state: { sorts: [valueDesc] } });
+    expect(() => adapter.setState((s) => ({ ...s, sorts: [] }))).toThrow(failure);
+    expect(adapter.getState()).toMatchObject({ revision: "query:2", state: { sorts: [] } });
+    await expect(adapter.restore({ revision: "query:1", state: { ...adapter.getDefaultState(), sorts: [valueDesc] } })).rejects.toBe(
+      failure,
+    );
+    expect(adapter.getState()).toMatchObject({ revision: "query:3", state: { sorts: [valueDesc] } });
+    // The subscribers after the one that threw hear of none of the three.
+    expect(later).toEqual([]);
   });
 
-  it("where the runtime has no reportError, a subscriber's error is thrown on its own, after the write", () => {
-    vi.stubGlobal("reportError", undefined);
-    const queued: Array<() => void> = [];
-    vi.stubGlobal("queueMicrotask", (task: () => void) => queued.push(task));
+  it("through a Controller, an apply whose subscriber throws fails, and the Controller puts the previous view back", async () => {
     const adapter = createQueryAdapter({ schema });
-    const failure = new Error("the Host's fetch failed");
+    let calls = 0;
     adapter.subscribe(() => {
-      throw failure;
-    });
-    expect(adapter.setState((s) => ({ ...s, sorts: [valueDesc] })).revision).toBe("query:1");
-    expect(queued).toHaveLength(1);
-    expect(() => queued[0]?.()).toThrow(failure);
-  });
-
-  it("through a Controller, a subscriber that throws leaves “View updated.” and an Undo that works", async () => {
-    const adapter = createQueryAdapter({ schema });
-    adapter.subscribe(() => {
-      throw new Error("the Host's fetch failed");
+      calls++;
+      if (calls === 1) throw new Error("the Host's fetch failed");
     });
     const later: string[] = [];
-    adapter.subscribe((s) => later.push(s.revision));
+    adapter.subscribe((s) => later.push(`${s.revision} ${s.state.sorts.length}`));
     const cue = createGridCue({ adapter, provider });
     await cue.propose("sort by market value descending");
-    expect(await cue.apply()).toBe(true);
-    expect(cue.getState().message).toBe("View updated.");
-    expect(adapter.getState().state.sorts).toEqual([valueDesc]);
-    expect(await cue.undo()).toBe(true);
-    expect(adapter.getState().state.sorts).toEqual([]);
-    expect(later).toEqual(["query:1", "query:2"]);
+    expect(await cue.apply()).toBe(false);
+    expect(cue.getState().message).toBe("The grid couldn't apply that change. The previous view is back.");
+    expect(adapter.getState()).toMatchObject({ revision: "query:2", state: { sorts: [] } });
+    expect(later).toEqual(["query:2 0"]);
   });
 
-  it("a subscriber that writes on a write: apply returns its own Revision, and every subscriber hears the newer view last", async () => {
+  it("a subscriber that writes on a write: apply returns the newer view, and the subscribers after it hear only that", async () => {
     const adapter = createQueryAdapter({ schema });
     let trimmed = false;
     adapter.subscribe(() => {
@@ -346,32 +326,13 @@ describe("Query Adapter: the Host's subscribers", () => {
       ],
     };
     const applied = await adapter.apply(validated(adapter, [twoSorts]));
-    expect(applied).toMatchObject({ ok: true, state: { revision: "query:1" } });
-    if (applied.ok) expect(applied.state.state.sorts).toHaveLength(2);
-    expect(adapter.getState().revision).toBe("query:2");
-    expect(later).toEqual(["query:2 1"]);
+    expect(applied).toMatchObject({ ok: true, state: { revision: "query:2", state: { sorts: [valueDesc] } } });
+    expect(adapter.getState()).toEqual(applied.ok && applied.state);
+    // The subscriber after the writer hears the newer view twice, once from each write, and never GridCue's.
+    expect(later).toEqual(["query:2 1", "query:2 1"]);
   });
 
-  it("the Rows Adapter, on the same holder, does the same for both", async () => {
-    const throwing = createRowsAdapter({ schema });
-    const failure = new Error("the Host's listener failed");
-    throwing.subscribe(() => {
-      throw failure;
-    });
-    const heard: string[] = [];
-    throwing.subscribe((s) => heard.push(s.revision));
-    expect(await throwing.apply(validated(throwing as never, [byValue]))).toMatchObject({ ok: true, state: { revision: "rows:1" } });
-    expect(heard).toEqual(["rows:1"]);
-    expect(reported).toEqual([failure]);
-    const writing = createRowsAdapter({ schema });
-    writing.subscribe((s) => {
-      if (s.revision === "rows:1") writing.setState((v) => ({ ...v, sorts: [] }));
-    });
-    expect(await writing.apply(validated(writing as never, [byValue]))).toMatchObject({ ok: true, state: { revision: "rows:1" } });
-    expect(writing.getState().revision).toBe("rows:2");
-  });
-
-  it("through a Controller, Undo never erases a change a subscriber made on GridCue's write", async () => {
+  it("through a Controller, Undo straight after a subscriber's write works, and takes that write back too", async () => {
     const adapter = createQueryAdapter({ schema });
     let trimmed = false;
     adapter.subscribe(() => {
@@ -383,11 +344,48 @@ describe("Query Adapter: the Host's subscribers", () => {
     await cue.propose("sort by advisor, then by market value descending");
     expect(cue.getState().status).toBe("ready");
     expect(await cue.apply()).toBe(true);
-    const hosts = adapter.getState();
-    expect(hosts.state.sorts).toEqual([valueDesc]);
-    expect(await cue.undo()).toBe(false);
-    expect(cue.getState().message).toBe("The view changed after that update, so undo would erase newer changes.");
-    expect(adapter.getState()).toEqual(hosts);
+    expect(adapter.getState()).toMatchObject({ revision: "query:2", state: { sorts: [valueDesc] } });
+    expect(await cue.undo()).toBe(true);
+    expect(cue.getState().message).toBe("Change undone.");
+    expect(adapter.getState()).toMatchObject({ revision: "query:3", state: { sorts: [] } });
+  });
+
+  it("a subscriber that calls setState(v => v) on a write: apply returns its Revision, and Undo straight after works", async () => {
+    const adapter = createQueryAdapter({ schema });
+    let wrote = false;
+    adapter.subscribe(() => {
+      if (wrote) return;
+      wrote = true;
+      adapter.setState((v) => v);
+    });
+    const cue = createGridCue({ adapter, provider });
+    await cue.propose("sort by market value descending");
+    expect(await cue.apply()).toBe(true);
+    expect(adapter.getState()).toMatchObject({ revision: "query:2", state: { sorts: [valueDesc] } });
+    expect(await cue.undo()).toBe(true);
+    expect(adapter.getState()).toMatchObject({ revision: "query:3", state: { sorts: [] } });
+  });
+
+  it("the Rows Adapter, on the same holder, does as it did before for both", async () => {
+    const throwing = createRowsAdapter({ schema });
+    const failure = new Error("the Host's listener failed");
+    throwing.subscribe(() => {
+      throw failure;
+    });
+    const heard: string[] = [];
+    throwing.subscribe((s) => heard.push(s.revision));
+    await expect(throwing.apply(validated(throwing as never, [byValue]))).rejects.toBe(failure);
+    expect(throwing.getState()).toMatchObject({ revision: "rows:1", state: { sorts: [valueDesc] } });
+    expect(heard).toEqual([]);
+    const writing = createRowsAdapter({ schema });
+    writing.subscribe((s) => {
+      if (s.revision === "rows:1") writing.setState((v) => ({ ...v, sorts: [] }));
+    });
+    expect(await writing.apply(validated(writing as never, [byValue]))).toMatchObject({
+      ok: true,
+      state: { revision: "rows:2", state: { sorts: [] } },
+    });
+    expect(writing.getState().revision).toBe("rows:2");
   });
 });
 
@@ -428,6 +426,31 @@ describe("Query Adapter: renders", () => {
   it("throws INPUT_CONFIG naming any other name, and for a renders that isn't a list", () => {
     expect(configError({ renders: ["sticky"] })).toMatchObject({ code: "INPUT_CONFIG", message: expect.stringContaining("“sticky”") });
     expect(configError({ renders: "pinning" })).toMatchObject({ code: "INPUT_CONFIG" });
+  });
+
+  it("leaves the Rows Adapter's renders names as they were, on the shared holder", () => {
+    const rowsError = (renders: unknown) => {
+      try {
+        createRowsAdapter({ schema, renders: renders as never });
+      } catch (error) {
+        return error;
+      }
+      throw new Error("expected a throw");
+    };
+    // The Rows Adapter writes a name with `String`, as it did before the holder: a bigint is “1”, and a value with no
+    // text form throws what `String` throws.
+    expect(rowsError([1n])).toMatchObject({ code: "INPUT_CONFIG", message: expect.stringContaining("renders names “1”,") });
+    expect(rowsError([Object.create(null)])).toBeInstanceOf(TypeError);
+    const own = new Error("the Host's toString");
+    expect(
+      rowsError([
+        {
+          toString() {
+            throw own;
+          },
+        },
+      ]),
+    ).toBe(own);
   });
 });
 

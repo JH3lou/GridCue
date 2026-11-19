@@ -44,7 +44,7 @@ The most likely defect is a change that works where you tested it and nowhere el
 
 - **Entry points.** The package's root, React, server, mock, and TanStack Table entries. A protocol change reaches all of them.
 - **Both UIs.** The built-in `<GridCueBar />` and the shadcn Component Registry sit on the same hooks. Behaviour belongs in hooks, look belongs in components, and a UI change is checked in both. See ADRs 0001 and 0008.
-- **Frameworks and tables.** The Vite and Next.js examples, and both Grid Adapters: the Rows Adapter and TanStack Table. Server-only code must never be reachable from a client bundle.
+- **Frameworks and tables.** The Vite and Next.js examples, and all Grid Adapters: the Rows Adapter, TanStack Table, and the Query Adapter. Server-only code must never be reachable from a client bundle.
 - **The Site.** The marketing page, live demo, and developer docs. Update the docs page for any public API you change.
 - **Agent skill.** `skills/gridcue` guides coding agents through setup. A public API or setup change updates it, and `pnpm check:skills` fails on a docs link to a page that no longer exists.
 - **Failure paths.** Every new way in needs its way out: cancel, undo, clarification, and the unsupported result.

@@ -12,6 +12,7 @@ import {
   mockOptionsFor,
   passesWithoutRenders,
   QUERY_KINDS,
+  QUERY_WITHOUT_AS_ON_A_DEFAULT_GRID,
   REVIEW_R2_FOR_THE_OWNER,
   runCase,
   runOnQueryAdapter,
@@ -112,8 +113,15 @@ const describe = (ms: number) => {
   return lines.join("\n");
 };
 
-// `forTheOwner` lists cases whose wrong view is the owner's decision: each is reported, and not failed.
-const run = async (file: URL, label: string, forTheOwner: readonly string[] = []) => {
+// `forTheOwner` lists cases whose wrong view is the owner's decision, or an older one the order plan records: each is
+// reported, and not failed.
+// `listName` names that list in the report.
+const run = async (
+  file: URL,
+  label: string,
+  forTheOwner: readonly string[] = [],
+  listName = "the owner's decisions (REVIEW_R2_FOR_THE_OWNER)",
+) => {
   const counts: Record<Verdict, number> = { exact: 0, safe_abstention: 0, rejected: 0, mismatch: 0, unsafe: 0 };
   let owners = 0;
   const cases = loadCases(file);
@@ -142,7 +150,7 @@ const run = async (file: URL, label: string, forTheOwner: readonly string[] = []
   }
   console.log(`GridCue evals: ${named} (${live ? "Jev" : "Mock Provider"}${setup ? `, ${setup}` : ""})`);
   console.table(counts);
-  if (owners > 0) console.log(`${owners} of the unsafe cases are the owner's decisions (REVIEW_R2_FOR_THE_OWNER), not failed.`);
+  if (owners > 0) console.log(`${owners} of the unsafe cases are ${listName}, not failed.`);
   return { ...counts, unsafe: counts.unsafe - owners };
 };
 
@@ -167,12 +175,18 @@ const tanStackRun = async (perSet: boolean): Promise<number> => {
   });
   const totals = zero();
   let cases = 0;
+  let sets = 0;
   let failed = 0;
   const started = Date.now();
   for (const file of caseFiles()) {
     const counts = zero();
     const judged = live || !LIVE_ONLY_SETS.includes(file);
-    for (const c of loadCases(new URL(file, import.meta.url))) {
+    // A case with `without` is labelled for its Query Adapter alone, and runs there in every run, so a set of them is
+    // left out here.
+    const onTanStack = loadCases(new URL(file, import.meta.url)).filter((c) => !c.without);
+    if (onTanStack.length === 0) continue;
+    sets++;
+    for (const c of onTanStack) {
       useProviderFor(c);
       const result = await runOnTanStack(c, provider);
       cases++;
@@ -202,9 +216,7 @@ const tanStackRun = async (perSet: boolean): Promise<number> => {
   const line = Object.entries(totals)
     .map(([k, n]) => `${n} ${k}`)
     .join(", ");
-  console.log(
-    `GridCue evals on the TanStack Table adapter: ${cases} cases in ${caseFiles().length} sets: ${line} (${Date.now() - started} ms)`,
-  );
+  console.log(`GridCue evals on the TanStack Table adapter: ${cases} cases in ${sets} sets: ${line} (${Date.now() - started} ms)`);
   return failed;
 };
 
@@ -225,8 +237,9 @@ if (flag("grid") === "no-group") {
   for (const file of files) {
     const counts = { grouping: 0, "grouping, ready": 0, other: 0, "other, verdict changed": 0, "starts grouped, left out": 0 };
     for (const c of loadCases(new URL(file, dir))) {
-      // A set labelled for a grid without group.set already runs there; a scripted answer was written for a grid that groups.
-      if (c.grid || c.providerAnswer) continue;
+      // A set labelled for a grid without group.set already runs there, and one with `without` on its own Query Adapter; a
+      // scripted answer was written for a grid that groups.
+      if (c.grid || c.without || c.providerAnswer) continue;
       useProviderFor(c);
       const result = await runWithoutGrouping(c, provider);
       if (!result) {
@@ -306,6 +319,8 @@ if (flag("grid") === "query") {
   for (const file of caseFiles()) {
     const counts: Record<string, number> = zero();
     for (const c of loadCases(new URL(file, import.meta.url))) {
+      // A case with `without` runs on its own Query Adapter, in the run without a mode.
+      if (c.without) continue;
       useProviderFor(c);
       const result = await runOnQueryAdapter(c, file, provider);
       if (result.leftOut) {
@@ -330,7 +345,7 @@ if (flag("grid") === "query") {
       .filter(([, n]) => n > 0)
       .map(([k, n]) => `${n} ${k}`)
       .join(", ");
-    console.log(`${file}: ${line}`);
+    if (line) console.log(`${file}: ${line}`);
   }
   console.log(`GridCue evals on a default Query Adapter, every set (${live ? "Jev" : "Mock Provider"})`);
   console.table(totals);
@@ -667,6 +682,23 @@ const reviewFixesTotalsHeldOut = await run(
   new URL("./cases-review-fixes-totals-heldout.jsonl", import.meta.url),
   "cases-review-fixes-totals-heldout.jsonl",
 );
+// An operation a Query Adapter's `without` removes (order plan, section 11), each case on a Query Adapter built with its
+// `without`, labelled before the code (2026-11-19). Before the code: 40 exact, 15 asked as labelled, 68 safe misses, 2
+// wrong views by their labels, of 125. After it: 40 exact, 71 asked as labelled, 12 safe misses, 2 wrong views by their
+// labels. The 14 are QUERY_WITHOUT_AS_ON_A_DEFAULT_GRID: they read as on a default Query Adapter, which
+// evals.test.ts holds them to. The 2 wrong views are reported, not failed. Its safe misses are reported, not failed;
+// evals.test.ts fails any other case that doesn't match.
+const queryWithout = await run(
+  new URL("./cases-query-without.jsonl", import.meta.url),
+  "cases-query-without.jsonl",
+  QUERY_WITHOUT_AS_ON_A_DEFAULT_GRID,
+  "older readings on every grid (QUERY_WITHOUT_AS_ON_A_DEFAULT_GRID; order plan, section 12)",
+);
+// The held-out set for the same rule, labelled blind and first run after the code (2026-11-19), once: 22 exact, 54
+// asked as labelled, 24 safe misses, no wrong view, of 100. One label was corrected after the run (qwh-filter.clear-10:
+// a new filter replaces the one in place, ADR 0017, so it asks "This grid can't clear filters."): 22 exact, 55 asked as
+// labelled, 23 safe misses. Its safe misses are reported, not failed; a wrong view fails.
+const queryWithoutHeldOut = await run(new URL("./cases-query-without-heldout.jsonl", import.meta.url), "cases-query-without-heldout.jsonl");
 
 // Applying a view the user did not ask for is release-blocking with any provider.
 // With the Mock Provider every core case must match exactly, because its answers are deterministic.
@@ -730,6 +762,8 @@ const all = [
   reviewFixesHeldOut,
   reviewFixesHeldOut2,
   reviewFixesTotalsHeldOut,
+  queryWithout,
+  queryWithoutHeldOut,
 ];
 const mockMustMatch = [
   core,

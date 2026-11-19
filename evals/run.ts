@@ -69,6 +69,12 @@ export interface EvalCase {
   /** "no-group" runs on a grid that doesn't list `group.set` (more grids spec, 5.3). */
   grid?: "no-group";
   /**
+   * Runs on a Query Adapter built with this `without`, `createQueryAdapter({ schema, initialState, without })`, whatever
+   * adapter the run names: the case is labelled for that grid alone (more grids spec, 5.4; order plan, section 11). A
+   * part that asks for a change it names ends the whole request in "This grid can't …".
+   */
+  without?: string[];
+  /**
    * What the Host's table draws, as the adapter's `renders` option says it (operation set spec, 4.2): a case with it
    * runs on a Rows Adapter built with that `renders`, which lists `columns.pin`, `density.set` and `aggregation.set`
    * for the names it holds. A case without it runs on a grid that lists none of them, as before. Every pin and density
@@ -339,6 +345,37 @@ export const REVIEW_R2_FOR_THE_OWNER: readonly string[] = [
   "rf2-count-then-group-08",
 ];
 
+/**
+ * The cases of `cases-query-without.jsonl` whose label the rule for a Query Adapter's `without` doesn't give (order
+ * plan, section 11). Each must read exactly as on a default Query Adapter, and a listed case that comes to match its
+ * label fails, so the list never names more than it must. The lead's ruling (order plan, section 12): the twelve are
+ * safe misses, and the two are older wrong views on every grid, a row of A and a sentence of C there.
+ * - Twelve ask for a change GridCue reads on no grid: a column moved ("move the advisor column first", "put the amount
+ *   column first and sort by gain"), a reset said another way ("restore the default view", "go back to the default
+ *   view", "reset the grid to its default view"), and a column added in the part that names a filter ("show taxable
+ *   accounts and add the gain column"). Not certain that they ask for the change the grid can't make, they ask the
+ *   question a default Query Adapter asks, where the label has "This grid can't …".
+ * - Two are ready on a default Query Adapter, and so here too, where the label says they must not be: "clear the
+ *   cleared ones" filters Cleared to Yes and drops "clear", and "is Group Annuity a good product?" filters Product.
+ *   Neither asks for a change the grid doesn't list, as GridCue reads them; both readings are older than this set.
+ */
+export const QUERY_WITHOUT_AS_ON_A_DEFAULT_GRID: readonly string[] = [
+  "qw-columns.show-08",
+  "qw-columns.order-01",
+  "qw-columns.order-02",
+  "qw-columns.order-03",
+  "qw-columns.order-05",
+  "qw-columns.order-06",
+  "qw-columns.order-07",
+  "qw-columns.order-08",
+  "qw-columns.order-09",
+  "qw-view.reset-03",
+  "qw-view.reset-04",
+  "qw-view.reset-06",
+  "qw-unsure-02",
+  "qw-unsure-03",
+];
+
 export const loadCases = (path = new URL("./cases.jsonl", import.meta.url)): EvalCase[] =>
   readFileSync(path, "utf8")
     .split("\n")
@@ -478,18 +515,19 @@ export const tanStackAdapterFor = (c: Pick<EvalCase, "schema" | "renders">, sche
 /**
  * The Query Adapter a case runs on in the Query Adapter run (more grids spec, section 10): the case's schema and
  * default view, with `options` (none: a default Query Adapter). A case on a grid that can't group ("no-group") runs on
- * one built with `without: ["group.set"]`, as a Host would build it. The case's view is written with `setState`, as a
- * Host's own control writes it. A Query Adapter that lists no count never holds one, so there the case starts from its
- * view without the count (more grids plan, task 4.3: a request that clears a count ends as any clear of something the
+ * one built with `without: ["group.set"]`, as a Host would build it, and a case with `without` on one built with it.
+ * The case's view is written with `setState`, as a Host's own control writes it. A Query Adapter that lists no count
+ * never holds one, so there the case starts from its view without the count (more grids plan, task 4.3: a request that clears a count ends as any clear of something the
  * view doesn't have). The run that uses this judges what that does to the case's label.
  */
 export const queryAdapterFor = (
-  c: Pick<EvalCase, "grid" | "state">,
+  c: Pick<EvalCase, "grid" | "state" | "without">,
   schema: ViewSchema,
   initialState: ViewState | undefined,
   options: RunOptions["query"] = {},
 ): GridAdapter => {
-  const without = [...(options.without ?? []), ...(c.grid === "no-group" ? ["group.set"] : [])];
+  const named = [...(options.without ?? []), ...(c.grid === "no-group" ? ["group.set"] : []), ...(c.without ?? [])];
+  const without = [...new Set(named)];
   const adapter = createQueryAdapter({
     ...options,
     schema,
@@ -535,9 +573,10 @@ export const runCase = async (
           ? [schema ?? ledgerSchema, ledgerInitialState]
           : [schema ?? wealthSchema, wealthInitialState];
   let grid: GridAdapter;
-  if (options.adapter === "query") {
-    // Built without grouping itself when the case says "no-group", so it is not wrapped again below.
-    grid = queryAdapterFor(c, caseSchema, initialState, options.query);
+  if (options.adapter === "query" || c.without) {
+    // Built without grouping itself when the case says "no-group", so it is not wrapped again below. A case with
+    // `without` is labelled for that Query Adapter alone, so it runs there in every run.
+    grid = queryAdapterFor(c, caseSchema, initialState, options.adapter === "query" ? options.query : {});
   } else if (options.adapter === "tanstack") {
     grid = tanStackAdapterFor(c, caseSchema, initialState);
     // The case's view, written through the adapter before the Controller exists, as the Rows Adapter's `setState` does.
@@ -550,7 +589,7 @@ export const runCase = async (
     if (c.state) rows.setState((view) => ({ ...view, ...c.state }));
     grid = rows;
   }
-  const adapter = c.grid === "no-group" && options.adapter !== "query" ? withoutGrouping(grid) : grid;
+  const adapter = c.grid === "no-group" && options.adapter !== "query" && !c.without ? withoutGrouping(grid) : grid;
   const answer = c.providerAnswer;
   // A case with values reads its schema's Local Values; it throws for a schema that has none.
   const localValues = localValuesFor(c);
@@ -639,12 +678,13 @@ const GROUPING_WORD = /\b(?:un)?group/i;
  * whose words name grouping, since its labelled prompt may now say the grid can't group. Every other case keeps its
  * label, and must keep the verdict it has on the Rows Adapter. A case that starts grouped is left out: a grid that
  * can't group never holds a grouping. So is a case with a scripted provider answer: it was written for the candidates
- * of a grid that can group. Returns `undefined` for those. A question labelled with a choice that ranks groups by a
+ * of a grid that can group. So is a case labelled for a grid of its own (`grid`, `without`). Returns `undefined` for
+ * those. A question labelled with a choice that ranks groups by a
  * total ("Rank households by total Market value", operation set spec, 5.4) is expected without that choice: it groups,
  * so a grid that can't group doesn't offer it.
  */
 export const onGridWithoutGrouping = (c: EvalCase): { case: EvalCase; groups: boolean } | undefined => {
-  if (c.grid || c.providerAnswer || (c.state?.groupBy?.length ?? 0) > 0) return undefined;
+  if (c.grid || c.without || c.providerAnswer || (c.state?.groupBy?.length ?? 0) > 0) return undefined;
   const groups =
     (c.expect.operations ?? []).some((op) => (op as { type: string }).type === "group.set") ||
     (c.expect.status !== "ready" && GROUPING_WORD.test(c.utterance));

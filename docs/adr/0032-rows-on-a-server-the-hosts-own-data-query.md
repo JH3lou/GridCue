@@ -1,6 +1,6 @@
 # Rows on a server: the Host's own Data Query
 
-**Status:** accepted with the more grids spec (2026-11-13). Not yet built.
+**Status:** accepted with the more grids spec (2026-11-13). The Query Adapter is built. The Query Check is not yet.
 
 GridCue never writes a Data Query. A Host whose rows live on a server gets a View State from a Query Adapter and turns it into its own request for rows. GridCue ships a Query Check so the Host can prove that request keeps the rows GridCue would.
 
@@ -13,6 +13,7 @@ What was decided:
 
 - **No translator.** GridCue produces no SQL, no ORM calls, and no request parameters. The Host owns its data and how it is fetched.
 - **A named Query Adapter, safe by default.** It holds the View State and lists `limit.set` only when the Host says its server sorts and cuts to the count before paging. The Host can remove operations its server can't do, and can never add one. A name GridCue doesn't know fails at creation.
+- **A removed operation is still read, and then refused by code.** On a grid that leaves out an MVP operation other than grouping, the Intent Provider is offered that operation's Operation Family as on any grid. A request that asks for the change ends in a question with no choices, such as "This grid can't sort rows.", and nothing in it applies. The other way was to leave the family out of the provider's choices. Then the same words could settle on another family and show a view the User didn't ask for, and a request for the change ended in "I'm not sure what to change". The cost is that the provider's candidates name a change the grid can't make, and that grouping, which code reads from its words (more grids spec, 5.3), works another way. This bullet was added when the adapter was built, and waits for the owner's confirmation (order plan, section 12 D).
 - **An apply is done when the View State changes,** as it is for a click on a column header. The fetch follows. Loading and fetch errors are the Host's.
 - **A Query Check, in a new `gridcue/testing` entry.** It builds synthetic rows and View States from the Host's View Schema, with the rows GridCue keeps for each. It has no test-runner dependency and never reads real rows.
 

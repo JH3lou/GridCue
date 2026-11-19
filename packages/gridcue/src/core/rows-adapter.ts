@@ -35,6 +35,8 @@ export const createRowsAdapter = (options: RowsAdapterOptions): RowsAdapter => {
     adapter: "the Rows Adapter",
     takes: ["pinning", "density", "totals"],
     refused: { count: "renders names “count”: the Rows Adapter keeps a count with no option. Leave it out." },
+    // The Rows Adapter's messages are as they were before the shared holder (more grids plan, task 4.2).
+    nameOf: String,
   });
   return createStateAdapter({
     schema: options.schema,

@@ -16,6 +16,7 @@ import {
   onGridWithoutRenders,
   passesOnQueryAdapter,
   passesWithoutRenders,
+  QUERY_WITHOUT_AS_ON_A_DEFAULT_GRID,
   type QueryCaseResult,
   queryLeftOut,
   REVIEW_R2_FOR_THE_OWNER,
@@ -177,6 +178,51 @@ describe("a grid that can't group, fourth held-out set, with the Mock Provider",
   for (const c of loadCases(new URL("./cases-cant-group-heldout-r4.jsonl", import.meta.url))) {
     it(`cases-cant-group-heldout-r4.jsonl: ${c.id}`, async () => {
       const result = await runCase(c, provider);
+      expect(result.verdict, JSON.stringify(result.plan, null, 1)).not.toBe("unsafe");
+    });
+  }
+});
+
+// An operation a Query Adapter's `without` removes (order plan, section 11). Each case runs on a Query Adapter built with
+// its `without`: a request for each of the eight MVP operations alone and beside another change, on a grid without it,
+// requests for the changes it still lists, two operations removed at once, and requests the rule can't be sure of.
+// Labelled before the code. With the Mock Provider, before the code (2026-11-19): 40 exact, 15 asked as labelled, 68
+// safe misses, 2 wrong views by their labels, of 125. 57 of the misses asked "I'm not sure what to change for …", 6
+// were refused with an operation's ID ("This grid does not support filter.add."), and 3 asked which column to sort a
+// grid that can't sort by. After it: 40 exact, 71 asked as
+// labelled, 12 safe misses, 2 wrong views by their labels. The 14 are QUERY_WITHOUT_AS_ON_A_DEFAULT_GRID, which read
+// as on a default Query Adapter: twelve safe misses and two older wrong views on every grid (order plan, section 12).
+// Every other case must match.
+describe("a Query Adapter without an operation, with the Mock Provider", () => {
+  const ledgerProvider = createMockProvider(mockOptionsFor({ schema: "ledger" }));
+  for (const c of loadCases(new URL("./cases-query-without.jsonl", import.meta.url))) {
+    it(`cases-query-without.jsonl: ${c.id}`, async () => {
+      const provider_ = c.schema === "ledger" ? ledgerProvider : provider;
+      const result = await runCase(c, provider_);
+      if (QUERY_WITHOUT_AS_ON_A_DEFAULT_GRID.includes(c.id)) {
+        expect(result.verdict, "take this case off QUERY_WITHOUT_AS_ON_A_DEFAULT_GRID").toMatch(/^(mismatch|unsafe)$/);
+        const { without: _without, ...plain } = c;
+        const query = await runCase(plain, provider_, undefined, { adapter: "query" });
+        expect(differences(result, query), c.utterance).toEqual([]);
+        return;
+      }
+      expect(result.verdict, JSON.stringify(result.plan, null, 1)).toMatch(/^(exact|safe_abstention|rejected)$/);
+    });
+  }
+});
+
+// The held-out set for the same rule, labelled blind from the order plan's ruling, and first run after the code
+// (2026-11-19), once: 22 exact, 54 asked as labelled, 24 safe misses, no wrong view, of 100. One label was corrected
+// after the run: qwh-filter.clear-10 ("Show accounts over $1 million." with a filter in place) replaces that filter, as
+// ADR 0017 has it, so on a grid without `filter.clear` it asks "This grid can't clear filters.". With it: 22 exact, 55
+// asked as labelled, 23 safe misses. Each safe miss is a request GridCue reads on no grid (a column moved, a reset or a
+// clear said another way, a column brought back or hidden in other words, a sort with no sort verb), which asks the
+// question a default Query Adapter asks. A safe miss is reported by `pnpm eval`; a wrong view fails.
+describe("a Query Adapter without an operation, held-out set, with the Mock Provider", () => {
+  const ledgerProvider = createMockProvider(mockOptionsFor({ schema: "ledger" }));
+  for (const c of loadCases(new URL("./cases-query-without-heldout.jsonl", import.meta.url))) {
+    it(`cases-query-without-heldout.jsonl: ${c.id}`, async () => {
+      const result = await runCase(c, c.schema === "ledger" ? ledgerProvider : provider);
       expect(result.verdict, JSON.stringify(result.plan, null, 1)).not.toBe("unsafe");
     });
   }
@@ -942,10 +988,12 @@ describe("every existing set on a grid without group.set, with the Mock Provider
 // outside them but the 8 of REVIEW_R2_FOR_THE_OWNER, the owner's decisions, which pass as on the Rows Adapter. With the
 // held-out set for two totals under two groupings (31 cases, 2026-11-19): 4240 cases in 59 sets, none different, and
 // the same wrong views and no others.
+// A case with `without` is labelled for its Query Adapter alone, and runs there in every run, so it is left out here.
 describe("every set on the TanStack Table adapter, with the Mock Provider", () => {
   const ledgerProvider = createMockProvider(mockOptionsFor({ schema: "ledger" }));
   for (const file of caseFiles()) {
     for (const c of loadCases(new URL(`./${file}`, import.meta.url))) {
+      if (c.without) continue;
       it(`${file}: ${c.id}`, async () => {
         const result = await runOnTanStack(c, c.schema === "ledger" ? ledgerProvider : provider);
         expect(result.why, `${c.utterance}\n${JSON.stringify(result.tanstack?.plan, null, 1)}`).toEqual([]);
@@ -973,7 +1021,8 @@ describe("every existing set on a default Query Adapter, with the Mock Provider"
   const ledgerProvider = createMockProvider(mockOptionsFor({ schema: "ledger" }));
   for (const file of caseFiles()) {
     for (const c of loadCases(new URL(`./${file}`, import.meta.url))) {
-      if (queryLeftOut(c)) continue;
+      // A case with `without` runs on its own Query Adapter, in its own set above.
+      if (queryLeftOut(c) || c.without) continue;
       it(`${file}: ${c.id}`, async () => {
         const result = await runOnQueryAdapter(c, file, c.schema === "ledger" ? ledgerProvider : provider);
         const shown = result.leftOut

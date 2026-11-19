@@ -151,7 +151,7 @@ interface RowsAdapter extends GridAdapter {
 }
 ```
 
-`setState` is for the Host's own controls, such as clicking a column header. It receives a copy of the current View State, commits what you return, bumps the revision and notifies subscribers. A subscriber that throws stops neither the change nor the other subscribers: its error is reported the way an event listener's is. A subscriber that changes the view as it is notified makes a newer change, so an apply still returns its own Revision.
+`setState` is for the Host's own controls, such as clicking a column header. It receives a copy of the current View State, commits what you return, bumps the revision and notifies subscribers.
 
 ```tsx
 const [{ adapter, cue }] = useState(() => {
@@ -292,8 +292,8 @@ adapter.setState((s) => ({ ...s, sorts: [{ columnId: "market_value", direction: 
 - **An apply is done when the View State changes.** Your subscription fires, you refetch, and the adapter doesn't wait for the rows. Loading and fetch errors are yours to show, as for a header click. Undo works the same way: `restore` changes the View State, and you refetch.
 - **Revisions.** Every change to the View State, GridCue's or your own, moves the Revision. A Preview made before it is refused as stale, and the User's own change is never overwritten.
 - **It refuses what it doesn't list.** A plan holding an operation the adapter doesn't list is refused with `ADAPTER_NOT_APPLICABLE` and the View State doesn't change, even when the plan didn't pass through the Controller.
-- **A subscriber that throws stops nothing.** If your fetch throws as it starts, GridCue's change still stands, the other subscribers still hear of it, and Undo still works. The error is reported the way an event listener's is, with `reportError` where the runtime has it. Show the fetch error in your table, as for a header click.
-- **A subscriber may change the view.** If yours trims the View State for your server, with `setState` as it is notified, the apply still returns its own Revision, and every subscriber hears of your newer view last. Your change counts as one made after GridCue's, so Undo is refused rather than erasing it. Prefer to adjust the state where you build the Data Query.
+- **Catch your fetch errors in your subscriber.** An error a subscriber throws comes out of the change that notified it: `apply` and `restore` reject with it, and `setState` throws it. The View State has already changed by then, and the subscribers after yours don't hear of that change. Through the Controller the apply fails, and GridCue tries to put the previous view back. Show the fetch error in your table instead, as for a header click.
+- **Adjust the View State where you build the Data Query, not with `setState` in your subscriber.** A subscriber that calls `setState` as it is notified makes a newer change inside GridCue's, even when it returns the state unchanged, and `apply` returns that newer change. Subscribers before yours hear GridCue's change and then yours; subscribers after yours hear only yours, twice. An Undo straight after puts back the view from before GridCue's change, so it takes your change back too.
 
 ### What it never holds
 
@@ -315,11 +315,26 @@ Set it to `true` only when your Data Query does what `applyView` does for a coun
 
 ### without
 
-`without` takes operations out of the ones the adapter lists. It can only remove, so a request that needs one then ends in "This grid can't group rows." or the like, with nothing applied.
+`without` takes operations out of the ones the adapter lists. It can only remove.
 
 ```ts
 createQueryAdapter({ schema, without: ["group.set"] });
 ```
+
+A request, or any part of one, that asks for a change the grid no longer lists ends the whole request in one question with no choices, since no answer makes the grid able to. Nothing applies, the other parts of the request included: the User asked for every change, and showing only some would be a different view. They ask again without it to get the rest. The question depends on the operation:
+
+| Operation in `without` | What the User sees |
+| --- | --- |
+| `sort.set` | "This grid can't sort rows." |
+| `filter.add` | "This grid can't filter rows." |
+| `filter.clear` | "This grid can't clear filters." |
+| `group.set` | "This grid can't group rows." |
+| `columns.hide` | "This grid can't hide columns." |
+| `columns.show` | "This grid can't show hidden columns." |
+| `columns.order` | "This grid can't reorder columns." |
+| `view.reset` | "This grid can't reset the view." |
+
+A request that asks only for changes the grid lists reads as it does on a default Query Adapter. Where GridCue can't be sure the words ask for the removed change, it asks as it does on any grid. A provider's refusal of a part still comes first. See [A grid that can't group](/docs/concepts/requests#a-grid-that-cant-group).
 
 It throws `INPUT_CONFIG`, naming the entry, for:
 

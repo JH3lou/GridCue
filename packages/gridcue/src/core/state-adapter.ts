@@ -6,9 +6,10 @@ import { isApplicable, resultingState } from "./validate";
 /**
  * The shared holder the Rows Adapter and the Query Adapter are built from (more grids spec, 5.4). It holds the View
  * State itself, so a write is done the moment the state changes, and every write notifies the Host's subscribers before
- * it returns. A subscriber's error stops neither the write nor the other subscribers: it is reported, as an event
- * listener's is. A write returns its own Revision, even when a subscriber wrote a newer view on hearing of it (ADR 0031).
- * Internal: no entry exports it.
+ * it returns. Its subscriber rules are the Rows Adapter's, unchanged: an error a subscriber throws comes out of the
+ * write, after the state changed, and the subscribers after it don't hear of that write. A write returns the latest
+ * state, so when a subscriber writes on hearing of a change, the write returns the subscriber's newer one. Internal: no
+ * entry exports it.
  */
 export interface StateAdapter extends GridAdapter {
   /** For the Host's own controls, such as clicking a column header. Bumps the revision. */
@@ -26,39 +27,17 @@ export interface StateAdapterOptions {
   revisionPrefix: string;
 }
 
-/**
- * Reports a subscriber's error as the runtime reports an event listener's: to `reportError` where it has one, and
- * otherwise by throwing it on its own, after the write. Either way the Host sees it, and GridCue's write stands.
- */
-const report = (error: unknown): void => {
-  const reportError = (globalThis as { reportError?: unknown }).reportError;
-  if (typeof reportError === "function") reportError(error);
-  else
-    queueMicrotask(() => {
-      throw error;
-    });
-};
-
 export const createStateAdapter = (options: StateAdapterOptions): StateAdapter => {
   const operations = [...options.operations];
   const defaultState = structuredClone(options.initialState ?? emptyViewState(options.schema.columns.map((c) => c.id)));
   let n = 0;
   let current: VersionedViewState = { revision: `${options.revisionPrefix}:${n}`, state: structuredClone(defaultState) };
   const listeners = new Set<(s: VersionedViewState) => void>();
-  /** Holds the state, tells every subscriber, and returns this write's own Revision. */
+  /** Holds the state, tells each subscriber the latest state, and returns the latest state. */
   const commit = (state: ViewState): VersionedViewState => {
-    const written: VersionedViewState = { revision: `${options.revisionPrefix}:${++n}`, state: structuredClone(state) };
-    current = written;
-    for (const l of listeners) {
-      // A subscriber that wrote a newer view has told every subscriber of it already, so none hears this older one after.
-      if (current !== written) break;
-      try {
-        l(written);
-      } catch (error) {
-        report(error);
-      }
-    }
-    return written;
+    current = { revision: `${options.revisionPrefix}:${++n}`, state: structuredClone(state) };
+    for (const l of listeners) l(current);
+    return current;
   };
   return {
     getSchema: () => options.schema,
@@ -116,11 +95,21 @@ const quotedList = (names: readonly string[]): string => {
 /**
  * The operations an adapter's `renders` lists, in one order whatever the order or repeats in it. Every name the adapter
  * doesn't take throws `INPUT_CONFIG` naming it: with the message `refused` gives for that name, or else one that lists
- * the names `takes` holds.
+ * the names `takes` holds. `nameOf` writes the name for that message; the Rows Adapter passes `String`, as it always has.
  */
 export const renderedOperations = (
   renders: unknown,
-  { adapter, takes, refused = {} }: { adapter: string; takes: readonly RenderedName[]; refused?: Record<string, string> },
+  {
+    adapter,
+    takes,
+    refused = {},
+    nameOf = textOf,
+  }: {
+    adapter: string;
+    takes: readonly RenderedName[];
+    refused?: Record<string, string>;
+    nameOf?: (value: unknown) => string;
+  },
 ): string[] => {
   if (renders === undefined) return [];
   if (!Array.isArray(renders)) throw new GridCueError("INPUT_CONFIG", "renders must be a list, such as [“pinning”, “density”].");
@@ -130,7 +119,7 @@ export const renderedOperations = (
     if (refusal !== undefined) throw new GridCueError("INPUT_CONFIG", refusal);
     throw new GridCueError(
       "INPUT_CONFIG",
-      `renders names “${textOf(name)}”, which ${adapter} doesn't take. It takes ${quotedList(takes)}.`,
+      `renders names “${nameOf(name)}”, which ${adapter} doesn't take. It takes ${quotedList(takes)}.`,
     );
   }
   return (Object.keys(RENDERED) as RenderedName[])
