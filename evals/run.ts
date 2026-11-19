@@ -552,10 +552,11 @@ export const differences = (rows: CaseResult, tanstack: CaseResult): string[] =>
     ["verdict", rows.verdict, tanstack.verdict],
     ["status", rows.status, tanstack.status],
     ["operations", stripIds(rows.plan?.operations ?? []), stripIds(tanstack.plan?.operations ?? [])],
+    // Each choice by its id, which an answer acts on, and its label.
     [
       "questions",
-      (rows.plan?.clarifications ?? []).map((q) => [q.prompt, ...(q.options ?? []).map((o) => o.label)]),
-      (tanstack.plan?.clarifications ?? []).map((q) => [q.prompt, ...(q.options ?? []).map((o) => o.label)]),
+      (rows.plan?.clarifications ?? []).map((q) => [q.prompt, ...(q.options ?? []).map((o) => [o.id, o.label])]),
+      (tanstack.plan?.clarifications ?? []).map((q) => [q.prompt, ...(q.options ?? []).map((o) => [o.id, o.label])]),
     ],
     ["refused", rows.plan?.unsupportedSegments ?? [], tanstack.plan?.unsupportedSegments ?? []],
     ["preview", rows.preview, tanstack.preview],
@@ -564,6 +565,14 @@ export const differences = (rows: CaseResult, tanstack: CaseResult): string[] =>
     .filter(([, a, b]) => !isDeepStrictEqual(a, b))
     .map(([part, a, b]) => `${part}: ${show(a)} on the Rows Adapter, ${show(b)} on TanStack`);
 };
+
+/**
+ * Whether a case fails the TanStack run: a wrong view by its labels, no TanStack result, or a TanStack result that
+ * differs from the Rows Adapter's. With `--live` the two runs ask the model apart, so a difference between two results
+ * is reported and not failed.
+ */
+export const failsTanStackRun = (result: { same: boolean; tanstack?: CaseResult }, { wrong, live }: { wrong: boolean; live: boolean }) =>
+  wrong || !result.tanstack || (!result.same && !live);
 
 /**
  * Runs a case on the Rows Adapter and on the TanStack Table adapter (operation set spec, section 10), with the same

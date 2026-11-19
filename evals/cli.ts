@@ -6,6 +6,7 @@ import { createJevProvider, JEV_SIGNALS, type JevClient, type JevSignal, type Je
 import {
   caseFiles,
   type EvalCase,
+  failsTanStackRun,
   LIVE_ONLY_SETS,
   loadCases,
   mockOptionsFor,
@@ -35,6 +36,11 @@ const signals: Partial<Record<JevSignal, boolean>> = {
 for (const s of Object.keys(signals))
   if (!(JEV_SIGNALS as readonly string[]).includes(s)) throw new Error(`Unknown signal "${s}". Use ${JEV_SIGNALS.join(", ")}.`);
 const setup = [live ? strategy : "", ...Object.entries(signals).map(([s, v]) => `${v ? "+" : "-"}${s}`)].filter(Boolean).join(" ");
+// Exits once everything printed has been written: to a pipe, `process.exit` alone can cut the report off.
+const exit = async (code: number) => {
+  await new Promise<void>((resolve) => process.stdout.write("", () => resolve()));
+  process.exit(code);
+};
 if (live && !process.env.JEV_API_KEY) {
   console.log("Skipping live evals: JEV_API_KEY is not set.");
   process.exit(0);
@@ -178,7 +184,7 @@ const tanStackRun = async (perSet: boolean): Promise<number> => {
         ]++;
       if (!result.same) counts.differs++;
       const wrong = judged && verdict === "unsafe" && !forTheOwner;
-      if (wrong || (!result.same && !live)) failed++;
+      if (failsTanStackRun(result, { wrong, live })) failed++;
       if (wrong) console.log(`UNSAFE on TanStack: ${file}: ${c.id}`);
       if (!result.same) console.log(`DIFFERS on TanStack: ${file}: ${c.id} (“${c.utterance}”)\n    ${result.why.join("\n    ")}`);
       else if (verbose) console.log(`ok on TanStack ${file}: ${c.id} (${verdict})`);
@@ -201,7 +207,7 @@ const tanStackRun = async (perSet: boolean): Promise<number> => {
 };
 
 // `--adapter=tanstack` runs every set on the TanStack Table adapter and the Rows Adapter, one table for each set.
-if (flag("adapter") === "tanstack") process.exit((await tanStackRun(true)) > 0 ? 1 : 0);
+if (flag("adapter") === "tanstack") await exit((await tanStackRun(true)) > 0 ? 1 : 0);
 if (flag("adapter") !== undefined && flag("adapter") !== "rows")
   throw new Error(`Unknown adapter "${flag("adapter")}". Use rows or tanstack.`);
 
@@ -693,6 +699,6 @@ const mockMustMatch = [
 // twice for each case, so it runs only when asked for, with `--adapter=tanstack`.
 const tanStackFailed = live ? 0 : await tanStackRun(false);
 if (live) console.log("GridCue evals on the TanStack Table adapter: not run with --live. Run it with --adapter=tanstack.");
-if (tanStackFailed > 0) process.exit(1);
-if (all.some((counts) => (counts?.unsafe ?? 0) > 0) || (!live && mockMustMatch.some((counts) => counts.mismatch > 0))) process.exit(1);
-if (strict && all.some((counts) => (counts?.mismatch ?? 0) > 0)) process.exit(1);
+if (tanStackFailed > 0) await exit(1);
+if (all.some((counts) => (counts?.unsafe ?? 0) > 0) || (!live && mockMustMatch.some((counts) => counts.mismatch > 0))) await exit(1);
+if (strict && all.some((counts) => (counts?.mismatch ?? 0) > 0)) await exit(1);

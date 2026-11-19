@@ -7,6 +7,7 @@ import {
   caseFiles,
   caseSchemaFor,
   differences,
+  failsTanStackRun,
   judge,
   LIVE_ONLY_SETS,
   loadCases,
@@ -934,7 +935,9 @@ describe("every existing set on a grid without group.set, with the Mock Provider
 // view by its labels, except in the live-only sets, which the Mock Provider is not judged on and which are held to the
 // Rows Adapter's result alone. First run (2026-11-19): 4019 cases, none different, no wrong view outside those sets.
 // With the review fixes' two held-out sets (133 and 57 cases): 4209 cases in 58 sets, none different, no wrong view
-// outside them but the 8 of REVIEW_R2_FOR_THE_OWNER, the owner's decisions, which pass as on the Rows Adapter.
+// outside them but the 8 of REVIEW_R2_FOR_THE_OWNER, the owner's decisions, which pass as on the Rows Adapter. With the
+// held-out set for two totals under two groupings (31 cases, 2026-11-19): 4240 cases in 59 sets, none different, and
+// the same wrong views and no others.
 describe("every set on the TanStack Table adapter, with the Mock Provider", () => {
   const ledgerProvider = createMockProvider(mockOptionsFor({ schema: "ledger" }));
   for (const file of caseFiles()) {
@@ -968,6 +971,39 @@ describe("the TanStack run", () => {
     expect(differences(rows, rows)).toEqual([]);
     const other = { ...rows, status: "unsupported" as const, verdict: "rejected" as const };
     expect(differences(rows, other).map((line) => line.split(":")[0])).toEqual(["verdict", "status"]);
+  });
+
+  it("tells apart a choice with the same label and another id, which an answer acts on", async () => {
+    let rows: Awaited<ReturnType<typeof runCase>> | undefined;
+    for (const c of loadCases(new URL("./cases-count.jsonl", import.meta.url))) {
+      rows = await runCase(c, provider);
+      if (rows.plan?.clarifications.some((q) => q.options?.length)) break;
+    }
+    const question = rows?.plan?.clarifications.find((q) => q.options?.length);
+    if (!rows?.plan || !question?.options) throw new Error("no count case asks a question with choices");
+    const renamed = {
+      ...question,
+      options: question.options.map((o, i) => (i === 0 ? { ...o, id: `${o.id}-other` } : o)),
+    };
+    const other = {
+      ...rows,
+      plan: { ...rows.plan, clarifications: rows.plan.clarifications.map((q) => (q === question ? renamed : q)) },
+    };
+    expect(differences(rows, other).map((line) => line.split(":")[0])).toEqual(["questions"]);
+  });
+
+  it("fails a case with no TanStack result, with --live too, and only reports a difference between two live runs", async () => {
+    const c = loadCases(new URL("./cases-count.jsonl", import.meta.url))[0];
+    if (!c) throw new Error("no count case");
+    const rows = await runCase(c, provider);
+    for (const live of [false, true]) {
+      // The table couldn't start from the case's view: there is nothing to judge.
+      expect(failsTanStackRun({ same: false }, { wrong: false, live }), `live ${live}`).toBe(true);
+      expect(failsTanStackRun({ same: true, tanstack: rows }, { wrong: false, live }), `live ${live}`).toBe(false);
+      expect(failsTanStackRun({ same: true, tanstack: rows }, { wrong: true, live }), `live ${live}`).toBe(true);
+    }
+    expect(failsTanStackRun({ same: false, tanstack: rows }, { wrong: false, live: false })).toBe(true);
+    expect(failsTanStackRun({ same: false, tanstack: rows }, { wrong: false, live: true })).toBe(false);
   });
 });
 

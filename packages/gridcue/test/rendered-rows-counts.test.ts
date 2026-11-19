@@ -253,13 +253,15 @@ describe("Counted with a count: a null text cell in a sorted column", () => {
   const textual = (schema: ViewSchema) =>
     new Set(schema.columns.filter((c) => ["string", "enum", "date", "datetime"].includes(c.kind)).map((c) => c.id));
   for (const set of nullText) {
-    it(`${set.name}: the same rows are kept in every view; any view that differs sorts by a text column holding null`, async () => {
+    it(`${set.name}: the same rows are kept in every view; any view that differs, differs in row order and sorts by a text column holding null`, async () => {
       const { tally, failures, kept } = await drawAll(set, SEEDS);
       console.log(`rendered rows with a count and null text, ${set.name}: ${JSON.stringify(tally)}`);
       expect(kept.map(describeFailure)).toEqual([]);
       const text = textual(set.schema);
+      // Only a row order is explained: a total or a group that differs is not.
       const unexplained = failures.filter(
-        ({ state }) => !state.sorts.some((s) => text.has(s.columnId) && set.rows.some((r) => r[s.columnId] === null)),
+        ({ state, why }) =>
+          !/: row order$/.test(why) || !state.sorts.some((s) => text.has(s.columnId) && set.rows.some((r) => r[s.columnId] === null)),
       );
       expect(unexplained.map(describeFailure)).toEqual([]);
       if (!GIVEN) expect(tally.different).toBe(NULL_TEXT_DIFFERENT[set.name]);
@@ -272,13 +274,14 @@ const NULL_TEXT_DIFFERENT: Record<string, number> = { wealth: 8, ledger: 17 };
 describe("Counted with a count: a null beside a 0 in a sorted number column", () => {
   const zeros = SETS.map(withZerosBesideNull);
   for (const set of zeros) {
-    it(`${set.name}: the same rows are kept in every view; any view that differs sorts by a column holding null and 0`, async () => {
+    it(`${set.name}: the same rows are kept in every view; any view that differs, differs in row order and sorts by a column holding null and 0`, async () => {
       const both = nullAndZeroColumns(set);
       expect(both.size).toBeGreaterThan(0);
       const { tally, failures, kept } = await drawAll(set, SEEDS);
       console.log(`rendered rows with a count and zeros beside null, ${set.name}: ${JSON.stringify(tally)}`);
       expect(kept.map(describeFailure)).toEqual([]);
-      const unexplained = failures.filter(({ state }) => !state.sorts.some((s) => both.has(s.columnId)));
+      // Only a row order is explained: a total or a group that differs is not.
+      const unexplained = failures.filter(({ state, why }) => !/: row order$/.test(why) || !state.sorts.some((s) => both.has(s.columnId)));
       expect(unexplained.map(describeFailure)).toEqual([]);
       if (!GIVEN) expect(tally.different).toBe(NULL_ZERO_DIFFERENT[set.name]);
     }, 60_000);
