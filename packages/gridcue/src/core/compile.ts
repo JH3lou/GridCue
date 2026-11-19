@@ -1739,10 +1739,16 @@ export const compile = (c: CompileInput): ViewPlan => {
           // unless this part says to add to them: "also", "only those", "narrow it down" (ADR 0017). The request's
           // first filtering part decides; filters within one request always combine. One clear per plan, and none
           // after a reset or clear the request already asked for.
+          // A Local Value's words are its own: "Riley As Well" or "Further Lane" never says to keep the filters. They stand
+          // as one plain word, so "also" still goes with the value after it: "also Avery Lane's accounts".
+          const ownWords = readFilters.reduce(
+            (text, r) => (r.kind === "value" ? text.slice(0, r.start) + "x".repeat(r.end - r.start) + text.slice(r.end) : text),
+            clause.text,
+          );
           const replacing =
             predicates.length > 0 &&
             predicatesIn(c.state.filters) > 0 &&
-            !keepsFilters(clause.text) &&
+            !keepsFilters(ownWords) &&
             !operations.some((o) => o.type === "filter.add" || o.type === "filter.clear" || o.type === "view.reset");
           if (replacing) {
             operations.push({ type: "filter.clear" });
@@ -2135,7 +2141,8 @@ const asNamedValue = (r: CodeReadFilter, clause: Clause): Mention => ({
 interface LocalChoice {
   start: number;
   end: number;
-  values: readonly LocalValueRef[];
+  /** A tie's values carry their own words; one word's choices are read at the word. */
+  values: ReadonlyArray<LocalValueRef & { start?: number; end?: number }>;
   names: readonly DeclaredName[];
   word?: { word: string; count: number; columns: ReadonlyArray<{ columnId: string; count: number }> };
 }
@@ -2270,7 +2277,12 @@ const unlistedValues = (
   found.forEach((r, i) => {
     const before = found[i - 1];
     const list = lists.at(-1);
-    if (before && list && LISTED_BETWEEN.test(clause.text.slice(before.end, r.start))) list.push(r);
+    const between = clause.text.slice(before?.end ?? 0, r.start);
+    // Two values that each follow their column's name are two conditions, unless "or" alone joins them: "advisor is
+    // Avery Lane and advisor is Blake Moreno" gives the same rows two values.
+    const conditions =
+      !!before && columnNamed(clause, before, mentions) && columnNamed(clause, r, mentions) && !/^\W*or\W*$/u.test(between);
+    if (before && list && !conditions && LISTED_BETWEEN.test(between)) list.push(r);
     else lists.push([r]);
   });
   const listsOf = new Map<string, Set<number>>();
@@ -2379,7 +2391,13 @@ const localReading = (
       const picked = answer === undefined ? undefined : /^([vn])(\d+)$/.exec(answer);
       const value = picked?.[1] === "v" ? choice.values[Number(picked[2])] : undefined;
       if (value) {
-        hits.push({ start: choice.start, end: choice.end, columnId: value.columnId, value: value.value });
+        // A value picked from a tie sits at its own words, so the tie's other words are still placed or asked about.
+        hits.push({
+          start: value.start ?? choice.start,
+          end: value.end ?? choice.end,
+          columnId: value.columnId,
+          value: value.value,
+        });
         continue;
       }
       // A declared name: the words are read as they are with no Local Values.

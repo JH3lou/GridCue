@@ -29,7 +29,8 @@ export interface ControllerState {
  * Where GridCue reads Local Values from (named filters spec, 5.4; ADR 0025): for each text column the Host names, a
  * function that returns that column's values from the grid's own rows. For a grid that pages, that is the Host's own
  * list, not the page. GridCue calls each function when a request is made, in the User's browser, and keeps its index
- * while the function returns the same array. Nothing about the values is sent to an Intent Provider.
+ * while the function returns the same array, so a Host returns a new array when its values change: a change made in
+ * place to the same array is not seen. Nothing about the values is sent to an Intent Provider.
  */
 export type LocalValues = Record<string, () => readonly unknown[]>;
 
@@ -367,6 +368,8 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
             try {
               columns = readLocalValues();
             } catch {
+              // A function that cancelled this request, or made a newer one, before it threw leaves that state alone.
+              if (controller.signal.aborted) return stopped();
               set({
                 status: "error",
                 message: LOCAL_VALUES_FAILED,
@@ -375,6 +378,7 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
               return null;
             }
             localValues = readLocalValueParts(input, mentions, codeRead, schema, columns);
+            if (controller.signal.aborted) return stopped();
           }
           const raw = await Promise.race([provider.resolve(request, controller.signal), abandoned]);
           if (controller.signal.aborted) return stopped();
