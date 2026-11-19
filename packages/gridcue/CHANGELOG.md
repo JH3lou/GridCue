@@ -8,6 +8,7 @@
 - A change handler must store exactly the value it is given, and set it within 1,000 ms. One that adds to the value, or sets it later, makes the apply fail. The guide says what the User then sees.
 - The Revision an apply returns is the one the table had when it first held the write. A change made after that, even in the same tick, makes undo stale, so undo never erases it.
 - When a wait fails, the Controller puts the previous view back only if every part of the view still holds its old value or the value the plan wrote. If the User sorts by a header during the wait, their sort stays and the message says the view changed meanwhile. The visible columns are judged as a set, so a write that stops after the column order but before the visibility is still put back.
+- The filters are judged grouped by column, as a TanStack table holds them. A failed apply that added a second filter on a column, ahead of another column's filter, was left half applied with "the view changed meanwhile". Now the previous view is back.
 - `GridAdapter.apply` and `restore` document the rule, and the shared adapter contract suite gains "applies, then undoes". A custom adapter whose grid updates later must wait for it too. The Site's TanStack and adapter guides say so.
 
 **Counts** (ADR 0027)
