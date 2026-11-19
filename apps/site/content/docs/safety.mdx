@@ -7,7 +7,7 @@ GridCue puts a model near a screen where people make decisions, so its limits ar
 
 ## View only
 
-GridCue changes the **view**: filters, sorts, grouping, which columns show and in what order, and reset. It never edits cells, places trades, sends messages, exports or copies data, navigates to other screens, or starts workflows. It does not compute answers or aggregate.
+GridCue changes the **view**: filters, sorts, grouping, totals, which columns show and in what order, pins, density, and reset. It never edits cells, places trades, sends messages, exports or copies data, navigates to other screens, or starts workflows. It does not answer questions about your data. The one sum it shows is a **Total**: the totals row your own grid draws, a sum or an average of one column of the rows your grid already holds, worked out in your app, and nothing is sent to a provider. A request such as "how much does each advisor manage" is not a request for a total, and GridCue doesn't answer it.
 
 A request that asks for one of those things contains an **Unsupported Segment**, and the whole request is refused, even if part of it was a valid view change. "Show restricted holdings and place the trades" applies nothing. The User is told why and can remove the part GridCue can't do.
 

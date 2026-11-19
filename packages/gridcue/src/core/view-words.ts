@@ -1,16 +1,20 @@
-import type { Mention } from "./mentions";
+import { isExposed } from "./columns";
+import { type Mention, matchMentions } from "./mentions";
 import type { Clause } from "./normalize";
 import type { ViewOperation, ViewSchema } from "./protocol";
+import { escapeRegExp } from "./text-match";
+import { totalKindIssue } from "./validate";
 
 /**
  * View words: the small, closed set of words code reads itself (ADR 0028). A Clause is read whole or not at all. One
  * word left over and it is not read, and the Clause goes to the provider exactly as it does today.
  *
- * One exception keeps a part's words together where the provider request can't split them: "pin", "unpin", "freeze"
- * and a density start no part (`normalize` splits a request only before its own verbs, and a new split would change
- * the request an Intent Provider is sent). So a pin, unpin or density form said after "and" or a comma at the end of a
- * part is read on its own, from the joining word to the part's end ("group by advisor and pin advisor"). Those words
- * are read whole too: one word left over in them and nothing is read.
+ * One exception keeps a part's words together where the provider request can't split them: "pin", "unpin", "freeze",
+ * a density and a total start no part (`normalize` splits a request only before its own verbs, and a new split would
+ * change the request an Intent Provider is sent). So a pin, unpin, density or totals form said after "and" or a comma at
+ * the end of a part is read on its own, from the joining word to the part's end ("group by advisor and pin advisor",
+ * "group by advisor and total market value"). Those words are read whole too: one word left over in them and nothing is
+ * read.
  */
 export interface ViewWordsReading {
   /**
@@ -18,8 +22,8 @@ export interface ViewWordsReading {
    * that names no column ("unpin all", "unpin everything") unpins every pinned column: the compiler names them.
    */
   operations: ViewOperation[];
-  /** Where the words that were read sit in the Clause's text. */
-  spans: Array<{ start: number; end: number; kind: "verb" | "column" | "count" | "density" | "position" }>;
+  /** Where the words that were read sit in the Clause's text. "Total" is a total's own word: "total", "sum", "average". */
+  spans: Array<{ start: number; end: number; kind: "verb" | "column" | "count" | "density" | "position" | "total" }>;
   /**
    * Set when only the end of the Clause is read: where its joining "and" or comma starts. The words before it are the
    * provider's, as before. Left out when the whole Clause is read.
@@ -54,6 +58,14 @@ const SPAN_KINDS = ["verb", "count"] as const;
  */
 const PIN_VERBS = ["pin", "freeze"] as const;
 const UNPIN_VERBS = ["unpin"] as const;
+/**
+ * The totals forms (spec 5.2; ADR 0030), as narrow as the pins: "total X", "sum of X", "show the total of X", "show
+ * total X", "average X", "show the average of X", each with "also" before it if the User likes; "total X by Y", "sum of
+ * X by Y" and "average X by Y", which group by Y too; and "remove the totals", "clear the totals", "no totals". X is a
+ * column a sum or an average fits (`totalKindIssue`): a number or currency column for a sum, also a percent column for
+ * an average. "Per", "mean", "avg" and "X totals" read nothing. A word joins only on held-out evidence.
+ */
+const TOTAL_VERBS: Readonly<Record<string, "sum" | "avg">> = { total: "sum", sum: "sum", average: "avg" };
 /** "Left" and "right" pin to the start and the end, which assumes a left-to-right grid. */
 const POSITIONS: Readonly<Record<string, "start" | "end">> = { start: "start", left: "start", end: "end", right: "end" };
 const DENSITIES: ReadonlySet<string> = new Set(["compact", "comfortable", "spacious"]);
@@ -85,6 +97,43 @@ const declaredNames = (schema: ViewSchema): string[][] => {
 /** Whether `name` is written whole, word for word, somewhere in `words`. */
 const holds = (words: readonly string[], name: readonly string[]): boolean =>
   words.some((_, at) => name.every((word, i) => words[at + i] === word));
+
+/** A totals word a column follows in "total X by Y", "sum of X by Y" or "average X by Y". */
+const TOTAL_THEN_COLUMN = /(?<![\p{L}\p{N}])(?:total|average|sum of)\s+/gu;
+
+/**
+ * The part's own Mentions, with the column of a totals form said before "by" ("total market value by advisor"). The
+ * Mention rules read a name right before "by" as the rows ("sort households by …"), so that column is no Mention. Here
+ * it sits in the form's own column slot, right after "total", "sum of" or "average", so the same rules are run on the
+ * totals word and the words after it up to "by", and a column they find filling all of those words is the form's.
+ * Nothing else changes: the Mentions sent to the provider are the caller's.
+ */
+const ownMentions = (clause: Clause, mentions: readonly Mention[], schema: ViewSchema): Mention[] => {
+  const own = mentions.filter((m) => m.clauseIndex === clause.index);
+  if (!/\bby\b/.test(clause.text)) return own;
+  const slots: Mention[] = [];
+  // The same words are matched once.
+  const matched = new Map<string, Mention | undefined>();
+  const exposed = schema.columns.filter(isExposed);
+  for (const word of clause.text.matchAll(TOTAL_THEN_COLUMN)) {
+    const from = word.index ?? 0;
+    const name = from + word[0].length;
+    const by = /\s+by\b/.exec(clause.text.slice(name, name + 200));
+    if (!by) continue;
+    const at = name + by.index;
+    if (own.some((o) => o.start < at && o.end > name)) continue;
+    const text = clause.text.slice(from, at);
+    if (!matched.has(text)) {
+      const found = matchMentions([{ ...clause, text, literals: [] }], exposed, { rowNoun: schema.rowNoun }).find(
+        (m) => m.valueId === undefined && m.start === word[0].length && m.end === text.length,
+      );
+      matched.set(text, found);
+    }
+    const found = matched.get(text);
+    if (found) slots.push({ ...found, clauseIndex: clause.index, start: name, end: at });
+  }
+  return slots.length === 0 ? own : [...own, ...slots].sort((a, b) => a.start - b.start);
+};
 
 /** A word of the part, a column a Mention names, another Mention (never a form word), or a comma. */
 type Token =
@@ -137,7 +186,8 @@ const tokensOf = (clause: Clause, own: readonly Mention[], schema: ViewSchema, r
   const tokens: Token[] = [];
   const spelled: Mention[] = [];
   const kept = own.flatMap((m) => {
-    if (raw && holdsFormWord(clause.text.slice(m.start, m.end))) {
+    const said = clause.text.slice(m.start, m.end);
+    if (raw && (holdsFormWord(said) || holdsTotalWord(said))) {
       spelled.push(m);
       return [];
     }
@@ -166,14 +216,38 @@ const tokensOf = (clause: Clause, own: readonly Mention[], schema: ViewSchema, r
 
 /** A column a read form names that may mean the rows, where it sits, and the verb it is said with. */
 type Doubt = { columnId: string; start: number; end: number; verb: "pin" | "unpin" };
-type Read = { operations: ViewOperation[]; spans: ViewWordsReading["spans"]; end: number; doubts: Doubt[] };
+/**
+ * A total a read form asks for that doesn't fit its column's kind (ADR 0030): "total concentration", "average opened".
+ * `fits` is the total that does, where one does: an average for a percent column. The form's operations hold that one.
+ */
+export interface TotalMisfit {
+  columnId: string;
+  asked: "sum" | "avg";
+  fits?: "avg";
+}
+/**
+ * A totals form said right after a clear, with no verb of its own: "remove the totals and total market value". The
+ * clear's verb may take those words too, so the User may ask for no totals at all. Where they sit, and the total.
+ */
+type RunsOn = { start: number; end: number; fn: "sum" | "avg" };
+type Read = {
+  operations: ViewOperation[];
+  spans: ViewWordsReading["spans"];
+  end: number;
+  doubts: Doubt[];
+  misfits: TotalMisfit[];
+  runsOn?: RunsOn;
+};
 
 /**
  * A reader of the forms in `t`: from a token, the forms joined by "and" or a comma, to the end; `undefined` unless every
  * token is read. A start that fails is remembered with every start its forms led to, since each of those fails too, so
  * looking for the end of a part reads each token once or twice, however long the part.
  */
-const formsReader = (t: readonly Token[]): { read: (i: number) => Read | undefined; form: (at: number) => Read | undefined } => {
+const formsReader = (
+  t: readonly Token[],
+  schema: ViewSchema,
+): { read: (i: number) => Read | undefined; form: (at: number) => Read | undefined } => {
   const word = (at: number) => {
     const token = t[at];
     return token?.kind === "word" ? token.text : undefined;
@@ -224,6 +298,7 @@ const formsReader = (t: readonly Token[]): { read: (i: number) => Read | undefin
         spans: [span(at, at, "verb"), ...list.spans, ...(position ? [span(list.end, list.end + 2, "position")] : [])],
         end: position ? list.end + 3 : list.end,
         doubts: list.doubts,
+        misfits: [],
       };
     }
     if (verb === "unpin") {
@@ -234,6 +309,7 @@ const formsReader = (t: readonly Token[]): { read: (i: number) => Read | undefin
           spans: [span(at, at, "verb"), span(at + 1, at + all - 1, "column")],
           end: at + all,
           doubts: [],
+          misfits: [],
         };
       }
       const list = columns(at + 1, "unpin");
@@ -243,8 +319,11 @@ const formsReader = (t: readonly Token[]): { read: (i: number) => Read | undefin
         spans: [span(at, at, "verb"), ...list.spans],
         end: list.end,
         doubts: list.doubts,
+        misfits: [],
       };
     }
+    const totals = totalsForm(at);
+    if (totals) return totals;
     // "Use compact density", in the Preview's own words.
     const density = verb === "use" ? word(at + 1) : verb;
     if (density && DENSITIES.has(density)) {
@@ -256,21 +335,117 @@ const formsReader = (t: readonly Token[]): { read: (i: number) => Read | undefin
         spans: [...(verb === "use" ? [span(at, at, "verb")] : []), span(first, first + 1, "density")],
         end: first + 2,
         doubts: [],
+        misfits: [],
       };
     }
     return undefined;
   };
+  // The column a totals form names: one column a Mention names, never one that may mean the rows.
+  const columnAt = (k: number) => {
+    const token = t[k];
+    return token?.kind === "column" && token.doubt !== "never" ? token : undefined;
+  };
+  // The totals forms (spec 5.2): see TOTAL_VERBS.
+  const totalsForm = (at: number): Read | undefined => {
+    // "Remove the totals", "clear the totals", "no totals".
+    const clearing = word(at);
+    if ((clearing === "remove" || clearing === "clear") && word(at + 1) === "the" && word(at + 2) === "totals") {
+      return {
+        operations: [{ type: "aggregation.set", aggregations: [] }],
+        spans: [span(at, at, "verb"), span(at + 2, at + 2, "total")],
+        end: at + 3,
+        doubts: [],
+        misfits: [],
+      };
+    }
+    if (clearing === "no" && word(at + 1) === "totals") {
+      return {
+        operations: [{ type: "aggregation.set", aggregations: [] }],
+        spans: [span(at, at, "verb"), span(at + 1, at + 1, "total")],
+        end: at + 2,
+        doubts: [],
+        misfits: [],
+      };
+    }
+    // "Also" before a total: a new total is always added to the view's.
+    const start = word(at) === "also" ? at + 1 : at;
+    const spans: ViewWordsReading["spans"] = [];
+    let k = start;
+    let fn: "sum" | "avg" | undefined;
+    // Whether "by Y" may follow: only "total X", "sum of X" and "average X".
+    let bare = true;
+    if (word(k) === "show") {
+      // "Show the total of X", "show the average of X", "show total X".
+      spans.push(span(k, k, "verb"));
+      bare = false;
+      if (word(k + 1) === "the" && (word(k + 2) === "total" || word(k + 2) === "average") && word(k + 3) === "of") {
+        fn = TOTAL_VERBS[word(k + 2) ?? ""];
+        spans.push(span(k + 2, k + 2, "total"));
+        k += 4;
+      } else if (word(k + 1) === "total") {
+        fn = "sum";
+        spans.push(span(k + 1, k + 1, "total"));
+        k += 2;
+      } else return undefined;
+    } else if (word(k) === "sum" && word(k + 1) === "of") {
+      fn = "sum";
+      spans.push(span(k, k, "total"));
+      k += 2;
+    } else if (word(k) === "total" || word(k) === "average") {
+      fn = TOTAL_VERBS[word(k) ?? ""];
+      spans.push(span(k, k, "total"));
+      k += 1;
+    }
+    const x = fn && columnAt(k);
+    if (!fn || !x) return undefined;
+    spans.push({ start: x.start, end: x.end, kind: "column" });
+    k += 1;
+    // "By Y": Y is the grouping, and is never X.
+    let by: string | undefined;
+    if (bare && word(k) === "by") {
+      const y = columnAt(k + 1);
+      if (!y || y.columnId === x.columnId) return undefined;
+      by = y.columnId;
+      spans.push({ start: y.start, end: y.end, kind: "column" });
+      k += 2;
+    }
+    // A total that doesn't fit the column's kind is read, and marked: the compiler asks (ADR 0030).
+    const col = schema.columns.find((c) => c.id === x.columnId);
+    const misfit = col && totalKindIssue(col, fn) !== undefined;
+    const fits = misfit && fn === "sum" && col && totalKindIssue(col, "avg") === undefined ? "avg" : undefined;
+    const said = fits ?? fn;
+    return {
+      operations: [
+        ...(by === undefined ? [] : [{ type: "group.set" as const, columnIds: [by] }]),
+        { type: "aggregation.set", aggregations: [{ columnId: x.columnId, function: said }] },
+      ],
+      spans,
+      end: k,
+      doubts: [],
+      misfits: misfit ? [{ columnId: x.columnId, asked: fn, ...(fits ? { fits } : {}) }] : [],
+    };
+  };
   const fails = new Set<number>();
   const read = (i: number) => {
-    const read: Read = { operations: [], spans: [], end: i, doubts: [] };
+    const read: Read = { operations: [], spans: [], end: i, doubts: [], misfits: [] };
     const starts: number[] = [];
+    let cleared = false;
     for (let at = i; !fails.has(at); ) {
       starts.push(at);
       const one = form(at);
       if (!one) break;
+      // A clear's verb ("remove", "clear", "no") may take the totals form after it too, unless that form says its own
+      // verb ("show the total of X").
+      const added = one.operations.find((op) => op.type === "aggregation.set" && op.aggregations.length > 0);
+      if (cleared && !read.runsOn && added?.type === "aggregation.set" && one.spans[0]?.kind !== "verb") {
+        const fn = one.misfits[0]?.asked ?? (added.aggregations[0]?.function === "avg" ? "avg" : "sum");
+        read.runsOn = { start: t[at]?.start ?? 0, end: t[one.end - 1]?.end ?? 0, fn };
+      }
+      cleared = one.operations.length === 1 && one.operations[0]?.type === "aggregation.set" && one.operations[0].aggregations.length === 0;
       read.operations.push(...one.operations);
       read.spans.push(...one.spans);
       read.doubts.push(...one.doubts);
+      read.misfits.push(...one.misfits);
       read.end = one.end;
       if (one.end === t.length) return read;
       let j = t[one.end]?.kind === "comma" ? one.end + 1 : one.end;
@@ -285,12 +460,12 @@ const formsReader = (t: readonly Token[]): { read: (i: number) => Read | undefin
 };
 
 /**
- * The pin, unpin and density forms in a part: the whole part, or failing that its end after "and" or a comma. With
+ * The pin, unpin, density and totals forms in a part: the whole part, or failing that its end after "and" or a comma. With
  * the start of the read words, and whether a Host's declared name is written whole among them.
  */
 const readPinsAndDensity = (tokens: readonly Token[], clause: Clause, schema: ViewSchema) => {
   const isAnd = (token: Token | undefined) => token?.kind === "word" && token.text === "and";
-  const readForms = formsReader(tokens).read;
+  const readForms = formsReader(tokens, schema).read;
   // The end of a part is read from the first joining word after which the rest reads whole.
   const after = (k: number) => readForms(tokens[k]?.kind === "comma" && isAnd(tokens[k + 1]) ? k + 2 : k + 1);
   let read = readForms(0);
@@ -325,14 +500,14 @@ const readPinsAndDensity = (tokens: readonly Token[], clause: Clause, schema: Vi
  *   Mention rules made of it, or
  * - a count form's own noun is a word of one of the Host's names ("remove the count" beside a "Trade count" column).
  *
- * The pin, unpin and density forms may also be read at the end of a part, after "and" or a comma; `from` then says
+ * The pin, unpin, density and totals forms may also be read at the end of a part, after "and" or a comma; `from` then says
  * where. The reading is returned, never stored on the Clause: the provider request is built from the Clause, and it
  * must not change.
  */
 export const readViewWords = (clause: Clause, mentions: readonly Mention[], schema: ViewSchema): ViewWordsReading | undefined => {
   // What a clear says to keep, and a part that continues a sort or grouping, are read by their own rules.
   if (clause.keeps || clause.continues) return undefined;
-  const own = mentions.filter((m) => m.clauseIndex === clause.index);
+  const own = ownMentions(clause, mentions, schema);
   if (own.length === 0) {
     for (const form of FORMS) {
       const match = form.words.exec(clause.text);
@@ -350,8 +525,32 @@ export const readViewWords = (clause: Clause, mentions: readonly Mention[], sche
   }
   const tokens = tokensOf(clause, own, schema, false)?.tokens;
   const found = tokens && readPinsAndDensity(tokens, clause, schema);
-  if (!found || found.named || found.read.doubts.length > 0) return undefined;
+  if (!found || found.named || found.read.doubts.length > 0 || found.read.misfits.length > 0 || found.read.runsOn) return undefined;
   return { operations: found.read.operations, spans: found.read.spans, ...(found.from > 0 ? { from: found.from } : {}) };
+};
+
+/**
+ * A part whose words read as forms but for a total that doesn't fit its column's kind (ADR 0030): "total
+ * concentration", "average opened by advisor". With the first such total, where the words start (0 for the whole
+ * part), and the reading with the total that fits in its place, where one fits. `undefined` when no form is read, or
+ * every total fits. The compiler asks, and never reads such words another way.
+ */
+export const totalsMisfit = (
+  clause: Clause,
+  mentions: readonly Mention[],
+  schema: ViewSchema,
+): { misfit: TotalMisfit; from: number; reading: ViewWordsReading } | undefined => {
+  if (clause.keeps || clause.continues) return undefined;
+  const own = ownMentions(clause, mentions, schema);
+  const tokens = tokensOf(clause, own, schema, false)?.tokens;
+  const found = tokens && readPinsAndDensity(tokens, clause, schema);
+  const misfit = found?.read.misfits[0];
+  if (!found || !misfit || found.named || found.read.doubts.length > 0 || found.read.runsOn) return undefined;
+  return {
+    misfit,
+    from: found.from,
+    reading: { operations: found.read.operations, spans: found.read.spans, ...(found.from > 0 ? { from: found.from } : {}) },
+  };
 };
 
 /** The words a form was read from, without the joining "and" or comma before them. */
@@ -365,21 +564,28 @@ const saidFrom = (clause: Clause, from: number) => clause.text.slice(from).repla
  *   ask for the density or name the Host's value. `named` is the change they would ask for: on a grid that doesn't
  *   list it, the words can only be the Host's name, and the caller reads the part as before;
  * - a column that may mean the rows: the Row Noun ("freeze the account column"), a name the Host didn't write that way
- *   ("pin households"), or a yes/no column's name without "column" after it ("pin restricted").
+ *   ("pin households"), or a yes/no column's name without "column" after it ("pin restricted");
+ * - a totals form said right after a clear, with no verb of its own: "remove the totals and total market value" may
+ *   remove that total too. `named` is `aggregation.set`.
  */
 export const viewWordsQuestion = (
   clause: Clause,
   mentions: readonly Mention[],
   schema: ViewSchema,
-): { prompt: string; from: number; named?: "columns.pin" | "density.set" } | undefined => {
+): { prompt: string; from: number; named?: "columns.pin" | "density.set" | "aggregation.set" } | undefined => {
   if (clause.keeps || clause.continues) return undefined;
-  const own = mentions.filter((m) => m.clauseIndex === clause.index);
+  const own = ownMentions(clause, mentions, schema);
   const plain = tokensOf(clause, own, schema, false);
   const read = plain && readPinsAndDensity(plain.tokens, clause, schema);
   const doubt = read && !read.named ? read.read.doubts[0] : undefined;
-  if (read && !read.named && !doubt) return undefined;
+  const runsOn = read && !read.named ? read.read.runsOn : undefined;
+  if (read && !read.named && !doubt && !runsOn) return undefined;
   if (read && doubt) {
     return { prompt: rowsOrColumn(clause.text.slice(doubt.start, doubt.end), doubt.columnId, doubt.verb, schema), from: read.from };
+  }
+  // On a grid that doesn't list totals, the request ends in "This grid can't show totals." instead.
+  if (read && runsOn) {
+    return { prompt: removesToo(clause.text.slice(runsOn.start, runsOn.end), runsOn.fn), from: read.from, named: "aggregation.set" };
   }
   // Read again with the Host's names that hold a form word written out as words. A declared name with no Mention is
   // already words here.
@@ -390,13 +596,21 @@ export const viewWordsQuestion = (
   const words = wordsOf(clause.text.slice(spelled.from));
   const name = mention ? clause.text.slice(mention.start, mention.end) : declaredNamesWritten(schema).find((n) => holds(words, wordsOf(n)));
   if (!name || (!mention && !spelled.named)) return undefined;
-  const type = spelled.read.operations[0]?.type;
+  const ops = spelled.read.operations;
+  const type = ops.some((op) => op.type === "aggregation.set") ? "aggregation.set" : ops[0]?.type;
   return {
     prompt: nameQuestion(name, saidFrom(clause, spelled.from)),
     from: spelled.from,
-    ...(type === "columns.pin" || type === "density.set" ? { named: type } : {}),
+    ...(type === "columns.pin" || type === "density.set" || type === "aggregation.set" ? { named: type } : {}),
   };
 };
+
+/**
+ * The question for a total said after a clear, with no verb of its own: "remove the totals and total market value"
+ * may remove that total too. `said` is the total's words.
+ */
+export const removesToo = (said: string, fn: "sum" | "avg"): string =>
+  `GridCue can't tell whether “${said}” is one more thing to remove. To show the ${fn === "avg" ? "average" : "total"}, ask for it on its own.`;
 
 /** The question for words that would read as a form but for `name`, one of the Host's names. */
 export const nameQuestion = (name: string, said: string): string =>
@@ -437,6 +651,10 @@ export const pinListRunsOn = (
 };
 
 const holdsFormWord = (text: string): boolean => (text.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []).some((w) => FORM_WORDS.has(w));
+/** Whether a name holds a word that may ask for a total ("Total", "Sum insured", "Average cost"). */
+const holdsTotalWord = (text: string): boolean => (text.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []).some((w) => TOTAL_WORD.test(w));
+/** Whether a name is made of words that may ask for a total only ("Total", "Totals", "Sum"). */
+const madeOfTotalWords = (text: string): boolean => (text.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []).every((w) => TOTAL_WORD.test(w));
 
 /**
  * The first word of `name` that a pin, unpin or density form reads ("Unpin", "End", "Mode", "Use"), if any. A House
@@ -453,8 +671,19 @@ const PIN_WORD = /^(?:un|re)?(?:pin(?:s|ned|ning)?|freez(?:e|es|ing)|froze|froze
  * "tighter"), which no form reads (order plan, D19).
  */
 const DENSITY_WORD = /^(?:compact|comfortable|spacious|dens(?:e|er|est|ity|ities)|tighter)$/u;
+/**
+ * The words that may ask for a total (spec 5.2): "total", "totals", "totalled", "subtotal", "sum", "summed", "average",
+ * "averages", "avg". "Mean" is left out: it is also the verb ("I mean"). So is "average" after a comparison word
+ * ("entries above average"): it is a level to compare with, and can't ask for a total.
+ */
+const TOTAL_WORD = /^(?:(?:sub)?totals?|total(?:l?ed|l?ing)|sums?|summ(?:ed|ing)|averag(?:e|es|ed|ing)|avgs?)$/u;
+/**
+ * A comparison word right before "average" makes it a level to compare with, not a total: "above average",
+ * "above-average".
+ */
+const COMPARED_WITH = /(?<![\p{L}\p{N}])(?:above|below|over|under|than|versus|vs\.?)(?:\s+|\s*-\s*)(?:the\s+)?$/iu;
 
-/** A pin or density word in a part that no read form used. */
+/** A pin, density or totals word in a part that no read form used. */
 export interface ViewWordLeft {
   /** Where the word sits in the Clause's text. */
   start: number;
@@ -464,9 +693,15 @@ export interface ViewWordLeft {
   /**
    * What a form that starts at this word asks for, read on its own ("compact view" in "compact view of taxable
    * accounts"). A column in doubt still counts: "pin restricted" asks to pin, whichever column it means. Left out when no
-   * form starts here ("pinned", "denser", "freeze advisor").
+   * form starts here ("pinned", "denser", "freeze advisor"). A totals form is `aggregation.set`, with a grouping or not,
+   * and so is a total that doesn't fit its column ("total concentration").
    */
-  form?: "columns.pin" | "density.set";
+  form?: "columns.pin" | "density.set" | "aggregation.set";
+  /**
+   * Set for a word that may ask for a total ("total", "sum", "average"), with a form or not. Such a word inside one of
+   * the Host's names ("Total return") or quoted text is not one: it is the name's, and the part reads as before.
+   */
+  total?: true;
   /**
    * The Host's name the word sits in, where that name written out as words starts a form here ("compact view" where
    * "Compact" is a size class). The words may ask for the form or name the Host's value, so the part asks, as it does
@@ -474,7 +709,13 @@ export interface ViewWordLeft {
    */
   name?: string;
   /** With `name`: the change the words would ask for if they were the form. */
-  named?: "columns.pin" | "density.set";
+  named?: "columns.pin" | "density.set" | "aggregation.set";
+  /**
+   * With `name`: the name is made of totals words only ("Total", "Sum"), and no form starts at it. On a grid that shows
+   * totals it may name the column or ask for a total where the plan shows totals or its part groups, and asks there.
+   * Left out when a column a total fits is named right after it ("total units"): those words ask wherever they are.
+   */
+  whole?: true;
 }
 
 /**
@@ -487,18 +728,28 @@ export interface ViewWordLeft {
  */
 export const viewWordsLeft = (clause: Clause, mentions: readonly Mention[], schema: ViewSchema, upTo: number): ViewWordLeft[] => {
   if (upTo <= 0) return [];
-  const own = mentions.filter((m) => m.clauseIndex === clause.index);
+  const own = ownMentions(clause, mentions, schema);
   const tokens = tokensOf(clause, own, schema, false)?.tokens;
-  const reader = tokens && formsReader(tokens);
+  const reader = tokens && formsReader(tokens, schema);
   const tokenAt = new Map((tokens ?? []).map((t, i) => [t.start, i]));
   // The part again with the Host's names that hold a form word written out as words, read only when a word sits in one.
   let spelled: { tokens: Token[]; form: (at: number) => Read | undefined; at: Map<number, number> } | null | undefined;
   const spelledOut = () => {
     if (spelled === undefined) {
       const raw = tokensOf(clause, own, schema, true)?.tokens;
-      spelled = raw ? { tokens: raw, form: formsReader(raw).form, at: new Map(raw.map((t, i) => [t.start, i])) } : null;
+      spelled = raw ? { tokens: raw, form: formsReader(raw, schema).form, at: new Map(raw.map((t, i) => [t.start, i])) } : null;
     }
     return spelled;
+  };
+  // Where the Host's names that hold a totals word are written whole in the part, found only when a word needs them.
+  let declared: Array<{ start: number; end: number }> | undefined;
+  const namedAt = (start: number, end: number) => {
+    // A name made of totals words only ("Total") that no Mention placed is a totals word like any other here.
+    declared ??= declaredNamesWritten(schema)
+      .filter((n) => holdsTotalWord(n) && !madeOfTotalWords(n))
+      .flatMap((n) => [...clause.text.matchAll(new RegExp(`(?<![\\p{L}\\p{N}])${escapeRegExp(n.toLowerCase())}(?![\\p{L}\\p{N}])`, "giu"))])
+      .map((m) => ({ start: m.index ?? 0, end: (m.index ?? 0) + m[0].length }));
+    return declared.find((d) => start >= d.start && end <= d.end);
   };
   const left: ViewWordLeft[] = [];
   for (const match of clause.text.matchAll(TOKEN)) {
@@ -506,8 +757,38 @@ export const viewWordsLeft = (clause: Clause, mentions: readonly Mention[], sche
     const end = start + match[0].length;
     if (start >= upTo) break;
     const word = match[0].toLowerCase();
-    if (!PIN_WORD.test(word) && !DENSITY_WORD.test(word)) continue;
+    const total = TOTAL_WORD.test(word) && !(word.startsWith("averag") && COMPARED_WITH.test(clause.text.slice(0, start)));
+    if (!PIN_WORD.test(word) && !DENSITY_WORD.test(word) && !total) continue;
     const name = own.find((m) => start < m.end && end > m.start);
+    // A totals word in one of the Host's names is the name's: "sort by total return", "hide average cost", and "average
+    // cost by holder", where the Mention rules read the name before "by" as the rows. Two exceptions, on a grid that
+    // shows totals (the compiler checks the grid): the name written out as words starts a totals form here ("total
+    // amount" where the Host aliased Amount "total"), or the name is made of totals words only ("totals", "sum").
+    const inName = total ? (name ?? namedAt(start, end)) : undefined;
+    if (inName) {
+      const said = clause.text.slice(inName.start, inName.end);
+      const raw = name ? spelledOut() : undefined;
+      const at = name ? raw?.at.get(start) : tokenAt.get(start);
+      const read = at === undefined ? undefined : name ? raw?.form(at) : reader?.form(at);
+      const last = read?.operations.some((op) => op.type === "aggregation.set") ? (name ? raw?.tokens : tokens)?.[read.end - 1] : undefined;
+      const whole = madeOfTotalWords(said);
+      // A name made of totals words only, with another column a total fits named right after it ("total units", "sum
+      // of units"), is a totals form spelled out, wherever its part is. The Mention rules read a name right after
+      // another as the rows, so that column is no Mention, and no form read it.
+      const then = !last && whole && name ? totalledAfter(clause.text, inName.end, name.columnId, schema) : undefined;
+      if (last || whole) {
+        const to = last?.end ?? then;
+        left.push({
+          start,
+          end,
+          text: to === undefined ? match[0] : clause.text.slice(start, to),
+          name: said,
+          named: "aggregation.set",
+          ...(to === undefined ? { whole: true as const } : {}),
+        });
+      }
+      continue;
+    }
     if (name) {
       // A word of the Host's name is the name's, unless the name written out as words starts a form here: then the
       // words may ask for the form or name the Host's value, wherever they sit in the part. "Rows" is the records' own
@@ -537,15 +818,37 @@ export const viewWordsLeft = (clause: Clause, mentions: readonly Mention[], sche
     const at = tokenAt.get(start);
     const read = at === undefined ? undefined : reader?.form(at);
     const last = read && tokens?.[read.end - 1];
-    const type = read?.operations[0]?.type;
+    const type = read?.operations.some((op) => op.type === "aggregation.set") ? "aggregation.set" : read?.operations[0]?.type;
     left.push({
       start,
       end,
       text: last ? clause.text.slice(start, last.end) : match[0],
-      ...(type === "columns.pin" || type === "density.set" ? { form: type } : {}),
+      ...(type === "columns.pin" || type === "density.set" || type === "aggregation.set" ? { form: type } : {}),
+      ...(total ? { total: true as const } : {}),
     });
   }
   return left;
+};
+
+/**
+ * Where a column's name ends that is written right after `at`, with "of" and "the" before it if the User likes, for
+ * a column other than `own` that a total fits (a number, currency or percent column). The longest name wins.
+ */
+const totalledAfter = (text: string, at: number, own: string, schema: ViewSchema): number | undefined => {
+  const lead = /^\s+(?:of\s+)?(?:the\s+)?/.exec(text.slice(at));
+  if (!lead) return undefined;
+  const from = at + lead[0].length;
+  const rest = text.slice(from).toLowerCase();
+  let end: number | undefined;
+  for (const col of schema.columns) {
+    if (col.id === own || !isExposed(col) || totalKindIssue(col, "avg") !== undefined) continue;
+    for (const n of [col.label, ...(col.aliases ?? [])]) {
+      const key = n.toLowerCase();
+      if (!key || !rest.startsWith(key) || /^[\p{L}\p{N}]/u.test(rest.slice(key.length))) continue;
+      if (end === undefined || from + key.length > end) end = from + key.length;
+    }
+  }
+  return end;
 };
 
 /** Every label and alias the Host declared, as written. */

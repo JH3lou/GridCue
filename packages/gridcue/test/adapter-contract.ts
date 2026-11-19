@@ -40,7 +40,7 @@ const planFor = (adapter: GridAdapter, operations: ViewOperation[]): ViewPlan =>
 /**
  * What a Host's table draws beyond the rows, as an adapter's `renders` option names it, and the operation each name
  * lets the adapter list (operation set spec, 4.2). An adapter lists each one only when its `renders` names it.
- * "totals" is the operation set's PR 3 and "count" its PR 4: no adapter takes either yet.
+ * "count" is the operation set's PR 4: no adapter takes it yet.
  */
 export const LISTED_BY_RENDERS = {
   pinning: "columns.pin",
@@ -95,6 +95,38 @@ const OPERATION_CHECKS: Record<string, (h: ContractHarness) => Step[]> = {
   "density.set": () => [
     { operations: [{ type: "density.set", density: "compact" }], holds: (s) => expect(s.density).toBe("compact") },
     { operations: [{ type: "density.set", density: "spacious" }], holds: (s) => expect(s.density).toBe("spacious") },
+  ],
+  "aggregation.set": ({ numericColumn: a, otherColumn: b }) => [
+    {
+      operations: [{ type: "aggregation.set", aggregations: [{ columnId: a, function: "sum" }] }],
+      holds: (s) => expect(s.aggregations).toEqual([{ columnId: a, function: "sum" }]),
+    },
+    {
+      // A column holds one total at a time: an average replaces its sum. With a grouping, each group shows it.
+      operations: [
+        { type: "group.set", columnIds: [b] },
+        { type: "aggregation.set", aggregations: [{ columnId: a, function: "avg" }] },
+      ],
+      holds: (s) => {
+        expect(s.aggregations).toEqual([{ columnId: a, function: "avg" }]);
+        expect(s.groupBy).toEqual([b]);
+      },
+    },
+    {
+      // Only the totals change.
+      operations: [{ type: "aggregation.set", aggregations: [{ columnId: a, function: "sum" }] }],
+      holds: (s) => {
+        expect(s.aggregations).toEqual([{ columnId: a, function: "sum" }]);
+        expect(s.groupBy).toEqual([b]);
+      },
+    },
+    {
+      operations: [{ type: "aggregation.set", aggregations: [] }],
+      holds: (s) => {
+        expect(s.aggregations).toEqual([]);
+        expect(s.groupBy).toEqual([b]);
+      },
+    },
   ],
   "limit.set": ({ numericColumn: a }) => [
     {

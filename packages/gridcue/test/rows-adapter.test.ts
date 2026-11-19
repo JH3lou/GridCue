@@ -26,8 +26,8 @@ const harnessWith = (renders?: RowsAdapterOptions["renders"]) => () => {
   };
 };
 
-// The Rows Adapter keeps a count with no option (ADR 0018). It lists pins and density only when the Host's table draws
-// them (operation set spec, 4.2; ADR 0029).
+// The Rows Adapter keeps a count with no option (ADR 0018). It lists pins, density and totals only when the Host's table
+// draws them (operation set spec, 4.2; ADR 0029).
 runAdapterContract("Rows Adapter", harnessWith(), { keepsCount: true });
 runAdapterContract("Rows Adapter, renders pinning and density", harnessWith(["pinning", "density"]), {
   keepsCount: true,
@@ -35,6 +35,11 @@ runAdapterContract("Rows Adapter, renders pinning and density", harnessWith(["pi
 });
 runAdapterContract("Rows Adapter, renders pinning", harnessWith(["pinning"]), { keepsCount: true, renders: ["pinning"] });
 runAdapterContract("Rows Adapter, renders density", harnessWith(["density"]), { keepsCount: true, renders: ["density"] });
+runAdapterContract("Rows Adapter, renders totals", harnessWith(["totals"]), { keepsCount: true, renders: ["totals"] });
+runAdapterContract("Rows Adapter, renders pinning, density and totals", harnessWith(["pinning", "density", "totals"]), {
+  keepsCount: true,
+  renders: ["pinning", "density", "totals"],
+});
 
 describe("Rows Adapter: renders", () => {
   const configError = (renders: unknown) => {
@@ -62,8 +67,13 @@ describe("Rows Adapter: renders", () => {
     expect(configError(["Pinning"])).toMatchObject({ code: "INPUT_CONFIG", message: expect.stringContaining("“Pinning”") });
   });
 
-  it("throws INPUT_CONFIG for totals, which no adapter lists yet, and for count, which it keeps with no option", () => {
-    expect(configError(["totals"])).toMatchObject({ code: "INPUT_CONFIG", message: expect.stringContaining("“totals”") });
+  it("takes totals, and lists aggregation.set for it (operation set spec, 5.4)", () => {
+    expect(configError(["totals"])).toBeUndefined();
+    const ops = createRowsAdapter({ schema, renders: ["totals", "totals"] }).getCapabilities().operations;
+    expect(ops).toEqual([...MVP_OPERATIONS, "limit.set", "aggregation.set"]);
+  });
+
+  it("throws INPUT_CONFIG for count, which it keeps with no option", () => {
     expect(configError(["count"])).toMatchObject({ code: "INPUT_CONFIG", message: expect.stringContaining("“count”") });
   });
 
@@ -243,7 +253,9 @@ describe("applyView", () => {
         { ...base, sorts: [{ columnId: "value", direction: "desc" }], limit: 10, groupBy: ["team"] },
         schema,
       );
-      expect(result.groups?.flatMap((g) => g.rows.map((r) => r.name))).toEqual(["twenty", "twelve", "five"]);
+      // Value has no total, so the groups keep the order they first appear in the rows shown (ADR 0030): "b" at
+      // "five", then "a" at "twenty". The rows inside each are sorted.
+      expect(result.groups?.flatMap((g) => g.rows.map((r) => r.name))).toEqual(["twelve", "five", "twenty"]);
     });
   });
 });

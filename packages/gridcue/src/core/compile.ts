@@ -60,6 +60,7 @@ import {
 } from "./placed";
 import type { RestrictedMention } from "./policy";
 import {
+  type AggregationSpec,
   type Clarification,
   type ColumnDescriptor,
   type ColumnKind,
@@ -87,11 +88,14 @@ import {
 import { REVERSAL_WORDING, unknownTerm } from "./terms";
 import { escapeRegExp } from "./text-match";
 import { unusedReadings } from "./unused";
+import { totalKindIssue } from "./validate";
 import {
   nameQuestion,
   namesEveryRow,
   pinListRunsOn,
   readViewWords,
+  removesToo,
+  totalsMisfit,
   type ViewWordLeft,
   type ViewWordsReading,
   viewWordsLeft,
@@ -141,7 +145,8 @@ export interface CompileInput {
    * The view `view.reset` returns to (the adapter's `getDefaultState()`). A reset that keeps the current filters
    * ("reset everything except the filters") adds them to this view's own, so it is ready only when this is given and
    * has no filters. Otherwise GridCue asks. Its sort and count are what a reset leaves for the count rule (ADR 0027).
-   * Its columns and pins are what a pin or an unpin said after a reset starts from.
+   * Its columns and pins are what a pin or an unpin said after a reset starts from, and its totals what a total said
+   * after a reset is added to.
    */
   defaultState?: {
     filters: ViewState["filters"];
@@ -149,6 +154,7 @@ export interface CompileInput {
     limit?: ViewState["limit"];
     visibleColumnIds?: ViewState["visibleColumnIds"];
     pinnedColumnIds?: ViewState["pinnedColumnIds"];
+    aggregations?: ViewState["aggregations"];
   };
   /**
    * The operations the grid supports (its adapter's capabilities). Left out, they are `MVP_OPERATIONS`. A count ("top
@@ -157,7 +163,10 @@ export interface CompileInput {
    * (ADR 0027). Where this doesn't list `group.set`, a part that asks to group or ungroup ends the whole request in
    * "This grid can't group rows." (more grids spec, 5.3). Where it doesn't list `columns.pin` or `density.set`, a pin,
    * unpin or density code read ends the whole request in "This grid can't pin columns." or "This grid can't change its
-   * density." (operation set spec, 4.2). A hint that suggests changes names only those listed here.
+   * density." (operation set spec, 4.2). Where it doesn't list `aggregation.set`, a totals code read, or any word that
+   * may ask for a total ("total", "sum", "average") outside a declared name, ends it in "This grid can't show
+   * totals.", and a ranked-group question offers no ranking by a total (spec 5.4). A hint that suggests changes names
+   * only those listed here.
    */
   operations?: readonly string[];
   newId: (prefix: string) => string;
@@ -348,20 +357,21 @@ export interface CountQuestion {
 const countWords = (count: number) => count.toLocaleString("en-US");
 
 /**
- * An operation a request needs that the grid doesn't list. Pins and density are here for a grid whose Host hasn't
- * turned them on with the adapter's `renders` (operation set 4.2); totals join them later.
+ * An operation a request needs that the grid doesn't list. Pins, density and totals are here for a grid whose Host
+ * hasn't turned them on with the adapter's `renders` (operation set 4.2).
  */
 export type UnlistedOperation =
   | { type: "group.set" }
   | { type: "limit.set"; count: number }
   | { type: "columns.pin" }
-  | { type: "density.set" };
+  | { type: "density.set" }
+  | { type: "aggregation.set" };
 
 /**
  * "This grid can't …": the one question for a change the grid doesn't list (more grids spec, 5.3). It has no choices,
  * since no answer makes the grid able to. Its ID starts with its part's index, as the compiler's other questions do,
- * so the command bar can show it beside that part. A pin and a density each add their kind to the ID, so one part
- * can ask both. The caller decides what else in the request stops with it.
+ * so the command bar can show it beside that part. A pin, a density and a total each add their kind to the ID, so one
+ * part can ask more than one. The caller decides what else in the request stops with it.
  */
 export const cantQuestion = (clauseIndex: number, op: UnlistedOperation): Clarification => {
   switch (op.type) {
@@ -377,6 +387,8 @@ export const cantQuestion = (clauseIndex: number, op: UnlistedOperation): Clarif
       return { id: `c${clauseIndex}.cant.pin`, prompt: "This grid can't pin columns.", required: true };
     case "density.set":
       return { id: `c${clauseIndex}.cant.density`, prompt: "This grid can't change its density.", required: true };
+    case "aggregation.set":
+      return { id: `c${clauseIndex}.cant.totals`, prompt: "This grid can't show totals.", required: true };
   }
 };
 
@@ -709,14 +721,52 @@ export const compile = (c: CompileInput): ViewPlan => {
   const viewWordsAsks = new Map<number, string>();
   // Parts with pin or density words that no form read, which a ready plan would drop (below).
   const viewWordsLeftOf = new Map<number, ViewWordLeft[]>();
+  // Parts whose totals don't fit their column's kind (ADR 0030), with the question each asks, or the User's "No".
+  const totalsKindAsks = new Map<number, Clarification>();
   const lists = (op: string) => (c.operations ?? MVP_OPERATIONS).includes(op);
+  const holdsTotals = (r: ViewWordsReading | undefined) => !!r?.operations.some((op) => op.type === "aggregation.set");
   for (const clause of c.input.clauses) {
     const codeReadIn = [...codeReadAll.filter((r) => r.clauseIndex === clause.index), ...(local.asks.get(clause.index)?.spans ?? [])];
     // Words at the end of a part are its own only where nothing else reads them.
     const ownTail = (from: number) =>
       !refusedPart(clause.index) && codeReadIn.every((r) => r.end <= from) && clause.literals.every((lit) => lit.at < from);
-    const reading = readViewWords(clause, allMentions, c.schema);
-    const own = reading !== undefined && (reading.from === undefined || ownTail(reading.from));
+    // A part read whole as a total holds nothing a code read reads either: a House Term or a Local Value named with a
+    // total's word is the Host's, and the part is not read as a total.
+    const ownWhole = (r: ViewWordsReading) => !holdsTotals(r) || codeReadIn.length === 0;
+    let reading = readViewWords(clause, allMentions, c.schema);
+    // A total that doesn't fit its column's kind asks (ADR 0030), on a grid that lists totals: "Concentration can't be
+    // totalled. Show its average instead?" "Yes" reads the words with the average. On any other grid the request ends in
+    // "This grid can't show totals." whatever the column (below).
+    const misfit = reading === undefined && lists("aggregation.set") ? totalsMisfit(clause, allMentions, c.schema) : undefined;
+    if (misfit && (misfit.from === 0 ? ownWhole(misfit.reading) : ownTail(misfit.from))) {
+      const kindKey = `c${clause.index}.total.kind`;
+      const label = column(misfit.misfit.columnId)?.label ?? misfit.misfit.columnId;
+      if (misfit.misfit.fits && answers[kindKey] === "avg") {
+        reading = misfit.reading;
+        evidence.push({ key: kindKey, selectedId: "avg", confidence: 1, source: "user" });
+        confidences.push(1);
+      } else if (misfit.misfit.fits && answers[kindKey] === "none") {
+        totalsKindAsks.set(clause.index, {
+          id: `c${clause.index}.declined`,
+          prompt: "Okay, nothing will change. Rephrase or edit your request.",
+          required: true,
+        });
+      } else if (misfit.misfit.fits) {
+        totalsKindAsks.set(clause.index, {
+          id: kindKey,
+          prompt: `${label} can't be totalled. Show its average instead?`,
+          options: [
+            { id: "avg", label: "Yes" },
+            { id: "none", label: "No" },
+          ],
+          required: true,
+        });
+      } else {
+        const verb = misfit.misfit.asked === "sum" ? "totalled" : "averaged";
+        totalsKindAsks.set(clause.index, { id: kindKey, prompt: `${label} can't be ${verb}.`, required: true });
+      }
+    }
+    const own = reading !== undefined && (reading.from === undefined ? ownWhole(reading) : ownTail(reading.from));
     // A pin list may run on into the next part, split before a column's name ("pin rate and cleared": "clear"). On a
     // grid that lists what the words ask for, the part asks. On one that doesn't, the request ends in "This grid can't
     // …" whatever the list holds, so the reading stays.
@@ -786,10 +836,15 @@ export const compile = (c: CompileInput): ViewPlan => {
       .map((col) => ({ id: col.id, label: col.label }));
   // Consecutive sorts or groupings are levels of one, in the order named: the first is the primary sort or the
   // outermost group. A clear or reset in between, or a part that says "instead", starts a new one.
+  // A grouping "total X by Y" set is the words' own and is never a level of another: "total market value by advisor,
+  // group by custodian" groups again, and the words that said "by advisor" are then asked about (ADR 0019).
+  const ownGroupings = new WeakSet<ViewOperation>();
   const levelsOf = (type: "sort.set" | "group.set", replaces: boolean) => {
     const at = operations.findLastIndex((o) => o.type === type);
     const current = operations[at];
-    if (replaces || !current || operations.slice(at + 1).some((o) => o.type === "view.reset")) return undefined;
+    if (replaces || !current || ownGroupings.has(current) || operations.slice(at + 1).some((o) => o.type === "view.reset")) {
+      return undefined;
+    }
     if (current.type === "sort.set" && current.sorts.length > 0) return current;
     if (current.type === "group.set" && current.columnIds.length > 0) return current;
     return undefined;
@@ -826,6 +881,17 @@ export const compile = (c: CompileInput): ViewPlan => {
     const measure = c.schema.defaultMeasure ? column(c.schema.defaultMeasure) : undefined;
     return measure?.capabilities.includes("sort") && SIZE_WORDS.test(unquoted(text)) ? measure : undefined;
   };
+  /**
+   * The column a ranking's adjective is made from, for the ranked-group question's third choice (spec 5.4): "most
+   * concentrated" or "least concentrated" for a column the Host named "Concentration". The adjective is the name with
+   * "-ion" written "-ed", after "most" or "least"; one column only. The choice names the column, so the User decides.
+   */
+  const rankedByAdjective = (text: string): ColumnDescriptor | undefined => {
+    const said = /\b(?:most|least)\s+(\p{L}+)ed\b/u.exec(unquoted(text))?.[1];
+    if (!said) return undefined;
+    const ids = new Set(columnNameAt.filter(({ name }) => name === `${said}ion`).map(({ columnId }) => columnId));
+    return ids.size === 1 ? column([...ids][0] ?? "") : undefined;
+  };
 
   for (const mention of c.restricted ?? []) {
     unsupportedSegments.push({ category: "restricted_column" });
@@ -851,11 +917,15 @@ export const compile = (c: CompileInput): ViewPlan => {
   const viewSoFar = () => applyOperations(c.state, operations, { ...c.state, ...c.defaultState });
   // Set when a pin or unpin code read changes nothing: every column it names is already where it asks.
   let alreadyShown = false;
+  // The totals code read in this request so far, by column, said as a change or not.
+  const totalsSaid = new Map<string, AggregationSpec["function"]>();
   /**
    * Puts the pins, unpins and densities a part's view words read into the plan (spec 4.4), or asks. A column the Host
    * doesn't let pin is never pinned or unpinned: the part asks. A hidden column is shown before its pin, so the Preview
    * says both. An unpin that names no column names every pinned column. As with a count, one density per plan: a later
-   * one replaces an earlier one, which is then asked about (ADR 0019).
+   * one replaces an earlier one, which is then asked about (ADR 0019). Totals and the grouping of "total X by Y" go in
+   * the same way (spec 5.4): a column the Host doesn't let total or group by asks, a total is added to the view's and
+   * replaces another on its column, and a hidden column is shown first.
    */
   const placeViewWords = (clause: Clause, read: readonly ViewOperation[]): ViewOperation[] | undefined => {
     const key = `c${clause.index}`;
@@ -913,10 +983,123 @@ export const compile = (c: CompileInput): ViewPlan => {
       clarifications.push({ id: `${key}.pin`, prompt: `GridCue can't hide ${label} and pin it too.`, required: true });
       return undefined;
     }
+    // A total, and the grouping "total X by Y" names, only on a column the Host lets take it (spec 4.4). A total on a
+    // column this request hides would show nothing: asked about, never shown again.
+    for (const op of filled) {
+      const refused =
+        op.type === "group.set"
+          ? op.columnIds.filter((id) => !column(id)?.capabilities.includes("group")).map((id) => ({ id, verb: "group by" }))
+          : op.type === "aggregation.set"
+            ? op.aggregations
+                .filter((a) => !column(a.columnId)?.capabilities.includes("aggregate"))
+                .map((a) => ({ id: a.columnId, verb: a.function === "avg" ? "average" : "total" }))
+            : [];
+      const hidden =
+        op.type === "aggregation.set"
+          ? op.aggregations.find(
+              (a) =>
+                !now.visibleColumnIds.includes(a.columnId) &&
+                operations.some((o) => o.type === "columns.hide" && o.columnIds.includes(a.columnId)),
+            )
+          : undefined;
+      const [first] = refused;
+      if (first || hidden) {
+        const id = first?.id ?? hidden?.columnId ?? "";
+        const label = c.schema.columns.find((col) => col.id === id)?.label ?? id;
+        const prompt = first ? `GridCue can't ${first.verb} ${label} here.` : `GridCue can't hide ${label} and total it too.`;
+        clarifications.push({ id: `${key}.total`, prompt, required: true });
+        return undefined;
+      }
+    }
+    // "Total X by Y" replaces the grouping (spec 5.4). A grouping the same request set before it ("group by advisor,
+    // total market value by custodian") would be dropped without a word, with its line still in the Preview: the part
+    // asks. The same grouping said twice is no change.
+    const regroups = filled.find((op) => op.type === "group.set");
+    const groupedAt = operations.findLastIndex((o) => o.type === "group.set");
+    const grouped = operations[groupedAt];
+    if (
+      regroups?.type === "group.set" &&
+      grouped?.type === "group.set" &&
+      grouped.columnIds.length > 0 &&
+      !operations.slice(groupedAt + 1).some((o) => o.type === "view.reset") &&
+      JSON.stringify(grouped.columnIds) !== JSON.stringify(regroups.columnIds)
+    ) {
+      const names = (ids: readonly string[]) => ids.map((id) => c.schema.columns.find((col) => col.id === id)?.label ?? id);
+      const [before, after] = [names(grouped.columnIds), names(regroups.columnIds)];
+      clarifications.push({
+        id: `${key}.total`,
+        prompt: `GridCue can't group by ${before.join(", then ")} and by ${after.join(", then ")} too. To group by both, say “group by ${[...before, ...after].join(", then ").toLowerCase()}”.`,
+        required: true,
+      });
+      return undefined;
+    }
+    // A column holds one total at a time (spec 4.4). A request that names a column's total twice ("total market value
+    // and average market value"), or removes the totals after it names one, can't show what each of its words asks.
+    // Whatever the view already shows, it asks: a total the view has already would otherwise be dropped without a word.
+    const named = new Map(totalsSaid);
+    for (const op of filled) {
+      if (op.type !== "aggregation.set") continue;
+      const again = op.aggregations.find((a) => named.has(a.columnId));
+      const [earlier] = op.aggregations.length === 0 ? named : [];
+      if (again || earlier) {
+        const label = (id: string) => c.schema.columns.find((col) => col.id === id)?.label ?? id;
+        const prompt = again
+          ? `${label(again.columnId)} shows one total at a time. Ask for its total or its average.`
+          : `GridCue can't show the ${earlier?.[1] === "avg" ? "average" : "total"} of ${label(earlier?.[0] ?? "")} and remove the totals too.`;
+        clarifications.push({ id: `${key}.total`, prompt, required: true });
+        return undefined;
+      }
+      for (const a of op.aggregations) named.set(a.columnId, a.function);
+    }
+    for (const [id, fn] of named) totalsSaid.set(id, fn);
     // After a reset, the pins are the default view's, which a caller may not have given either.
     const pinsUnknown = operations.some((op) => op.type === "view.reset") && !c.defaultState?.pinnedColumnIds;
     const placed: ViewOperation[] = [];
     for (const said of filled) {
+      // "Total X by Y" groups by Y, replacing the grouping, as "group by Y" does. A grouping the view already has is no
+      // change, and has no line.
+      if (said.type === "group.set") {
+        if (JSON.stringify(viewSoFar().groupBy) === JSON.stringify(said.columnIds)) {
+          alreadyShown = true;
+          continue;
+        }
+        ownGroupings.add(said);
+        operations.push(said);
+        placed.push(said);
+        note(`${key}.words`, said.type, 1, "deterministic");
+        continue;
+      }
+      // A total is added to the view's totals, and the plan carries the whole list (spec 5.4). A column holds one total
+      // at a time, so a total on a column that has another replaces it where it stands. A hidden column is shown first,
+      // so the Preview says both. With nothing to change, there is no line.
+      if (said.type === "aggregation.set") {
+        // After a reset, the totals are the default view's, which a caller may not have given: the list is the words'
+        // since the reset.
+        const reset = operations.findLastIndex((op) => op.type === "view.reset");
+        const totalsUnknown =
+          reset >= 0 && !c.defaultState?.aggregations && !operations.slice(reset).some((op) => op.type === "aggregation.set");
+        const before = totalsUnknown ? [] : viewSoFar().aggregations;
+        let list = said.aggregations.length === 0 ? [] : [...before];
+        for (const a of said.aggregations) {
+          const at = list.findIndex((b) => b.columnId === a.columnId);
+          list = at < 0 ? [...list, a] : list.map((b, i) => (i === at ? a : b));
+        }
+        const hidden = said.aggregations.map((a) => a.columnId).filter((id) => resetUnknown || !viewSoFar().visibleColumnIds.includes(id));
+        if (hidden.length > 0) {
+          const show: ViewOperation = { type: "columns.show", columnIds: hidden };
+          operations.push(show);
+          placed.push(show);
+        }
+        if (hidden.length === 0 && !totalsUnknown && JSON.stringify(list) === JSON.stringify(before)) {
+          alreadyShown = true;
+          continue;
+        }
+        const op: ViewOperation = { type: "aggregation.set", aggregations: list };
+        operations.push(op);
+        placed.push(op);
+        note(`${key}.words`, op.type, 1, "deterministic");
+        continue;
+      }
       let op = said;
       if (op.type === "columns.pin" && !pinsUnknown) {
         // A pin or unpin names only the columns it changes, so its line never claims a change that doesn't happen: a
@@ -966,7 +1149,12 @@ export const compile = (c: CompileInput): ViewPlan => {
         clause,
         asked: groupingAsked(clause, [...mentions.filter((m) => m.clauseIndex === clause.index), ...localNames(clause)], c.schema.columns),
       }));
-  const grouping = groupAsks.find((g) => g.asked === "cant")?.clause;
+  // "Total X by Y" groups too (spec 5.4), so on a grid that can't group it asks the same.
+  const grouping =
+    groupAsks.find((g) => g.asked === "cant")?.clause ??
+    (lists("group.set")
+      ? undefined
+      : input.clauses.find((clause) => viewWordsOf.get(clause.index)?.operations.some((op) => op.type === "group.set")));
   const unreadGrouping = groupAsks.find((g) => g.asked === "unready")?.clause;
   // A pin, unpin or density, on a grid whose Host hasn't said its table draws it (operation set spec, 4.2), ends the
   // request the same way, with the same shared question. One question for each kind, the first part's. That is a form
@@ -979,12 +1167,17 @@ export const compile = (c: CompileInput): ViewPlan => {
   const unlistedView = new Set<number>();
   // The questions asked once every part is compiled, if the refusal didn't hold after all.
   const unlistedIfNotRefused: typeof unlisted = [];
-  for (const type of ["columns.pin", "density.set"] as const) {
+  // Parts whose totals were left out beside a refused part, asked about if the refusal didn't hold after all.
+  const totalsBesideRefusal: Clause[] = [];
+  // A total the same way (spec 5.4), and also any word that may ask for one that no form read ("northgate accounts
+  // total", "sort by total market value"): the grid can't show what the word asks for, whatever the rest means.
+  for (const type of ["columns.pin", "density.set", "aggregation.set"] as const) {
     if (lists(type)) continue;
     const asked = input.clauses.filter(
       (clause) =>
         viewWordsOf.get(clause.index)?.operations.some((op) => op.type === type) ||
-        (!refusedPart(clause.index) && viewWordsLeftOf.get(clause.index)?.some((w) => w.form === type)),
+        (!refusedPart(clause.index) &&
+          viewWordsLeftOf.get(clause.index)?.some((w) => w.form === type || (type === "aggregation.set" && w.total))),
     );
     for (const clause of asked) unlistedView.add(clause.index);
     const first = asked[0];
@@ -996,11 +1189,51 @@ export const compile = (c: CompileInput): ViewPlan => {
   if (unsupportedSegments.length === 0 && unlisted.length === 0) {
     // The words read at the end of a part go into the plan after the rest of that part: at the start of the next
     // part, or once every part is compiled.
-    let pendingTail: { clause: Clause; reading: ViewWordsReading } | undefined;
+    // The words read at the end of a part, from the part's whole text, without the joining "and" or comma.
+    const saidAt = (clause: Clause, from: number) =>
+      (c.input.clauses.find((x) => x.index === clause.index)?.text ?? clause.text).slice(from).replace(/^\s*(?:,\s*)?(?:and\s+)?/, "");
+    let pendingTail: { clause: Clause; reading: ViewWordsReading; start: number } | undefined;
     const placeTail = () => {
       if (!pendingTail) return;
-      const { clause, reading } = pendingTail;
+      const { clause, reading, start } = pendingTail;
       pendingTail = undefined;
+      // A total said after a sort, or after a list of columns to hide or show, may be one more item of that list:
+      // "sort by gain and average concentration" may sort by Concentration too, and "hide custodian and average
+      // concentration" hide it. A pin can't be a sort or a column to hide, but those words can. A grouping can't group
+      // by a total, so a total after one is read ("group by advisor and total market value").
+      const list = holdsTotals(reading)
+        ? operations
+            .slice(start)
+            .find((op) => (op.type === "sort.set" && op.sorts.length > 0) || op.type === "columns.hide" || op.type === "columns.show")
+        : undefined;
+      // The same for a total said after a clear that names what it removes: "clear the sort and total market value" may
+      // remove that total too. A clear said in one word ("ungroup") names nothing, so the words after it are their own.
+      const clear =
+        holdsTotals(reading) && !list && (clause.text.match(/[\p{L}\p{N}]+/gu) ?? []).length > 1
+          ? operations
+              .slice(start)
+              .find(
+                (op) =>
+                  (op.type === "sort.set" && op.sorts.length === 0) ||
+                  (op.type === "group.set" && op.columnIds.length === 0) ||
+                  op.type === "filter.clear" ||
+                  (op.type === "aggregation.set" && op.aggregations.length === 0),
+              )
+          : undefined;
+      if (list || clear) {
+        const said = saidAt(clause, reading.from ?? 0);
+        const fn = reading.operations.find((op) => op.type === "aggregation.set");
+        const what = fn?.type === "aggregation.set" && fn.aggregations[0]?.function === "avg" ? "average" : "total";
+        const verb = list?.type === "sort.set" ? "sort by" : list?.type === "columns.hide" ? "hide" : "show";
+        clarifications.push({
+          id: `c${clause.index}.viewWords`,
+          prompt: list
+            ? `GridCue can't tell whether “${said}” is one more column to ${verb}. To show the ${what}, ask for it on its own.`
+            : removesToo(said, what === "average" ? "avg" : "sum"),
+          required: true,
+        });
+        return;
+      }
       const placed = placeViewWords(clause, reading.operations);
       if (placed) readTail.set(clause.index, placed);
     };
@@ -1010,13 +1243,24 @@ export const compile = (c: CompileInput): ViewPlan => {
       // View words come first (spec 4.1). A part read whole uses the reader's operations, and the provider's families
       // for it are ignored. A part not read goes on exactly as before.
       const viewWords = viewWordsOf.get(clause.index);
-      // A pin or density the grid can't do, beside a part the provider refuses, is left out (above).
-      const cant = unlistedView.has(clause.index);
+      // A pin, density or total the grid can't do, beside a part the provider refuses, is left out (above). So is a
+      // total beside a refused part on a grid that shows totals: the request is refused, and its plan holds no total.
+      const refusedTotals = refusedAny && holdsTotals(viewWords);
+      if (refusedTotals) totalsBesideRefusal.push(clause);
+      const cant = unlistedView.has(clause.index) || refusedTotals;
       if (viewWords?.from !== undefined) {
-        if (!cant) pendingTail = { clause, reading: viewWords };
-      } else if (viewWords?.operations.some((op) => op.type === "columns.pin" || op.type === "density.set")) {
+        if (!cant) pendingTail = { clause, reading: viewWords, start: operations.length };
+      } else if (
+        viewWords?.operations.some((op) => op.type === "columns.pin" || op.type === "density.set" || op.type === "aggregation.set")
+      ) {
         const placed = cant ? undefined : placeViewWords(clause, viewWords.operations);
         if (placed) readWhole.set(clause.index, placed);
+        continue;
+      }
+      // A total that doesn't fit its column's kind asks, before the provider reads the part (ADR 0030).
+      const kindAsk = totalsKindAsks.get(clause.index);
+      if (kindAsk) {
+        clarifications.push(kindAsk);
         continue;
       }
       // Words that would read as a pin or a density but for a name of the Host's ("compact view" where Compact is a size
@@ -1276,7 +1520,38 @@ export const compile = (c: CompileInput): ViewPlan => {
       // answer. "rows" drops the Mention; "records" asks rather than guessing, since GridCue can only group (ADR 0015).
       const readAsRows = new Set<string>();
       let groupAnswer: string | undefined;
+      let rankAnswer: { col: ColumnDescriptor; answerKey: string } | undefined;
       let readingPending = false;
+      // The third choice (spec 5.4; ADR 0030): rank the records by a total. Offered only on a grid that shows totals,
+      // groups and sorts, for a request that says which way ("largest", "smallest"), by the one column the part names,
+      // or else the one the provider picks with confidence, or else the column its ranking word is made from ("most
+      // concentrated"), or else the Host's main value column for a size word (`defaultMeasure`). That column must take a total and a sort. A sum where its kind takes one, else an average.
+      const rankFor = (entity: ColumnDescriptor) => {
+        const direction = clause.direction;
+        if (!direction || !lists("aggregation.set") || !lists("group.set") || !lists("sort.set")) return undefined;
+        const fits = (col: ColumnDescriptor | undefined): col is ColumnDescriptor =>
+          !!col &&
+          col.id !== entity.id &&
+          col.capabilities.includes("aggregate") &&
+          col.capabilities.includes("sort") &&
+          (totalKindIssue(col, "sum") === undefined || totalKindIssue(col, "avg") === undefined);
+        const named = [...new Set(own.filter((m) => m.valueId === undefined && !m.ambiguous).map((m) => m.columnId))].filter(
+          (id) => id !== entity.id,
+        );
+        const picked = [...new Set(res.columns.filter((p) => p.confidence >= bands.ready).map((p) => p.id))].filter(
+          (id) => id !== entity.id,
+        );
+        const ids = named.length > 0 ? named : picked;
+        const by =
+          ids.length === 0
+            ? (rankedByAdjective(clause.text) ?? measureFor(clause.text))
+            : ids.length === 1
+              ? column(ids[0] ?? "")
+              : undefined;
+        if (!fits(by)) return undefined;
+        const fn: "sum" | "avg" = totalKindIssue(by, "sum") === undefined ? "sum" : "avg";
+        return { by, fn, direction };
+      };
       for (const m of own.filter((x) => x.ambiguous)) {
         const col = column(m.columnId);
         if (!col) continue;
@@ -1290,6 +1565,7 @@ export const compile = (c: CompileInput): ViewPlan => {
         const answerKey = `${key}.reading.${col.id}`;
         const answer = answers[answerKey];
         if (answer === "group") groupAnswer = col.id;
+        if (answer === "rank") rankAnswer = { col, answerKey };
         if (answer !== undefined) continue;
         const reading = m.records
           ? { columnId: col.id, reading: "records" as const, confidence: 1 }
@@ -1299,12 +1575,16 @@ export const compile = (c: CompileInput): ViewPlan => {
           readAsRows.add(col.id);
           evidence.push({ key: `dropped:${key}.mention`, selectedId: col.id, confidence: reading.confidence, source: "provider" });
         } else if (reading.reading === "records" && col.entity) {
+          const rank = rankFor(col);
           clarifications.push({
             id: answerKey,
             prompt: `Did you mean ${col.entity}s as a whole? GridCue can group by ${col.label}.`,
             options: [
               { id: "group", label: `Group by ${col.label}` },
               { id: "column", label: `Use the ${col.label} column` },
+              ...(rank
+                ? [{ id: "rank", label: `Rank ${col.entity}s by ${rank.fn === "sum" ? "total" : "average"} ${rank.by.label}` }]
+                : []),
             ],
             required: true,
           });
@@ -1312,6 +1592,28 @@ export const compile = (c: CompileInput): ViewPlan => {
         }
       }
       if (readingPending) continue;
+      // "Rank households by total Market value": the grouping, the total and the sort on the total's column, in that
+      // order, so the Preview says all three. The total is added to the view's, as any total is; the grouping and the
+      // sort replace the view's. A hidden column is shown first. The part's other words are checked as any part's are.
+      const rank = rankAnswer && rankFor(rankAnswer.col);
+      if (rankAnswer && rank) {
+        const { by, fn, direction } = rank;
+        if (!viewSoFar().visibleColumnIds.includes(by.id)) operations.push({ type: "columns.show", columnIds: [by.id] });
+        const list = viewSoFar().aggregations.filter((a) => a.columnId !== by.id);
+        const at = viewSoFar().aggregations.findIndex((a) => a.columnId === by.id);
+        const total = { columnId: by.id, function: fn };
+        operations.push(
+          { type: "group.set", columnIds: [rankAnswer.col.id] },
+          { type: "aggregation.set", aggregations: at < 0 ? [...list, total] : [...list.slice(0, at), total, ...list.slice(at)] },
+          { type: "sort.set", sorts: [{ columnId: by.id, direction }] },
+        );
+        note(rankAnswer.answerKey, "rank", 1, "user");
+        continue;
+      }
+      if (rankAnswer) {
+        clarifications.push({ id: rankAnswer.answerKey, prompt: "GridCue can't rank them that way here.", required: true });
+        continue;
+      }
       // The provider's other answers can confirm a named column its column score doubts: "restricted accounts" scored
       // Restricted holdings 0.39 as a column but "true" 0.96 as a value in the same call.
       const supported = (id: string) =>
@@ -2392,6 +2694,16 @@ export const compile = (c: CompileInput): ViewPlan => {
     }
     placeTail();
     if (unsupportedSegments.length === 0) for (const { index, op } of unlistedIfNotRefused) clarifications.push(cantQuestion(index, op));
+    const [leftOutTotals] = totalsBesideRefusal;
+    if (unsupportedSegments.length === 0 && leftOutTotals) {
+      const whole = c.input.clauses.find((x) => x.index === leftOutTotals.index)?.text ?? leftOutTotals.text;
+      const said = whole.slice(tailOf(leftOutTotals.index) ?? 0).replace(/^\s*(?:,\s*)?(?:and\s+)?/, "");
+      clarifications.push({
+        id: `c${leftOutTotals.index}.unused`,
+        prompt: `I'm not sure what to do with “${said}”. Try rephrasing that part.`,
+        required: true,
+      });
+    }
   }
 
   // View words are read in the order they are said. Parts whose words the rest of the request undoes are asked about
@@ -2424,6 +2736,24 @@ export const compile = (c: CompileInput): ViewPlan => {
         op.position !== "none" &&
         later.some((o) => (o.type === "columns.pin" || o.type === "columns.hide") && o.columnIds.some((id) => op.columnIds.includes(id)))
       ) {
+        undone.add(index);
+        continue;
+      }
+      // The same for a total a later part removes or replaces, or whose column a later part hides, and for the grouping
+      // of "total X by Y" when a later part groups again ("total market value by advisor, group by custodian").
+      if (op.type === "aggregation.set") {
+        const held = applyOperations(c.state, operations.slice(0, at), { ...c.state, ...c.defaultState }).aggregations;
+        const said = op.aggregations.filter((a) => !held.some((b) => b.columnId === a.columnId && b.function === a.function));
+        const changed = (o: ViewOperation) =>
+          (o.type === "aggregation.set" &&
+            said.some((a) => !o.aggregations.some((b) => b.columnId === a.columnId && b.function === a.function))) ||
+          (o.type === "columns.hide" && said.some((a) => o.columnIds.includes(a.columnId)));
+        if (later.some(changed)) {
+          undone.add(index);
+          continue;
+        }
+      }
+      if (op.type === "group.set" && later.some((o) => o.type === "group.set")) {
         undone.add(index);
         continue;
       }
@@ -2516,7 +2846,15 @@ export const compile = (c: CompileInput): ViewPlan => {
   // part or its end, so "compact view, top 10 by market value" would sort and count and drop the density. The part asks
   // about those words. A form said there is asked about as a form, so the User can ask for it on its own. Words that
   // would read as a form but for a name of the Host's ask what they ask at the whole part or its end.
-  const [leftIndex, leftWords] = [...viewWordsLeftOf][0] ?? [];
+  // A Host's name made of totals words only ("total", "sum") may ask for a total where the plan shows totals ("group by
+  // owner, total, average rate") or its part groups ("group by owner with totals"). Elsewhere it is the name, as before
+  // ("sort by total", "group by owner, sort by total").
+  const showsTotals = operations.some((op) => op.type === "aggregation.set");
+  const groups = (index: number) => unquoted(c.input.clauses.find((x) => x.index === index)?.text ?? "").match(GROUP_WORD) !== null;
+  const [leftIndex, leftWords] =
+    [...viewWordsLeftOf]
+      .map(([index, words]) => [index, words.filter((w) => !w.whole || showsTotals || groups(index))] as const)
+      .find(([, words]) => words.length > 0) ?? [];
   const leftWord = leftWords?.[0];
   if (status === "ready" && leftIndex !== undefined && leftWord) {
     clarifications.push(
@@ -2533,6 +2871,23 @@ export const compile = (c: CompileInput): ViewPlan => {
             },
     );
     status = "needs_clarification";
+  }
+  // A total on a column the view groups by (spec 5.4): in a group row, TanStack Table shows the group's own value in
+  // that column, so no total can show there, and the Grid Adapters would draw different numbers. A plan that groups or
+  // sets totals asks instead, on a grid that shows totals: "total gain" on a view grouped by Unrealized gain, or "group
+  // by gain" on one that shows its total. Validation refuses the same view.
+  if (status === "ready" && lists("aggregation.set") && operations.some((op) => op.type === "aggregation.set" || op.type === "group.set")) {
+    const after = applyOperations(c.state, operations, { ...c.state, ...c.defaultState });
+    const grouped = after.aggregations.find((a) => after.groupBy.includes(a.columnId));
+    if (grouped) {
+      const label = column(grouped.columnId)?.label ?? grouped.columnId;
+      clarifications.push({
+        id: "plan.total.grouped",
+        prompt: `GridCue can't group by ${label} and show its ${grouped.function === "avg" ? "average" : "total"} too.`,
+        required: true,
+      });
+      status = "needs_clarification";
+    }
   }
   // Then the count rule (ADR 0027): a plan that would keep the view's count over different rows asks which the User
   // wants. Each answer adds the count's own line, so the Preview says it. Asked here, after compiling, so it holds for
@@ -2559,6 +2914,27 @@ export const compile = (c: CompileInput): ViewPlan => {
       required: true,
     });
   }
+  // One list of totals per plan (spec 5.4). Each totals form sets the whole list, so the view after the plan holds the
+  // last list, which already holds the earlier ones: only it is kept, and its one Preview line names every total the
+  // plan adds, replaces or removes. This runs last, since the checks above follow each form's own operation.
+  // A list that ends where the view's totals started ("no totals and show the total of market value" on a view that
+  // shows that total) changes nothing, and has no line: with nothing else to change, the grid already shows this view.
+  const lastTotals = operations.findLast((op) => op.type === "aggregation.set");
+  if (status === "ready" && lastTotals) {
+    for (let at = operations.length - 1; at >= 0; at--) {
+      const op = operations[at];
+      if (op?.type === "aggregation.set" && op !== lastTotals) operations.splice(at, 1);
+    }
+    const at = operations.indexOf(lastTotals);
+    // After a reset, the totals are the default view's, which a caller may not have given.
+    const known = !!c.defaultState?.aggregations || !operations.slice(0, at).some((op) => op.type === "view.reset");
+    const before = applyOperations(c.state, operations.slice(0, at), { ...c.state, ...c.defaultState }).aggregations;
+    if (known && JSON.stringify(before) === JSON.stringify(lastTotals.aggregations)) operations.splice(at, 1);
+    if (operations.length === 0) {
+      clarifications.push({ id: "plan.empty", prompt: "The grid already shows this view.", required: true });
+      status = "needs_clarification";
+    }
+  }
   return {
     protocolVersion: PROTOCOL_VERSION,
     id: c.newId("plan"),
@@ -2576,7 +2952,7 @@ export const compile = (c: CompileInput): ViewPlan => {
 /**
  * What a provider proposed for a part whose end code read as view words, kept only where the rest of the part names it
  * (spec 4.1). The provider saw the whole part, so it may have taken a column only the read words name: "sort by
- * advisor and pin market value" sorted by both. A pick of a column that only the read words name is dropped, and so is
+ * advisor and pin market value" sorted by both, and "group by advisor and total market value" grouped by both. A pick of a column that only the read words name is dropped, and so is
  * a term the provider couldn't place that is written only there. `clause` is the rest of the part, and `own` its
  * Mentions.
  */
@@ -2589,7 +2965,15 @@ const beforeViewWords = (
 ): ClauseResolution => {
   const named = new Set(own.map((m) => m.columnId));
   const onlyRead = new Set(
-    reading.operations.flatMap((op) => (op.type === "columns.pin" ? op.columnIds : [])).filter((id) => !named.has(id)),
+    reading.operations
+      .flatMap((op) =>
+        op.type === "columns.pin" || op.type === "group.set"
+          ? op.columnIds
+          : op.type === "aggregation.set"
+            ? op.aggregations.map((a) => a.columnId)
+            : [],
+      )
+      .filter((id) => !named.has(id)),
   );
   const keep = (id: string) => !onlyRead.has(id);
   const said = (term: string) => clause.text.includes(term.toLowerCase());

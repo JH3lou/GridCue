@@ -1,6 +1,6 @@
 # Code reads closed view words
 
-**Status:** accepted with the operation set spec (2026-11-13). Built for the count words, pins, unpins and density. Not yet built: totals.
+**Status:** accepted with the operation set spec (2026-11-13). Built for the count words, pins, unpins, density and totals.
 
 Pins, density, totals, and setting or clearing a count are reached by code that reads a small, closed set of words. No Operation Family is added for them. The request sent to an Intent Provider, the families it scores, and Jev's questions do not change, so the protocol stays at 0.1.
 

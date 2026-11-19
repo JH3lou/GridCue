@@ -863,17 +863,24 @@ describe("reading Local Values stays fast", () => {
     "Jordan Pike ",
     "Kim Lee ",
   ];
+  /** The CPU time this test's own process has used so far, in milliseconds. */
+  const cpuMs = () => {
+    const used = process.cpuUsage();
+    return (used.user + used.system) / 1000;
+  };
   it("reads and compiles 2,000 characters of names in under 50 ms", async () => {
     const empty: IntentProvider = { resolve: async () => ({ clauses: [] }) };
     for (const unit of units) {
       const text = unit.repeat(Math.ceil(2000 / unit.length)).slice(0, 2000);
-      // The best of three: backtracking is slow every time, while a busy test runner is slow once.
+      // The best of three: backtracking is slow every time, while a busy test runner is slow once. Timed as this
+      // process's own CPU time, not the clock: the whole suite runs in parallel, and a run that waited its turn for
+      // 50 ms three times over failed this test twice with nothing slow in the code (7 ms alone).
       let best = Number.POSITIVE_INFINITY;
       for (let run = 0; run < 3; run++) {
         const { cue } = make({ provider: empty, maxUtteranceLength: 2000 });
-        const started = performance.now();
+        const started = cpuMs();
         await cue.propose(text);
-        best = Math.min(best, performance.now() - started);
+        best = Math.min(best, cpuMs() - started);
       }
       expect(best, unit).toBeLessThan(50);
     }

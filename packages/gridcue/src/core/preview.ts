@@ -2,6 +2,7 @@ import { type ConfidencePolicy, DEFAULT_CONFIDENCE } from "./compile";
 import { calendarZone, isDay } from "./dates";
 import { formatAmount } from "./format";
 import {
+  type AggregationSpec,
   type ColumnDescriptor,
   emptyViewState,
   type FilterGroup,
@@ -88,7 +89,47 @@ const onWholeDays = (p: FilterPredicate, c: ColumnDescriptor | undefined): boole
   return days.length > 0 && days.every((d) => typeof d === "string" && isDay(d));
 };
 
-const describe = (op: ViewOperation, schema: ViewSchema, current?: Pick<ViewState, "filters">, pinned?: readonly string[]): string => {
+/** A total's words: "the total of", "the average of" (operation set spec, 4.5). */
+const TOTAL_WORDS: Record<AggregationSpec["function"], string> = {
+  sum: "total",
+  avg: "average",
+  min: "minimum",
+  max: "maximum",
+  count: "count",
+};
+
+/**
+ * The line for a list of totals, against the totals the view holds when it applies (operation set spec, 4.5). It
+ * names only what changes: "Show the total of Market value" for a new total, "Show the average of Market value instead
+ * of its total" where it replaces one, "Remove the total of Unrealized gain" for one the list leaves out, and "Remove
+ * the totals" for an empty list. Each total keeps its own words, so two never read as one sum of two columns.
+ */
+const totalsLine = (totals: readonly AggregationSpec[], before: readonly AggregationSpec[], label: (id: string) => string): string => {
+  if (totals.length === 0) return "Remove the totals";
+  const words = (a: AggregationSpec) => `the ${TOTAL_WORDS[a.function]} of ${label(a.columnId)}`;
+  const was = new Map(before.map((a) => [a.columnId, a.function]));
+  const shown = totals.flatMap((a) => {
+    const old = was.get(a.columnId);
+    if (old === a.function) return [];
+    return [old === undefined ? words(a) : `${words(a)} instead of its ${TOTAL_WORDS[old]}`];
+  });
+  const kept = new Set(totals.map((a) => a.columnId));
+  const removed = before.filter((a) => !kept.has(a.columnId)).map(words);
+  // A list that changes nothing still says what it shows.
+  if (shown.length === 0 && removed.length === 0) return `Show ${list(totals.map(words))}`;
+  const line = [...(shown.length > 0 ? [`Show ${list(shown)}`] : []), ...(removed.length > 0 ? [`remove ${list(removed)}`] : [])].join(
+    " and ",
+  );
+  return line.charAt(0).toUpperCase() + line.slice(1);
+};
+
+const describe = (
+  op: ViewOperation,
+  schema: ViewSchema,
+  current?: Pick<ViewState, "filters">,
+  pinned?: readonly string[],
+  totals: readonly AggregationSpec[] = [],
+): string => {
   const col = (id: string) => schema.columns.find((c) => c.id === id);
   const label = (id: string) => col(id)?.label ?? id;
   switch (op.type) {
@@ -142,7 +183,7 @@ const describe = (op: ViewOperation, schema: ViewSchema, current?: Pick<ViewStat
       return every || op.columnIds.length === 0 ? "Unpin all columns" : `Unpin ${list(op.columnIds.map(label))}`;
     }
     case "aggregation.set":
-      return `Summarize ${list(op.aggregations.map((a) => `${label(a.columnId)} (${a.function})`))}`;
+      return totalsLine(op.aggregations, totals, label);
     case "density.set":
       return `Use ${op.density} density`;
     case "limit.set":
@@ -195,10 +236,10 @@ export const renderPreview = (
   plan: Pick<ViewPlan, "operations"> & Partial<Pick<ViewPlan, "evidence">>,
   schema: ViewSchema,
   /**
-   * The view the plan applies to. With it, a line that clears filters names the ones it removes, and an unpin that
-   * names every pinned column says "Unpin all columns".
+   * The view the plan applies to. With it, a line that clears filters names the ones it removes, an unpin that names
+   * every pinned column says "Unpin all columns", and a totals line names only the totals it adds, replaces or removes.
    */
-  current?: Pick<ViewState, "filters"> & Partial<Pick<ViewState, "pinnedColumnIds">>,
+  current?: Pick<ViewState, "filters"> & Partial<Pick<ViewState, "pinnedColumnIds" | "aggregations">>,
 ): Preview => {
   // A filter a House Term made names the term, as the Host declared it (spec 4.5): "Filter Market value above
   // $1,000,000 (Large)". The plan's `host` evidence keeps the label, by the filter's ID.
@@ -221,10 +262,15 @@ export const renderPreview = (
   // The columns pinned when each operation applies, followed through the plan's own pins. After a reset they are the
   // default view's, which the Preview isn't given.
   let pins = current?.pinnedColumnIds;
+  // The same for the totals. Without the view, or after a reset, every total a list holds is said as new.
+  let totals: readonly AggregationSpec[] = current?.aggregations ?? [];
   const lines = plan.operations.map((op) => {
-    const line = describe(op, schema, current, pins && [...pins.start, ...pins.end]);
-    if (op.type === "view.reset") pins = undefined;
-    else if (op.type === "columns.pin" && pins) {
+    const line = describe(op, schema, current, pins && [...pins.start, ...pins.end], totals);
+    if (op.type === "aggregation.set") totals = op.aggregations;
+    if (op.type === "view.reset") {
+      pins = undefined;
+      totals = [];
+    } else if (op.type === "columns.pin" && pins) {
       const before = { ...emptyViewState([]), pinnedColumnIds: pins };
       pins = applyOperations(before, [op], before).pinnedColumnIds;
     }
@@ -267,6 +313,8 @@ export interface ViewDiff {
   pinsChanged: boolean;
   /** The density changed. */
   densityChanged: boolean;
+  /** A total was added, removed, or replaced by another on its column. */
+  totalsChanged: boolean;
 }
 
 export const diffViews = (before: ViewState, after: ViewState): ViewDiff => ({
@@ -279,6 +327,7 @@ export const diffViews = (before: ViewState, after: ViewState): ViewDiff => ({
   countChanged: before.limit !== after.limit,
   pinsChanged: JSON.stringify(before.pinnedColumnIds) !== JSON.stringify(after.pinnedColumnIds),
   densityChanged: before.density !== after.density,
+  totalsChanged: JSON.stringify(before.aggregations) !== JSON.stringify(after.aggregations),
 });
 
 export interface AuditPolicy {
@@ -327,10 +376,21 @@ export const toAuditEvent = (
     ...(policy.includeText && plan.source.text ? { text: plan.source.text } : {}),
     ...(policy.includeStructure
       ? {
+          // The columns of each change, never a value. A list of totals names its columns (operation set spec, 4.5).
           structure: plan.operations.map((o) =>
             o.type === "filter.add"
               ? { type: o.type, columnIds: [o.predicate.columnId], operator: o.predicate.operator }
-              : { type: o.type, columnIds: "columnIds" in o ? o.columnIds : "sorts" in o ? o.sorts.map((s) => s.columnId) : [] },
+              : {
+                  type: o.type,
+                  columnIds:
+                    "columnIds" in o
+                      ? o.columnIds
+                      : "sorts" in o
+                        ? o.sorts.map((s) => s.columnId)
+                        : "aggregations" in o
+                          ? o.aggregations.map((a) => a.columnId)
+                          : [],
+                },
           ),
         }
       : {}),

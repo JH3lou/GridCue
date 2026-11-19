@@ -83,7 +83,7 @@ What each piece does:
 
 - **`gridcueFilterFn`** evaluates GridCue's filter predicates inside TanStack's filtering. Set it as the default. A column with its own `filterFn` can wrap it with `withGridCueFilter(yourFilterFn)`, so both filters keep working on that column.
 - **`schemaFromTanStack(table, options)`** reads the table's leaf columns (IDs and string headers) and the first 50 rows, to infer kinds. It takes the same options as `defineSchema`, except `sampleRows`. Currency and percent can't be inferred, so declare them. If your rows load later, declare every kind, because the sample is read once, when the schema is built. See [Describe your domain](/docs/get-started/describe-your-domain) for aliases, enum values, `rowNoun`, `entity`, and `valueGroups`.
-- **`createTanStackAdapter({ schema, table })`** also takes `maxSorts` (default 3), `maxGroups` (default 2) and `renders` (default none: [see below](#pinning-and-density)). The view at the moment you create the adapter is what "reset the view" returns to.
+- **`createTanStackAdapter({ schema, table })`** also takes `maxSorts` (default 3), `maxGroups` (default 2) and `renders` (default none: [pins and density](#pinning-and-density), [totals](#totals)). The view at the moment you create the adapter is what "reset the view" returns to.
 
 ### Pinning and density
 
@@ -100,6 +100,34 @@ createTanStackAdapter({ schema, table, renders: ["pinning", "density"] });
 ```
 
 `renders: ["pinning"]` throws `INPUT_CONFIG` when the table has no `setColumnPinning`, so a missing `columnPinningFeature` shows up when the adapter is created. GridCue can't see whether your markup draws a pin: a Host that names one it doesn't draw gets a Preview and "View updated." with nothing to see. See [Adapters](/docs/api/adapters#renders).
+
+### Totals
+
+GridCue can show a total for each group, or one for the whole view when it isn't grouped ("total market value by advisor"). The adapter lists `aggregation.set` only when you say your table draws totals, and the default is none: "total market value" then asks "This grid can't show totals." and changes nothing.
+
+Name `"totals"` only when your table draws them. Register `rowAggregationFeature`, put GridCue's two functions on `defaultColumn`, and draw the values: a group row's cell is `row.getValue(columnId)`, and a footer's is `column.getAggregationValue()`. The adapter holds the totals, so undo puts them back.
+
+```tsx
+import { rowAggregationFeature } from "@tanstack/react-table";
+import { gridcueAggregationFn, gridcueAggregationValue } from "gridcue/tanstack-table";
+
+const features = tableFeatures({ /* …the features above, */ rowAggregationFeature });
+
+const table = useTable({
+  features,
+  columns,
+  data,
+  defaultColumn: {
+    filterFn: gridcueFilterFn,
+    aggregationFn: gridcueAggregationFn,
+    getAggregationValue: gridcueAggregationValue,
+  },
+});
+
+createTanStackAdapter({ schema, table, renders: ["totals"] });
+```
+
+`renders: ["totals"]` throws `INPUT_CONFIG` when it can see a missing piece: no `rowAggregationFeature`, or a column that doesn't use the two functions. Leave `aggregationFn` and `getAggregationValue` out of the columns' own definitions. A column you add or redefine after the adapter is made isn't checked. GridCue can't see whether your markup draws a total. See [`gridcueAggregationFn`](/docs/api/adapters#gridcueaggregationfn).
 
 Start with the Mock Provider if you have no server yet: `provider: createMockProvider()` from `gridcue/mock`. It runs in the browser and understands your column names and declared aliases.
 

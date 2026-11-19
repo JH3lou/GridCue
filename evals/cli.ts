@@ -477,6 +477,31 @@ const viewWordsHeldOut2 = await run(new URL("./cases-view-words-heldout-r2.jsonl
 // Round 3, labelled blind after the review's fixes and run once (2026-11-15): 80 exact, 116 asked, 1 refused, 1 asked
 // where its label is a ready plan, no wrong view, of 198. Without `renders`, all 198 passed.
 const viewWordsHeldOut3 = await run(new URL("./cases-view-words-heldout-r3.jsonl", import.meta.url), "cases-view-words-heldout-r3.jsonl");
+// Totals (operation set spec, 5.2 and 5.4), labelled for a grid that draws totals, with 10 adversarial cases and 15
+// ranked-group requests. With the Mock Provider (2026-11-14): 30 exact, 28 asked as labelled, 2 asked with today's two
+// choices where the label has a third ("most" and "least concentrated households first", which need "concentrated" read
+// as Concentration), no wrong view, of 60. `--grid=no-renders` runs them on a grid without `renders`.
+const totals = await run(new URL("./cases-totals.jsonl", import.meta.url), "cases-totals.jsonl");
+// The held-out sets for totals, labelled blind for a grid that draws totals and run once (2026-11-14). Totals, from spec
+// 5.4: 41 exact, 47 asked as labelled, 2 asked where a ready plan or a question is right, no wrong view, of 90. Ranked
+// groups: 2 exact, 11 asked as labelled, 6 asked with other choices, no wrong view, of 19. The natural set, by a
+// labeller who saw only the product definition and the schemas: 3 exact, 21 asked as labelled, 25 asked where the label
+// is a ready plan (an ask rate of 25 of 29), 1 wrong view by the verdict ("total market value and average
+// concentration" gave two `aggregation.set` operations, the second carrying both totals), of 50. See evals.test.ts.
+const totalsHeldOut = await run(new URL("./cases-totals-heldout.jsonl", import.meta.url), "cases-totals-heldout.jsonl");
+const totalsRankedHeldOut = await run(new URL("./cases-totals-ranked-heldout.jsonl", import.meta.url), "cases-totals-ranked-heldout.jsonl");
+const totalsNaturalHeldOut = await run(
+  new URL("./cases-totals-natural-heldout.jsonl", import.meta.url),
+  "cases-totals-natural-heldout.jsonl",
+);
+// Round 2, labelled blind for a grid that draws totals and run once (2026-11-14): 21 exact, 18 asked as labelled, 2
+// asked where the label was a ready plan, no wrong view, of 41. The 2 were label errors ("total" is an alias of the
+// ledger's Amount, so its form doesn't read) and are corrected in the file. Without `renders`, all 41 passed.
+const totalsHeldOut2 = await run(new URL("./cases-totals-heldout-r2.jsonl", import.meta.url), "cases-totals-heldout-r2.jsonl");
+// Round 3, labelled blind after the review's fixes and run once (2026-11-15). One wrong view from this work, now a
+// question; four labels corrected; one request set aside (see evals.test.ts). Of the 202 kept: 58 exact, 128 asked, 2
+// refused, 14 asked where the label is a ready plan, no wrong view.
+const totalsHeldOut3 = await run(new URL("./cases-totals-heldout-r3.jsonl", import.meta.url), "cases-totals-heldout-r3.jsonl");
 
 // Applying a view the user did not ask for is release-blocking with any provider.
 // With the Mock Provider every core case must match exactly, because its answers are deterministic.
@@ -531,6 +556,12 @@ const all = [
   viewWordsHeldOut,
   viewWordsHeldOut2,
   viewWordsHeldOut3,
+  totals,
+  totalsHeldOut,
+  totalsRankedHeldOut,
+  totalsNaturalHeldOut,
+  totalsHeldOut2,
+  totalsHeldOut3,
 ];
 const mockMustMatch = [
   core,

@@ -28,9 +28,17 @@ export * from "./core/protocol";
 export { applyOperations } from "./core/reduce";
 export { createRemoteProvider, type RemoteProviderOptions } from "./core/remote";
 export * from "./core/resolution";
-export { applyView, createRowsAdapter, type RowsAdapter, type RowsAdapterOptions, type ViewResult } from "./core/rows-adapter";
+export {
+  applyView,
+  createRowsAdapter,
+  type RowsAdapter,
+  type RowsAdapterOptions,
+  type TotalValue,
+  type ViewResult,
+} from "./core/rows-adapter";
 export * from "./core/schema";
 export { REVERSAL_WORDING, unknownTerm } from "./core/terms";
+export { type TotalFunction, totalOf } from "./core/totals";
 export {
   type ApplicableViewPlan,
   isApplicable,

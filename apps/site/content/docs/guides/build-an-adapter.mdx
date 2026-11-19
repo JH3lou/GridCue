@@ -35,7 +35,7 @@ interface GridAdapter {
 
 | Field | Meaning |
 | --- | --- |
-| `operations` | The operation types you support. Start from `[...MVP_OPERATIONS]`: `filter.add`, `filter.clear`, `sort.set`, `group.set`, `columns.show`, `columns.hide`, `columns.order`, `view.reset`. Add `columns.pin` and `density.set` only when your grid draws them, and `limit.set` only when it keeps the first rows exactly. See [List an operation only when your grid draws it](#list-an-operation-only-when-your-grid-draws-it) |
+| `operations` | The operation types you support. Start from `[...MVP_OPERATIONS]`: `filter.add`, `filter.clear`, `sort.set`, `group.set`, `columns.show`, `columns.hide`, `columns.order`, `view.reset`. Add `columns.pin`, `density.set` and `aggregation.set` only when your grid draws them, and `limit.set` only when it keeps the first rows exactly. See [List an operation only when your grid draws it](#list-an-operation-only-when-your-grid-draws-it) |
 | `maxSorts`, `maxGroups` | Optional limits. Plans that exceed them fail validation |
 | `supportsAtomicApply` | Every operation applies or none do |
 | `supportsSnapshotRestore` | `restore` puts back an exact earlier view |
@@ -84,7 +84,9 @@ Pass the time zone: `matchesPredicate(cell, predicate, column, { timeZone: schem
 
 ### List an operation only when your grid draws it
 
-GridCue writes a View State, and a grid draws it. `columns.pin` and `density.set` change nothing a User can see unless the grid keeps the pinned columns in place and sets its row height. An adapter that lists one the grid ignores gives a Preview, an apply and "View updated." with no visible change. So list each only when the grid does it, and give the Host an option to say so, as `createRowsAdapter` and `createTanStackAdapter` do with [`renders`](/docs/api/adapters#renders). Without it, a request for the operation ends in "This grid can't pin columns." or "This grid can't change its density.", with nothing applied.
+GridCue writes a View State, and a grid draws it. `columns.pin`, `density.set` and `aggregation.set` change nothing a User can see unless the grid keeps the pinned columns in place, sets its row height and draws the totals. An adapter that lists one the grid ignores gives a Preview, an apply and "View updated." with no visible change. So list each only when the grid does it, and give the Host an option to say so, as `createRowsAdapter` and `createTanStackAdapter` do with [`renders`](/docs/api/adapters#renders). Without it, a request for the operation ends in "This grid can't pin columns." or "This grid can't change its density.", with nothing applied. The same goes for a total: "This grid can't show totals."
+
+An adapter that lists `aggregation.set` reads and writes `aggregations` (one total for each column, `sum` or `avg`), and lists the functions it applies in `aggregationFunctions` if it applies more or fewer than those two. Use `totalOf(values, "sum" | "avg")` from `gridcue` to add up a column, so a sum is exact in decimal and your adapter agrees with the Rows Adapter to the last digit. A total counts the rows the view shows, skips empty values, and is empty, never 0, with none. Order the groups of a grouped, sorted view as [both shipped adapters do](/docs/api/adapters#one-group-order-in-both-adapters).
 
 An adapter that lists `columns.pin` reads and writes `pinnedColumnIds` (`start` and `end`, each in pin order), and one that lists `density.set` reads and writes `density`. If your grid has no setting for either, as TanStack Table has none for density, hold the value in the adapter and return it from `getState()`, so `restore` and undo keep it. A pin the User makes with the grid's own controls is a view change like any other: bump the Revision and notify.
 

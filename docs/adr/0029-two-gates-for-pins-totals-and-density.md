@@ -1,6 +1,6 @@
 # Two gates for pins, totals and density
 
-**Status:** accepted with the operation set spec (2026-11-13). Built for pins and density: the `pin` column default, `renders` with `"pinning"` and `"density"`, and "This grid can't …" for both. Not yet built: totals (the `aggregate` default and `renders: ["totals"]`) and the TanStack count.
+**Status:** accepted with the operation set spec (2026-11-13). Built for pins, density and totals: the `pin` and `aggregate` column defaults, `renders` with `"pinning"`, `"density"` and `"totals"`, and "This grid can't …" for each. Not yet built: the TanStack count.
 
 A pin or a total reaches a grid through two gates, and each gate has its own default. A density passes the second gate only.
 
@@ -12,6 +12,8 @@ Before this, pinning and totals were off for every column unless the Host turned
 So the two gates answer two different questions. The column gate asks whether the change is allowed. Pins and totals are view changes with no data risk, and a column setting a Host has to find first is a feature most Users never get, so it is on. The grid gate asks whether the change will show. Only the Host knows, so it is off until the Host says so.
 
 A request for something the grid doesn't draw ends in a question with no choices, such as "This grid can't pin columns." Nothing in the request applies, the other parts included. It comes from one piece of code that every Grid Adapter shares, and the protocol does not change. It is not an Unsupported Segment, which stays for requests outside the view-only rule. The other way was a new unsupported kind in the protocol. The owner approved the question.
+
+An adapter that lists `aggregation.set` may also say which total functions it applies, in `aggregationFunctions` beside its operations. Left out, it means a sum and an average, which is what both shipped adapters apply, so their capabilities and the provider request stay as they were. A plan with any other function is not valid on that grid. The protocol keeps min, max and count; no request produces them.
 
 A count is different. The Rows Adapter drops the rows itself, so it lists `limit.set` with no option. The TanStack Table adapter's count goes through `renders` (ADR 0027).
 

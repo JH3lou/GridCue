@@ -23,7 +23,7 @@ Builds a `ViewSchema` from a list of columns and per-column additions. For each 
 
 - **label** is the override's `label`, else the input's `label`, else the ID made readable (`market_value` and `marketValue` both become "Market value").
 - **kind** is the override's `kind`, else the input's `kind`, else `enum` when the override lists `enumValues`, else inferred from `sampleRows`. See [Column kinds](#column-kinds).
-- **capabilities** is the override's `capabilities`, else the defaults. A restricted column gets none.
+- **capabilities** is the override's `capabilities`, else the defaults, with `"aggregate"` added for a number, currency or percent column. A restricted column gets none.
 - **sensitivity** is `restricted` for columns listed in `restricted`, `internal` for every other column. A restricted column is also marked `exposeToProvider: false`.
 
 The result is checked against the `ViewSchema` shape before it is returned.
@@ -73,7 +73,7 @@ interface SchemaOptions {
 | `columns` | `Record<string, ColumnOverride>` | none | Per-column additions, keyed by column ID: aliases, descriptions, approved enum values, narrower capabilities. |
 | `restricted` | `string[]` | none | Column IDs GridCue must never expose to a provider or act on. |
 | `rowNoun` | `string` | none | What one row is, such as `"account"`. Its name in a request means the rows, not a column. |
-| `defaultMeasure` | `string` | none | The column a size word ranks by when the request names none: "top accounts", "largest to smallest", "smallest first" sort by it, descending for top, largest and biggest, ascending for smallest. It must name a column; a restricted or unsortable one is never used. Without it, GridCue asks which column. |
+| `defaultMeasure` | `string` | none | The column a size word ranks by when the request names none: "top accounts", "largest to smallest", "smallest first" sort by it, descending for top, largest and biggest, ascending for smallest. It is also the column "largest households first" ranks groups by, when the grid shows totals: the question then offers "Rank households by total Market value" (or "by average" for a percent column) as a third choice. It must name a column; a restricted or unsortable one is never used. Without it, GridCue asks which column. |
 | `houseTerms` | `HouseTerm[]` | none | Words your firm uses for a fixed set of conditions, such as "large" for Market value above $1,000,000. See [House Terms](#houseterms). |
 | `calendar` | `Calendar` | none | The time zone and the first month of your year, which turn date words such as "last 90 days" into dates. See [calendar](#calendar). |
 | `sampleRows` | `ReadonlyArray<Record<string, unknown>>` | none | Rows used only to infer missing kinds. They never leave the caller. |
@@ -241,7 +241,11 @@ type ColumnCapability = "filter" | "sort" | "group" | "aggregate" | "show" | "hi
 const DEFAULT_CAPABILITIES: ColumnCapability[] = ["filter", "sort", "group", "show", "hide", "reorder", "pin"];
 ```
 
-Every column that is not restricted gets `DEFAULT_CAPABILITIES` unless its override says otherwise. `pin` is a default: a pin is a view change with no data risk. Pass a narrower `capabilities` list, one without `"pin"`, to keep a column from being pinned. A column's `pin` says whether the change is allowed; whether it shows depends on the grid. An adapter lists `columns.pin` only when the Host says its table draws pins, with [`renders`](/docs/api/adapters#renders). `aggregate` exists in the protocol but is not a default, and no adapter supports the operation that uses it.
+Every column that is not restricted gets `DEFAULT_CAPABILITIES` unless its override says otherwise. `pin` is a default: a pin is a view change with no data risk. Pass a narrower `capabilities` list, one without `"pin"`, to keep a column from being pinned. A column's `pin` says whether the change is allowed; whether it shows depends on the grid. An adapter lists `columns.pin` only when the Host says its table draws pins, with [`renders`](/docs/api/adapters#renders).
+
+`defineSchema` also adds `"aggregate"` to every number, currency and percent column that isn't restricted, so those columns may be totalled. `DEFAULT_CAPABILITIES` itself stays as listed above, because a total fits some kinds only. Whether a total fits is the kind's rule, checked apart from this capability: a sum fits a number or currency column, an average a number, currency or percent column, and a text, enum, date or yes/no column takes none (`PLAN_AGGREGATION_KIND`, see [Protocol](/docs/api/protocol#gridcueerror)). An adapter lists `aggregation.set` only when the Host says its table draws totals, with [`renders: ["totals"]`](/docs/api/adapters#renders).
+
+A `capabilities` override replaces these defaults, as it always has. A Host that lists a column's capabilities by hand and leaves out `"aggregate"` keeps that column from being totalled: a request for its total asks "GridCue can't total Market value here." Add `"aggregate"` to the list to allow it. Before this change, no column could be totalled by default, so a Host upgrading finds that requests can now total columns it never opted in, once it sets `renders: ["totals"]`.
 
 Density belongs to no column, so it has no capability.
 

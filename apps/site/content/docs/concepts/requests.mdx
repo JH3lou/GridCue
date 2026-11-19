@@ -340,6 +340,71 @@ A Grid Adapter lists `columns.pin` and `density.set` only when the Host says its
 
 The form counts wherever it is said in the request, and whatever column it names: on this grid no wording of it could pin. It is the same question as [a grid that can't group](#a-grid-that-cant-group), and not an Unsupported Segment: nothing here is outside the view. A request that also asks for something outside the view, as in "pin advisor and export the list", is refused for that, as on a grid that draws pins. A request with none of these words reads as before.
 
+## Totals
+
+GridCue's own code also reads a small, closed set of words for totals, with no provider. The same rules apply as for pins: a part is read only when every word is a form word, a column the grid names, or a filler the form allows, and one word left over sends the part to the provider as before.
+
+| Form | Reads | Doesn't read |
+| --- | --- | --- |
+| Total | "total market value", "sum of market value", "show the total of market value", "show total market value" (a number or currency column) | "how much does each advisor manage", "market value totals", "mean market value" |
+| Average | "average concentration", "show the average of concentration" (a number, currency or percent column) | "mean concentration", "avg concentration" |
+| Total by | "total market value by advisor", "sum of market value by advisor", "average concentration by custodian" (the second column can group) | "total market value per advisor": "per" asks |
+| Clear totals | "remove the totals", "clear the totals", "no totals" | "hide the totals", which could mean columns |
+
+"Also" may come before a form: "also total unrealized gain".
+
+- **"Total X by Y" groups by Y too**, replacing the grouping as "group by Y" does. "Group by advisor and show total market value" reads the same two lines. A grouping the same request set first is not replaced without a word: "group by advisor, total market value by custodian" asks "GridCue can't group by Advisor and by Custodian too. To group by both, say “group by advisor, then custodian”."
+- **A new total is added** to the totals the view has, and no total goes unless a request removes it. A column holds one total at a time, so "average market value" on a view that totals Market value replaces it. "Total market value, average market value" in one request asks, because it names two totals for one column.
+- **A total that doesn't fit its column asks.** "Total concentration" asks "Concentration can't be totalled. Show its average instead?" with Yes and No. "Total registration type" says "Registration type can't be totalled." and offers no choice.
+- **A totals form is read as its own part, or at the end of one**, after "and" or a comma. "Northgate accounts, total market value" and "group by advisor and total market value" preview both changes. Said anywhere else, as in "sort by total market value", GridCue can't tell how it fits and asks: "GridCue can't tell how “total market value” fits with the rest of that part. Try asking for it on its own."
+- **After a sort, or a list of columns to hide or show, a totals form asks.** The words may be one more item of that list: "sort by gain and average concentration" may sort by Concentration too. GridCue asks "GridCue can't tell whether “average concentration” is one more column to sort by. To show the average, ask for it on its own." A grouping can't group by a total, so a total after one is read.
+- **After a clear that names what it removes, a totals form asks too.** In "remove the totals and total market value" or "clear the sort and total market value", "remove" may take the total as well, so the User may want no total at all. GridCue asks "GridCue can't tell whether “total market value” is one more thing to remove. To show the total, ask for it on its own." A total with its own verb is read: "remove the totals and show the total of market value" shows only that total. So is one after a clear said in one word, as in "ungroup and total market value".
+- **A totals word no form read never leaves a ready Preview.** "Total", "totals", "sum" and "average" outside a name the grid declares and outside quoted text ask about that word, as in "northgate accounts total": "I'm not sure what to do with “total”. Try rephrasing that part." "Average" right after "above", "below", "over", "under" or "than", or joined to one by a hyphen ("above-average"), is a level to compare with, and is not counted as a totals word. A name the grid declares keeps its words: "Total return", as a label, is a column, and so is "Average cost" in "average cost by holder".
+- **A name made only of totals words is in doubt** where the grid shows totals. If the grid declares "total" or "sum" as a name of a column, "group by owner with totals" or "group by category, total amount" may ask for totals or name the column, so they ask: "“total” is a name in this grid, so GridCue can't tell what “total” asks for. Try rephrasing that part." They ask where the request shows totals or the part groups; "sort by total" still sorts the column. With the name of a column a total fits right after it, as in "sort by total units" or "hide sum of units", the words may ask for that column's total, so they ask wherever they are: "“total” is a name in this grid, so GridCue can't tell what “total units” asks for. Try rephrasing that part." On a grid that doesn't show totals, the words can only be the name, and read as before.
+- **A total on a column hidden in the same request** asks: "GridCue can't hide Market value and total it too."
+- **A total on a column the view groups by** asks, since a group row shows its own value in that column: "GridCue can't group by Unrealized gain and show its total too." That holds for "total gain" on a view grouped by Unrealized gain, and for "group by gain" on one that totals it. Validation refuses the same view with `PLAN_INCONSISTENT_STATE`, for a plan that groups or sets totals.
+- **A total on a hidden column shows it first.** "Total market value" with Market value hidden previews "Show Market value" and "Show the total of Market value".
+- **A column the Host doesn't let take a total** asks, as in "GridCue can't total Unrealized gain here." A total is on by default for number, currency and percent columns, and a Host can narrow it with a column's `capabilities` ([schema](/docs/api/schema)). A restricted column is refused, as everywhere.
+
+The Preview says what will change:
+
+| Request | Preview |
+| --- | --- |
+| "Total market value by advisor" | Group by Advisor; Show the total of Market value |
+| "Average concentration by custodian" | Group by Custodian; Show the average of Concentration |
+| "Total market value" | Show the total of Market value |
+| "Total unrealized gain", with Market value totalled already | Show the total of Unrealized gain |
+| "Average market value", with its total shown | Show the average of Market value instead of its total |
+| "Remove the totals" | Remove the totals |
+
+Each applies atomically and `cue.undo()` puts the totals back. A request that would change nothing, such as "remove the totals" with none shown, says "The grid already shows this view."
+
+### Ranking groups
+
+"Largest households first" can mean the rows, or the groups ranked by a total. When the grid shows totals, groups and sorts, and the request says which way ("largest", "smallest"), the question has a third choice when the schema declares a [`defaultMeasure`](/docs/api/schema), when the request's ranking word is made from a column's name ("most concentrated" for Concentration), or when the Intent Provider names the one column the request ranks by:
+
+| Choice | Applies |
+| --- | --- |
+| Group by Household | The grouping |
+| Use the Household column | A sort or filter on the column, as before |
+| Rank households by total Market value | Group by Household, show the total of Market value, and sort by Market value, descending ("smallest": ascending). The Preview shows all three lines |
+
+The third choice is a sum where the column takes one, else an average: "most concentrated households first" offers "Rank households by average Concentration". The ranking word counts when it follows "most" or "least" and is the column's name with "-ion" written "-ed". The choice is left out on a grid that doesn't show totals, for a column that can't take a total or a sort, and when no column is there to rank by. Without it, the question is as it was, with two choices.
+
+### A grid that doesn't show totals
+
+A grid lists `aggregation.set` only when the Host says its table draws totals, with [`renders: ["totals"]`](/docs/api/adapters#renders). Without it, a request for one ends in one Clarification with no choices, and nothing in the request applies, the grouping of "total X by Y" included:
+
+| Request, without `renders` | Clarification |
+| --- | --- |
+| "Total market value" | "This grid can't show totals." |
+| "Total market value by advisor" | "This grid can't show totals." |
+| "Remove the totals" | "This grid can't show totals." |
+| "Total concentration" | "This grid can't show totals." |
+| "Northgate accounts total" | "This grid can't show totals." |
+
+The word counts wherever it is said and whatever column it names, as for pins. A request that also asks for something outside the view, as in "total market value by advisor and export the list", is refused for that. A request with none of these words reads as before, and so does a name the grid declares ("Total return").
+
 ## Mention
 
 A column or enum value that a Clause names by one of the Host's declared labels or aliases. Code finds Mentions before any provider call, matching whole words and plurals.
@@ -411,7 +476,7 @@ A Grid Adapter lists the operations it supports in `getCapabilities().operations
 
 Nothing in the request applies, the other parts included. The User asked for every change, and showing only some would be a different view. Ask again without the grouping to get the rest.
 
-A grid that doesn't draw pins or density ends in the same question for them: see [A grid that doesn't draw them](#a-grid-that-doesnt-draw-them).
+A grid that doesn't draw pins or density ends in the same question for them: see [A grid that doesn't draw them](#a-grid-that-doesnt-draw-them). The same goes for totals: see [A grid that doesn't show totals](#a-grid-that-doesnt-show-totals).
 
 Any word built on "group" counts, as a verb or a noun: "grouping", "groups", "regroup", "groupwise". "The Northgate group" and "groups of taxable accounts" may mean a grouping or only those rows, and GridCue can't tell which, so it asks. Ask for "Northgate accounts" to get the filter. "By" right after the word always asks: "keep the sort and the grouping by advisor".
 
