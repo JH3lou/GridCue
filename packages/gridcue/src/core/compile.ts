@@ -936,12 +936,16 @@ export const compile = (c: CompileInput): ViewPlan => {
           // would drop "pending", and "remove cleared entries where …" would read it as a second condition.
           const beforeWhere = /^\s*(.*?)\s+where\b/.exec(afterExclusionLead(bare) ?? "")?.[1];
           const wordsBeforeRows = !!beforeWhere && !/^(?:(?:the|all|any|those|these)\s+)*\S+$/.test(beforeWhere);
+          // A next part that begins with "where" ("hide northgate accounts where gain is below $0") says which of the rows
+          // left out to leave out: read as a second filter, it would keep the wrong rows.
+          const whereNext = /^\s*where\b/.test(c.input.clauses.find((n) => n.index === clause.index + 1)?.text ?? "");
           if (
             excluding &&
             (conditions > 1 ||
               yes ||
               unreadName ||
               wordsBeforeRows ||
+              whereNext ||
               (mentionedValues.length > 0 && unclearValue) ||
               /\b(?:except|but|other than|apart from)\b/.test(unquoted(clause.text)))
           ) {
