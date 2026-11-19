@@ -196,7 +196,7 @@ function buildResolutionRequest(
 
 Builds the `ResolutionRequest` the Controller sends to a provider. You need it only to test a provider or inspect exactly what it receives.
 
-- `input` is the Utterance split into Clauses, from `normalize(text)`.
+- `input` is the Utterance split into Clauses, from `normalize(text, schema.rowNoun)`. Pass the schema's `rowNoun` so the Clauses split as the Controller splits them.
 - The candidate families are the view families whose operations the grid supports, plus the four `unsupported.*` families.
 - The candidate columns are the exposed columns only, each with the families its capabilities allow, its legal operators, and its aliases, description, enum values, entity and value groups. Restricted columns are never included, and rows never are.
 - `view` carries the visible column IDs, the sorts, the grouping and whether any filter is on. Filter values are not sent.
@@ -205,7 +205,7 @@ Builds the `ResolutionRequest` the Controller sends to a provider. You need it o
 ```ts
 import { buildResolutionRequest, isExposed, matchMentions, normalize } from "gridcue";
 
-const input = normalize("taxable accounts over $1M, largest first");
+const input = normalize("taxable accounts over $1M, largest first", schema.rowNoun);
 const mentions = matchMentions(input.clauses, schema.columns.filter(isExposed), { rowNoun: schema.rowNoun });
 const request = buildResolutionRequest(input, schema, adapter.getCapabilities(), adapter.getState().state, mentions);
 const result = await provider.resolve(request);

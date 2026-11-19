@@ -37,7 +37,7 @@
 - A possessive before the rows ("the advisor's accounts over $1M") and another record's name before "sorted" or "grouped" ("households sorted by value") describe the rows.
 
 - "Reset to default", "reset my accounts view" and "remove the account name filter and the sort" are read as before.
-- A negated clear verb governs nothing: "clear the filters but don't clear the sort" cleared both and is asked about. "Hide Northgate accounts where gain is below $0" stays one part and is asked about, and a range with a "$" bound and a "%" bound ("between $10 and 20%") is asked about. A restricted name that ends in a symbol ("Client ID!") is refused without the symbol too, as in 0.2.0.
+- A negated clear verb governs nothing: "clear the filters but don't clear the sort" cleared both and is asked about. A part that leaves rows out keeps its "where" when the word before it is a row word: "rows", "records" or the grid's `rowNoun` ("accounts", "entries"). Any word but "the", "all", "any", "those" or "these" before the rows is asked about: "hide Northgate accounts where gain is below $0" dropped the wrong rows, "hide pending accounts where …" dropped "pending", and "remove cleared entries where …" kept only uncleared entries. `normalize` takes the schema's `rowNoun` for this. A range with a "$" bound and a "%" bound ("between $10 and 20%") is asked about. A restricted name that ends in a symbol ("Client ID!") is refused without the symbol too, as in 0.2.0.
 
 **Provider proposals** (ADR 0022)
 - A column or value a provider picks from a word that appears only inside quoted text is dropped: `advisor containing "restricted"` added a Restricted holdings filter with Jev.
