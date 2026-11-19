@@ -466,7 +466,7 @@ describe("ties", () => {
       {
         start: 5,
         end: 11,
-        values: [{ columnId: "household", value: "Zephyr" }],
+        values: [{ columnId: "household", value: "Zephyr", start: 5, end: 11 }],
         names: [{ kind: "column", label: "Custodian", columnId: "custodian" }],
       },
     ]);

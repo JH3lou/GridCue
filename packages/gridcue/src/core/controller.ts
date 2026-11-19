@@ -9,7 +9,7 @@ import { type Mention, matchMentions } from "./mentions";
 import { type NormalizedInput, normalize, withoutNamedSizes } from "./normalize";
 import { screenRestricted } from "./policy";
 import { type AuditEvent, type AuditPolicy, type Preview, renderPreview, toAuditEvent } from "./preview";
-import type { VersionedViewState, ViewPlan, ViewSchema } from "./protocol";
+import type { FilterGroup, VersionedViewState, ViewPlan, ViewSchema } from "./protocol";
 import { buildResolutionRequest, type IntentProvider, MAX_UTTERANCE_LENGTH, ResolutionResult } from "./resolution";
 import { type ApplicableViewPlan, resultingState, validatePlan } from "./validate";
 
@@ -30,7 +30,8 @@ export interface ControllerState {
  * Where GridCue reads Local Values from (named filters spec, 5.4; ADR 0025): for each text column the Host names, a
  * function that returns that column's values from the grid's own rows. For a grid that pages, that is the Host's own
  * list, not the page. GridCue calls each function when a request is made, in the User's browser, and keeps its index
- * while the function returns the same array. Nothing about the values is sent to an Intent Provider.
+ * while the function returns the same array, so a Host returns a new array when its values change: a change made in
+ * place to the same array is not seen. Nothing about the values is sent to an Intent Provider.
  */
 export type LocalValues = Record<string, () => readonly unknown[]>;
 
@@ -410,6 +411,8 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
             try {
               columns = readLocalValues();
             } catch {
+              // A function that cancelled this request, or made a newer one, before it threw leaves that state alone.
+              if (controller.signal.aborted) return stopped();
               set({
                 status: "error",
                 message: LOCAL_VALUES_FAILED,
@@ -418,6 +421,7 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
               return null;
             }
             localValues = readLocalValueParts(input, mentions, codeRead, schema, columns);
+            if (controller.signal.aborted) return stopped();
           }
           const raw = await Promise.race([provider.resolve(request, controller.signal), abandoned]);
           if (controller.signal.aborted) return stopped();
@@ -492,14 +496,22 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
         // holds its old value, or the value this plan wrote there. Put the previous view back only when every part is
         // GridCue's own: any other value is a newer change, such as the User's header click, and restoring would erase it.
         // The visible columns are judged as a set. Their order is the column order's, judged on its own, so a write that
-        // stops after the column order but before the visibility still counts as GridCue's own.
+        // stops after the column order but before the visibility still counts as GridCue's own. The filters are judged
+        // the way a grid that keeps one entry per column holds them, grouped by column, each column in its own order.
         let restored = false;
         let untouched = false;
         try {
           const now = adapter.getState().state;
           const after = resultingState(recheck.plan);
           const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
-          const part = (s: typeof now, k: keyof typeof now) => (k === "visibleColumnIds" ? [...s.visibleColumnIds].sort() : s[k]);
+          const byColumn = (f: FilterGroup | null) => {
+            if (!f) return f;
+            const first = (c: FilterGroup["children"][number]) =>
+              f.children.findIndex((d) => "columnId" in d && "columnId" in c && d.columnId === c.columnId);
+            return { ...f, children: [...f.children].sort((a, b) => first(a) - first(b)) };
+          };
+          const part = (s: typeof now, k: keyof typeof now) =>
+            k === "visibleColumnIds" ? [...s.visibleColumnIds].sort() : k === "filters" ? byColumn(s.filters) : s[k];
           untouched = same(now, before.state);
           const ours = (Object.keys(now) as Array<keyof typeof now>).every(
             (k) => same(part(now, k), part(before.state, k)) || same(part(now, k), part(after, k)),

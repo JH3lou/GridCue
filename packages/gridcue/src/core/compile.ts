@@ -669,11 +669,11 @@ export const compile = (c: CompileInput): ViewPlan => {
       .filter((col) => isExposed(col) && col.capabilities.includes(capability as never) && (!kinds || kinds.includes(col.kind)))
       .map((col) => ({ id: col.id, label: col.label }));
   // Consecutive sorts or groupings are levels of one, in the order named: the first is the primary sort or the
-  // outermost group. A clear or reset in between, or a part that says "instead", starts a new one.
+  // outermost group. A clear, reset or count in between, or a part that says "instead", starts a new one.
   const levelsOf = (type: "sort.set" | "group.set", replaces: boolean) => {
     const at = operations.findLastIndex((o) => o.type === type);
     const current = operations[at];
-    if (replaces || !current || operations.slice(at + 1).some((o) => o.type === "view.reset")) return undefined;
+    if (replaces || !current || operations.slice(at + 1).some((o) => o.type === "view.reset" || o.type === "limit.set")) return undefined;
     if (current.type === "sort.set" && current.sorts.length > 0) return current;
     if (current.type === "group.set" && current.columnIds.length > 0) return current;
     return undefined;
@@ -1259,15 +1259,19 @@ export const compile = (c: CompileInput): ViewPlan => {
         evidence.push({ key: `${key}.continued-value`, selectedId: "filter", confidence: 1, source: "deterministic" });
       }
       // A code-read filter is code's own reading: the part filters whatever the provider proposed (spec 4.1).
+      let codeReadPick: Pick | undefined;
       if (readFilters.length > 0 && !accepted.some((f) => f.id === "filter")) {
-        accepted.push({ id: "filter", confidence: 1 });
+        codeReadPick = { id: "filter", confidence: 1 };
+        accepted.push(codeReadPick);
         evidence.push({ key: `${key}.codeRead`, selectedId: "filter", confidence: 1, source: "deterministic" });
       }
       const settled = settleFamilies(accepted, middling, viable, { separable, kind: res.kind });
       const families = settled.kept;
       if (settled.byKind && res.kind)
         evidence.push({ key: `${key}.kind`, selectedId: res.kind.id, confidence: res.kind.confidence, source: "provider" });
-      for (const f of families) if (answers[`${key}.family.${f.id}`] === undefined) note(`${key}.family`, f.id, f.confidence, "provider");
+      // The family code added for a code-read filter is recorded above as code's, not again as the provider's.
+      for (const f of families)
+        if (f !== codeReadPick && answers[`${key}.family.${f.id}`] === undefined) note(`${key}.family`, f.id, f.confidence, "provider");
       for (const f of settled.dropped)
         evidence.push({ key: `dropped:${key}.family`, selectedId: f.id, confidence: f.confidence, source: "deterministic" });
       for (const f of settled.ask) {
@@ -1874,10 +1878,16 @@ export const compile = (c: CompileInput): ViewPlan => {
           // unless this part says to add to them: "also", "only those", "narrow it down" (ADR 0017). The request's
           // first filtering part decides; filters within one request always combine. One clear per plan, and none
           // after a reset or clear the request already asked for.
+          // A Local Value's words are its own: "Riley As Well" or "Further Lane" never says to keep the filters. They stand
+          // as one plain word, so "also" still goes with the value after it: "also Avery Lane's accounts".
+          const ownWords = readFilters.reduce(
+            (text, r) => (r.kind === "value" ? text.slice(0, r.start) + "x".repeat(r.end - r.start) + text.slice(r.end) : text),
+            clause.text,
+          );
           const replacing =
             predicates.length > 0 &&
             predicatesIn(c.state.filters) > 0 &&
-            !keepsFilters(clause.text) &&
+            !keepsFilters(ownWords) &&
             !operations.some((o) => o.type === "filter.add" || o.type === "filter.clear" || o.type === "view.reset");
           if (replacing) {
             operations.push({ type: "filter.clear" });
@@ -1937,7 +1947,7 @@ export const compile = (c: CompileInput): ViewPlan => {
           const blanked = family === "sort" && !answered && clause.direction ? namesBlankedOf(clause.text, partMentions) : undefined;
           if (
             blanked !== undefined &&
-            (directionFromSizeAlone(blanked) || (directionBySize(blanked) && !SAYS_SORT.test(unquoted(clause.text))))
+            (directionFromSizeAlone(blanked) || (directionBySize(blanked) && !SAYS_SORT.test(unquoted(blanked))))
           ) {
             if (cols.some((col) => !SIZED_KINDS.has(col.kind))) {
               clarifications.push({
@@ -2067,10 +2077,12 @@ export const compile = (c: CompileInput): ViewPlan => {
       // verb governs. "Clear filters, grouping" that would clear only the filters asks instead.
       const governedHere = governedClears(unquoted(namesBlankedOf(clause.text, [...ownMentions, ...codeRead])));
       const added = operations.slice(opsBefore);
+      // A sort or grouping that still holds a column the part names ("clear the gain sort" sorted by Gain) clears nothing.
+      const namedHere = new Set(ownMentions.filter((m) => m.valueId === undefined).map((m) => m.columnId));
       const clearedHere: Record<string, boolean> = {
         filter: added.some((o) => o.type === "filter.clear"),
-        sort: added.some((o) => o.type === "sort.set"),
-        group: added.some((o) => o.type === "group.set"),
+        sort: added.some((o) => o.type === "sort.set" && !o.sorts.some((s) => namedHere.has(s.columnId))),
+        group: added.some((o) => o.type === "group.set" && !o.columnIds.some((id) => namedHere.has(id))),
         view: added.some((o) => o.type === "view.reset"),
       };
       const missed = [...governedHere.governed].filter((thing) => !clearedHere[thing] && !clearedHere.view);
@@ -2282,7 +2294,8 @@ const asNamedValue = (r: CodeReadFilter, clause: Clause): Mention => ({
 interface LocalChoice {
   start: number;
   end: number;
-  values: readonly LocalValueRef[];
+  /** A tie's values carry their own words; one word's choices are read at the word. */
+  values: ReadonlyArray<LocalValueRef & { start?: number; end?: number }>;
   names: readonly DeclaredName[];
   word?: { word: string; count: number; columns: ReadonlyArray<{ columnId: string; count: number }> };
 }
@@ -2417,7 +2430,12 @@ const unlistedValues = (
   found.forEach((r, i) => {
     const before = found[i - 1];
     const list = lists.at(-1);
-    if (before && list && LISTED_BETWEEN.test(clause.text.slice(before.end, r.start))) list.push(r);
+    const between = clause.text.slice(before?.end ?? 0, r.start);
+    // Two values that each follow their column's name are two conditions, unless "or" alone joins them: "advisor is
+    // Avery Lane and advisor is Blake Moreno" gives the same rows two values.
+    const conditions =
+      !!before && columnNamed(clause, before, mentions) && columnNamed(clause, r, mentions) && !/^\W*or\W*$/u.test(between);
+    if (before && list && !conditions && LISTED_BETWEEN.test(between)) list.push(r);
     else lists.push([r]);
   });
   const listsOf = new Map<string, Set<number>>();
@@ -2526,7 +2544,13 @@ const localReading = (
       const picked = answer === undefined ? undefined : /^([vn])(\d+)$/.exec(answer);
       const value = picked?.[1] === "v" ? choice.values[Number(picked[2])] : undefined;
       if (value) {
-        hits.push({ start: choice.start, end: choice.end, columnId: value.columnId, value: value.value });
+        // A value picked from a tie sits at its own words, so the tie's other words are still placed or asked about.
+        hits.push({
+          start: value.start ?? choice.start,
+          end: value.end ?? choice.end,
+          columnId: value.columnId,
+          value: value.value,
+        });
         continue;
       }
       // A declared name: the words are read as they are with no Local Values.
@@ -2638,7 +2662,7 @@ const codeReadQuestion = (
     return `GridCue can't tell whether “${words}” means ${label} is empty or zero. Ask for an amount instead.`;
   }
   const follows = r.kind === "empty" ? amountWithoutName(clause, r.end, mentions, next) : undefined;
-  if (follows) return `I'm not sure what the ${follows} after “${words}” applies to. Name its column, or split it into separate parts.`;
+  if (follows) return `I'm not sure what the ${follows} after “${words}” applies to. Name its column.`;
   if (!operatorsFor(col).includes(r.predicate.operator)) {
     // A House Term's conditions were checked when the schema was built; one built by hand may still hold another.
     if (r.kind === "term") return `GridCue can't filter ${label} the way “${words}” needs here.`;
@@ -2661,9 +2685,11 @@ const namesBlankedOf = (text: string, own: ReadonlyArray<{ start: number; end: n
 /** Whether a name appears in the part only inside quoted text: `advisor containing "restricted"`. */
 const onlyQuoted = (text: string, names: readonly string[]) => {
   const bare = unquoted(text);
+  // Every occurrence: "unrestricted restricted" holds "restricted" whole after a hit inside a longer word.
   const has = (t: string, n: string) => {
-    const at = t.indexOf(n);
-    return at >= 0 && !/[\p{L}\p{N}]/u.test(t[at - 1] ?? "") && !/[\p{L}\p{N}]/u.test(t[at + n.length] ?? "");
+    for (let at = t.indexOf(n); at >= 0; at = t.indexOf(n, at + 1))
+      if (!/[\p{L}\p{N}]/u.test(t[at - 1] ?? "") && !/[\p{L}\p{N}]/u.test(t[at + n.length] ?? "")) return true;
+    return false;
   };
   const lower = names.map((n) => n.toLowerCase()).filter(Boolean);
   return lower.some((n) => has(text, n)) && !lower.some((n) => has(bare, n));
@@ -2884,14 +2910,17 @@ const keepPart = (
   const preds = current.children as FilterPredicate[];
   const keep = new Set<FilterPredicate>();
   const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+  // "Leave" before the column says to keep, as "keep" does: `clear filters but leave advisor "Lane"`. Blanked, so
+  // offsets hold.
+  const checked = { ...clause, text: clause.text.replace(/^(?:leave|leaving) /, (s) => " ".repeat(s.length)) };
   for (const lit of clause.literals) {
     if (lit.kind === "unreadable") return absent;
     const operator = lit.kind === "text" ? "contains" : (lit.comparator ?? "eq");
     const value = lit.comparator === "between" ? { min: lit.value, max: lit.upper ?? lit.value } : lit.value;
-    const quotedAfter = lit.kind === "text" ? columnBeforeText(clause, lit, own, column, rowNoun) : undefined;
+    const quotedAfter = lit.kind === "text" ? columnBeforeText(checked, lit, own, column, rowNoun) : undefined;
     if (quotedAfter && !quotedAfter.read) return absent;
     // The words beside the text are checked as they are for a new filter: `advisor "Lane" exactly` keeps nothing.
-    const unread = lit.kind === "text" ? textWordsQuestion(clause, lit, quotedAfter, own, schema) : undefined;
+    const unread = lit.kind === "text" ? textWordsQuestion(checked, lit, quotedAfter, own, schema) : undefined;
     if (unread) return { prompt: unread.prompt };
     // A column named right before the amount must be the filter's; with none, exactly one filter may match.
     const owner =

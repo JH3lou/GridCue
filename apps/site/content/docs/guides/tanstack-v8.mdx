@@ -209,6 +209,18 @@ const columns: LegacyColumnDef<Account>[] = [
 ];
 ```
 
+**Read and write your input's value through GridCue's entry.** Once GridCue filters a column, that column's filter value is GridCue's object, and your own value is its `host` field. A plain `setFilterValue(next)` replaces GridCue's filter on that column, so read and write your value like this:
+
+```tsx
+const isGridCue = (v: unknown): v is { gridcue: 1; host?: unknown } =>
+  typeof v === "object" && v !== null && (v as { gridcue?: unknown }).gridcue === 1;
+
+const v = column.getFilterValue();
+const mine = isGridCue(v) ? v.host : v; // what your input shows
+
+column.setFilterValue((old: unknown) => (isGridCue(old) ? { ...old, host: next } : next)); // when your input changes
+```
+
 Which built-in to pass: for a named one, `filterFn_` and its name, such as `filterFn_equalsString` for `"equalsString"`. For `auto`, the one it picks from the column's first value that isn't empty:
 
 | The column's values | `auto` picks | Pass |

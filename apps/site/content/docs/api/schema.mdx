@@ -114,6 +114,7 @@ A request that says a term as a whole word adds each of its conditions as a filt
 - **`where`** holds at least one condition. `value` is a number, text, a yes/no, a list for `in`, or `{ min, max }` for `between`. An `isEmpty` or `isNotEmpty` condition has no value. An amount is a plain number: `1_000_000` for $1,000,000 and `0.1` for 10%.
 - **A term holds no "or" and no moving date.** Each condition is a fixed filter. A request for either of two things asks, as it does without terms.
 - **A term is never sent to an Intent Provider.** Not its name, its conditions, or whether a request matched one. `describeProviderPayload` leaves terms out.
+- **A schema is fixed once `defineSchema` returns it.** GridCue reads its terms once for each schema, so a term changed in place afterwards is not read, and it skips the checks below. To change a term, call `defineSchema` again and give the adapter the new schema.
 
 `defineSchema` checks each condition the way validation checks a filter in a plan. The column must exist, not be restricted, allow `filter`, and allow the operator, and the value must fit the column's kind, so a `registration_type` condition must name one of its `enumValues` ids. It also checks that every name is the term's own. A label or alias throws when it is also:
 
