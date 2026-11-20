@@ -1,0 +1,174 @@
+.paged {
+  --paged-muted: #4b5563;
+  --paged-border: #d1d5db;
+  --paged-hover: oklch(0 0 0 / 0.04);
+  --paged-accent: #2563eb;
+  --paged-error: #b91c1c;
+}
+@media (prefers-color-scheme: dark) {
+  .paged {
+    --paged-muted: #d1d5db;
+    --paged-border: #374151;
+    --paged-hover: oklch(1 0 0 / 0.06);
+    --paged-accent: #60a5fa;
+    --paged-error: #fca5a5;
+  }
+}
+
+/* A page of 7 rows has no scrollbar and a page of 25 has one. Keep its room either way, so Previous and Next stay under
+   the pointer as the pages change. */
+html:has(.paged) {
+  scrollbar-gutter: stable;
+}
+
+.paged-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 16px;
+}
+.paged-head h1 {
+  margin: 0;
+}
+.paged-head a {
+  color: var(--paged-accent);
+}
+
+.paged-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+.paged-status {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--paged-muted);
+  font-variant-numeric: tabular-nums;
+}
+.paged-pages {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+}
+.paged-position {
+  min-width: 6.5rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The Host's own buttons, drawn like the command bar's. */
+.paged button {
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 1px solid var(--paged-border);
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition-property: scale, background-color;
+  transition-duration: 150ms;
+  transition-timing-function: ease-out;
+}
+.paged button:active:not([aria-disabled="true"]) {
+  scale: 0.96;
+}
+.paged button[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+@media (hover: hover) and (pointer: fine) {
+  .paged button:hover:not([aria-disabled="true"]) {
+    background-color: var(--paged-hover);
+  }
+}
+@media (pointer: coarse) {
+  .paged button {
+    min-height: 44px;
+  }
+}
+.paged button:focus-visible,
+.paged a:focus-visible,
+.paged-rows:focus-visible {
+  outline: 2px solid var(--paged-accent);
+  outline-offset: 2px;
+}
+
+/* A page of rows the next page is replacing stays visible and dims. Only opacity moves. It waits 100ms to dim, so a
+   page that loads at once never flickers, and it comes back with no wait. */
+.paged-rows {
+  transition-property: opacity;
+  transition-duration: 150ms;
+  transition-timing-function: ease-out;
+}
+.paged-rows[aria-busy="true"] {
+  opacity: 0.5;
+  transition-delay: 100ms;
+}
+/* Rows of an older view hide on the same 100ms wait, so a fast load never blinks. The table keeps its size. */
+.paged-rows tbody {
+  transition-property: visibility;
+  transition-duration: 0s;
+}
+.paged-rows[data-stale] tbody {
+  visibility: hidden;
+  transition-delay: 100ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  .paged button,
+  .paged-rows {
+    transition-duration: 0s;
+    transition-delay: 0s;
+  }
+  .paged button:active:not([aria-disabled="true"]) {
+    scale: 1;
+  }
+}
+
+.paged td.num,
+.paged th.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* An account number is one word: it never breaks at its hyphen. The table scrolls sideways instead. */
+.paged td:first-child {
+  white-space: nowrap;
+}
+
+.paged-note {
+  margin: 0;
+  padding: 24px 12px;
+  text-align: center;
+  color: var(--paged-muted);
+  border-top: 1px solid var(--paged-border);
+  border-bottom: 1px solid var(--paged-border);
+}
+/* The words say it failed; the bar at the edge only helps. */
+.paged-error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px 16px;
+  text-align: start;
+  color: inherit;
+  border-inline-start: 4px solid var(--paged-error);
+}
+.paged-error p {
+  margin: 0;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
