@@ -1,0 +1,103 @@
+---
+title: Testing
+description: queryCheck from gridcue/testing builds synthetic rows and View States to prove your own Data Query keeps the rows GridCue would.
+---
+
+`gridcue/testing` holds the **Query Check**. It is for a Host whose rows come from its own Data Query. It proves the query keeps the rows GridCue would, for every edge of what a filter means. The [Rows on a server](/docs/guides/rows-on-a-server) guide shows where it fits.
+
+```ts
+import { queryCheck } from "gridcue/testing";
+```
+
+- **It imports no test runner.** Run it under Vitest, Jest, or a plain script.
+- **It never reads real rows.** Every row is made up from your View Schema. It sends nothing anywhere.
+- **It adds no dependency.** Import it from tests only: no client bundle may import it.
+- **GridCue never writes your Data Query.** The check only compares what your query returns.
+
+## queryCheck
+
+```ts
+function queryCheck(schema: ViewSchema, options: QueryCheckOptions): QueryCheck;
+
+interface QueryCheckOptions {
+  id: string;
+  operations?: readonly string[];
+  notNull?: readonly string[];
+}
+
+interface QueryCheck {
+  rows: Array<Record<string, Scalar>>;
+  cases: QueryCheckCase[];
+}
+
+interface QueryCheckCase {
+  name: string;
+  state: ViewState;
+  compare(ids: ReadonlyArray<string | number>): { ok: true } | { ok: false; message: string };
+}
+```
+
+The same schema and options always give the same rows and cases.
+
+```ts
+const check = queryCheck(schema, { id: "account_id", operations: adapter.getCapabilities().operations });
+await loadIntoTestDatabase(check.rows); // synthetic rows only
+for (const c of check.cases) {
+  const ids = await myDataQuery(c.state); // your own query, ids in order
+  const result = c.compare(ids);
+  if (!result.ok) throw new Error(result.message);
+}
+```
+
+### Options
+
+| Name | Type | Default | Description |
+| --- | --- | --- | --- |
+| `id` | `string` | required | The key each row's id is under, such as `"account_id"`. When it is a text or number column of the schema, that column holds the ids and is in no case. When it is no column, each row gains the key. A column of another kind throws `INPUT_CONFIG`. No row's id is its place in `rows`, so a query that returns the database's own row numbers fails. |
+| `operations` | `string[]` | none | The operations your Grid Adapter lists: `adapter.getCapabilities().operations`. A count case appears only when it lists `limit.set`. |
+| `notNull` | `string[]` | none | The IDs of columns your database can't leave empty. They get no empty cells, no `null` and no empty text. A name that is no column of the schema throws `INPUT_CONFIG`. |
+
+A schema that isn't a View Schema throws `INPUT_SCHEMA`.
+
+### rows
+
+Synthetic rows to load into a test database, keyed by column ID. For each column they hold the values that hit an edge of what a filter means:
+
+- empty cells (`null`, and `""` on a text or enum column);
+- whitespace-only text, and placeholder text such as "N/A", which is a value;
+- one text in two letter cases, the same text without its accent ("Ålder Fen" and "Alder Fen"), the same text with spaces around it, and text holding `%`, `_`, a backslash, `!` and `[`;
+- negative numbers and zero, both ends of a range, and the values just past them;
+- dates on each side of a day's start and end, and every declared enum value;
+- yes, no and empty.
+
+A restricted column gets plain values and is in no case. A date-and-time column holds instants, written in UTC, when the schema's Calendar names a time zone, with clock times that have no offset beside them.
+
+### cases
+
+One View State for each edge of each column and operator the column allows, then each filter beside a filter on another column joined with "and", two filters on one column, a filter on a hidden column, an "or" group, an "or" group inside an "and", and sorts: two columns at once, and each text and enum column on its own, each way. With `limit.set` in `operations` there are count cases too: a count keeps the first rows of the sorted, filtered rows, never a row with no value in the first sorted column, and a row with no value in a later sorted column where its first one puts it before the cut.
+
+Each case is a `QueryCheckCase`. Its `name` is the rule, then the view in plain words, such as "not equal keeps empty cells, and ignores case on text (Custodian is not “åLDER fen”)". Its `state` is a View State to run through your query. No case groups, and restricted columns and the id column are in none. The rows each case keeps come from `applyView`, so the check holds whatever meaning core holds when it runs.
+
+### compare
+
+`compare(ids)` takes the ids your Data Query returned for `state`, in the order it returned them.
+
+- **The ids are checked as a set.** "4" and 4 are the same id. A repeated id counts once.
+- **When the case sorts, the order is checked too**, for the rows that hold a value in every sorted column. Where a row with an empty cell goes is yours, and so is the order of rows that tie. Of text, only text made of the letters A to Z is ordered, since a database orders other text by its own collation. An enum is ordered by its values' IDs, as text, the same way: not by its labels, and not in the order its values are declared, as a database's own enum type sorts.
+- **It returns a plain message** naming the case, the missing ids and the extra ids.
+- **Anything but a list of ids throws `INPUT_CONFIG`.**
+
+A failure reads like this. It came from a query that wrote "is not" as SQL `<>`, on a small schema with a Custodian text column:
+
+```text
+not equal keeps empty cells, and ignores case on text (Custodian is not “åLDER fen”): 4 rows missing, ids 18, 21, 28 and 66; 8 rows extra, ids 1, 9, 13, 20, 42, 55, 60 and 61
+```
+
+The query dropped the empty cells (4 rows missing) and, being case-sensitive, kept rows GridCue leaves out (8 rows extra). Ten ids are named at most, then "and 3 more".
+
+### What it doesn't test
+
+- A count over a page: run each case in pages too, as the [guide](/docs/guides/rows-on-a-server#run-it-in-a-test) shows, so a count cut after paging fails.
+- Where empty cells sort. With no count, that includes a row with a value in the first sorted column and none in a later one: keep it in its place by the first column, as `applyView` does. Only the count case checks it.
+- Grouping and totals. A total over rows on a server is a Data Query of its own.
+- Whether your query is safe against injection. Bind values, and check column IDs against the schema.

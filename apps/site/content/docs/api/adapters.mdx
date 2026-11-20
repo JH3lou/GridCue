@@ -129,7 +129,7 @@ interface RowsAdapterOptions {
 }
 ```
 
-A Grid Adapter for Hosts that keep rows in memory. It holds the View State itself; pair it with `applyView` to get the rows to render in any table. It is for rows you hold: `applyView` filters, sorts and counts them here, so a count is exact. For rows your server fetches, use the [Query Adapter](#createqueryadapter). A Rows Adapter over a page of a larger set would preview a count and show every row of the page.
+A Grid Adapter for Hosts that keep rows in memory. It holds the View State itself; pair it with `applyView` to get the rows to render in any table. It is for rows you hold: `applyView` filters, sorts and counts them here, so a count is exact. For rows your server fetches, use the [Query Adapter](#createqueryadapter) and read [Rows on a server](/docs/guides/rows-on-a-server). A Rows Adapter over a page of a larger set would preview a count and show every row of the page.
 
 | Name | Type | Default | Description |
 | --- | --- | --- | --- |
@@ -249,7 +249,7 @@ interface QueryAdapterOptions {
 }
 ```
 
-A Grid Adapter for Hosts whose rows come from their own Data Query: a server that filters, sorts and pages them. It holds the View State and never fetches. GridCue never writes a Data Query. You build yours from the View State, each time it changes.
+A Grid Adapter for Hosts whose rows come from their own Data Query: a server that filters, sorts and pages them. It holds the View State and never fetches. GridCue never writes a Data Query. You build yours from the View State, each time it changes. The [Rows on a server](/docs/guides/rows-on-a-server) guide says what each filter means and how to prove your query with the [Query Check](/docs/api/testing).
 
 | Name | Type | Default | Description |
 | --- | --- | --- | --- |

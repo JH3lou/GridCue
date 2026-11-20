@@ -1,6 +1,6 @@
 # Rows on a server: the Host's own Data Query
 
-**Status:** accepted with the more grids spec (2026-11-13). The Query Adapter is built. The Query Check is not yet.
+**Status:** accepted with the more grids spec (2026-11-13). The Query Adapter and the Query Check (`gridcue/testing`) are built.
 
 GridCue never writes a Data Query. A Host whose rows live on a server gets a View State from a Query Adapter and turns it into its own request for rows. GridCue ships a Query Check so the Host can prove that request keeps the rows GridCue would.
 

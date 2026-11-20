@@ -4,6 +4,7 @@
     "vite-tanstack",
     "tanstack-v8",
     "next-rows-adapter",
+    "rows-on-a-server",
     "server-handler",
     "protect-the-endpoint",
     "going-to-production",

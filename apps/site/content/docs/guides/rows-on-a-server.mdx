@@ -1,0 +1,161 @@
+---
+title: Rows on a server
+description: Keep the rows GridCue would keep when your own Data Query fetches them. Pick the adapter, build the query from the View State, and prove it with the Query Check.
+---
+
+Use this guide when your rows live on a server and your table shows one page at a time. GridCue gives you a View State. You turn it into your own **Data Query** and fetch the rows.
+
+**GridCue never writes the Data Query.** It produces no SQL, no ORM calls and no request parameters. Your server owns your data and how it is fetched. What GridCue gives you instead is a table of what each filter means, and a [Query Check](/docs/api/testing) that runs that table against your query.
+
+The finished version is the `/paged` page of `examples/next`, with its route in `examples/next/app/api/rows`. It loads the synthetic wealth rows into an in-memory SQLite database (`node:sqlite`, so no dependency) and pages through them. Run it with `pnpm dev:next`, then open `http://localhost:3100/paged`.
+
+## 1. Pick the adapter
+
+| Your grid | Adapter |
+| --- | --- |
+| TanStack Table with `manualPagination`, `manualFiltering` or `manualSorting` | The [TanStack Table adapter](/docs/api/adapters#createtanstackadapter), as before. It lists no count, since a table that pages on a server holds one page |
+| Any other table | The [Query Adapter](/docs/api/adapters#createqueryadapter) |
+| A grid with no adapter yet | [Build an adapter](/docs/guides/build-an-adapter) |
+
+Don't use the Rows Adapter for rows on a server. It always lists `limit.set`, so a Host that ignores the count shows every row under a Preview that says ten.
+
+## 2. Build the Data Query from the View State
+
+Build the query from `adapter.getState().state` on every change, never from the grid's own model, for everything the View State holds. The Query Adapter's subscription fires when the View State changes, whether GridCue, an undo or your own header click changed it.
+
+```tsx
+const view = useSyncExternalStore(adapter.subscribe, adapter.getState, adapter.getState);
+// Refetch when view.state changes. Loading and fetch errors are yours.
+```
+
+On the TanStack Table adapter, the table's `columnFilters` wrap GridCue's predicates, so read the View State, not the table's filters.
+
+A filter GridCue can't read is not in the View State: a global filter, or your own custom filter on a column. It is still yours. Your Data Query is the View State's filters and your own, joined with "and". A query built from the View State alone would return rows your own filter control says are filtered out.
+
+## 3. What each filter means
+
+This is what `applyView` and `matchesPredicate` do today. A Data Query that copies it keeps the rows GridCue would. In this table an "empty cell" is `null`, a missing value or `""`.
+
+| View State | Keeps | Leaves out | A Data Query that copies it naively |
+| --- | --- | --- | --- |
+| `neq "x"` (text, number, enum) | every row whose cell isn't `x`, **including empty cells** | rows equal to `x` | SQL `<>` drops `NULL` rows |
+| `eq`, `in` on a text column | equal **ignoring case**, not accents: "Zoë" isn't "Zoe" | empty cells | SQL `=` is case-sensitive in some databases, and ignores accents in others (MySQL 8's default collation) |
+| `eq`, `in` on an enum, number or yes/no column | exactly equal | empty cells | |
+| `contains`, `startsWith` | ignoring case, always, but not accents | empty cells | `LIKE` case and accent rules vary by database, and `%` and `_` in the value are plain text here |
+| `gt`, `gte`, `lt`, `lte` | as written | empty cells | |
+| `between {min, max}` | **both ends included** | empty cells | an exclusive range drops the ends |
+| `isEmpty` | `null`, missing, `""` | everything else, **including whitespace-only text** | a "blank" test that trims text keeps whitespace-only text |
+| `isNotEmpty` | everything but those | empty cells | |
+| `and`, `or` groups | each as nested in the View State | | a missing bracket around an `or` inside an `and` |
+| A count (`limit`) | the first N rows of the sorted, filtered rows, before grouping | the rest, and **a row with no value in the first sorted column** | a cut after paging keeps the first N of one page |
+
+More rows of the same table:
+
+- **An empty operand follows the same rules.** `eq ""` and `in [""]` keep exactly the empty cells. `neq ""` leaves them out. `contains ""` and `startsWith ""` keep every row, empty cells included.
+- **A date means the whole day** on a date or date-and-time column, in the schema's Calendar time zone. `eq 2026-03-08` keeps every instant from that day's midnight to the next, in that zone. `gt` leaves out the whole day, `gte` includes it, and `between` includes both days whole. A cell with a time and an offset is the day that instant falls on in the zone. A cell with a time and no offset is on its own date. With no `timeZone` in the Calendar, GridCue uses the browser's, which a server can't know: [name a time zone](/docs/api/schema#calendar) so both sides agree.
+- **A count never keeps an empty cell in the first sorted column.** "Top 10 by market value" shows seven rows when only seven have a market value. `NaN` counts as no value.
+- **Where empty cells sort.** In `applyView` today, a cell that is `null` or missing comes last going up and first going down, and `""` sorts as the shortest text. Rows that tie keep the order they were loaded in. GridCue doesn't promise this as a rule, and the Query Check doesn't test where empty cells go: it checks the order of rows that hold a value in every sorted column. A row with a value in the first sorted column and none in a later one still has its place by the first: `ORDER BY b IS NULL, a, b` moves it past rows it belongs before. With a count, the Query Check tests that.
+- **Text sorts ignoring case.** The Query Check checks the order of text made of the letters A to Z. How a database orders other text is its own collation's.
+- **An enum sorts by its values' IDs, as text,** not by its labels, and not in the order its values are declared. A database's own enum type sorts in declared order, so sort its column as text.
+- **Hiding a column never changes which rows or what order.** A filter or sort on a hidden column still holds.
+
+## 4. Never put a value or a column name into query text
+
+- **Values are parameters.** A value from the View State is bound with `?`, never joined into the query text.
+- **Column IDs are checked against the schema.** Look the ID up in your View Schema before you use it as an identifier, and refuse an unknown one. Never use a restricted column.
+- **Refuse a View State too large for your database.** A View State sets no limit on how deep its filter groups nest, how many filters it holds, or how long a list is, and a database does. The example answers 400 past 16 groups deep, 200 filters or a list of 1,000 values, and reads the request in a `try`, so a body nested too deep to read is a 400 too, never a 500.
+
+## 5. Run the Query Check in your tests
+
+[`queryCheck`](/docs/api/testing) builds synthetic rows and View States from your schema, with the rows GridCue keeps for each. Load the rows into a test database, run each state through your own query, and compare the ids. See [Run it in a test](#run-it-in-a-test) below.
+
+## 6. `countBeforePaging` only when your server sorts, cuts, then pages
+
+Pass `countBeforePaging: true` to the Query Adapter only when your server sorts, keeps the first N rows, and only then pages. The adapter then lists `limit.set`, and "top 10" is the true first ten. With the default, GridCue sorts and says "Count not applied: this grid can't show only the first 10". See [countBeforePaging](/docs/api/adapters#countbeforepaging).
+
+## 7. Loading, errors and the number of rows are yours
+
+GridCue shows no loading state for a fetch, and it doesn't know whether the rows arrived. Show your own loading and error states, and the number of rows your server counted. A view can change over rows that then fail to load, which GridCue can't see.
+
+## A worked example
+
+Everything below is **the Host's code**, from `examples/next`. It isn't GridCue's, and GridCue ships none of it. Copy it, change it, and run the Query Check against your copy.
+
+The page creates the adapter, with a count that is cut before paging and no grouping, since a page can't be grouped by the table alone:
+
+```tsx
+// examples/next/app/paged/paged-view.tsx
+const adapter = createQueryAdapter({ schema, initialState: wealthInitialState, countBeforePaging: true, without: ["group.set"] });
+const cue = createGridCue({ adapter, provider: createRemoteProvider({ endpoint: "/api/gridcue" }) });
+const view = useSyncExternalStore(adapter.subscribe, adapter.getState, adapter.getState);
+const { state, revision } = view;
+```
+
+It refetches on every change of the View State and its Revision, of the page, or a retry, and it cancels a fetch the next change makes stale:
+
+```tsx
+useEffect(() => {
+  const controller = new AbortController();
+  setLoading(true);
+  loadRows(state, page, controller.signal).then(/* set the rows, or the error */);
+  return () => controller.abort();
+}, [state, revision, page, attempt]);
+```
+
+The route's query code turns the View State into SQL. The text is fixed. The values are bound:
+
+```ts
+// examples/next/app/api/rows/query.ts
+case "neq":
+  // GridCue's "is not" keeps empty cells. SQL's <> alone would drop them.
+  params.push(bound(column, value));
+  return text ? `${cell} <> ?` : `(${c} IS NULL OR ${c} <> ?)`;
+case "contains":
+  // instr, not LIKE: % and _ in the value are plain text, and empty text keeps every row.
+  params.push(bound(column, value));
+  return `instr(${cell}, ?) > 0`;
+case "between": {
+  // Both ends included.
+  const range = rangeOf(value);
+  params.push(bound(column, range.min), bound(column, range.max));
+  return `(${c} >= ? AND ${c} <= ?)`;
+}
+```
+
+The column ID is checked against the schema before it becomes an identifier. An unknown or restricted column is an error, and the ID is never put in the message:
+
+```ts
+const usableColumn = (schema: ViewSchema, columnId: unknown, use: "filter" | "sort"): ColumnDescriptor => {
+  const column = schema.columns.find((c) => c.id === columnId);
+  if (!column) throw new DataQueryError(`A ${use} names a column this grid doesn't have.`);
+  if (column.sensitivity === "restricted") throw new DataQueryError(`A ${use} names a restricted column.`);
+  return column;
+};
+```
+
+## Run it in a test
+
+`gridcue/testing` imports no test runner, so it runs under Vitest, Jest or a plain script. This is the loop from `examples/next/app/api/rows/query.test.ts`, cut to its core:
+
+```ts
+import { createQueryAdapter } from "gridcue";
+import { queryCheck } from "gridcue/testing";
+
+const operations = createQueryAdapter({ schema, countBeforePaging: true }).getCapabilities().operations;
+const check = queryCheck(schema, { id: "account_number", operations });
+const db = openRowsDatabase(schema, check.rows); // your test database, loaded with the synthetic rows
+
+for (const c of check.cases) {
+  const { rows } = readRows(db, schema, c.state, { offset: 0, size: check.rows.length }); // your own query
+  const result = c.compare(rows.map((row) => row.account_number));
+  if (!result.ok) throw new Error(result.message);
+}
+```
+
+Read each case twice, once in one page and once in small pages, so a count cut after paging fails too. A failure names the rule it tests, the view in words, and the ids that are missing or extra. This one came from a query that wrote "is not" as SQL `<>`, on a small schema with a Custodian text column:
+
+```text
+not equal keeps empty cells, and ignores case on text (Custodian is not “åLDER fen”): 4 rows missing, ids 18, 21, 28 and 66; 8 rows extra, ids 1, 9, 13, 20, 42, 55, 60 and 61
+```
+
+The Query Check only helps a Host that runs it, and it tests the meanings core holds when it runs. Run it on every schema you serve, and again when you change the query or upgrade GridCue.
