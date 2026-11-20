@@ -42,7 +42,7 @@ Project vocabulary lives in `CONTEXT.md`. Use its terms and avoid the words it l
 
 The most likely defect is a change that works where you tested it and nowhere else. Before calling work done, say which of these applied:
 
-- **Entry points.** The package's root, React, server, mock, and TanStack Table entries. A protocol change reaches all of them.
+- **Entry points.** The package's root, React, server, mock, TanStack Table, and testing (the Query Check) entries. A protocol change reaches all of them.
 - **Both UIs.** The built-in `<GridCueBar />` and the shadcn Component Registry sit on the same hooks. Behaviour belongs in hooks, look belongs in components, and a UI change is checked in both. See ADRs 0001 and 0008.
 - **Frameworks and tables.** The Vite and Next.js examples, and all Grid Adapters: the Rows Adapter, TanStack Table, and the Query Adapter. Server-only code must never be reachable from a client bundle.
 - **The Site.** The marketing page, live demo, and developer docs. Update the docs page for any public API you change.
@@ -83,7 +83,7 @@ The most likely defect is a change that works where you tested it and nowhere el
 
 ## Where code lives
 
-- `packages/gridcue`: the one published package. Its root entry holds the protocol, schemas, compiler, validation, policy, diff, preview text, audit redaction, and the provider and adapter interfaces. Subpath entries: `gridcue/react` for hooks and the built-in `<GridCueBar />`, `gridcue/server` for the Server Handler and Jev provider, `gridcue/mock` for the Mock Provider, and `gridcue/tanstack-table` for the TanStack Table adapter.
+- `packages/gridcue`: the one published package. Its root entry holds the protocol, schemas, compiler, validation, policy, diff, preview text, audit redaction, and the provider and adapter interfaces. Subpath entries: `gridcue/react` for hooks and the built-in `<GridCueBar />`, `gridcue/server` for the Server Handler and Jev provider, `gridcue/mock` for the Mock Provider, `gridcue/tanstack-table` for the TanStack Table adapter, and `gridcue/testing` for the Query Check.
 - `registry/`: source for the shadcn Component Registry.
 - `apps/site`: the Vite Site with marketing, demo, and docs. See ADR 0002.
 - `examples/`: minimal Vite and Next.js integrations.

@@ -82,7 +82,7 @@ The guide, the Query Check, and the AG Grid settings all copy one table. It is t
 
 An empty operand (`""`) follows `matchesPredicate` too: `eq` and `in` keep exactly the empty cells, and `contains` and `startsWith` keep every row, empty cells included. The Query Check has a case for each.
 
-The table states sorting only as "by each sort column in turn, in its direction". Where empty cells go is not stated yet (section 3, Out).
+The table states sorting only as "by each sort column in turn, in its direction". Text sorts ignoring case, and an enum sorts by its values' IDs as text, as core's `compareValues` does. Where empty cells go is not stated yet (section 3, Out), and neither is the order of rows that tie.
 
 The table follows core. Two rows change before the Query Check is built (order plan): a count never keeps a row with no value in the first sorted column (operation set 5.1), and a date in a filter means the whole day in the calendar's time zone, on date and date-and-time columns alike (named filters 5.5). The guide, the Query Check and the AG Grid settings copy the table as it stands when they are built, with those two rows in it.
 
@@ -195,8 +195,13 @@ for (const c of check.cases) {
 **`gridcue/testing`** is a new entry with no test-runner import and no new dependency. It never reads or sends real rows.
 
 - **`rows`** are synthetic, built from the schema: for each column, values that hit an edge in 4.1. Empty cells (`null` and `""`), whitespace-only text, the same text in two cases, negative numbers, both ends of a range and values just past them, dates on a boundary, each declared enum value. Restricted columns get plain values and are never used in a case. `notNull` names columns the Host's database can't leave empty; they get no empty cells.
-- **`cases`** are View States, one per edge for each column and operator the column allows, plus a few with filters on two columns and sorts on two columns. A count case appears only when `operations` lists `limit.set`. Each case's expected ids come from `applyView` on `rows`.
-- **`compare(ids)`** checks the ids as a set. When the case sorts, it also checks the order of rows whose sort cells aren't empty. It returns a plain message naming the case, the missing ids, and the extra ids.
+- **`cases`** are View States, one per edge for each column and operator the column allows, plus cases with filters on two columns and sorts on up to four. A count case appears only when `operations` lists `limit.set`. Each case's expected ids come from `applyView` on `rows`.
+  - **Pairs, and no more.** A Data Query often takes another path for one kind of view: a lookup for "equals", a subquery for a count, a second statement for an "or". So each rule about sorting and counting (the order by one sort, by two, the first rows of a count, a count that cuts inside tied rows, a two-sort count that cuts inside rows tied on the first, and a count that never keeps a row with no value in the first sorted column) also sits beside each kind of filter the check makes: each operator, each shape of group, a filter on a hidden column, and a filter on the first sorted column, with the first sort each way. Each column a case sorts by also leads two sorts, and three and four sorts are checked with or without `limit.set`. The check promises these pairs. A Data Query that is wrong only where three such things meet can pass, and the API page says so.
+- **`compare(ids)`** checks the ids as a set, and the order when the case sorts. It returns a plain message naming the case, the missing ids, and the extra ids. Four things are the Host's own, because a database has no load order, GridCue doesn't state where an empty cell sorts, and collations differ (the PR 5 rulings, order plan section 11):
+  - **Text order beyond the letters A to Z.** Text is checked to sort by its letters, ignoring case, only between texts made of the letters A to Z. Where a space, a digit, a mark or an accented letter sorts against a letter is the Host's collation's: some skip spaces at the first level, and core's own order comes from the browser's locale. Two cells that hold the very same text tie under any collation, so the next sort column decides between them, whatever characters they hold.
+  - **Rows that tie on every sort column** may come in any order.
+  - **A row with an empty sort cell** is checked by its leading sort columns that hold values, up to its first empty one. Where it sits among the rows that share those leading values is the Host's.
+  - **A count that cuts inside a run of tied rows** may keep any of the tied rows for its last places. It must keep every row ahead of them, none behind them, and N rows in all. This is the one case where the ids aren't compared as one fixed set.
 - The same `queryCheck` drives the AG Grid row check in 5.6.
 
 **The guide, "Rows on a server",** is one Site page:

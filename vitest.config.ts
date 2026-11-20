@@ -17,6 +17,8 @@ export default defineConfig(({ mode }) => {
         "registry",
         "evals",
         "apps/site",
+        // The Next.js example's Data Query, run through the Query Check.
+        { test: { name: "example-next", root: "examples/next", include: ["app/**/*.test.ts"] } },
         { test: { name: "live", root: "packages/gridcue", include: ["test/live/**/*.test.ts"] } },
       ],
     },

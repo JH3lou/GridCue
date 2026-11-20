@@ -1,6 +1,6 @@
 # Setup: from nothing to a working Preview
 
-Docs: [Your grid in 5 minutes](https://gridcue.dev/docs/get-started/quick-start), [Vite and TanStack Table](https://gridcue.dev/docs/guides/vite-tanstack), [Next.js with the Rows Adapter](https://gridcue.dev/docs/guides/next-rows-adapter).
+Docs: [Your grid in 5 minutes](https://gridcue.dev/docs/get-started/quick-start), [Vite and TanStack Table](https://gridcue.dev/docs/guides/vite-tanstack), [Next.js with the Rows Adapter](https://gridcue.dev/docs/guides/next-rows-adapter), [Rows on a server](https://gridcue.dev/docs/guides/rows-on-a-server).
 
 ## 1. Read the stack
 
@@ -10,7 +10,7 @@ Look at `package.json` and the table component:
 | --- | --- |
 | `@tanstack/react-table` v9 (`useTable`, `tableFeatures`) | The TanStack adapter: `gridcue/tanstack-table` |
 | Rows in memory (all of them), rendered by any table | The Rows Adapter: `createRowsAdapter` and `applyView` from `gridcue` |
-| Rows fetched from a server by the app's own Data Query (paged, or filtered and sorted there) | The Query Adapter: `createQueryAdapter` from `gridcue`. It holds the View State and never fetches: subscribe to it and build the Data Query from the state. Catch fetch errors inside the subscriber, since an error it throws fails GridCue's change, and don't call `setState` from it. Never the Rows Adapter, which would preview a count the server doesn't keep. Leave `countBeforePaging` out unless the server sorts, cuts to the count, then pages, and its count keeps the rows `applyView` keeps: never a row with no value in the first sorted column. |
+| Rows fetched from a server by the app's own Data Query (paged, or filtered and sorted there) | The Query Adapter: `createQueryAdapter` from `gridcue`. It holds the View State and never fetches: subscribe to it and build the Data Query from the state. Catch fetch errors inside the subscriber, since an error it throws fails GridCue's change, and don't call `setState` from it. Never the Rows Adapter, which would preview a count the server doesn't keep. Leave `countBeforePaging` out unless the server sorts, cuts to the count, then pages, and its count keeps the rows `applyView` keeps: never a row with no value in the first sorted column. Follow [Rows on a server](https://gridcue.dev/docs/guides/rows-on-a-server), and run the Query Check (`queryCheck` from `gridcue/testing`, [Testing](https://gridcue.dev/docs/api/testing)) in the app's tests against its Data Query. Never import `gridcue/testing` in client code. |
 | TanStack Table v8 (`useReactTable`) | The v8 steps below. Tell the User first that `useLegacyTable` is TanStack's deprecated bridge and the guide ends by moving to `useTable`. |
 | Another grid (AG Grid, MUI) | Stop and ask. The Rows Adapter works only if the app can render from a plain array of rows it holds. For rows on a server, see the Query Adapter above. |
 

@@ -8,6 +8,7 @@ export default defineConfig({
     server: "src/server/index.ts",
     "server-browser": "src/server/browser.ts",
     "tanstack-table": "src/tanstack/index.ts",
+    testing: "src/testing/index.ts",
   },
   format: "esm",
   platform: "neutral",

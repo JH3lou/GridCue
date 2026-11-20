@@ -56,6 +56,10 @@
       "types": "./dist/tanstack-table.d.ts",
       "default": "./dist/tanstack-table.js"
     },
+    "./testing": {
+      "types": "./dist/testing.d.ts",
+      "default": "./dist/testing.js"
+    },
     "./styles.css": "./dist/styles.css",
     "./package.json": "./package.json"
   },
