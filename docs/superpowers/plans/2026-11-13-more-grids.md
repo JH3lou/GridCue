@@ -164,40 +164,40 @@ Spec 5.4. ADR 0032.
 Spec 4.1 and 5.5. Needs PR 4.
 
 ### Task 5.1: Label (Sonnet, two separate agents)
-- [ ] The ledger fixture already exists (named filters' PR 2, order plan). Check it has number, date and date-and-time columns. Add nothing to `fixtures/`.
-- [ ] At least 12 mutants: wrong translations of the View State, written from spec 4.1 and common SQL habits, as small functions over the example's query shape. Kept outside the repo until the held-out run. This agent never sees `queryCheck`.
+- [x] The ledger fixture already exists (named filters' PR 2, order plan). Check it has number, date and date-and-time columns. Add nothing to `fixtures/`.
+- [x] At least 12 mutants: wrong translations of the View State, written from spec 4.1 and common SQL habits, as small functions over the example's query shape. Kept outside the repo until the held-out run. This agent never sees `queryCheck`.
 
 ### Task 5.2: `queryCheck` (Fable)
 **Files:** new `packages/gridcue/src/testing/index.ts`, `test/query-check.test.ts`.
-- [ ] Tests first: every edge in 4.1 produces a case, with the two rows core changed before this PR: a count never keeps a row with no value in the first sorted column, and a date means the whole day in the calendar's time zone; `notNull`; restricted columns never appear; a count case only with `limit.set` listed; `compare` names missing and extra ids, and checks order only where sort cells aren't empty.
-- [ ] Synthetic rows from kinds and declared values; expected ids from `applyView`; seeded and deterministic.
-- [ ] No test-runner import. No new dependency.
+- [x] Tests first: every edge in 4.1 produces a case, with the two rows core changed before this PR: a count never keeps a row with no value in the first sorted column, and a date means the whole day in the calendar's time zone; `notNull`; restricted columns never appear; a count case only with `limit.set` listed; `compare` names missing and extra ids, and checks order only where sort cells aren't empty.
+- [x] Synthetic rows from kinds and declared values; expected ids from `applyView`; seeded and deterministic.
+- [x] No test-runner import. No new dependency.
 
 ### Task 5.3: The example's Data Query (Opus)
 **Files:** `examples/next/app/api/rows/route.ts`, `examples/next/app/api/rows/query.ts`, a Vitest test in the root run. Needs 5.2.
-- [ ] Tests first: the Query Check on the wealth schema passes.
-- [ ] `node:sqlite` in memory, seeded from the wealth fixture. If it fails to load in the route runtime, an in-memory SQL engine as a dev dependency of the example only, and the PR says why.
-- [ ] Values are parameters. Column IDs are checked against the schema. A comment marks the query as Host code.
+- [x] Tests first: the Query Check on the wealth schema passes.
+- [x] `node:sqlite` in memory, seeded from the wealth fixture. If it fails to load in the route runtime, an in-memory SQL engine as a dev dependency of the example only, and the PR says why.
+- [x] Values are parameters. Column IDs are checked against the schema. A comment marks the query as Host code.
 
 ### Task 5.4: The page (Sonnet)
 **Files:** `examples/next/app/paged/page.tsx`, its CSS.
-- [ ] Load `emil-design-eng`, `better-ui` and `principle-experience-first` first.
-- [ ] The Query Adapter, `<GridCueBar />`, a plain table, paging, and the Host's own loading and error states.
-- [ ] Real-browser check, light and dark. Before/After and screenshots in the PR.
+- [x] Load `emil-design-eng`, `better-ui` and `principle-experience-first` first.
+- [x] The Query Adapter, `<GridCueBar />`, a plain table, paging, and the Host's own loading and error states.
+- [x] Real-browser check, light and dark. Before/After and screenshots in the PR.
 
 ### Task 5.5: Held-out run (lead)
-- [ ] The Query Check on the ledger schema against the example's query: report rows that differ (bar: 0).
-- [ ] Each mutant against both schemas: report which cases caught it (bar: every mutant fails at least one).
-- [ ] The mutants and the ledger cases join the repo as regression tests.
+- [x] The Query Check on the ledger schema against the example's query: report rows that differ (bar: 0).
+- [x] Each mutant against both schemas: report which cases caught it (bar: every mutant fails at least one).
+- [x] The mutants and the ledger cases join the repo as regression tests.
 
 ### Task 5.6: Docs (Sonnet), entries and links (Haiku)
-- [ ] Site: the "Rows on a server" guide (spec 5.5); a new `api/testing`; `meta.json` entries.
-- [ ] `package.json` `exports` and `tsdown` entry for `./testing`; `pnpm check:package`.
-- [ ] `AGENTS.md`: the two lists of entries gain `gridcue/testing`. The owner approved the edit with the order plan's D2.
-- [ ] `skills/gridcue`: the server-rows row links the guide; `pnpm check:skills`. The changelog.
+- [x] Site: the "Rows on a server" guide (spec 5.5); a new `api/testing`; `meta.json` entries.
+- [x] `package.json` `exports` and `tsdown` entry for `./testing`; `pnpm check:package`.
+- [x] `AGENTS.md`: the two lists of entries gain `gridcue/testing`. The owner approved the edit with the order plan's D2.
+- [x] `skills/gridcue`: the server-rows row links the guide; `pnpm check:skills`. The changelog.
 
 ### Task 5.7: Review (Opus, with a security pass on the example's query), gate
-- [ ] The bundle leak check covers `/paged`, and no client bundle imports `gridcue/testing`.
+- [x] The bundle leak check covers `/paged`, and no client bundle imports `gridcue/testing`.
 
 ## PR 6: The AG Grid adapter (`feat/ag-grid-adapter`)
 
