@@ -696,6 +696,38 @@ describe("AG Grid adapter: one apply, however the grid answers", () => {
     expect(adapter.getState().state.sorts).toEqual([{ columnId: "value", direction: "asc" }]);
   });
 
+  it("refuses an apply or restore asked for from inside a write that is put back, and tells no one", async () => {
+    const { api, schema } = makeGrid(latest, "clientSide", rows, columnDefs);
+    let adapter: ReturnType<typeof createAgGridAdapter> | undefined;
+    let inner: Array<Promise<unknown>> = [];
+    let throws = 1;
+    const reentrant: AgGridApiLike = {
+      ...callsOf(api),
+      setFilterModel: (model) => {
+        api.setFilterModel(model);
+        if (!adapter || inner.length > 0) return;
+        const other = validated(adapter, [{ type: "sort.set", sorts: [{ columnId: "value", direction: "desc" }] }]);
+        inner = [adapter.apply(other), adapter.restore(adapter.getState())];
+      },
+      applyColumnState: (params) => {
+        if (throws-- > 0) throw new Error("the Host's comparator threw");
+        return api.applyColumnState(params);
+      },
+    };
+    adapter = createAgGridAdapter({ schema, api: reentrant });
+    const before = adapter.getState();
+    const grid = written(api);
+    const told: VersionedViewState[] = [];
+    adapter.subscribe((s) => told.push(s));
+    const plan = validated(adapter, [filter("value", "gt", 6), { type: "sort.set", sorts: [{ columnId: "value", direction: "asc" }] }]);
+    await expect(adapter.apply(plan)).rejects.toThrow("comparator");
+    expect(inner).toHaveLength(2);
+    for (const refused of await Promise.all(inner)) expect(refused).toMatchObject({ ok: false, code: "ADAPTER_FAILED" });
+    expect(told).toHaveLength(0);
+    expect(written(api)).toBe(grid);
+    expect(adapter.getState()).toEqual(before);
+  });
+
   it("puts the grid back and rethrows when a write throws, as when a Host's comparator throws", async () => {
     const { api, schema } = makeGrid(latest, "clientSide", rows, columnDefs);
     const thrown = new Error("the Host's comparator threw");
