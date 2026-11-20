@@ -115,9 +115,24 @@ const chassis = live ? await run(new URL("./cases-chassis.jsonl", import.meta.ur
 const reading = await run(new URL("./cases-reading.jsonl", import.meta.url), "cases-reading.jsonl");
 // The same classes in other words, labelled before the fixes and first run after them (2026-11-10).
 const readingHeldOut = await run(new URL("./cases-reading-heldout.jsonl", import.meta.url), "cases-reading-heldout.jsonl");
+// Quoted text and dates that showed rows the User didn't ask for (named filters spec, 5.1). With the Mock Provider each
+// case must match, like the core cases.
+const namedFixes = await run(new URL("./cases-named-fixes.jsonl", import.meta.url), "cases-named-fixes.jsonl");
+// The same classes in other words, labelled before the fixes and first run after them (2026-11-13): with the Mock
+// Provider 16 exact, 37 asked as labelled, 0 wrong views, of 53.
+const namedFixesHeldOut = await run(new URL("./cases-named-fixes-heldout.jsonl", import.meta.url), "cases-named-fixes-heldout.jsonl");
+// A second held-out set for the same fixes, labelled before it was run and first run after the round-1 review's fixes
+// (2026-11-13). With the Mock Provider: 34 exact, 34 asked as labelled, 6 safe misses, 0 wrong views, of 74. Two labels
+// were corrected to ask after the run (r2-ok-12, r2-ok-36). After the round-2 fixes: 37 exact, 34 asked as labelled, 3
+// safe misses, 0 wrong views. Its safe misses are reported, not failed; a wrong view fails.
+const namedFixesHeldOut2 = await run(
+  new URL("./cases-named-fixes-heldout-r2.jsonl", import.meta.url),
+  "cases-named-fixes-heldout-r2.jsonl",
+);
 
 // Applying a view the user did not ask for is release-blocking with any provider.
 // With the Mock Provider every core case must match exactly, because its answers are deterministic.
-const all = [core, extra, fanout, chassis, reading, readingHeldOut];
-if (all.some((counts) => (counts?.unsafe ?? 0) > 0) || (!live && core.mismatch > 0)) process.exit(1);
+const all = [core, extra, fanout, chassis, reading, readingHeldOut, namedFixes, namedFixesHeldOut, namedFixesHeldOut2];
+const mockMustMatch = [core, namedFixes, namedFixesHeldOut];
+if (all.some((counts) => (counts?.unsafe ?? 0) > 0) || (!live && mockMustMatch.some((counts) => counts.mismatch > 0))) process.exit(1);
 if (strict && all.some((counts) => (counts?.mismatch ?? 0) > 0)) process.exit(1);

@@ -60,27 +60,27 @@ Spec 5.1. No ADR: every fix asks, and none adds a reading.
 
 ### Task 1.1: Label the fix cases (Sonnet)
 **Files:** new `evals/cases-named-fixes.jsonl`; a held-out set outside the repo.
-- [ ] Dev, at least 30: quoted text beside each negation and beside "starts with", "ends with", "exactly", `=`; the Row Noun before "for"; a date against a date-and-time column; a date that is not a real day; and 10 controls that must stay exact (`containing`, `is`, `:`, "like", "non-retirement … containing"). Date cases use the inline dated schema in `test/reading-fixes.test.ts`, plus one date-and-time column.
-- [ ] Held-out, at least 30 of the same kinds, written from spec 5.1 alone.
-- [ ] Baseline with the Mock Provider on both, before any code. Today's wrong views are expected; record them.
+- [x] Dev, at least 30: quoted text beside each negation and beside "starts with", "ends with", "exactly", `=`; the Row Noun before "for"; a date against a date-and-time column; a date that is not a real day; and 10 controls that must stay exact (`containing`, `is`, `:`, "like", "non-retirement … containing"). Date cases use the inline dated schema in `test/reading-fixes.test.ts`, plus one date-and-time column.
+- [x] Held-out, at least 30 of the same kinds, written from spec 5.1 alone.
+- [x] Baseline with the Mock Provider on both, before any code. Today's wrong views are expected; record them.
 
 ### Task 1.2: The fixes (Opus)
 **Files:** `core/compile.ts`, `core/mentions.ts`, `core/normalize.ts`, new `test/named-fixes.test.ts`, `evals/evals.test.ts`, `CHANGELOG.md`.
-- [ ] Tests first, one group per row of the table in spec 5.1, plus the controls.
-- [ ] Quoted text is "containing" only after the words the spec lists. Any other word between a column and quoted text asks.
-- [ ] A negation that belongs to no named value asks when the part holds quoted text.
-- [ ] The grid's own Row Noun before "for" is the rows. No other name changes.
-- [ ] A date for a date-and-time column asks. A date that is not a real day asks.
-- [ ] The question for quoted text with no column says "contain".
-- [ ] `cases-named-fixes.jsonl` in the gate. Bars: 0 wrong views on the dev set; the 23 quoted-text cases exact; no existing verdict worse.
+- [x] Tests first, one group per row of the table in spec 5.1, plus the controls.
+- [x] Quoted text is "containing" only after the words the spec lists. Any other word between a column and quoted text asks.
+- [x] A negation that belongs to no named value asks when the part holds quoted text.
+- [x] The grid's own Row Noun right before "for" and quoted text is the rows. No other name changes: "sort by account for trusts" still sorts by Account number.
+- [x] A date for a date-and-time column asks. A date that is not a real day asks.
+- [x] The question for quoted text with no column says "contain".
+- [x] `cases-named-fixes.jsonl` in the gate. Bars: 0 wrong views on the dev set; the 23 quoted-text cases exact; no existing verdict worse.
 
 ### Task 1.3: Held-out run (lead)
-- [ ] One run. Report exact, safe misses and wrong views, and how many requests that are ready today now ask. Bar: 0 wrong views. A wrong view goes back as a class, with a fresh held-out set.
-- [ ] The set joins the repo as `evals/cases-named-fixes-heldout.jsonl`.
+- [x] One run. Report exact, safe misses and wrong views, and how many requests that are ready today now ask. Bar: 0 wrong views. A wrong view goes back as a class, with a fresh held-out set.
+- [x] The set joins the repo as `evals/cases-named-fixes-heldout.jsonl`.
 
 ### Task 1.4: Docs (Sonnet), review (Opus), gate
-- [ ] Site: `concepts/requests` (which words make quoted text "containing"; what asks). Changelog (Haiku).
-- [ ] The reviewer hunts for quoted text that still becomes "containing" beside a word GridCue didn't read.
+- [x] Site: `concepts/requests` (which words make quoted text "containing"; what asks). Changelog (Haiku).
+- [x] The reviewer hunts for quoted text that still becomes "containing" beside a word GridCue didn't read.
 - [ ] One live run, on the owner's command. `pnpm lint`, `pnpm check`.
 
 **Owner sees before code:** nothing new. Every change is a question in the existing UI.
@@ -109,6 +109,9 @@ Spec 4.1, 4.2, 4.4, 4.6, 5.2, and the PR 2 rows of section 9. ADR 0023.
 - [ ] One pure function that returns the unplaced words of a part, given its names, literals and code-read filters. The lists live in this module and nowhere else, except the operation set's form words, which it imports from `core/view-words.ts`.
 - [ ] The limit on a provider's picks in a part that passed: a column or value no Mention names is dropped; a sort, group, show or hide needs its own words. Tests use a fake provider.
 - [ ] In the compiler, a part with no code-read filter never reaches this function. A test runs every existing labelled request through the compiler and finds the function is not called. Task 2.5's report calls it from `evals/`, outside the compiler, so the report can't change a result.
+- [ ] The first PR's review left one class for this rule: unread words after the next name in a part with quoted text (`advisor "Lane" and restricted removed` previews Restricted holdings is Yes). Its cases join this PR's dev set. The allow-lists the first PR added in `core/compile.ts` (`unreadBesideText`, `afterText`) move into `core/placed.ts` or are replaced by it.
+- [ ] The first PR's reviews also found wrong views with no quoted text, which the release has too. Each joins this PR's dev set and must ask: `!=`, `≠` or `not=` before a named value reads as equal (`custodian != Northgate` shows Northgate); a full-width "！" before a name is dropped; "reversed", "backwards" or "inverted" after a sort is dropped; "all but restricted" shows the restricted rows; "reset and trusts" on a filtered view drops the reset; "account first for trusts" drops the column move.
+- [ ] Requests the first PR made ask and this rule should read again, once every word in them is placed: `advisor "Lane" in descending order of value`, `advisor "Lane" is trusts`, `advisor "Lane" also not trusts`, `advisor's name is "Lane"`, `advisor containing the text "Lane"`.
 
 ### Task 2.4: The forms (Opus)
 **Files:** `core/normalize.ts`, new `core/code-read.ts`, `core/compile.ts`, `core/resolution.ts`, `core/unused.ts`, `core/preview.ts`, `index.ts`, tests. Needs 2.3.
