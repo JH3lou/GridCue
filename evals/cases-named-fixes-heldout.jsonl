@@ -9,13 +9,13 @@
 {"id":"h1-neg-does-not-contain","utterance":"accounts where advisor does not contain \"Quinn\"","expect":{"status":"needs_clarification"}}
 {"id":"h1-neg-with-filter","utterance":"advisor is not \"Quinn\" and market value over $1m","expect":{"status":"needs_clarification"}}
 {"id":"h1-neg-after-value","utterance":"taxable accounts, advisor isn't \"Quinn\"","expect":{"status":"needs_clarification"}}
-{"id":"h1-form-starts","utterance":"advisor starts with \"Qu\"","expect":{"status":"needs_clarification","clarificationPrompt":"I'm not sure how to match “qu”. Try “containing”."}}
+{"id":"h1-form-starts","utterance":"advisor starts with \"Qu\"","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"startsWith","value":"qu"}}]}}
 {"id":"h1-form-ends","utterance":"accounts where advisor ends with \"Quinn\"","expect":{"status":"needs_clarification","clarificationPrompt":"I'm not sure how to match “quinn”. Try “containing”."}}
-{"id":"h1-form-exactly","utterance":"advisor is exactly \"Mara Quinn\"","expect":{"status":"needs_clarification","clarificationPrompt":"I'm not sure how to match “mara quinn”. Try “containing”."}}
-{"id":"h1-form-equals-sign","utterance":"advisor = \"Mara Quinn\"","expect":{"status":"needs_clarification","clarificationPrompt":"I'm not sure how to match “mara quinn”. Try “containing”."}}
-{"id":"h1-form-household-starts","utterance":"household starts with \"Ha\"","expect":{"status":"needs_clarification","clarificationPrompt":"I'm not sure how to match “ha”. Try “containing”."}}
-{"id":"h1-form-begins","utterance":"advisor begins with \"Qu\"","expect":{"status":"needs_clarification"}}
-{"id":"h1-form-equals-word","utterance":"household equals \"Hale\"","expect":{"status":"needs_clarification"}}
+{"id":"h1-form-exactly","utterance":"advisor is exactly \"Mara Quinn\"","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"eq","value":"mara quinn"}}]}}
+{"id":"h1-form-equals-sign","utterance":"advisor = \"Mara Quinn\"","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"eq","value":"mara quinn"}}]}}
+{"id":"h1-form-household-starts","utterance":"household starts with \"Ha\"","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"household","operator":"startsWith","value":"ha"}}]}}
+{"id":"h1-form-begins","utterance":"advisor begins with \"Qu\"","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"startsWith","value":"qu"}}]}}
+{"id":"h1-form-equals-word","utterance":"household equals \"Hale\"","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"household","operator":"eq","value":"hale"}}]}}
 {"id":"h1-form-named","utterance":"accounts with advisor named \"Quinn\"","expect":{"status":"needs_clarification"}}
 {"id":"h1-form-ending-in","utterance":"household ending in \"ale\"","expect":{"status":"needs_clarification"}}
 {"id":"h1-ctl-containing","utterance":"advisor containing \"Quinn\"","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"contains","value":"quinn"}}]}}

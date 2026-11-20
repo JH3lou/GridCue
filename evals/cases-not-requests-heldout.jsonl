@@ -1,0 +1,25 @@
+{"id":"h2n-01","utterance":"I have no advisor on that call","expect":{"mustNotBeReady":true}}
+{"id":"h2n-02","utterance":"Without an advisor I would not have closed that deal","expect":{"mustNotBeReady":true}}
+{"id":"h2n-03","utterance":"She has an advisor and a lawyer","expect":{"mustNotBeReady":true}}
+{"id":"h2n-04","utterance":"Why is the advisor blank?","expect":{"mustNotBeReady":true}}
+{"id":"h2n-05","utterance":"The household is missing and I need to find out why","expect":{"mustNotBeReady":true}}
+{"id":"h2n-06","utterance":"Tell the advisor the household is empty","expect":{"mustNotBeReady":true}}
+{"id":"h2n-07","utterance":"Email every account that has an advisor","expect":{"mustNotBeReady":true}}
+{"id":"h2n-08","utterance":"Assign an advisor to accounts with no advisor","expect":{"mustNotBeReady":true}}
+{"id":"h2n-09","utterance":"Delete accounts with no advisor","expect":{"mustNotBeReady":true}}
+{"id":"h2n-10","utterance":"Set advisor equal to \"Avery Lane\" on every account","expect":{"mustNotBeReady":true}}
+{"id":"h2n-11","utterance":"Is the advisor exactly \"Avery Lane\" in the contract?","expect":{"mustNotBeReady":true}}
+{"id":"h2n-12","utterance":"Call the advisor and say the memo starts with \"Dear\"","expect":{"mustNotBeReady":true}}
+{"id":"h2n-13","utterance":"Please remember that advisor starts with \"A\" in our naming policy","expect":{"mustNotBeReady":true}}
+{"id":"h2n-14","utterance":"I think the counterparty is empty because of a bug","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"h2n-15","utterance":"There is no counterparty I would trust","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"h2n-16","utterance":"No payee, no deal","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"h2n-17","utterance":"Does the vendor equal \"Cedar Works\" in the contract?","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"h2n-18","utterance":"Export entries with no counterparty","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"h2n-19","utterance":"Reach out to every owner exactly \"Gale Ivers\" tomorrow","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"h2n-20","utterance":"We should talk about why category is missing","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"h2n-21","utterance":"Without a category, nothing gets approved","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"h2n-22","utterance":"The owner has a counterparty named Greaves","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"h2n-23","utterance":"Pay entries without a booking date","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"h2n-24","utterance":"Who has no advisor?","expect":{"mustNotBeReady":true}}
+{"id":"h2n-25","utterance":"My uncle started with no advisor and ended with three","expect":{"mustNotBeReady":true}}

@@ -1,4 +1,5 @@
 import type { GridAdapter } from "./adapter";
+import { type CodeReadFilter, readCodeFilters } from "./code-read";
 import { type ConfidencePolicy, compile } from "./compile";
 import { GridCueError, type Issue, isGridCueError } from "./errors";
 import { type Mention, matchMentions } from "./mentions";
@@ -82,6 +83,7 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
     answers: Record<string, string>;
     restricted: ReturnType<typeof screenRestricted>;
     mentions: Mention[];
+    codeRead: CodeReadFilter[];
   } | null = null;
   let applicable: ApplicableViewPlan | null = null;
   // Every applied plan can be undone, newest first. An entry is undoable while the grid still shows what that plan
@@ -122,6 +124,7 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
       text: state.utterance,
       restricted: session.restricted,
       mentions: session.mentions,
+      codeRead: session.codeRead,
       answers: session.answers,
       operations: adapter.getCapabilities().operations,
       defaultState: adapter.getDefaultState(),
@@ -274,6 +277,8 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
       const mentions =
         restricted.length === 0 ? matchMentions(normalized.clauses, schema.columns.filter(isExposed), { rowNoun: schema.rowNoun }) : [];
       const input = withoutNamedSizes(normalized, mentions);
+      // Code-read filters are read from the same input as the provider's request, and change nothing in it (ADR 0023).
+      const codeRead = readCodeFilters(input, mentions, schema);
       try {
         let resolution: ResolutionResult = { clauses: [] };
         if (restricted.length === 0) {
@@ -284,7 +289,7 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
           if (!parsed.success) throw new GridCueError("PROVIDER_MALFORMED", "The provider returned an unexpected response.");
           resolution = parsed.data;
         }
-        session = { input, resolution, base, channel, answers: {}, restricted, mentions };
+        session = { input, resolution, base, channel, answers: {}, restricted, mentions, codeRead };
         return present();
       } catch (error) {
         if (controller.signal.aborted) return stopped();

@@ -54,6 +54,13 @@ Return a new object on every call, so a caller can't change your capabilities by
 
 An apply is done when the grid holds the state, not when you asked it to. A grid that updates at once returns at once. A grid that updates later, such as a table whose state the Host controls, needs a wait: check that the grid holds what you wrote, and read its Revision at that moment, before any later change can land. Bound the wait, and throw when it runs out, so the Controller can recover and tell the User. The TanStack adapter waits up to 1,000 ms (ADR 0031).
 
+A filter your grid evaluates must mean what GridCue's `matchesPredicate` means, since a User's request is read by that definition. Two cases matter after the text and empty forms:
+
+- **Empty** (`isEmpty`, `isNotEmpty`) means no value: `undefined`, `null`, or an empty string `""`. A cell holding `0`, `false` or a placeholder such as "Unassigned" has a value. `isNotEmpty` is the exact opposite.
+- **Exact text** (`eq` on a `string` column) ignores letter case: "avery lane" matches "Avery Lane" and "AVERY LANE", and not "Avery Lane, Jr." `startsWith` and `contains` ignore case on every column. On any other kind, `eq` compares the value as it is.
+
+Call `matchesPredicate(value, predicate, column)` from the root entry, or copy its rules. The TanStack Table adapter's `gridcueFilterFn` does the first.
+
 If the grid can't represent the result, return a failure and change nothing. The TanStack adapter, for example, refuses OR and nested filter groups with `ADAPTER_UNSUPPORTED_FILTER`.
 
 **`restore(snapshot)`** writes `snapshot.state` back, for undo. It bumps the Revision like any other change, and, like `apply`, is done only when the grid holds the snapshot.

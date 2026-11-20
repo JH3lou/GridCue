@@ -4,15 +4,24 @@
  * to Northgate") is not a view request, so no filter is read from it.
  */
 
+/**
+ * The lead-in words, as a pattern. This is the one list of them: `LEAD_IN` reads them where a part starts, and the
+ * placed-words check (`core/placed.ts`) reads them wherever they sit.
+ */
+export const LEAD_IN_WORDS = `please|pls|now|then|also|and|so|ok|okay|hey|can you|could you|would you|will you|i want(?: to see)?|i'd like(?: to see)?|i need(?: to see)?|i only want|let me see|let's see|show me|give me|get me|find me|just|only`;
 /** Polite or conversational words before the verb: "can you", "please", "show me". */
-export const LEAD_IN =
-  /^(?:(?:please|pls|now|then|also|and|so|ok|okay|hey|can you|could you|would you|will you|i want(?: to see)?|i'd like(?: to see)?|i need(?: to see)?|i only want|let me see|let's see|show me|give me|get me|find me|just|only)\b ?)*/;
+export const LEAD_IN = new RegExp(String.raw`^(?:(?:${LEAD_IN_WORDS})\b ?)*`);
 
 /** Words known in the verb position: view verbs, articles and quantifiers, prepositions, comparisons, size words. */
 const KNOWN_FIRST =
   /^(?:show|display|list|view|see|look|find|get|give|filter|filtered|keep|only|just|include|exclude|excluding|hide|unhide|remove|clear|reset|undo|drop|sort|sorted|order|ordered|rank|ranked|group|grouped|ungroup|where|with|without|having|which|what|who|whose|the|a|an|all|any|every|each|my|our|those|these|that|this|some|top|bottom|largest|biggest|smallest|highest|lowest|most|least|first|last|non|not|no|over|under|above|below|between|from|at|in|for|by|on|of|more|less|greater|fewer|than|exactly|equal|rows?|records?|ones?|columns?|everything|anything|nothing|then|is|are)\b/;
-/** Verbs GridCue reads only for columns. */
-const COLUMN_VERB = /^(?:add|put|move|pin|arrange|bring|place|shift)\b/;
+/**
+ * The verbs GridCue reads only for columns, as a pattern. This is the one list of them: the placed-words check
+ * (`core/placed.ts`) places one only when its object is a column and the plan holds that column change.
+ */
+export const COLUMN_VERBS = "add|put|move|pin|arrange|bring|place|shift";
+/** A verb GridCue reads only for columns, where a part starts. */
+export const COLUMN_VERB = new RegExp(String.raw`^(?:${COLUMN_VERBS})\b`);
 const DETERMINER = /^(?:the|a|an|all|every|each|my|our|this|that|these|those|some|any|new|both)\b/;
 
 /**

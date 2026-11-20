@@ -1,0 +1,89 @@
+{"id":"h2f-01","utterance":"Show accounts where household starts with \"Hol\"","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"household","operator":"startsWith","value":"hol"}}]}}
+{"id":"h2f-02","utterance":"Rep beginning with \"Cas\"","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"startsWith","value":"cas"}}]}}
+{"id":"h2f-03","utterance":"Household beginning with \"Cedar\", market value above $500k","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"household","operator":"startsWith","value":"cedar"}},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"market_value","operator":"gt","value":500000}}]}}
+{"id":"h2f-04","utterance":"Advisor equals \"Dana Whitfield\"","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"eq","value":"dana whitfield"}}]}}
+{"id":"h2f-05","utterance":"Financial advisor equal to \"Emerson Hale\", sorted by market value largest first","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"eq","value":"emerson hale"}},{"type":"sort.set","sorts":[{"columnId":"market_value","direction":"desc"}]}]}}
+{"id":"h2f-06","utterance":"account number = \"AC-100004\"","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"account_number","operator":"eq","value":"ac-100004"}}]}}
+{"id":"h2f-07","utterance":"Please show me the household exactly \"Birch Household\"","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"household","operator":"eq","value":"birch household"}}]}}
+{"id":"h2f-08","utterance":"Only accounts whose advisor is exactly \"Casey Ortiz\" at Summit Trust","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"eq","value":"casey ortiz"}},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"custodian","operator":"eq","value":"summit_trust"}}]}}
+{"id":"h2f-09","utterance":"acct starting with \"AC-1002\", hide custodian","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"account_number","operator":"startsWith","value":"ac-1002"}},{"type":"columns.hide","columnIds":["custodian"]}]}}
+{"id":"h2f-10","utterance":"Advisor is blank","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"isEmpty"}}]}}
+{"id":"h2f-11","utterance":"List accounts without an advisor","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"isEmpty"}}]}}
+{"id":"h2f-12","utterance":"Accounts without any advisor assigned","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"isEmpty"}}]}}
+{"id":"h2f-13","utterance":"Find accounts with no household set","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"household","operator":"isEmpty"}}]}}
+{"id":"h2f-14","utterance":"Show accounts that have an advisor assigned","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"isNotEmpty"}}]}}
+{"id":"h2f-15","utterance":"Advisor isn't empty","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"isNotEmpty"}}]}}
+{"id":"h2f-16","utterance":"Accounts having a household","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"household","operator":"isNotEmpty"}}]}}
+{"id":"h2f-17","utterance":"Taxable accounts with no advisor, sorted by market value largest first","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"registration_type","operator":"eq","value":"taxable"}},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"isEmpty"}},{"type":"sort.set","sorts":[{"columnId":"market_value","direction":"desc"}]}]}}
+{"id":"h2f-18","utterance":"Advisor is missing, hide custodian","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"isEmpty"}},{"type":"columns.hide","columnIds":["custodian"]}]}}
+{"id":"h2f-19","utterance":"Group by custodian, accounts with no advisor","expect":{"status":"ready","operations":[{"type":"group.set","columnIds":["custodian"]},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"isEmpty"}}]}}
+{"id":"h2f-20","utterance":"Trust accounts at Harborline where advisor is empty","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"registration_type","operator":"eq","value":"trust"}},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"custodian","operator":"eq","value":"harborline"}},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"isEmpty"}}]}}
+{"id":"h2f-21","utterance":"Harborline accounts whose advisor starts with \"Bl\", sorted by market value largest first","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"custodian","operator":"eq","value":"harborline"}},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"startsWith","value":"bl"}},{"type":"sort.set","sorts":[{"columnId":"market_value","direction":"desc"}]}]}}
+{"id":"h2f-22","utterance":"Sort by market value largest first, advisor starts with \"Bl\"","expect":{"status":"ready","operations":[{"type":"sort.set","sorts":[{"columnId":"market_value","direction":"desc"}]},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"startsWith","value":"bl"}}]}}
+{"id":"h2f-23","utterance":"Hide custodian, advisor is empty, group by registration type","expect":{"status":"ready","operations":[{"type":"columns.hide","columnIds":["custodian"]},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"isEmpty"}},{"type":"group.set","columnIds":["registration_type"]}]}}
+{"id":"h2f-24","utterance":"Counterparty starts with \"Alder\"","schema":"ledger","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"counterparty","operator":"startsWith","value":"alder"}}]}}
+{"id":"h2f-25","utterance":"Vendor beginning with \"Hol\"","schema":"ledger","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"counterparty","operator":"startsWith","value":"hol"}}]}}
+{"id":"h2f-26","utterance":"Owner exactly \"Gale Ivers\"","schema":"ledger","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"owner","operator":"eq","value":"gale ivers"}}]}}
+{"id":"h2f-27","utterance":"Show entries where owner = \"Avery Lane\" at category travel","schema":"ledger","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"owner","operator":"eq","value":"avery lane"}},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"category","operator":"eq","value":"travel"}}]}}
+{"id":"h2f-28","utterance":"Entries where counterparty is empty","schema":"ledger","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"counterparty","operator":"isEmpty"}}]}}
+{"id":"h2f-29","utterance":"Show entries with no payee","schema":"ledger","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"counterparty","operator":"isEmpty"}}]}}
+{"id":"h2f-30","utterance":"entries with no booking date","schema":"ledger","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"booked","operator":"isEmpty"}}]}}
+{"id":"h2f-31","utterance":"Show entries where category is blank","schema":"ledger","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"category","operator":"isEmpty"}}]}}
+{"id":"h2f-32","utterance":"Entries without a category assigned","schema":"ledger","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"category","operator":"isEmpty"}}]}}
+{"id":"h2f-33","utterance":"Booked is empty","schema":"ledger","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"booked","operator":"isEmpty"}}]}}
+{"id":"h2f-34","utterance":"Entries where posting time is missing","schema":"ledger","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"posted_at","operator":"isEmpty"}}]}}
+{"id":"h2f-35","utterance":"List entries that have a counterparty","schema":"ledger","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"counterparty","operator":"isNotEmpty"}}]}}
+{"id":"h2f-36","utterance":"Entries having a booking date set","schema":"ledger","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"booked","operator":"isNotEmpty"}}]}}
+{"id":"h2f-37","utterance":"Counterparty is not blank, sort by amount largest first","schema":"ledger","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"counterparty","operator":"isNotEmpty"}},{"type":"sort.set","sorts":[{"columnId":"amount","direction":"desc"}]}]}}
+{"id":"h2f-38","utterance":"Entries with no counterparty, hide rate","schema":"ledger","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"counterparty","operator":"isEmpty"}},{"type":"columns.hide","columnIds":["rate"]}]}}
+{"id":"h2f-39","utterance":"Counterparty starts with \"Cedar\", amount above $10,000","schema":"ledger","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"counterparty","operator":"startsWith","value":"cedar"}},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"amount","operator":"gt","value":10000}}]}}
+{"id":"h2f-40","utterance":"Owner equals \"Casey Ortiz\" and no counterparty","schema":"ledger","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"owner","operator":"eq","value":"casey ortiz"}},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"counterparty","operator":"isEmpty"}}]}}
+{"id":"h2f-41","utterance":"Units is empty","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"h2f-42","utterance":"Entries with no amount","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"h2f-43","utterance":"Rate is missing","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"h2f-44","utterance":"Entries having a rate set","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"h2f-45","utterance":"Concentration is blank","expect":{"mustNotBeReady":true}}
+{"id":"h2f-46","utterance":"Accounts with no market value","expect":{"mustNotBeReady":true}}
+{"id":"h2f-47","utterance":"Units starts with \"1\"","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"h2f-48","utterance":"Booked starts with \"2026\"","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"h2f-49","utterance":"Category starts with \"Fe\"","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"h2f-50","utterance":"Registration type starts with \"Tr\"","expect":{"mustNotBeReady":true}}
+{"id":"h2f-51","utterance":"Amount is exactly \"5000\"","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"h2f-52","utterance":"Booked equals \"2026-03-01\"","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"h2f-53","utterance":"Tax ID starts with \"XXX\"","expect":{"mustNotBeReady":true}}
+{"id":"h2f-54","utterance":"Cleared is empty","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"h2f-55","utterance":"Accounts with no advisor over $2m","expect":{"mustNotBeReady":true}}
+{"id":"h2f-56","utterance":"Entries with no counterparty above $500","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"h2f-57","utterance":"Accounts without a household above 20%","expect":{"mustNotBeReady":true}}
+{"id":"h2f-58","utterance":"Entries without a category over $100","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"h2f-59","utterance":"Advisor is empty and over 5%","expect":{"mustNotBeReady":true}}
+{"id":"h2f-60","utterance":"Accounts with no advisor under $300k","expect":{"mustNotBeReady":true}}
+{"id":"h2f-61","utterance":"Show accounts with no gain","expect":{"mustNotBeReady":true}}
+{"id":"h2f-62","utterance":"Accounts with no unrealized gains","expect":{"mustNotBeReady":true}}
+{"id":"h2f-63","utterance":"Show accounts with no restricted holding","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"has_restricted_holding","operator":"eq","value":false}}]}}
+{"id":"h2f-64","utterance":"No accounts over $2m","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"market_value","operator":"lte","value":2000000}}]}}
+{"id":"h2f-65","utterance":"Accounts with no gain over $30k","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"unrealized_gain","operator":"lte","value":30000}}]}}
+{"id":"h2f-66","utterance":"No entries over $5k","schema":"ledger","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"amount","operator":"lte","value":5000}}]}}
+{"id":"h2f-67","utterance":"No accounts","expect":{"mustNotBeReady":true}}
+{"id":"h2f-68","utterance":"Accounts with no account","expect":{"mustNotBeReady":true}}
+{"id":"h2f-69","utterance":"Show accounts without an account","expect":{"mustNotBeReady":true}}
+{"id":"h2f-70","utterance":"Entries with no entry","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"h2f-71","utterance":"No entries","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"h2f-72","utterance":"Advisor ends with \"Ortiz\"","expect":{"status":"needs_clarification","clarificationPrompt":"I'm not sure how to match “ortiz”. Try “containing”."}}
+{"id":"h2f-73","utterance":"Advisor starts with exactly \"Av\"","expect":{"mustNotBeReady":true}}
+{"id":"h2f-74","utterance":"Advisor starts with the letters \"Av\"","expect":{"mustNotBeReady":true}}
+{"id":"h2f-75","utterance":"Advisor is not exactly \"Avery Lane\"","expect":{"mustNotBeReady":true}}
+{"id":"h2f-76","utterance":"Advisor doesn't start with \"Av\"","expect":{"mustNotBeReady":true}}
+{"id":"h2f-77","utterance":"Advisor starts with \"Av\" or \"Bl\"","expect":{"mustNotBeReady":true}}
+{"id":"h2f-78","utterance":"Advisor starts with Av","expect":{"mustNotBeReady":true}}
+{"id":"h2f-79","utterance":"Advisor who starts with \"Av\"","expect":{"mustNotBeReady":true}}
+{"id":"h2f-80","utterance":"Accounts with no advisor yet","expect":{"mustNotBeReady":true}}
+{"id":"h2f-81","utterance":"Accounts without any advisor listed","expect":{"mustNotBeReady":true}}
+{"id":"h2f-82","utterance":"Advisor is almost empty","expect":{"mustNotBeReady":true}}
+{"id":"h2f-83","utterance":"Advisor is exactly empty","expect":{"mustNotBeReady":true}}
+{"id":"h2f-84","utterance":"Accounts that have an advisor named","expect":{"mustNotBeReady":true}}
+{"id":"h2f-85","utterance":"Counterparty is mostly blank","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"h2f-86","utterance":"Owner exactly matches \"Gale\"","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"h2f-87","utterance":"Owner is exactly \"Gale Ivers\" or \"Avery Lane\"","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"h2f-88","utterance":"Counterparty starting with \"Ellery\" called about fees","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"h2f-89","utterance":"Accounts with no advisor assigned to Northgate","expect":{"mustNotBeReady":true}}

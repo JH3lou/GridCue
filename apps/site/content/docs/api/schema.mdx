@@ -123,6 +123,19 @@ Each kind has a fixed set of filter operators. `allowedOperators` can narrow it.
 
 `operatorsFor(column)` returns the operators legal for a `ColumnDescriptor`: its kind's operators, narrowed by its `allowedOperators`.
 
+### Operators and what a User can ask
+
+Four of these operators are what GridCue's own code writes for the [text and empty forms](/docs/concepts/requests#text-forms-and-empty-values). Leave one out of a column's `allowedOperators` to turn its form off for that column. The request then asks instead of applying.
+
+| Operator | Written for | Turned off, the request asks |
+| --- | --- | --- |
+| `startsWith` | `advisor starts with "Av"` | "GridCue can't filter Advisor by how it starts here." |
+| `eq` | `advisor is exactly "Avery Lane"`, `advisor = "Avery Lane"` | "GridCue can't filter Advisor to exact text here." |
+| `isEmpty` | `advisor is empty`, "accounts with no advisor" | "GridCue can't filter Advisor to rows where it is empty here." |
+| `isNotEmpty` | `advisor is not empty`, "accounts that have an advisor" | "GridCue can't filter Advisor to rows where it is not empty here." |
+
+`eq` and `startsWith` are written only for a `string` column. `advisor containing "Lane"` still works with any one of them turned off, since `contains` is a different operator. `isEmpty` and `isNotEmpty` are written for `string`, `enum`, `date` and `datetime` columns, never for `number`, `currency` or `percent`. A `boolean` column keeps its Yes or No reading. A form that GridCue can't write for a column's kind asks, whatever `allowedOperators` says.
+
 ### Kind inference
 
 When no kind is given and the column has no `enumValues`, `inferKind` reads the column's values in `sampleRows`, ignoring `null`, `undefined` and `""`:

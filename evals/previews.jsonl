@@ -1,0 +1,900 @@
+{"file":"cases-cant-group-heldout-r4.jsonl","id":"r4-without-nothing-after","lines":["Sort by Market value, descending"],"notes":[]}
+{"file":"cases-cant-group-heldout-r4.jsonl","id":"r4-not-nothing-after","lines":["Clear all filters"],"notes":[]}
+{"file":"cases-cant-group-heldout-r4.jsonl","id":"r4-quoted-with-sort","lines":["Filter Household containing “regrouping”","Sort by Market value, descending"],"notes":[]}
+{"file":"cases-cant-group-heldout-r4.jsonl","id":"r4-plain-filter-1","lines":["Filter Market value above $2,000,000"],"notes":[]}
+{"file":"cases-cant-group-heldout-r4.jsonl","id":"r4-plain-filter-2","lines":["Filter Registration type to Taxable","Filter Concentration above 20%"],"notes":[]}
+{"file":"cases-cant-group-heldout-r4.jsonl","id":"r4-plain-sort-1","lines":["Sort by Market value, ascending"],"notes":[]}
+{"file":"cases-cant-group-heldout-r4.jsonl","id":"r4-plain-sort-2","lines":["Sort by Account number, descending"],"notes":[]}
+{"file":"cases-cant-group-heldout-r4.jsonl","id":"r4-plain-hide-1","lines":["Hide Custodian and Household"],"notes":[]}
+{"file":"cases-cant-group-heldout-r4.jsonl","id":"r4-plain-hide-2","lines":["Hide Account number"],"notes":[]}
+{"file":"cases-cant-group-heldout-r4.jsonl","id":"r4-plain-two-values","lines":["Filter Registration type to any of IRA and Roth IRA"],"notes":[]}
+{"file":"cases-cant-group-heldout-r4.jsonl","id":"r4-plain-retirement","lines":["Filter Registration type to any of IRA and Roth IRA"],"notes":[]}
+{"file":"cases-cant-group-heldout-r4.jsonl","id":"r4-plain-clear","lines":["Clear all filters","Clear sorting"],"notes":[]}
+{"file":"cases-cant-group-heldout-r4.jsonl","id":"r4-plain-gain","lines":["Filter Unrealized gain above $50,000"],"notes":[]}
+{"file":"cases-cant-group-heldout.jsonl","id":"h-no-group-filter","lines":["Filter Market value above $1,000,000"],"notes":[]}
+{"file":"cases-cant-group-heldout.jsonl","id":"h-no-group-hide","lines":["Hide Custodian and Account number"],"notes":[]}
+{"file":"cases-cant-group-heldout.jsonl","id":"h-no-group-sort","lines":["Sort by Market value, descending"],"notes":[]}
+{"file":"cases-cant-group-heldout.jsonl","id":"h-quoted-group","lines":["Filter Household containing “group by advisor”"],"notes":[]}
+{"file":"cases-cant-group.jsonl","id":"cg-none-filter","lines":["Filter Registration type to Taxable"],"notes":[]}
+{"file":"cases-cant-group.jsonl","id":"cg-none-sort","lines":["Sort by Market value, descending"],"notes":[]}
+{"file":"cases-cant-group.jsonl","id":"cg-none-restricted","lines":["Show only rows where Restricted holdings is Yes"],"notes":[]}
+{"file":"cases-cant-group.jsonl","id":"cg-none-value-group","lines":["Filter Registration type to any of IRA and Roth IRA"],"notes":[]}
+{"file":"cases-cant-group.jsonl","id":"cg-ctl-value-has-group","lines":["Filter Product to Group Annuity"],"notes":[]}
+{"file":"cases-cant-group.jsonl","id":"cg-ctl-label-has-group","lines":["Sort by Group name, descending"],"notes":[]}
+{"file":"cases-chassis.jsonl","id":"c-sort-household-control","lines":["Sort by Household, ascending"],"notes":[]}
+{"file":"cases-chassis.jsonl","id":"c-households-with-gain","lines":["Filter Unrealized gain above $50,000"],"notes":[]}
+{"file":"cases-chassis.jsonl","id":"c-accounts-by-number","lines":["Sort by Account number, ascending"],"notes":[]}
+{"file":"cases-chassis.jsonl","id":"c-group-by-account","lines":["Group by Account number"],"notes":[]}
+{"file":"cases-chassis.jsonl","id":"v-gain-for-trusts","lines":["Filter Registration type to Trust","Sort by Unrealized gain, ascending"],"notes":[]}
+{"file":"cases-chassis.jsonl","id":"v-group-for-iras","lines":["Filter Registration type to IRA","Group by Custodian"],"notes":[]}
+{"file":"cases-chassis.jsonl","id":"v-among-roth","lines":["Filter Registration type to Roth IRA","Sort by Market value, descending"],"notes":[]}
+{"file":"cases-chassis.jsonl","id":"v-at-northgate","lines":["Filter Custodian to Northgate","Sort by Concentration, ascending"],"notes":[]}
+{"file":"cases-chassis.jsonl","id":"v-just-the-trusts","lines":["Filter Registration type to Trust","Sort by Unrealized gain, ascending"],"notes":[]}
+{"file":"cases-chassis.jsonl","id":"v-limited-to","lines":["Filter Custodian to Harborline","Sort by Unrealized gain, ascending"],"notes":[]}
+{"file":"cases-chassis.jsonl","id":"v-descending-control","lines":["Sort by Unrealized gain, descending"],"notes":[]}
+{"file":"cases-chassis.jsonl","id":"m-retirement","lines":["Filter Registration type to any of IRA and Roth IRA"],"notes":[]}
+{"file":"cases-chassis.jsonl","id":"m-retirement-grouped","lines":["Filter Registration type to any of IRA and Roth IRA","Group by Advisor"],"notes":[]}
+{"file":"cases-chassis.jsonl","id":"m-iras-and-roths","lines":["Filter Registration type to any of IRA and Roth IRA"],"notes":[]}
+{"file":"cases-chassis.jsonl","id":"m-two-custodians","lines":["Filter Custodian to any of Northgate and Harborline"],"notes":[]}
+{"file":"cases-chassis.jsonl","id":"m-non-retirement","lines":["Filter Registration type to any of Taxable and Trust"],"notes":["Rows with no Registration type are hidden too"]}
+{"file":"cases-chassis.jsonl","id":"m-single-control","lines":["Filter Registration type to Trust"],"notes":[]}
+{"file":"cases-chassis.jsonl","id":"c2-households-at-control","lines":["Filter Custodian to Harborline"],"notes":[]}
+{"file":"cases-chassis.jsonl","id":"n-excluding-trusts","lines":["Filter Registration type to any of Taxable, IRA and Roth IRA"],"notes":["Rows with no Registration type are hidden too"]}
+{"file":"cases-chassis.jsonl","id":"n-except-northgate","lines":["Filter Custodian to any of Harborline and Summit Trust"],"notes":["Rows with no Custodian are hidden too"]}
+{"file":"cases-chassis.jsonl","id":"n-non-taxable-sorted","lines":["Filter Registration type to any of IRA, Roth IRA and Trust","Sort by Unrealized gain, ascending"],"notes":["Rows with no Registration type are hidden too"]}
+{"file":"cases-chassis.jsonl","id":"n-not-at","lines":["Filter Custodian to any of Northgate and Harborline"],"notes":["Rows with no Custodian are hidden too"]}
+{"file":"cases-chassis.jsonl","id":"c3-largest-balances-control","lines":["Sort by Market value, descending"],"notes":[]}
+{"file":"cases-chassis.jsonl","id":"c3-household-desc-control","lines":["Sort by Household, descending"],"notes":[]}
+{"file":"cases-count-heldout.jsonl","id":"h-keep-group","lines":["Group by Advisor"],"notes":[]}
+{"file":"cases-count-heldout.jsonl","id":"h-keep-hide","lines":["Hide Custodian"],"notes":[]}
+{"file":"cases-count-heldout.jsonl","id":"h-keep-hide-two","lines":["Hide Household and Advisor"],"notes":[]}
+{"file":"cases-count-heldout.jsonl","id":"h-keep-group-nosort","lines":["Group by Custodian"],"notes":[]}
+{"file":"cases-count-heldout.jsonl","id":"h-keep-hide-nosort","lines":["Hide Account number"],"notes":[]}
+{"file":"cases-count-heldout.jsonl","id":"h-own-top5","lines":["Sort by Unrealized gain, descending","Show only the first 5 rows"],"notes":[]}
+{"file":"cases-count-heldout.jsonl","id":"h-own-top3-nosort","lines":["Sort by Concentration, descending","Show only the first 3 rows"],"notes":[]}
+{"file":"cases-count-heldout.jsonl","id":"h-clear-form-1","lines":["Show every row"],"notes":[]}
+{"file":"cases-count-heldout.jsonl","id":"h-clear-form-2","lines":["Show every row"],"notes":[]}
+{"file":"cases-count-heldout.jsonl","id":"h-clear-form-3","lines":["Show every row"],"notes":[]}
+{"file":"cases-count-heldout.jsonl","id":"h-clear-form-4","lines":["Show every row"],"notes":[]}
+{"file":"cases-count-heldout.jsonl","id":"h-clear-form-with-filter","lines":["Show every row"],"notes":[]}
+{"file":"cases-count-heldout.jsonl","id":"h-count-form-sorted","lines":["Show only the first 5 rows"],"notes":[]}
+{"file":"cases-count-heldout.jsonl","id":"h-count-form-short","lines":["Show only the first 8 rows"],"notes":[]}
+{"file":"cases-count-heldout.jsonl","id":"h-near-count-hide","lines":["Show only the first 5 rows","Hide Custodian"],"notes":[]}
+{"file":"cases-count-heldout.jsonl","id":"h-nocount-sort-ready","lines":["Sort by Advisor, ascending"],"notes":[]}
+{"file":"cases-count-heldout.jsonl","id":"h-nocount-filter-ready","lines":["Filter Registration type to Taxable"],"notes":[]}
+{"file":"cases-count-heldout.jsonl","id":"h-nocount-over-1m","lines":["Filter Market value above $1,000,000"],"notes":[]}
+{"file":"cases-count-heldout.jsonl","id":"h-nocount-own-top","lines":["Sort by Market value, descending","Show only the first 10 rows"],"notes":[]}
+{"file":"cases-count.jsonl","id":"ct-ready-every-row","lines":["Show every row"],"notes":[]}
+{"file":"cases-count.jsonl","id":"ct-ready-all-rows","lines":["Show every row"],"notes":[]}
+{"file":"cases-count.jsonl","id":"ct-ready-remove-count","lines":["Show every row"],"notes":[]}
+{"file":"cases-count.jsonl","id":"ct-ready-no-count","lines":["Show every row"],"notes":[]}
+{"file":"cases-count.jsonl","id":"ct-ready-every-row-filtered","lines":["Show every row"],"notes":[]}
+{"file":"cases-count.jsonl","id":"ct-ready-all-rows-gain","lines":["Show every row"],"notes":[]}
+{"file":"cases-count.jsonl","id":"ct-ready-remove-count-filtered","lines":["Show every row"],"notes":[]}
+{"file":"cases-count.jsonl","id":"ct-ready-first-5","lines":["Show only the first 5 rows"],"notes":[]}
+{"file":"cases-count.jsonl","id":"ct-ready-only-first-5","lines":["Show only the first 5 rows"],"notes":[]}
+{"file":"cases-count.jsonl","id":"ct-ready-first-20","lines":["Show only the first 20 rows"],"notes":[]}
+{"file":"cases-count.jsonl","id":"ct-ready-first-3-filtered","lines":["Show only the first 3 rows"],"notes":[]}
+{"file":"cases-count.jsonl","id":"ct-ready-first-15","lines":["Show only the first 15 rows"],"notes":[]}
+{"file":"cases-count.jsonl","id":"ct-ready-first-10-same","lines":["Show only the first 10 rows"],"notes":[]}
+{"file":"cases-count.jsonl","id":"ct-ready-own-count-gain","lines":["Sort by Unrealized gain, descending","Show only the first 5 rows"],"notes":[]}
+{"file":"cases-count.jsonl","id":"ct-ready-first-7","lines":["Show only the first 7 rows"],"notes":[]}
+{"file":"cases-count.jsonl","id":"ct-ctl-group-advisor","lines":["Group by Advisor"],"notes":[]}
+{"file":"cases-count.jsonl","id":"ct-ctl-hide-custodian","lines":["Hide Custodian"],"notes":[]}
+{"file":"cases-count.jsonl","id":"ct-ctl-new-count-gain","lines":["Sort by Unrealized gain, descending","Show only the first 5 rows"],"notes":[]}
+{"file":"cases-count.jsonl","id":"ct-ctl-new-count-top10","lines":["Sort by Market value, descending","Show only the first 10 rows"],"notes":[]}
+{"file":"cases-count.jsonl","id":"ct-ctl-reset","lines":["Reset the view"],"notes":[]}
+{"file":"cases-count.jsonl","id":"ct-ctl-reset-filtered","lines":["Reset the view"],"notes":[]}
+{"file":"cases-count.jsonl","id":"ct-ctl-group-custodian","lines":["Group by Custodian"],"notes":[]}
+{"file":"cases-count.jsonl","id":"ct-ctl-hide-advisor","lines":["Hide Advisor"],"notes":[]}
+{"file":"cases-count.jsonl","id":"ct-ctl-hide-concentration","lines":["Hide Concentration"],"notes":[]}
+{"file":"cases-count.jsonl","id":"ct-ctl-group-registration","lines":["Group by Registration type"],"notes":[]}
+{"file":"cases-fanout.jsonl","id":"f-roth-grouped","lines":["Filter Registration type to Roth IRA","Group by Advisor"],"notes":[]}
+{"file":"cases-fanout.jsonl","id":"f-amount-sorted","lines":["Filter Market value above $2,000,000","Sort by Concentration, descending"],"notes":[]}
+{"file":"cases-fanout.jsonl","id":"f-taxable-grouped","lines":["Filter Registration type to Taxable","Group by Custodian"],"notes":[]}
+{"file":"cases-fanout.jsonl","id":"f-sort-with-hidden","lines":["Sort by Market value, ascending; then Unrealized gain, ascending"],"notes":[]}
+{"file":"cases-fanout.jsonl","id":"f-also-group","lines":["Group by Custodian, then Advisor"],"notes":[]}
+{"file":"cases-fanout.jsonl","id":"f-replace-group-control","lines":["Group by Advisor"],"notes":[]}
+{"file":"cases-fanout.jsonl","id":"f-too-sort","lines":["Sort by Market value, descending; then Unrealized gain, ascending"],"notes":[]}
+{"file":"cases-fanout.jsonl","id":"f-replace-sort-control","lines":["Sort by Unrealized gain, ascending"],"notes":[]}
+{"file":"cases-fanout.jsonl","id":"f-also-sort-desc","lines":["Sort by Advisor, ascending; then Concentration, descending"],"notes":[]}
+{"file":"cases-fanout.jsonl","id":"f-then-bare","lines":["Group by Custodian, then Advisor"],"notes":[]}
+{"file":"cases-fanout.jsonl","id":"f-show-trusts","lines":["Filter Registration type to Trust"],"notes":[]}
+{"file":"cases-fanout.jsonl","id":"f-show-column-control","lines":["Show Unrealized gain"],"notes":[]}
+{"file":"cases-fanout.jsonl","id":"f-brokerage-sorted","lines":["Filter Registration type to Taxable","Sort by Market value, descending"],"notes":[]}
+{"file":"cases-fanout.jsonl","id":"f-plain-group-control","lines":["Group by Custodian"],"notes":[]}
+{"file":"cases-fanout.jsonl","id":"f-restricted-grouped","lines":["Show only rows where Restricted holdings is Yes","Group by Advisor"],"notes":[]}
+{"file":"cases-fanout.jsonl","id":"f-northgate-sorted","lines":["Filter Custodian to Northgate","Sort by Unrealized gain, ascending"],"notes":[]}
+{"file":"cases-fanout.jsonl","id":"g-within-control","lines":["Group by Custodian, then Advisor"],"notes":[]}
+{"file":"cases-fanout.jsonl","id":"g-filter-sort-nocomma","lines":["Filter Registration type to IRA","Filter Market value above $500,000","Sort by Market value, descending"],"notes":[]}
+{"file":"cases-fanout.jsonl","id":"g-bool-sorted","lines":["Show only rows where Restricted holdings is No","Sort by Unrealized gain, ascending"],"notes":[]}
+{"file":"cases-fanout.jsonl","id":"g-bare-then-sort","lines":["Sort by Advisor, ascending; then Unrealized gain, ascending"],"notes":[]}
+{"file":"cases-fanout.jsonl","id":"g-show-value","lines":["Filter Custodian to Harborline"],"notes":[]}
+{"file":"cases-fanout.jsonl","id":"g-show-column-real","lines":["Show Custodian"],"notes":[]}
+{"file":"cases-fanout.jsonl","id":"g-as-well","lines":["Group by Advisor, then Household"],"notes":[]}
+{"file":"cases-fanout.jsonl","id":"g-instead-control","lines":["Group by Household"],"notes":[]}
+{"file":"cases-fanout.jsonl","id":"g-trust-group-household","lines":["Filter Registration type to Trust","Group by Household"],"notes":[]}
+{"file":"cases-fanout.jsonl","id":"g-sort-control","lines":["Sort by Concentration, descending"],"notes":[]}
+{"file":"cases-fanout.jsonl","id":"g-group-with-filter-literal","lines":["Filter Market value above $1,000,000","Group by Custodian"],"notes":[]}
+{"file":"cases-fanout.jsonl","id":"k-ira-grouped","lines":["Filter Registration type to IRA","Group by Custodian"],"notes":[]}
+{"file":"cases-fanout.jsonl","id":"k-summit-sorted","lines":["Filter Custodian to Summit Trust","Sort by Concentration, descending"],"notes":[]}
+{"file":"cases-fanout.jsonl","id":"k-for-trusts","lines":["Filter Registration type to Trust","Sort by Unrealized gain, ascending"],"notes":[]}
+{"file":"cases-fanout.jsonl","id":"k-harborline-grouped-type","lines":["Filter Custodian to Harborline","Group by Registration type"],"notes":[]}
+{"file":"cases-fanout.jsonl","id":"k-brokerage-hide","lines":["Filter Registration type to Taxable","Hide Unrealized gain"],"notes":[]}
+{"file":"cases-fanout.jsonl","id":"k-sort-control","lines":["Sort by Household, ascending"],"notes":[]}
+{"file":"cases-fanout.jsonl","id":"k-group-control","lines":["Group by Registration type"],"notes":[]}
+{"file":"cases-fanout.jsonl","id":"k-value-control","lines":["Filter Custodian to Northgate"],"notes":[]}
+{"file":"cases-fanout.jsonl","id":"k-trust-households-sorted","lines":["Filter Registration type to Trust","Sort by Household, ascending"],"notes":[]}
+{"file":"cases-fanout.jsonl","id":"k-group-by-type-roth","lines":["Group by Registration type","Filter Registration type to Roth IRA"],"notes":[]}
+{"file":"cases-fanout.jsonl","id":"k-restricted-sorted","lines":["Show only rows where Restricted holdings is Yes","Sort by Market value, ascending"],"notes":[]}
+{"file":"cases-fanout.jsonl","id":"k-plain-hide-control","lines":["Hide Household"],"notes":[]}
+{"file":"cases-live.jsonl","id":"live-retirement","lines":["Filter Registration type to any of IRA and Roth IRA"],"notes":[]}
+{"file":"cases-live.jsonl","id":"live-drop-sorting","lines":["Clear sorting"],"notes":[]}
+{"file":"cases-live.jsonl","id":"live-clients-amount","lines":["Filter Market value above $5,000,000"],"notes":[]}
+{"file":"cases-live.jsonl","id":"live-how-concentrated","lines":["Sort by Account number, ascending"],"notes":[]}
+{"file":"cases-live.jsonl","id":"live-alias-values","lines":["Filter Registration type to Taxable","Filter Custodian to Summit Trust"],"notes":[]}
+{"file":"cases-live.jsonl","id":"live-who-manages","lines":["Group by Account number"],"notes":[]}
+{"file":"cases-live.jsonl","id":"live-gain-amount","lines":["Filter Unrealized gain above $100,000"],"notes":[]}
+{"file":"cases-live.jsonl","id":"live-no-comma-compound","lines":["Filter Market value above $1,000,000","Sort by Unrealized gain, ascending"],"notes":[]}
+{"file":"cases-live.jsonl","id":"live-trusts-under","lines":["Filter Registration type to Trust","Filter Market value below $250,000"],"notes":[]}
+{"file":"cases-live.jsonl","id":"h3-each-account-sort","lines":["Sort by Unrealized gain, descending"],"notes":[]}
+{"file":"cases-live.jsonl","id":"h3-account-owner","lines":["Group by Advisor, then Account number"],"notes":[]}
+{"file":"cases-live.jsonl","id":"h3-account-column-hide","lines":["Hide Account number"],"notes":[]}
+{"file":"cases-live.jsonl","id":"h3-household-name","lines":["Sort by Household, ascending"],"notes":[]}
+{"file":"cases-live.jsonl","id":"h3-trust-accounts-sorted","lines":["Filter Registration type to Trust","Sort by Market value, ascending"],"notes":[]}
+{"file":"cases-live.jsonl","id":"h3-restricted-only","lines":["Show only rows where Restricted holdings is Yes"],"notes":[]}
+{"file":"cases-live.jsonl","id":"h3-harborline-accounts","lines":["Filter Custodian to Harborline"],"notes":[]}
+{"file":"cases-live.jsonl","id":"h3-account-type-group","lines":["Group by Registration type, then Advisor"],"notes":[]}
+{"file":"cases-live.jsonl","id":"h3-reps-with-roth","lines":["Filter Registration type to Roth IRA","Group by Advisor"],"notes":[]}
+{"file":"cases-live.jsonl","id":"h3-value-of-account","lines":["Sort by Market value, descending"],"notes":[]}
+{"file":"cases-live.jsonl","id":"h3-accounts-below","lines":["Filter Market value below $100,000"],"notes":[]}
+{"file":"cases-live.jsonl","id":"h3-show-households","lines":["Show Household"],"notes":[]}
+{"file":"cases-live.jsonl","id":"h3-oldest-account","lines":["Sort by Concentration, ascending"],"notes":[]}
+{"file":"cases-live.jsonl","id":"h3-ira-accounts-show","lines":["Filter Registration type to IRA"],"notes":[]}
+{"file":"cases-live.jsonl","id":"h4-biggest-balance","lines":["Sort by Market value, descending"],"notes":[]}
+{"file":"cases-live.jsonl","id":"h4-largest-gain","lines":["Sort by Unrealized gain, descending"],"notes":[]}
+{"file":"cases-live.jsonl","id":"h4-newest-accounts","lines":["Sort by Concentration, descending"],"notes":[]}
+{"file":"cases-live.jsonl","id":"h4-account-and-rep","lines":["Show Account number and Advisor","Hide Household, Registration type, Custodian, Market value, Concentration, Unrealized gain and Restricted holdings","Put Account number and Advisor first"],"notes":[]}
+{"file":"cases-live.jsonl","id":"h4-households-northgate","lines":["Filter Custodian to Northgate"],"notes":[]}
+{"file":"cases-live.jsonl","id":"h4-lowest-balance","lines":["Sort by Market value, ascending"],"notes":[]}
+{"file":"cases-live.jsonl","id":"h4-each-household","lines":["Group by Household"],"notes":[]}
+{"file":"cases-live.jsonl","id":"h4-accounts-over-gain","lines":["Filter Unrealized gain above $50,000"],"notes":[]}
+{"file":"cases-live.jsonl","id":"h4-hide-reps","lines":["Hide Advisor"],"notes":[]}
+{"file":"cases-live.jsonl","id":"h4-account-count","lines":["Sort by Account number, ascending"],"notes":[]}
+{"file":"cases-live.jsonl","id":"h4-taxable-households","lines":["Filter Registration type to Taxable"],"notes":[]}
+{"file":"cases-live.jsonl","id":"h4-advisor-accounts","lines":["Group by Advisor"],"notes":[]}
+{"file":"cases-live.jsonl","id":"h4-highest-value-households","lines":["Sort by Market value, descending"],"notes":[]}
+{"file":"cases-live.jsonl","id":"h4-top-accounts-by-gain","lines":["Sort by Unrealized gain, descending"],"notes":[]}
+{"file":"cases-named-fixes-heldout-r2.jsonl","id":"r2-ok-01","lines":["Filter Custodian to Northgate","Filter Advisor containing “lane”"],"notes":[]}
+{"file":"cases-named-fixes-heldout-r2.jsonl","id":"r2-ok-02","lines":["Filter Custodian to Harborline","Filter Household containing “alder”"],"notes":[]}
+{"file":"cases-named-fixes-heldout-r2.jsonl","id":"r2-ok-03","lines":["Filter Registration type to Trust","Filter Advisor containing “moreno”"],"notes":[]}
+{"file":"cases-named-fixes-heldout-r2.jsonl","id":"r2-ok-04","lines":["Filter Custodian to Summit Trust","Filter Advisor containing “ortiz”"],"notes":[]}
+{"file":"cases-named-fixes-heldout-r2.jsonl","id":"r2-ok-05","lines":["Filter Registration type to Taxable","Filter Advisor containing “hale”"],"notes":[]}
+{"file":"cases-named-fixes-heldout-r2.jsonl","id":"r2-ok-06","lines":["Filter Custodian to Summit Trust","Filter Advisor containing “whitfield”"],"notes":[]}
+{"file":"cases-named-fixes-heldout-r2.jsonl","id":"r2-ok-07","lines":["Filter Registration type to Roth IRA","Filter Household containing “birch”"],"notes":[]}
+{"file":"cases-named-fixes-heldout-r2.jsonl","id":"r2-ok-08","lines":["Filter Custodian to Northgate","Filter Account number containing “ac-1004”"],"notes":[]}
+{"file":"cases-named-fixes-heldout-r2.jsonl","id":"r2-ok-09","lines":["Filter Registration type to any of IRA and Roth IRA","Filter Advisor containing “lane”"],"notes":[]}
+{"file":"cases-named-fixes-heldout-r2.jsonl","id":"r2-ok-10","lines":["Filter Registration type to any of IRA and Roth IRA","Filter Advisor containing “moreno”"],"notes":[]}
+{"file":"cases-named-fixes-heldout-r2.jsonl","id":"r2-ok-11","lines":["Filter Registration type to any of IRA and Roth IRA","Filter Household containing “cedar”"],"notes":[]}
+{"file":"cases-named-fixes-heldout-r2.jsonl","id":"r2-ok-13","lines":["Filter Advisor containing “lane”","Filter Market value above $1,000,000"],"notes":[]}
+{"file":"cases-named-fixes-heldout-r2.jsonl","id":"r2-ok-14","lines":["Filter Household containing “dunmore”","Filter Unrealized gain above $50,000"],"notes":[]}
+{"file":"cases-named-fixes-heldout-r2.jsonl","id":"r2-ok-15","lines":["Filter Advisor containing “ortiz”","Filter Concentration above 10%"],"notes":[]}
+{"file":"cases-named-fixes-heldout-r2.jsonl","id":"r2-ok-16","lines":["Filter Market value below $500,000","Filter Household containing “ellery”"],"notes":[]}
+{"file":"cases-named-fixes-heldout-r2.jsonl","id":"r2-ok-17","lines":["Filter Advisor containing “hale”","Filter Market value above $2,000,000"],"notes":[]}
+{"file":"cases-named-fixes-heldout-r2.jsonl","id":"r2-ok-18","lines":["Filter Advisor containing “lane”","Sort by Market value, descending"],"notes":[]}
+{"file":"cases-named-fixes-heldout-r2.jsonl","id":"r2-ok-19","lines":["Filter Household containing “greaves”","Sort by Unrealized gain, descending"],"notes":[]}
+{"file":"cases-named-fixes-heldout-r2.jsonl","id":"r2-ok-20","lines":["Filter Advisor containing “moreno”","Sort by Concentration, ascending"],"notes":[]}
+{"file":"cases-named-fixes-heldout-r2.jsonl","id":"r2-ok-22","lines":["Filter Advisor containing “lane”","Group by Custodian"],"notes":[]}
+{"file":"cases-named-fixes-heldout-r2.jsonl","id":"r2-ok-23","lines":["Filter Household containing “alder”","Group by Registration type"],"notes":[]}
+{"file":"cases-named-fixes-heldout-r2.jsonl","id":"r2-ok-25","lines":["Filter Advisor containing “hale”","Hide Custodian"],"notes":[]}
+{"file":"cases-named-fixes-heldout-r2.jsonl","id":"r2-ok-26","lines":["Filter Household containing “jessup”","Hide Account number"],"notes":[]}
+{"file":"cases-named-fixes-heldout-r2.jsonl","id":"r2-ok-27","lines":["Hide Unrealized gain","Filter Advisor containing “lane”"],"notes":[]}
+{"file":"cases-named-fixes-heldout-r2.jsonl","id":"r2-ok-28","lines":["Filter Registration type to any of Taxable, IRA and Roth IRA","Filter Advisor containing “lane”"],"notes":["Rows with no Registration type are hidden too"]}
+{"file":"cases-named-fixes-heldout-r2.jsonl","id":"r2-ok-29","lines":["Filter Custodian to any of Harborline and Summit Trust","Filter Household containing “alder”"],"notes":["Rows with no Custodian are hidden too"]}
+{"file":"cases-named-fixes-heldout-r2.jsonl","id":"r2-ok-30","lines":["Filter Custodian to any of Northgate and Summit Trust","Filter Advisor containing “moreno”"],"notes":["Rows with no Custodian are hidden too"]}
+{"file":"cases-named-fixes-heldout-r2.jsonl","id":"r2-ok-31","lines":["Filter Advisor containing “lane”","Filter Household containing “alder”"],"notes":[]}
+{"file":"cases-named-fixes-heldout-r2.jsonl","id":"r2-ok-32","lines":["Filter Household containing “birch”","Filter Advisor containing “ortiz”"],"notes":[]}
+{"file":"cases-named-fixes-heldout-r2.jsonl","id":"r2-ok-33","lines":["Filter Advisor containing “hale”","Filter Account number containing “ac-1002”"],"notes":[]}
+{"file":"cases-named-fixes-heldout-r2.jsonl","id":"r2-ok-34","lines":["Filter Advisor containing “moreno”","Filter Household containing “lomax”","Sort by Market value, descending"],"notes":[]}
+{"file":"cases-named-fixes-heldout-r2.jsonl","id":"r2-ok-35","lines":["Filter Advisor containing “lane”"],"notes":[]}
+{"file":"cases-named-fixes-heldout-r2.jsonl","id":"r2-ok-37","lines":["Filter Custodian to Northgate","Filter Advisor containing “ortiz”"],"notes":[]}
+{"file":"cases-named-fixes-heldout-r2.jsonl","id":"r2-ok-38","lines":["Filter Advisor containing “whitfield”","Group by Custodian"],"notes":[]}
+{"file":"cases-named-fixes-heldout-r2.jsonl","id":"r2-ok-40","lines":["Filter Registration type to IRA","Filter Advisor containing “lane”","Sort by Market value, descending"],"notes":[]}
+{"file":"cases-named-fixes-heldout-r2.jsonl","id":"r2-ok-41","lines":["Filter Registration type to Trust","Filter Advisor containing “moreno”","Hide Household"],"notes":[]}
+{"file":"cases-named-fixes-heldout-r2.jsonl","id":"r2-ok-42","lines":["Filter Custodian to Summit Trust","Filter Advisor containing “ortiz”","Group by Registration type"],"notes":[]}
+{"file":"cases-named-fixes-heldout.jsonl","id":"h1-ctl-containing","lines":["Filter Advisor containing “quinn”"],"notes":[]}
+{"file":"cases-named-fixes-heldout.jsonl","id":"h1-ctl-contains","lines":["Filter Advisor containing “mara quinn”"],"notes":[]}
+{"file":"cases-named-fixes-heldout.jsonl","id":"h1-ctl-includes","lines":["Filter Advisor containing “quinn”"],"notes":[]}
+{"file":"cases-named-fixes-heldout.jsonl","id":"h1-ctl-has","lines":["Filter Advisor containing “quinn”"],"notes":[]}
+{"file":"cases-named-fixes-heldout.jsonl","id":"h1-ctl-matching","lines":["Filter Advisor containing “quinn”"],"notes":[]}
+{"file":"cases-named-fixes-heldout.jsonl","id":"h1-ctl-is","lines":["Filter Advisor containing “quinn”"],"notes":[]}
+{"file":"cases-named-fixes-heldout.jsonl","id":"h1-ctl-colon-household","lines":["Filter Household containing “hale”"],"notes":[]}
+{"file":"cases-named-fixes-heldout.jsonl","id":"h1-ctl-like","lines":["Filter Advisor containing “quinn”"],"notes":[]}
+{"file":"cases-named-fixes-heldout.jsonl","id":"h1-ctl-nothing","lines":["Filter Advisor containing “quinn”"],"notes":[]}
+{"file":"cases-named-fixes-heldout.jsonl","id":"h1-ctl-household-containing","lines":["Filter Household containing “hale family”"],"notes":[]}
+{"file":"cases-named-fixes-heldout.jsonl","id":"h1-ctl-colon-full","lines":["Filter Advisor containing “mara quinn”"],"notes":[]}
+{"file":"cases-named-fixes-heldout.jsonl","id":"h1-ctl-non-retirement","lines":["Filter Registration type to any of Taxable and Trust","Filter Advisor containing “quinn”"],"notes":["Rows with no Registration type are hidden too"]}
+{"file":"cases-named-fixes-heldout.jsonl","id":"h1-ctl-taxable-like","lines":["Filter Registration type to Taxable","Filter Household containing “hale”"],"notes":[]}
+{"file":"cases-named-fixes-heldout.jsonl","id":"h1-date-ctl-gt","lines":["Filter Opened above “2026-01-31”"],"notes":[]}
+{"file":"cases-named-fixes-heldout.jsonl","id":"h1-date-ctl-lt","lines":["Filter Close date below “2025-02-28”"],"notes":[]}
+{"file":"cases-named-fixes-heldout.jsonl","id":"h1-date-ctl-leap","lines":["Filter Opened to “2024-02-29”"],"notes":[]}
+{"file":"cases-named-fixes.jsonl","id":"nf-ctl-containing","lines":["Filter Advisor containing “lane”"],"notes":[]}
+{"file":"cases-named-fixes.jsonl","id":"nf-ctl-contains","lines":["Filter Household containing “hale”"],"notes":[]}
+{"file":"cases-named-fixes.jsonl","id":"nf-ctl-is","lines":["Filter Advisor containing “lane”"],"notes":[]}
+{"file":"cases-named-fixes.jsonl","id":"nf-ctl-colon","lines":["Filter Advisor containing “lane”"],"notes":[]}
+{"file":"cases-named-fixes.jsonl","id":"nf-ctl-like","lines":["Filter Advisor containing “lane”"],"notes":[]}
+{"file":"cases-named-fixes.jsonl","id":"nf-ctl-has","lines":["Filter Household containing “hale”"],"notes":[]}
+{"file":"cases-named-fixes.jsonl","id":"nf-ctl-includes","lines":["Filter Household containing “hale”"],"notes":[]}
+{"file":"cases-named-fixes.jsonl","id":"nf-ctl-matching","lines":["Filter Advisor containing “lane”"],"notes":[]}
+{"file":"cases-named-fixes.jsonl","id":"nf-ctl-nothing","lines":["Filter Advisor containing “lane”"],"notes":[]}
+{"file":"cases-named-fixes.jsonl","id":"nf-ctl-non-retirement","lines":["Filter Registration type to any of Taxable and Trust","Filter Advisor containing “lane”"],"notes":["Rows with no Registration type are hidden too"]}
+{"file":"cases-provider-picks.jsonl","id":"pp-sort-for-no-advisor","lines":["Sort by Advisor, descending; then Market value, descending"],"notes":[]}
+{"file":"cases-provider-picks.jsonl","id":"pp-group-for-have-advisor","lines":["Group by Advisor, then Custodian"],"notes":[]}
+{"file":"cases-provider-picks.jsonl","id":"pp-only-for-is-empty","lines":["Show Advisor and Market value","Hide Account number, Household, Registration type, Custodian, Concentration, Unrealized gain and Restricted holdings","Put Advisor and Market value first"],"notes":[]}
+{"file":"cases-provider-picks.jsonl","id":"pp-sort-for-not-empty","lines":["Sort by Advisor, ascending; then Market value, ascending"],"notes":[]}
+{"file":"cases-provider-picks.jsonl","id":"pp-sort-for-counterparty-empty","lines":["Sort by Counterparty, descending; then Amount, descending"],"notes":[]}
+{"file":"cases-provider-picks.jsonl","id":"pp-hide-for-booked-blank","lines":["Hide Booked and Posted at"],"notes":[]}
+{"file":"cases-provider-picks.jsonl","id":"pp-amount-after-empty","lines":["Filter Market value above $1,000,000"],"notes":[]}
+{"file":"cases-provider-picks.jsonl","id":"pp-pin-beside-empty","lines":["Show Advisor"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh-aum-gte","lines":["Filter Market value at or above $3,000,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh-gain-lt","lines":["Filter Unrealized gain below $20,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh-balance-eq","lines":["Filter Market value to $2,000,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh-position-gt","lines":["Filter Concentration above 30%"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh-million-gt","lines":["Filter Market value above $2,500,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh-glued-gte","lines":["Filter Market value at or above $4,000,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh-unicode-gte","lines":["Filter Unrealized gain at or above $50,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh-unicode-lte","lines":["Filter Concentration at or below 15%"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh-lte-full-number","lines":["Filter Market value at or below $100,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh-neg-minus-word","lines":["Filter Unrealized gain below -$20,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh-neg-plural","lines":["Filter Unrealized gain below -$1,500,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh-neg-lte-symbol","lines":["Filter Unrealized gain at or below -$10,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh-neg-greater-than","lines":["Filter Unrealized gain above -$5,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh-neg-range","lines":["Filter Unrealized gain between -$250,000 and -$25,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh-at-most-plural","lines":["Filter Unrealized gain at or below $15,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh-at-least-large","lines":["Filter Unrealized gain at or above $300,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh-at-least-with-value","lines":["Filter Registration type to Trust","Filter Unrealized gain at or above $25,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh-at-least-zero","lines":["Filter Unrealized gain at or above $0"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh-at-most-and-at-least","lines":["Filter Unrealized gain at or below $2,000,000","Filter Concentration at or above 20%"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh-households-grouped","lines":["Filter Market value above $2,000,000","Group by Advisor"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh-value-and-amount-grouped","lines":["Filter Registration type to Taxable","Filter Market value above $1,000,000","Group by Custodian"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh-percent-sorted-desc","lines":["Filter Concentration above 20%","Sort by Market value, descending"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh-dash-separator","lines":["Filter Market value above $1,000,000","Group by Custodian"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh-ira-under-sorted","lines":["Filter Registration type to IRA","Filter Market value below $250,000","Sort by Concentration, descending"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh-gain-grouped-and-sorted","lines":["Filter Unrealized gain above $20,000","Group by Custodian","Sort by Market value, descending"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh-cols-three-restricted","lines":["Show Household, Custodian and Restricted holdings","Hide Account number, Advisor, Registration type, Market value, Concentration and Unrealized gain","Put Household, Custodian and Restricted holdings first"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh-cols-keep-number","lines":["Show Account number, Market value and Restricted holdings","Hide Household, Advisor, Registration type, Custodian, Concentration and Unrealized gain","Put Account number, Market value and Restricted holdings first"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh-cols-these","lines":["Show Household, Restricted holdings and Unrealized gain","Hide Account number, Advisor, Registration type, Custodian, Market value and Concentration","Put Household, Restricted holdings and Unrealized gain first"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh-hide-household-restricted","lines":["Hide Household and Restricted holdings"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh-cols-restricted-first","lines":["Show Restricted holdings and Advisor","Hide Account number, Household, Registration type, Custodian, Market value, Concentration and Unrealized gain","Put Restricted holdings and Advisor first"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh-quote-semicolon-household","lines":["Filter Household containing “alder; birch”"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh-quote-title-then-group","lines":["Filter Advisor containing “dr. moreno”","Group by Custodian"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh-quote-trailing-question","lines":["Filter Household containing “ellery?”"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh-quote-bang-and-amount","lines":["Filter Advisor containing “hale!”","Filter Market value above $1,000,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh-quote-mixed-punctuation","lines":["Filter Household containing “st. jones; co.”"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh-quote-period-then-sort","lines":["Filter Advisor containing “smith. jones”","Sort by Market value, descending"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh-ctl-at-harborline","lines":["Filter Custodian to Harborline"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh-ctl-trusts-at-amount","lines":["Filter Registration type to Trust","Filter Custodian to Northgate","Filter Market value above $500,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh-ctl-of-at-least","lines":["Filter Unrealized gain at or above $50,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh-ctl-non-taxable","lines":["Filter Registration type to any of IRA, Roth IRA and Trust"],"notes":["Rows with no Registration type are hidden too"]}
+{"file":"cases-reading-heldout.jsonl","id":"rh-ctl-hide-two-columns","lines":["Hide Custodian and Registration type"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh-ctl-show-only-no-boolean","lines":["Show Household, Advisor and Unrealized gain","Hide Account number, Registration type, Custodian, Market value, Concentration and Restricted holdings","Put Household, Advisor and Unrealized gain first"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh-ctl-comma-group","lines":["Filter Market value above $1,000,000","Group by Advisor"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh-ctl-top-five","lines":["Sort by Unrealized gain, descending","Show only the first 5 rows"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh-ctl-glued-lt","lines":["Filter Unrealized gain below $30,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh-ctl-hyphen-in-quote","lines":["Filter Account number containing “ac-100”"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh-ctl-ira-compound","lines":["Filter Registration type to IRA","Filter Market value below $200,000","Group by Advisor"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh-at-or-below","lines":["Filter Market value at or below $750,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh-or-more","lines":["Filter Unrealized gain at or above $40,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh-or-less","lines":["Filter Concentration at or below 25%"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh-at-or-above-gain","lines":["Filter Unrealized gain at or above $60,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh2-a-accounts-with-restricted","lines":["Show only rows where Restricted holdings is No"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh2-a-restricted-sort","lines":["Show only rows where Restricted holdings is No","Sort by Unrealized gain, descending"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh2-a-rows-then-custodian","lines":["Show only rows where Restricted holdings is No","Filter Custodian to Harborline"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh2-a-ones-group","lines":["Show only rows where Restricted holdings is No","Group by Advisor"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh2-a-ctl-two-columns","lines":["Hide Concentration and Restricted holdings"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh2-a-ctl-column-sort","lines":["Hide Restricted holdings","Sort by Market value, descending"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh2-b-no-higher","lines":["Filter Unrealized gain at or below $30,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh2-b-no-smaller","lines":["Filter Market value at or above $3,000,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh2-b-not-greater","lines":["Filter Market value at or below $4,500,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh2-b-no-less-pct","lines":["Filter Concentration at or above 25%"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh2-b-ctl-no-more","lines":["Filter Market value at or below $800,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh2-b-ctl-more","lines":["Filter Market value above $800,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh2-c-at-most","lines":["Filter Market value at or below $2,500,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh2-c-at-least","lines":["Filter Unrealized gain at or above $75,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh2-c-ctl-alias-direct","lines":["Filter Market value to $1,200,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh2-d-ctl-ira-roth","lines":["Filter Registration type to any of IRA and Roth IRA"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh2-d-ctl-custodians-gain","lines":["Filter Custodian to any of Summit Trust and Northgate","Filter Unrealized gain above $10,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh2-e-keep-concentration","lines":["Remove the filters Registration type to Trust; Concentration above 20%","Filter Concentration above 20%"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh2-e-remove-registration","lines":["Remove the filters Registration type to Trust; Concentration above 20%","Filter Concentration above 20%"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh2-e-clear-all-except","lines":["Remove the filters Registration type to Trust; Concentration above 20%","Filter Concentration above 20%"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh2-e-ctl-remove-all","lines":["Remove the filters Registration type to Trust; Concentration above 20%"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh2-e-ctl-reset","lines":["Reset the view"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh2-f-ctl-largest-position","lines":["Filter Concentration above 25%"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh2-f-ctl-gain-currency","lines":["Filter Unrealized gain above $10,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh2-g-from-pct","lines":["Filter Concentration between 5% and 15%"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh2-g-between-pct","lines":["Filter Concentration between 25% and 40%"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh2-g-gain-k","lines":["Filter Unrealized gain between $10,000 and $30,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh2-g-from-m","lines":["Filter Market value between $2,000,000 and $4,000,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh2-g-ctl-mixed-units","lines":["Filter Market value between $500,000 and $1,000,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh2-h-advisor-name-concentration","lines":["Filter Advisor containing “concentration”"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh2-h-advisor-household","lines":["Filter Advisor containing “household”"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh2-h-restricted-and-over","lines":["Filter Advisor containing “restricted”","Filter Market value above $2,000,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh2-h-household-northgate","lines":["Filter Household containing “northgate”"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh2-h-ctl-hide-quoted","lines":["Hide Concentration"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh2-h-ctl-group-quoted","lines":["Group by Household"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh3-j-unrealized","lines":["Filter Unrealized gain between $100,000 and $400,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh3-j-percent-through","lines":["Filter Concentration between 25% and 40%"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh3-j-negative-bounds","lines":["Filter Unrealized gain between -$20,000 and -$5,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh3-j-hyphen-m","lines":["Filter Unrealized gain between $1,000,000 and $2,000,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh3-j-bare-k","lines":["Filter Unrealized gain between $10,000 and $50,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh3-j-ctl-between","lines":["Filter Market value between $200,000 and $900,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh3-j-ctl-from-harborline","lines":["Filter Custodian to Harborline","Filter Unrealized gain above $20,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh3-k-negative-percent","lines":["Filter Concentration between -20% and -10%"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh3-k-reversed-units","lines":["Filter Unrealized gain between $500,000 and $2,000,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh3-k-reversed-assets","lines":["Filter Market value between $300,000 and $900,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh3-k-reversed-percent","lines":["Filter Concentration between 10% and 30%"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh3-k-ctl-negative-currency","lines":["Filter Unrealized gain between -$30,000 and $30,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh3-m-ctl-clear-except-present","lines":["Remove the filters Registration type to Trust; Concentration above 20%","Filter Concentration above 20%"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh3-o-ctl-with-restricted","lines":["Show only rows where Restricted holdings is No"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh3-o-ctl-two-columns","lines":["Hide Concentration and Restricted holdings"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh3-p-at-the-most","lines":["Filter Market value at or below $900,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh3-p-at-the-least","lines":["Filter Unrealized gain at or above $20,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh3-p-ctl-direct","lines":["Filter Market value to $1,200,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh3-q-ctl-sentence-group","lines":["Filter Custodian to Summit Trust","Group by Advisor"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh3-r-over-or-equal","lines":["Filter Market value at or above $250,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh3-r-under-or-equal-percent","lines":["Filter Concentration at or below 15%"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh3-r-ctl-greater-or-equal","lines":["Filter Market value at or above $2,000,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh3-s-hide-trust","lines":["Filter Registration type to any of Taxable, IRA and Roth IRA"],"notes":["Rows with no Registration type are hidden too"]}
+{"file":"cases-reading-heldout.jsonl","id":"rh3-s-hide-retirement","lines":["Filter Registration type to any of Taxable and Trust"],"notes":["Rows with no Registration type are hidden too"]}
+{"file":"cases-reading-heldout.jsonl","id":"rh3-s-remove-gain-over","lines":["Filter Unrealized gain at or below $10,000"],"notes":["Rows with no Unrealized gain are hidden too"]}
+{"file":"cases-reading-heldout.jsonl","id":"rh3-s-exclude-under","lines":["Filter Market value at or above $250,000"],"notes":["Rows with no Market value are hidden too"]}
+{"file":"cases-reading-heldout.jsonl","id":"rh3-s-no-concentration-over","lines":["Filter Concentration at or below 20%"],"notes":["Rows with no Concentration are hidden too"]}
+{"file":"cases-reading-heldout.jsonl","id":"rh3-s-ctl-not-at","lines":["Filter Custodian to any of Northgate and Summit Trust"],"notes":["Rows with no Custodian are hidden too"]}
+{"file":"cases-reading-heldout.jsonl","id":"rh3-s-ctl-hide-column","lines":["Hide Advisor"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh3-u-ctl-show-ira","lines":["Filter Registration type to IRA"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh3b-v-ctl-show-column","lines":["Show Concentration"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh3b-v-ctl-add-two-columns","lines":["Show Market value and Custodian"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh3b-v-ctl-add-restricted-column","lines":["Show Restricted holdings"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh3b-v-ctl-add-registration-column","lines":["Show Registration type"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh4-w1-ctl-hide-harborline","lines":["Filter Custodian to any of Northgate and Summit Trust"],"notes":["Rows with no Custodian are hidden too"]}
+{"file":"cases-reading-heldout.jsonl","id":"rh4-w1-ctl-hide-restricted-rows","lines":["Show only rows where Restricted holdings is No"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh4-w2-ctl-taxable","lines":["Remove the filters Registration type to Taxable; Concentration above 20%","Filter Registration type to Taxable"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh4-w3-ctl-or-more","lines":["Filter Market value at or above $2,000,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh4-w3-ctl-percent-or-less","lines":["Filter Concentration at or below 25%"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh4-w4-ctl-registration-one","lines":["Remove the filter Registration type to any of IRA and Roth IRA","Filter Registration type to any of IRA and Roth IRA"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh4-w5-ctl-compact","lines":["Filter Unrealized gain between $10,000 and $30,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh4-w5-ctl-full","lines":["Filter Market value between $500,000 and $1,000,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh4-w6-dont-show-ira","lines":["Filter Registration type to any of Taxable, Roth IRA and Trust"],"notes":["Rows with no Registration type are hidden too"]}
+{"file":"cases-reading-heldout.jsonl","id":"rh4-w6-do-not-under","lines":["Filter Market value at or above $250,000"],"notes":["Rows with no Market value are hidden too"]}
+{"file":"cases-reading-heldout.jsonl","id":"rh4-w6-no-under","lines":["Filter Market value at or above $100,000"],"notes":["Rows with no Market value are hidden too"]}
+{"file":"cases-reading-heldout.jsonl","id":"rh4-w6-ctl-show-ira","lines":["Filter Registration type to IRA"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh4-w6-ctl-show-under","lines":["Filter Market value below $250,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh4-w7-ctl-and-group","lines":["Filter Market value below $2,000,000","Group by Advisor"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh4-w8-ctl-sort","lines":["Filter Unrealized gain above $50,000","Sort by Market value, ascending"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh4-w9-hide-concentration-above","lines":["Filter Concentration at or below 20%"],"notes":["Rows with no Concentration are hidden too"]}
+{"file":"cases-reading-heldout.jsonl","id":"rh4-w9-hide-gain-over","lines":["Filter Unrealized gain at or below $50,000"],"notes":["Rows with no Unrealized gain are hidden too"]}
+{"file":"cases-reading-heldout.jsonl","id":"rh4-w9-hide-value-under","lines":["Filter Market value at or above $100,000"],"notes":["Rows with no Market value are hidden too"]}
+{"file":"cases-reading-heldout.jsonl","id":"rh4-w9-ctl-show-concentration","lines":["Filter Concentration above 20%"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh5-x1-no-greater","lines":["Filter Market value at or below $4,000,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh5-x1-no-fewer-percent","lines":["Filter Concentration at or above 25%"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh5-x1-no-higher","lines":["Filter Concentration at or below 20%"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh5-x1-ctl-gain","lines":["Filter Unrealized gain at or below $50,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh5-x1-ctl-accounts-with","lines":["Filter Market value at or above $2,000,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh5-x2-ctl-hide-roth","lines":["Filter Registration type to any of Taxable, IRA and Trust"],"notes":["Rows with no Registration type are hidden too"]}
+{"file":"cases-reading-heldout.jsonl","id":"rh5-x3-ctl-group","lines":["Group by Advisor"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh5-x3-ctl-show-column","lines":["Show Custodian"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh5-x4-ctl-dont-show","lines":["Filter Registration type to any of Taxable, Roth IRA and Trust"],"notes":["Rows with no Registration type are hidden too"]}
+{"file":"cases-reading-heldout.jsonl","id":"rh5-x5-separators-both","lines":["Filter Market value between $2,500,000 and $4,000,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh5-x5-decimal-m","lines":["Filter Unrealized gain between $100,000 and $1,500,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh5-x5-no-dollar-comma","lines":["Filter Market value between $75,000 and $2,000,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh5-x5-ctl-compact","lines":["Filter Unrealized gain between $10,000 and $30,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh5-x6-household-under","lines":["Filter Market value below $500,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh5-x6-each-advisor-at","lines":["Filter Custodian to Summit Trust"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh5-x6-advisors-roth","lines":["Filter Registration type to Roth IRA"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh5-x6-ctl-at-harborline","lines":["Filter Custodian to Harborline"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh5-x7-advisors-sorted","lines":["Sort by Unrealized gain, ascending"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh5-x7-households-grouped","lines":["Group by Custodian"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh5-x7-advisors-grouped-registration","lines":["Group by Registration type"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh5-x7-ctl-accounts-grouped","lines":["Group by Advisor"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh5-x7-ctl-group-household","lines":["Group by Household"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh5-x8-ungroup-leave-sort","lines":["Clear grouping"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh5-x8-ctl-remove-grouping","lines":["Clear grouping"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh5-x8-ctl-clear-sorting","lines":["Clear sorting"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh5-x9-ctl-show-under","lines":["Filter Market value below $250,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh5b-y-clear-sort-not-filter","lines":["Clear sorting"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh5b-y-drop-grouping-sort-stays","lines":["Clear grouping"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh5b-y-clear-sorting-grouping-unchanged","lines":["Clear sorting"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh5b-y-ungroup-sort-comma","lines":["Clear grouping"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh5b-y-three-remove-sort","lines":["Clear sorting"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh5b-y-three-clear-filter","lines":["Remove the filter Concentration above 20%"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh5b-y-three-ungroup-everything-else","lines":["Clear grouping"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh5b-y-three-clear-filters-not-grouping","lines":["Remove the filter Concentration above 20%"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh5b-y-ctl-clear-filters","lines":["Remove the filter Custodian to Northgate"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh5b-y-ctl-clear-sorting","lines":["Clear sorting"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh5b-y-ctl-remove-grouping","lines":["Clear grouping"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh5b-y-ctl-both","lines":["Clear sorting","Clear grouping"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh5b-y-ctl-clear-sort","lines":["Clear sorting"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh6-z1-sort-grouping","lines":["Clear sorting","Clear grouping"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh6-z1-filters-grouping","lines":["Remove the filter Custodian to Northgate","Clear grouping"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh6-z1-ungroup-then-sort","lines":["Clear grouping","Clear sorting"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh6-z1-three-short","lines":["Remove the filter Custodian to Northgate","Clear sorting","Clear grouping"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh6-z1-remove-filters-sorting","lines":["Remove the filter Concentration above 20%","Clear sorting"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh6-z1-ctl-grouping-and-sort","lines":["Clear sorting","Clear grouping"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh6-z1-ctl-filters-and-sorting","lines":["Remove the filter Concentration above 20%","Clear sorting"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh6-z2-apart-from-sort","lines":["Reset the view","Sort by Unrealized gain, ascending"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh6-z2-except-filters","lines":["Reset the view","Filter Custodian to Northgate"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh6-z2-ctl-keep-grouping","lines":["Reset the view","Group by Advisor"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh6-z2-ctl-reset","lines":["Reset the view"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh6-z3-non-roth-not-at","lines":["Filter Registration type to any of Taxable, IRA and Trust","Filter Custodian to any of Northgate and Harborline"],"notes":["Rows with no Registration type are hidden too","Rows with no Custodian are hidden too"]}
+{"file":"cases-reading-heldout.jsonl","id":"rh6-z3-non-retirement-no-restricted","lines":["Show only rows where Restricted holdings is No","Filter Registration type to any of Taxable and Trust"],"notes":["Rows with no Registration type are hidden too"]}
+{"file":"cases-reading-heldout.jsonl","id":"rh6-z3-not-at-no-restricted","lines":["Show only rows where Restricted holdings is No","Filter Custodian to any of Northgate and Summit Trust"],"notes":["Rows with no Custodian are hidden too"]}
+{"file":"cases-reading-heldout.jsonl","id":"rh6-z3-ctl-not-at","lines":["Filter Custodian to any of Northgate and Summit Trust"],"notes":["Rows with no Custodian are hidden too"]}
+{"file":"cases-reading-heldout.jsonl","id":"rh6-z4-dollar-both-assets","lines":["Filter Market value between $750 and $9,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh6-z4-dollar-both-wide","lines":["Filter Unrealized gain between $50 and $800,000"],"notes":[]}
+{"file":"cases-reading-heldout.jsonl","id":"rh6-z4-ctl-full","lines":["Filter Market value between $25,000 and $3,000,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd-gt-spaced","lines":["Filter Market value above $1,000,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd-lt-spaced","lines":["Filter Market value below $250,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd-gte-spaced","lines":["Filter Market value at or above $500,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd-lte-spaced","lines":["Filter Market value at or below $2,000,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd-eq-spaced","lines":["Filter Market value to $750,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd-gt-row-noun","lines":["Filter Market value above $5,000,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd-gt-named-gain","lines":["Filter Unrealized gain above $100,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd-gt-percent","lines":["Filter Concentration above 10%"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd-gte-decimal-amount","lines":["Filter Market value at or above $1,500,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd-neg-below","lines":["Filter Unrealized gain below -$50,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd-neg-under","lines":["Filter Unrealized gain below -$10,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd-neg-above","lines":["Filter Unrealized gain above -$25,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd-neg-word","lines":["Filter Unrealized gain below -$50,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd-neg-with-symbol","lines":["Filter Unrealized gain above -$20,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd-neg-range","lines":["Filter Unrealized gain between -$50,000 and $50,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd-at-least-gain","lines":["Filter Unrealized gain at or above $100,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd-at-most-gain","lines":["Filter Unrealized gain at or below $20,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd-at-least-full-name","lines":["Filter Unrealized gain at or above $250,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd-at-most-households","lines":["Filter Unrealized gain at or below $5,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd-at-least-bare","lines":["Filter Unrealized gain at or above $1,000,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd-over-grouped","lines":["Filter Market value above $1,000,000","Group by Custodian"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd-percent-grouped","lines":["Filter Concentration above 10%","Group by Advisor"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd-over-sorted","lines":["Filter Market value above $1,000,000","Sort by Unrealized gain, ascending"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd-under-ordered","lines":["Filter Market value below $500,000","Sort by Unrealized gain, descending"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd-over-grouped-and-sorted","lines":["Filter Market value above $1,000,000","Group by Custodian","Sort by Unrealized gain, ascending"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd-gain-sorted-by-value","lines":["Filter Unrealized gain above $50,000","Sort by Market value, descending"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd-cols-advisor-restricted","lines":["Show Advisor and Restricted holdings","Hide Account number, Household, Registration type, Custodian, Market value, Concentration and Unrealized gain","Put Advisor and Restricted holdings first"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd-cols-three","lines":["Show Account number, Restricted holdings and Unrealized gain","Hide Household, Advisor, Registration type, Custodian, Market value and Concentration","Put Account number, Restricted holdings and Unrealized gain first"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd-cols-keep","lines":["Show Household and Restricted holdings","Hide Account number, Advisor, Registration type, Custodian, Market value, Concentration and Unrealized gain","Put Household and Restricted holdings first"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd-hide-restricted-column","lines":["Hide Restricted holdings"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd-hide-two-with-restricted","lines":["Hide Custodian and Restricted holdings"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd-quote-period","lines":["Filter Advisor containing “smith. jones”"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd-quote-semicolon","lines":["Filter Advisor containing “smith; jones”"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd-quote-bang","lines":["Filter Advisor containing “smith! jones”"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd-quote-question","lines":["Filter Advisor containing “smith? jones”"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd-quote-period-then-group","lines":["Filter Advisor containing “smith. jones”","Group by Custodian"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd-quote-period-and-amount","lines":["Filter Advisor containing “smith. jones”","Filter Market value above $1,000,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd-ctl-at-qualifier","lines":["Filter Custodian to Northgate"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd-ctl-at-qualifier-amount","lines":["Filter Custodian to Summit Trust","Filter Unrealized gain above $10,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd-ctl-at-least-word","lines":["Filter Market value at or above $1,000,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd-ctl-non-retirement","lines":["Filter Registration type to any of Taxable and Trust"],"notes":["Rows with no Registration type are hidden too"]}
+{"file":"cases-reading.jsonl","id":"rd-ctl-restricted-filter","lines":["Show only rows where Restricted holdings is Yes"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd-ctl-hide-no-boolean","lines":["Hide Household and Unrealized gain"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd-ctl-show-columns","lines":["Show Advisor and Custodian"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd-ctl-quote-plain","lines":["Filter Advisor containing “smith jones”"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd-ctl-hyphen-range","lines":["Filter Unrealized gain between $50,000 and $100,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd-ctl-split-by-comma","lines":["Filter Market value above $1,000,000","Group by Custodian"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd-ctl-glued-gt","lines":["Filter Market value above $1,000,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd-ctl-top-n","lines":["Sort by Market value, descending","Show only the first 10 rows"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd-at-or-above","lines":["Filter Market value at or above $1,000,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd-gte-words","lines":["Filter Unrealized gain at or above $20,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd-lte-words","lines":["Filter Concentration at or below 15%"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd2-a-hide-restricted-accounts","lines":["Show only rows where Restricted holdings is No"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd2-a-hide-restricted-rows-group","lines":["Show only rows where Restricted holdings is No","Group by Custodian"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd2-a-hide-the-ones-sorted","lines":["Show only rows where Restricted holdings is No","Sort by Market value, descending"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd2-a-hide-restricted-and-over","lines":["Show only rows where Restricted holdings is No","Filter Market value above $1,000,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd2-a-ctl-hide-column","lines":["Hide Restricted holdings"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd2-a-ctl-hide-column-group","lines":["Hide Restricted holdings","Group by Custodian"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd2-b-no-greater","lines":["Filter Market value at or below $1,000,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd2-b-no-lower","lines":["Filter Unrealized gain at or above $20,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd2-b-not-more","lines":["Filter Concentration at or below 15%"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd2-b-not-less","lines":["Filter Unrealized gain at or above $5,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd2-b-no-bigger-grouped","lines":["Filter Market value at or below $2,000,000","Group by Custodian"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd2-b-ctl-greater","lines":["Filter Market value above $1,000,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd2-c-at-most-after","lines":["Filter Market value at or below $1,000,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd2-c-minimum-after","lines":["Filter Unrealized gain at or above $10,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd2-c-max-bare","lines":["Filter Market value at or below $1,000,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd2-c-ctl-direct","lines":["Filter Market value to $750,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd2-c-ctl-exactly","lines":["Filter Market value to $750,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd2-d-ctl-two-custodians","lines":["Filter Custodian to any of Northgate and Harborline"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd2-d-ctl-registrations","lines":["Filter Registration type to any of Taxable and Trust"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd2-e-clear-except","lines":["Remove the filters Custodian to Northgate; Market value above $1,000,000","Filter Market value above $1,000,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd2-e-reset-keep","lines":["Reset the view","Filter Market value above $1,000,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd2-e-clear-one","lines":["Remove the filters Custodian to Northgate; Market value above $1,000,000","Filter Custodian to Northgate"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd2-e-clear-except-one","lines":["Remove the filters Custodian to Northgate; Market value above $1,000,000","Filter Custodian to Northgate"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd2-e-ctl-clear","lines":["Remove the filters Custodian to Northgate; Market value above $1,000,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd2-e-ctl-reset","lines":["Reset the view"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd2-f-ctl-concentration","lines":["Filter Concentration above 10%"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd2-f-ctl-accounts","lines":["Filter Concentration above 10%"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd2-g-pct-hyphen","lines":["Filter Concentration between 10% and 20%"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd2-g-pct-and","lines":["Filter Concentration between 10% and 20%"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd2-g-currency-m","lines":["Filter Market value between $1,000,000 and $2,000,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd2-g-gain-k","lines":["Filter Unrealized gain between $50,000 and $100,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd2-g-ctl-both-units","lines":["Filter Concentration between 10% and 20%"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd2-h-advisor-custodian","lines":["Filter Advisor containing “custodian”"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd2-h-household-advisor","lines":["Filter Household containing “advisor”"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd2-h-advisor-market-value","lines":["Filter Advisor containing “market value”"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd2-h-advisor-gain-group","lines":["Filter Advisor containing “gain”","Group by Custodian"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd2-h-ctl-hide-quoted","lines":["Hide Market value"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd2-h-ctl-household-trust","lines":["Filter Household containing “trust”"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd3-j-gain-to","lines":["Filter Unrealized gain between $10,000 and $50,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd3-j-gain-hyphen","lines":["Filter Unrealized gain between $50,000 and $100,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd3-j-value-through","lines":["Filter Market value between $1,000,000 and $3,000,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd3-j-gain-negative","lines":["Filter Unrealized gain between -$50,000 and $50,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd3-j-ctl-between","lines":["Filter Market value between $1,000,000 and $2,000,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd3-j-ctl-from-northgate","lines":["Filter Custodian to Northgate","Filter Market value above $1,000,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd3-k-negative-percent","lines":["Filter Concentration between -10% and -5%"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd3-k-reversed-from-to","lines":["Filter Market value between $1,000,000 and $5,000,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd3-k-reversed-between","lines":["Filter Unrealized gain between $20,000 and $100,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd3-k-ctl-between","lines":["Filter Market value between $1,000,000 and $5,000,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd3-m-ctl-clear-except-present","lines":["Remove the filters Custodian to Northgate; Market value above $1,000,000","Filter Market value above $1,000,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd3-o-ctl-hide-restricted","lines":["Show only rows where Restricted holdings is No"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd3-o-ctl-hide-column","lines":["Hide Restricted holdings"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd3-p-at-the-most","lines":["Filter Unrealized gain at or below $50,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd3-p-at-the-least","lines":["Filter Market value at or above $2,000,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd3-p-ctl-direct","lines":["Filter Market value to $750,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd3-p-ctl-exactly-after","lines":["Filter Market value to $1,000,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd3-q-ctl-sentence-group","lines":["Filter Market value above $1,000,000","Group by Custodian"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd3-q-ctl-comma","lines":["Filter Custodian to Northgate","Filter Market value above $1,000,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd3-r-over-or-equal","lines":["Filter Market value at or above $1,000,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd3-r-under-or-equal","lines":["Filter Unrealized gain at or below $5,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd3-r-ctl-gte-symbol","lines":["Filter Market value at or above $500,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd3-s-hide-taxable","lines":["Filter Registration type to any of IRA, Roth IRA and Trust"],"notes":["Rows with no Registration type are hidden too"]}
+{"file":"cases-reading.jsonl","id":"rd3-s-hide-northgate","lines":["Filter Custodian to any of Harborline and Summit Trust"],"notes":["Rows with no Custodian are hidden too"]}
+{"file":"cases-reading.jsonl","id":"rd3-s-exclude-over","lines":["Filter Market value at or below $1,000,000"],"notes":["Rows with no Market value are hidden too"]}
+{"file":"cases-reading.jsonl","id":"rd3-s-remove-with-value","lines":["Filter Market value at or below $1,000,000"],"notes":["Rows with no Market value are hidden too"]}
+{"file":"cases-reading.jsonl","id":"rd3-s-not-accounts-over","lines":["Filter Market value at or below $1,000,000"],"notes":["Rows with no Market value are hidden too"]}
+{"file":"cases-reading.jsonl","id":"rd3-s-no-gain-over","lines":["Filter Unrealized gain at or below $50,000"],"notes":["Rows with no Unrealized gain are hidden too"]}
+{"file":"cases-reading.jsonl","id":"rd3-s-ctl-non-retirement","lines":["Filter Registration type to any of Taxable and Trust"],"notes":["Rows with no Registration type are hidden too"]}
+{"file":"cases-reading.jsonl","id":"rd3-s-ctl-not-at","lines":["Filter Custodian to any of Harborline and Summit Trust"],"notes":["Rows with no Custodian are hidden too"]}
+{"file":"cases-reading.jsonl","id":"rd3-s-ctl-hide-column","lines":["Hide Custodian"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd3-u-ctl-show-trust","lines":["Filter Registration type to Trust"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd3-u-ctl-at-northgate","lines":["Filter Custodian to Northgate"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd3b-v-ctl-add-column","lines":["Show Custodian"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd3b-v-ctl-add-two-columns","lines":["Show Unrealized gain and Advisor"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd3b-v-ctl-add-household-column","lines":["Show Household"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd4-w1-ctl-hide-northgate","lines":["Filter Custodian to any of Harborline and Summit Trust"],"notes":["Rows with no Custodian are hidden too"]}
+{"file":"cases-reading.jsonl","id":"rd4-w1-ctl-hide-restricted","lines":["Show only rows where Restricted holdings is No"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd4-w2-ctl-restricted","lines":["Remove the filters Restricted holdings is Yes; Market value above $1,000,000","Show only rows where Restricted holdings is Yes"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd4-w3-ctl-or-more","lines":["Filter Market value at or above $1,000,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd4-w3-ctl-or-less","lines":["Filter Unrealized gain at or below $10,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd4-w4-ctl-except-custodian","lines":["Remove the filter Custodian to any of Northgate and Harborline","Filter Custodian to any of Northgate and Harborline"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd4-w5-ctl-compact","lines":["Filter Market value between $1,000,000 and $2,000,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd4-w5-ctl-full","lines":["Filter Market value between $1,000,000 and $2,000,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd4-w6-dont-show-trusts","lines":["Filter Registration type to any of Taxable, IRA and Roth IRA"],"notes":["Rows with no Registration type are hidden too"]}
+{"file":"cases-reading.jsonl","id":"rd4-w6-never-show-trusts","lines":["Filter Registration type to any of Taxable, IRA and Roth IRA"],"notes":["Rows with no Registration type are hidden too"]}
+{"file":"cases-reading.jsonl","id":"rd4-w6-not-including","lines":["Filter Registration type to any of Taxable, IRA and Roth IRA"],"notes":["Rows with no Registration type are hidden too"]}
+{"file":"cases-reading.jsonl","id":"rd4-w6-dont-show-over","lines":["Filter Market value at or below $1,000,000"],"notes":["Rows with no Market value are hidden too"]}
+{"file":"cases-reading.jsonl","id":"rd4-w6-no-accounts-over","lines":["Filter Market value at or below $1,000,000"],"notes":["Rows with no Market value are hidden too"]}
+{"file":"cases-reading.jsonl","id":"rd4-w6-ctl-show-trusts","lines":["Filter Registration type to Trust"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd4-w6-ctl-show-over","lines":["Filter Market value above $1,000,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd4-w7-ctl-and-group","lines":["Filter Market value above $1,000,000","Group by Custodian"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd4-w8-ctl-sort","lines":["Filter Market value above $1,000,000","Sort by Advisor, ascending"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd4-w9-hide-gain-below","lines":["Filter Unrealized gain at or above $0"],"notes":["Rows with no Unrealized gain are hidden too"]}
+{"file":"cases-reading.jsonl","id":"rd4-w9-hide-value-over","lines":["Filter Market value at or below $2,000,000"],"notes":["Rows with no Market value are hidden too"]}
+{"file":"cases-reading.jsonl","id":"rd4-w9-ctl-show-gain-below","lines":["Filter Unrealized gain below $0"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd5-x1-no-more","lines":["Filter Market value at or below $1,000,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd5-x1-no-less","lines":["Filter Market value at or above $1,000,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd5-x1-no-greater-percent","lines":["Filter Concentration at or below 10%"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd5-x1-ctl-column","lines":["Filter Market value at or below $1,000,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd5-x1-ctl-accounts-with","lines":["Filter Market value at or below $1,000,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd5-x2-ctl-hide-trusts","lines":["Filter Registration type to any of Taxable, IRA and Roth IRA"],"notes":["Rows with no Registration type are hidden too"]}
+{"file":"cases-reading.jsonl","id":"rd5-x2-ctl-dont-show-trusts","lines":["Filter Registration type to any of Taxable, IRA and Roth IRA"],"notes":["Rows with no Registration type are hidden too"]}
+{"file":"cases-reading.jsonl","id":"rd5-x3-ctl-sort","lines":["Sort by Unrealized gain, ascending"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd5-x3-ctl-hide-column","lines":["Hide Advisor"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd5-x4-ctl-not-including","lines":["Filter Registration type to any of Taxable, IRA and Roth IRA"],"notes":["Rows with no Registration type are hidden too"]}
+{"file":"cases-reading.jsonl","id":"rd5-x5-separators-m","lines":["Filter Market value between $500,000 and $1,000,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd5-x5-separators-k","lines":["Filter Unrealized gain between $5,000 and $50,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd5-x5-no-dollar","lines":["Filter Market value between $250,000 and $1,000,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd5-x5-ctl-full","lines":["Filter Market value between $1,000,000 and $2,000,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd5-x6-advisors-accounts","lines":["Filter Market value above $1,000,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd5-x6-plural-possessive","lines":["Filter Custodian to Northgate"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd5-x6-each-household","lines":["Filter Market value above $2,000,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd5-x6-ctl-plain","lines":["Filter Market value above $1,000,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd5-x7-households-sorted","lines":["Sort by Market value, ascending"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd5-x7-households-grouped","lines":["Group by Advisor"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd5-x7-ctl-accounts-sorted","lines":["Sort by Unrealized gain, ascending"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd5-x7-ctl-sort-household","lines":["Sort by Household, ascending"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd5-x8-ungroup-keep-sort","lines":["Clear grouping"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd5-x8-clear-sort-keep-group","lines":["Clear sorting"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd5-x8-remove-grouping-leave-sort","lines":["Clear grouping"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd5-x8-ctl-ungroup","lines":["Clear grouping"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd5-x8-ctl-clear-sort","lines":["Clear sorting"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd5-x9-ctl-show-over","lines":["Filter Market value above $1,000,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd5b-y-ungroup-dont-touch-sort","lines":["Clear grouping"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd5b-y-clear-sort-grouping-stays","lines":["Clear sorting"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd5b-y-remove-grouping-without-changing","lines":["Clear grouping"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd5b-y-clear-filters-grouping-as-is","lines":["Remove the filter Registration type to Trust"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd5b-y-ungroup-not-the-filter","lines":["Clear grouping"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd5b-y-three-clear-sort","lines":["Clear sorting"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd5b-y-three-ungroup","lines":["Clear grouping"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd5b-y-three-clear-filters","lines":["Remove the filter Market value above $1,000,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd5b-y-ctl-ungroup","lines":["Clear grouping"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd5b-y-ctl-clear-sort","lines":["Clear sorting"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd5b-y-ctl-clear-filters","lines":["Remove the filter Registration type to Trust"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd5b-y-ctl-both","lines":["Clear sorting","Clear grouping"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd6-z1-sorting-grouping","lines":["Clear sorting","Clear grouping"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd6-z1-filters-sorting","lines":["Remove the filter Registration type to Trust","Clear sorting"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd6-z1-grouping-sort","lines":["Clear sorting","Clear grouping"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd6-z1-three","lines":["Remove the filter Registration type to Trust","Clear sorting","Clear grouping"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd6-z1-ctl-and","lines":["Clear sorting","Clear grouping"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd6-z1-ctl-filters-and-sort","lines":["Remove the filter Registration type to Trust","Clear sorting"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd6-z2-everything-but-sort","lines":["Reset the view","Sort by Market value, descending"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd6-z2-all-but-grouping","lines":["Reset the view","Group by Custodian"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd6-z2-everything-but-filter","lines":["Reset the view","Filter Registration type to Trust"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd6-z2-ctl-keep-sort","lines":["Reset the view","Sort by Market value, descending"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd6-z2-ctl-reset","lines":["Reset the view"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd6-z3-non-retirement-not-at","lines":["Filter Registration type to any of Taxable and Trust","Filter Custodian to any of Harborline and Summit Trust"],"notes":["Rows with no Registration type are hidden too","Rows with no Custodian are hidden too"]}
+{"file":"cases-reading.jsonl","id":"rd6-z3-no-restricted-not-at","lines":["Show only rows where Restricted holdings is No","Filter Custodian to any of Harborline and Summit Trust"],"notes":["Rows with no Custodian are hidden too"]}
+{"file":"cases-reading.jsonl","id":"rd6-z3-non-taxable-not-at","lines":["Filter Registration type to any of IRA, Roth IRA and Trust","Filter Custodian to any of Northgate and Summit Trust"],"notes":["Rows with no Registration type are hidden too","Rows with no Custodian are hidden too"]}
+{"file":"cases-reading.jsonl","id":"rd6-z3-ctl-non-retirement","lines":["Filter Registration type to any of Taxable and Trust"],"notes":["Rows with no Registration type are hidden too"]}
+{"file":"cases-reading.jsonl","id":"rd6-z4-dollar-both-small","lines":["Filter Market value between $999 and $2,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd6-z4-dollar-both-gain","lines":["Filter Unrealized gain between $500 and $5,000"],"notes":[]}
+{"file":"cases-reading.jsonl","id":"rd6-z4-ctl-full","lines":["Filter Market value between $1,000,000 and $2,000,000"],"notes":[]}
+{"file":"cases-text-forms.jsonl","id":"tf-spec-empty-then-amount","lines":["Filter Market value above $1,000,000"],"notes":[]}
+{"file":"cases-text-forms.jsonl","id":"tf-spec-no-restricted","lines":["Show only rows where Restricted holdings is No"],"notes":[]}
+{"file":"cases-text-forms.jsonl","id":"tf-spec-no-accounts-over","lines":["Filter Market value at or below $1,000,000"],"notes":["Rows with no Market value are hidden too"]}
+{"file":"cases-text-forms.jsonl","id":"tf-spec-no-gain-over","lines":["Filter Unrealized gain at or below $50,000"],"notes":["Rows with no Unrealized gain are hidden too"]}
+{"file":"cases-text-forms.jsonl","id":"tf-rows-households-no-advisor","lines":["Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms.jsonl","id":"tf-rows-show-only-households","lines":["Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms.jsonl","id":"tf-rows-my-accounts","lines":["Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms.jsonl","id":"tf-rows-show-my-accounts-have","lines":["Show only rows where Advisor is not empty"],"notes":[]}
+{"file":"cases-text-forms.jsonl","id":"tf-rows-show-me-accounts","lines":["Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms.jsonl","id":"tf-beside-sort-same-column","lines":["Show only rows where Advisor is empty","Sort by Advisor, ascending"],"notes":[]}
+{"file":"cases-text-forms.jsonl","id":"tf-beside-hide-same-column","lines":["Hide Advisor","Filter Advisor to exactly “avery lane”"],"notes":[]}
+{"file":"cases-text-forms.jsonl","id":"tf-rows-my-entries-ledger","lines":["Show only rows where Counterparty is empty"],"notes":[]}
+{"file":"cases-text-forms.jsonl","id":"tf-rows-show-us-entries-ledger","lines":["Show only rows where Counterparty is empty"],"notes":[]}
+{"file":"cases-text-forms.jsonl","id":"tf-beside-date-after-form-ledger","lines":["Filter Booked above “2026-01-01”","Show only rows where Counterparty is empty"],"notes":[]}
+{"file":"cases-text-forms.jsonl","id":"tf-rows-show-every-household","lines":["Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms.jsonl","id":"tf-rows-my-restricted-accounts","lines":["Show only rows where Restricted holdings is Yes","Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms.jsonl","id":"tf-rows-my-settled-entries-ledger","lines":["Show only rows where Cleared is Yes","Show only rows where Counterparty is empty"],"notes":[]}
+{"file":"cases-text-forms.jsonl","id":"tf-r4-which-accounts-have-no-advisor","lines":["Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms.jsonl","id":"tf-r4-accounts-whose-advisor-is-empty","lines":["Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms.jsonl","id":"tf-r4-advisor-is-empty-for-taxable-accounts","lines":["Filter Registration type to Taxable","Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms.jsonl","id":"tf-r4-advisor-is-blank-for-accounts-at-northgate","lines":["Filter Custodian to Northgate","Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms.jsonl","id":"tf-r4-accounts-without-an-advisor","lines":["Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms.jsonl","id":"tf-r4-show-me-accounts-with-no-advisor","lines":["Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms.jsonl","id":"tf-r4-those-accounts-with-no-advisor","lines":["Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms.jsonl","id":"tf-r4-accounts-where-the-advisor-is-missing","lines":["Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms.jsonl","id":"tf-r4-the-advisor-is-missing","lines":["Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms.jsonl","id":"tf-r4-entries-that-have-a-category-ledger","lines":["Show only rows where Category is not empty"],"notes":[]}
+{"file":"cases.jsonl","id":"accounts-over-1m","lines":["Filter Market value above $1,000,000"],"notes":[]}
+{"file":"cases.jsonl","id":"taxable-concentration","lines":["Filter Registration type to Taxable","Filter Concentration above 10%"],"notes":[]}
+{"file":"cases.jsonl","id":"group-and-sort","lines":["Group by Advisor","Sort by Market value, descending"],"notes":[]}
+{"file":"cases.jsonl","id":"hide-columns","lines":["Hide Custodian and Account number"],"notes":[]}
+{"file":"cases.jsonl","id":"keep-only","lines":["Show Account number, Household, Market value and Unrealized gain","Hide Advisor, Registration type, Custodian, Concentration and Restricted holdings","Put Account number, Household, Market value and Unrealized gain first"],"notes":[]}
+{"file":"cases.jsonl","id":"clear-filters-sorting","lines":["Clear all filters","Clear sorting"],"notes":[]}
+{"file":"cases.jsonl","id":"mixed-trade","lines":["Show only rows where Restricted holdings is Yes"],"notes":[]}
+{"file":"cases.jsonl","id":"between-range","lines":["Filter Market value between $250,000 and $2,000,000","Sort by Unrealized gain, ascending"],"notes":[]}
+{"file":"cases.jsonl","id":"bare-roth-alias","lines":["Filter Registration type to Roth IRA","Group by Advisor"],"notes":[]}
+{"file":"cases.jsonl","id":"reset","lines":["Reset the view"],"notes":[]}
+{"file":"cases.jsonl","id":"plural-hide","lines":["Hide Account number and Household"],"notes":[]}
+{"file":"cases.jsonl","id":"plural-group","lines":["Group by Custodian"],"notes":[]}
+{"file":"cases.jsonl","id":"row-noun-before-by","lines":["Sort by Market value, ascending"],"notes":[]}
+{"file":"cases.jsonl","id":"plural-values","lines":["Filter Registration type to IRA","Filter Custodian to Northgate"],"notes":[]}
+{"file":"cases.jsonl","id":"two-values-one-column","lines":["Filter Registration type to any of IRA and Roth IRA"],"notes":[]}
+{"file":"cases.jsonl","id":"abbreviated-alias","lines":["Sort by Account number, descending"],"notes":[]}
+{"file":"cases.jsonl","id":"row-noun-with-amount","lines":["Filter Market value above $10,000,000"],"notes":[]}
+{"file":"cases.jsonl","id":"row-noun-with-qualifier","lines":["Show only rows where Restricted holdings is Yes","Group by Advisor"],"notes":[]}
+{"file":"cases.jsonl","id":"column-slot-after-by","lines":["Sort by Market value, descending"],"notes":[]}
+{"file":"cases.jsonl","id":"nested-groups","lines":["Group by Registration type, then Advisor"],"notes":[]}
+{"file":"cases.jsonl","id":"multi-level-sort","lines":["Sort by Advisor, ascending; then Market value, descending"],"notes":[]}
+{"file":"cases.jsonl","id":"group-sort-group","lines":["Group by Custodian, then Advisor","Sort by Unrealized gain, ascending"],"notes":[]}
+{"file":"cases.jsonl","id":"also-group","lines":["Group by Custodian, then Advisor"],"notes":[]}
+{"file":"cases.jsonl","id":"group-instead","lines":["Group by Household"],"notes":[]}
+{"file":"cases.jsonl","id":"value-before-verb","lines":["Filter Registration type to Roth IRA","Group by Advisor"],"notes":[]}
+{"file":"cases.jsonl","id":"value-group","lines":["Filter Registration type to any of IRA and Roth IRA"],"notes":[]}
+{"file":"cases.jsonl","id":"excluded-value","lines":["Filter Registration type to any of Taxable, IRA and Roth IRA"],"notes":["Rows with no Registration type are hidden too"]}
+{"file":"cases.jsonl","id":"excluded-list","lines":["Filter Custodian to Summit Trust"],"notes":["Rows with no Custodian are hidden too"]}
+{"file":"cases.jsonl","id":"value-in-preposition","lines":["Filter Registration type to Trust","Sort by Unrealized gain, ascending"],"notes":[]}
+{"file":"cases.jsonl","id":"named-amount-column","lines":["Filter Unrealized gain above $100,000"],"notes":[]}
+{"file":"cases.jsonl","id":"mid-line-group-then-sort","lines":["Group by Advisor","Sort by Market value, descending"],"notes":[]}
+{"file":"cases.jsonl","id":"smallest-to-largest","lines":["Sort by Market value, ascending"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"dev-1","lines":["Filter Market value above $1,000,000"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"dev-2","lines":["Filter Registration type to Taxable","Filter Concentration above 10%"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"dev-3","lines":["Group by Advisor","Sort by Market value, descending"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"dev-4","lines":["Hide Custodian and Account number"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"dev-5","lines":["Show Account number, Household, Market value and Unrealized gain","Hide Advisor, Registration type, Custodian, Concentration and Restricted holdings","Put Account number, Household, Market value and Unrealized gain first"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"dev-6","lines":["Clear all filters","Clear sorting"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"dev-7","lines":["Filter Registration type to Roth IRA","Group by Advisor"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"dev-9","lines":["Filter Market value between $250,000 and $2,000,000","Sort by Unrealized gain, ascending"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"dev-10","lines":["Hide Account number"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"dev-11","lines":["Sort by Unrealized gain, descending"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"dev-12","lines":["Filter Registration type to IRA"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"dev-13","lines":["Filter Registration type to any of Roth IRA and Trust"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"dev-14","lines":["Group by Custodian"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"dev-15","lines":["Group by Advisor"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"dev-16","lines":["Sort by Market value, ascending"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"dev-17","lines":["Group by Advisor"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"dev-18","lines":["Filter Registration type to Taxable","Filter Custodian to Northgate"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"dev-19","lines":["Hide Market value"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"dev-20","lines":["Show only rows where Restricted holdings is Yes","Filter Registration type to Trust"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"dev-21","lines":["Show only rows where Restricted holdings is No"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"dev-22","lines":["Sort by Account number, ascending"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"dev-23","lines":["Filter Concentration above 20%","Sort by Concentration, ascending"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"dev-24","lines":["Group by Registration type, then Custodian"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"dev-25","lines":["Filter Market value above $2,000,000"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"dev-26","lines":["Sort by Market value, descending"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"dev-27","lines":["Hide Concentration and Unrealized gain"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"dev-28","lines":["Show Account number and Advisor","Hide Household, Registration type, Custodian, Market value, Concentration, Unrealized gain and Restricted holdings","Put Account number and Advisor first"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"dev-29","lines":["Filter Custodian to Summit Trust"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"dev-30","lines":["Filter Registration type to Trust"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"dev-32","lines":["Filter Registration type to any of IRA and Roth IRA","Filter Market value above $500,000"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"dev-33","lines":["Sort by Market value, ascending"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"dev-34","lines":["Group by Household"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"dev-35","lines":["Show only rows where Restricted holdings is Yes","Group by Advisor"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"held-out-37","lines":["Filter Market value above $1,000,000"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"held-out-38","lines":["Sort by Market value, ascending"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"held-out-39","lines":["Filter Unrealized gain above $50,000"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"held-out-40","lines":["Show Account number and Market value","Hide Household, Advisor, Registration type, Custodian, Concentration, Unrealized gain and Restricted holdings","Put Account number and Market value first"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"held-out-42","lines":["Filter Registration type to Trust","Group by Custodian"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"held-out-43","lines":["Sort by Unrealized gain, descending"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"held-out-44","lines":["Sort by Account number, ascending; then Market value, ascending"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"held-out-45","lines":["Hide Unrealized gain"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"held-out-46","lines":["Filter Custodian to Harborline","Sort by Market value, ascending"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"held-out-47","lines":["Filter Concentration above 25%"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"held-out-48","lines":["Group by Registration type"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"held-out-50","lines":["Filter Market value above $10,000,000"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"held-out-52","lines":["Hide Account number"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"held-out-53","lines":["Sort by Market value, descending"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"held-out-54","lines":["Filter Registration type to Taxable"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"held-out-55","lines":["Group by Advisor"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"held-out-56","lines":["Hide Custodian and Advisor"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"held-out-57","lines":["Filter Registration type to IRA","Filter Custodian to Northgate"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"held-out-58","lines":["Show only rows where Restricted holdings is Yes","Group by Advisor"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"held-out-59","lines":["Filter Registration type to Trust","Sort by Market value, ascending"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"held-out-60","lines":["Filter Registration type to Taxable","Filter Market value above $250,000"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"held-out-61","lines":["Show Account number, Market value and Advisor","Hide Household, Registration type, Custodian, Concentration, Unrealized gain and Restricted holdings","Put Account number, Market value and Advisor first"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"held-out-62","lines":["Group by Advisor"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"held-out-63","lines":["Filter Registration type to Roth IRA","Filter Unrealized gain above $100,000"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"held-out-64","lines":["Filter Market value below $500,000"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"held-out-65","lines":["Sort by Registration type, ascending; then Custodian, ascending"],"notes":[]}
+{"file":"mentions-cases.jsonl","id":"held-out-66","lines":["Hide Account number and Household"],"notes":[]}
+{"file":"cases-provider-picks-heldout.jsonl","id":"h2p-01","lines":["Filter Advisor starting with “av”"],"notes":[]}
+{"file":"cases-provider-picks-heldout.jsonl","id":"h2p-02","lines":["Filter Household starting with “alder”"],"notes":[]}
+{"file":"cases-provider-picks-heldout.jsonl","id":"h2p-03","lines":["Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-provider-picks-heldout.jsonl","id":"h2p-04","lines":["Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-provider-picks-heldout.jsonl","id":"h2p-05","lines":["Filter Advisor to exactly “casey ortiz”"],"notes":[]}
+{"file":"cases-provider-picks-heldout.jsonl","id":"h2p-06","lines":["Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-provider-picks-heldout.jsonl","id":"h2p-07","lines":["Filter Household to exactly “hollis household”"],"notes":[]}
+{"file":"cases-provider-picks-heldout.jsonl","id":"h2p-08","lines":["Filter Advisor starting with “ed”"],"notes":[]}
+{"file":"cases-provider-picks-heldout.jsonl","id":"h2p-09","lines":["Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-provider-picks-heldout.jsonl","id":"h2p-10","lines":["Show only rows where Advisor is not empty"],"notes":[]}
+{"file":"cases-provider-picks-heldout.jsonl","id":"h2p-11","lines":["Filter Account number starting with “ac-10”"],"notes":[]}
+{"file":"cases-provider-picks-heldout.jsonl","id":"h2p-12","lines":["Show only rows where Advisor is not empty"],"notes":[]}
+{"file":"cases-provider-picks-heldout.jsonl","id":"h2p-13","lines":["Show only rows where Counterparty is empty"],"notes":[]}
+{"file":"cases-provider-picks-heldout.jsonl","id":"h2p-14","lines":["Show only rows where Counterparty is empty"],"notes":[]}
+{"file":"cases-provider-picks-heldout.jsonl","id":"h2p-15","lines":["Filter Owner starting with “av”"],"notes":[]}
+{"file":"cases-provider-picks-heldout.jsonl","id":"h2p-16","lines":["Filter Owner to exactly “blake moreno”"],"notes":[]}
+{"file":"cases-provider-picks-heldout.jsonl","id":"h2p-17","lines":["Show only rows where Booked is empty"],"notes":[]}
+{"file":"cases-provider-picks-heldout.jsonl","id":"h2p-18","lines":["Show only rows where Category is empty"],"notes":[]}
+{"file":"cases-provider-picks-heldout.jsonl","id":"h2p-19","lines":["Filter Counterparty to exactly “cedar works”"],"notes":[]}
+{"file":"cases-provider-picks-heldout.jsonl","id":"h2p-20","lines":["Show only rows where Booked is not empty"],"notes":[]}
+{"file":"cases-provider-picks-heldout.jsonl","id":"h2p-21","lines":["Show only rows where Household is empty"],"notes":[]}
+{"file":"cases-provider-picks-heldout.jsonl","id":"h2p-22","lines":["Filter Advisor starting with “da”"],"notes":[]}
+{"file":"cases-provider-picks-heldout.jsonl","id":"h2p-23","lines":["Show only rows where Counterparty is not empty"],"notes":[]}
+{"file":"cases-provider-picks-heldout.jsonl","id":"h2p-24","lines":["Filter Owner to exactly “dana whitfield”"],"notes":[]}
+{"file":"cases-provider-picks-heldout.jsonl","id":"h2p-25","lines":["Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout.jsonl","id":"h2f-01","lines":["Filter Household starting with “hol”"],"notes":[]}
+{"file":"cases-text-forms-heldout.jsonl","id":"h2f-02","lines":["Filter Advisor starting with “cas”"],"notes":[]}
+{"file":"cases-text-forms-heldout.jsonl","id":"h2f-03","lines":["Filter Market value above $500,000","Filter Household starting with “cedar”"],"notes":[]}
+{"file":"cases-text-forms-heldout.jsonl","id":"h2f-04","lines":["Filter Advisor to exactly “dana whitfield”"],"notes":[]}
+{"file":"cases-text-forms-heldout.jsonl","id":"h2f-05","lines":["Filter Advisor to exactly “emerson hale”","Sort by Market value, descending"],"notes":[]}
+{"file":"cases-text-forms-heldout.jsonl","id":"h2f-06","lines":["Filter Account number to exactly “ac-100004”"],"notes":[]}
+{"file":"cases-text-forms-heldout.jsonl","id":"h2f-07","lines":["Filter Household to exactly “birch household”"],"notes":[]}
+{"file":"cases-text-forms-heldout.jsonl","id":"h2f-08","lines":["Filter Custodian to Summit Trust","Filter Advisor to exactly “casey ortiz”"],"notes":[]}
+{"file":"cases-text-forms-heldout.jsonl","id":"h2f-09","lines":["Filter Account number starting with “ac-1002”","Hide Custodian"],"notes":[]}
+{"file":"cases-text-forms-heldout.jsonl","id":"h2f-10","lines":["Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout.jsonl","id":"h2f-11","lines":["Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout.jsonl","id":"h2f-12","lines":["Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout.jsonl","id":"h2f-13","lines":["Show only rows where Household is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout.jsonl","id":"h2f-14","lines":["Show only rows where Advisor is not empty"],"notes":[]}
+{"file":"cases-text-forms-heldout.jsonl","id":"h2f-15","lines":["Show only rows where Advisor is not empty"],"notes":[]}
+{"file":"cases-text-forms-heldout.jsonl","id":"h2f-16","lines":["Show only rows where Household is not empty"],"notes":[]}
+{"file":"cases-text-forms-heldout.jsonl","id":"h2f-17","lines":["Filter Registration type to Taxable","Show only rows where Advisor is empty","Sort by Market value, descending"],"notes":[]}
+{"file":"cases-text-forms-heldout.jsonl","id":"h2f-18","lines":["Show only rows where Advisor is empty","Hide Custodian"],"notes":[]}
+{"file":"cases-text-forms-heldout.jsonl","id":"h2f-19","lines":["Show only rows where Advisor is empty","Group by Custodian"],"notes":[]}
+{"file":"cases-text-forms-heldout.jsonl","id":"h2f-20","lines":["Filter Registration type to Trust","Filter Custodian to Harborline","Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout.jsonl","id":"h2f-21","lines":["Filter Custodian to Harborline","Filter Advisor starting with “bl”","Sort by Market value, descending"],"notes":[]}
+{"file":"cases-text-forms-heldout.jsonl","id":"h2f-22","lines":["Filter Advisor starting with “bl”","Sort by Market value, descending"],"notes":[]}
+{"file":"cases-text-forms-heldout.jsonl","id":"h2f-24","lines":["Filter Counterparty starting with “alder”"],"notes":[]}
+{"file":"cases-text-forms-heldout.jsonl","id":"h2f-25","lines":["Filter Counterparty starting with “hol”"],"notes":[]}
+{"file":"cases-text-forms-heldout.jsonl","id":"h2f-26","lines":["Filter Owner to exactly “gale ivers”"],"notes":[]}
+{"file":"cases-text-forms-heldout.jsonl","id":"h2f-27","lines":["Filter Category to Travel","Filter Owner to exactly “avery lane”"],"notes":[]}
+{"file":"cases-text-forms-heldout.jsonl","id":"h2f-28","lines":["Show only rows where Counterparty is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout.jsonl","id":"h2f-29","lines":["Show only rows where Counterparty is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout.jsonl","id":"h2f-30","lines":["Show only rows where Booked is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout.jsonl","id":"h2f-31","lines":["Show only rows where Category is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout.jsonl","id":"h2f-32","lines":["Show only rows where Category is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout.jsonl","id":"h2f-33","lines":["Show only rows where Booked is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout.jsonl","id":"h2f-34","lines":["Show only rows where Posted at is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout.jsonl","id":"h2f-35","lines":["Show only rows where Counterparty is not empty"],"notes":[]}
+{"file":"cases-text-forms-heldout.jsonl","id":"h2f-36","lines":["Show only rows where Booked is not empty"],"notes":[]}
+{"file":"cases-text-forms-heldout.jsonl","id":"h2f-37","lines":["Show only rows where Counterparty is not empty","Sort by Amount, descending"],"notes":[]}
+{"file":"cases-text-forms-heldout.jsonl","id":"h2f-38","lines":["Show only rows where Counterparty is empty","Hide Rate"],"notes":[]}
+{"file":"cases-text-forms-heldout.jsonl","id":"h2f-39","lines":["Filter Amount above $10,000","Filter Counterparty starting with “cedar”"],"notes":[]}
+{"file":"cases-text-forms-heldout.jsonl","id":"h2f-40","lines":["Filter Owner to exactly “casey ortiz”","Show only rows where Counterparty is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout.jsonl","id":"h2f-54","lines":["Show only rows where Cleared is Yes"],"notes":[]}
+{"file":"cases-text-forms-heldout.jsonl","id":"h2f-59","lines":["Filter Concentration above 5%","Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout.jsonl","id":"h2f-63","lines":["Show only rows where Restricted holdings is No"],"notes":[]}
+{"file":"cases-text-forms-heldout.jsonl","id":"h2f-64","lines":["Filter Market value at or below $2,000,000"],"notes":["Rows with no Market value are hidden too"]}
+{"file":"cases-text-forms-heldout.jsonl","id":"h2f-65","lines":["Filter Unrealized gain at or below $30,000"],"notes":["Rows with no Unrealized gain are hidden too"]}
+{"file":"cases-text-forms-heldout.jsonl","id":"h2f-66","lines":["Filter Amount at or below $5,000"],"notes":["Rows with no Amount are hidden too"]}
+{"file":"cases-text-forms-natural-heldout.jsonl","id":"n1-led-no-counterparty","lines":["Show only rows where Counterparty is empty"],"notes":[]}
+{"file":"cases-text-forms-natural-heldout.jsonl","id":"n1-led-no-booking-date","lines":["Show only rows where Booked is empty"],"notes":[]}
+{"file":"cases-text-forms-natural-heldout.jsonl","id":"n1-led-booked-blank","lines":["Show only rows where Booked is empty"],"notes":[]}
+{"file":"cases-text-forms-natural-heldout.jsonl","id":"n1-led-empty-sort","lines":["Show only rows where Counterparty is empty","Sort by Amount, descending"],"notes":[]}
+{"file":"cases-text-forms-natural-heldout.jsonl","id":"n1-led-empty-hide","lines":["Show only rows where Counterparty is empty","Hide Owner"],"notes":[]}
+{"file":"cases-text-forms-natural-heldout.jsonl","id":"n1-led-ambig-blanks-last","lines":["Sort by Counterparty, ascending"],"notes":[]}
+{"file":"cases-text-forms-natural-heldout.jsonl","id":"n1-wea-advisor-exact","lines":["Show Advisor","Hide Account number, Household, Registration type, Custodian, Market value, Concentration, Unrealized gain and Restricted holdings","Put Advisor first"],"notes":[]}
+{"file":"cases-text-forms-natural-heldout.jsonl","id":"n1-wea-no-advisor","lines":["Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r2.jsonl","id":"r2-yn-no-restricted-unchanged","lines":["Show only rows where Restricted holdings is No"],"notes":[]}
+{"file":"cases-text-forms-heldout-r2.jsonl","id":"r2-ea-named-amount-ready","lines":["Filter Market value above $1,000,000","Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r2.jsonl","id":"r2-ea-named-column-ready","lines":["Filter Custodian to Northgate","Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r2.jsonl","id":"r2-ea-no-accounts-unchanged","lines":["Filter Market value at or below $1,000,000"],"notes":["Rows with no Market value are hidden too"]}
+{"file":"cases-text-forms-heldout-r2.jsonl","id":"r2-sort-plain-ready","lines":["Sort by Market value, descending"],"notes":[]}
+{"file":"cases-text-forms-heldout-r2.jsonl","id":"r2-just-the-advisor","lines":["Show Advisor","Hide Account number, Household, Registration type, Custodian, Market value, Concentration, Unrealized gain and Restricted holdings","Put Advisor first"],"notes":[]}
+{"file":"cases-text-forms-heldout-r2.jsonl","id":"r2-just-custodian-ready","lines":["Filter Custodian to Northgate"],"notes":[]}
+{"file":"cases-text-forms-heldout-r2.jsonl","id":"r2-text-starts-with","lines":["Filter Advisor starting with “bl”"],"notes":[]}
+{"file":"cases-text-forms-heldout-r2.jsonl","id":"r2-text-begins-ledger","lines":["Filter Counterparty starting with “har”"],"notes":[]}
+{"file":"cases-text-forms-heldout-r2.jsonl","id":"r2-text-equals","lines":["Filter Advisor to exactly “blake moreno”"],"notes":[]}
+{"file":"cases-text-forms-heldout-r2.jsonl","id":"r2-text-starts-with-and-amount","lines":["Filter Market value above $1,000,000","Filter Advisor starting with “bl”"],"notes":[]}
+{"file":"cases-text-forms-heldout-r2.jsonl","id":"r2-text-plain-quoted-unchanged","lines":["Filter Advisor containing “moreno”"],"notes":[]}
+{"file":"cases-text-forms-heldout-r2.jsonl","id":"r2-empty-advisor-blank","lines":["Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r2.jsonl","id":"r2-empty-has-advisor","lines":["Show only rows where Advisor is not empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r2.jsonl","id":"r2-empty-taxable-no-advisor","lines":["Filter Registration type to Taxable","Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r2.jsonl","id":"r2-empty-ledger-no-counterparty","lines":["Show only rows where Counterparty is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r1-w12","lines":["Show only rows where Advisor is empty","Show Concentration"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r1-w16","lines":["Hide Custodian","Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r1-l09","lines":["Show only rows where Category is not empty","Show Owner"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r1-l10","lines":["Hide Rate","Show only rows where Category is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r1c-w01","lines":["Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r1c-w02","lines":["Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r1c-w03","lines":["Show only rows where Advisor is not empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r1c-w04","lines":["Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r1c-w05","lines":["Filter Advisor starting with “dana”"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r1c-w06","lines":["Filter Advisor starting with “em”"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r1c-w07","lines":["Show only rows where Household is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r1c-l01","lines":["Show only rows where Category is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r1c-l02","lines":["Show only rows where Counterparty is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r1c-l03","lines":["Show only rows where Counterparty is not empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r1c-l04","lines":["Show only rows where Counterparty is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r1c-l05","lines":["Filter Counterparty starting with “hol”"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r2c-w01","lines":["Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r2c-w02","lines":["Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r2c-w03","lines":["Show only rows where Advisor is not empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r2c-w04","lines":["Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r2c-w05","lines":["Show only rows where Advisor is empty","Sort by Market value, descending"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r2c-w06","lines":["Filter Registration type to Trust","Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r2c-w07","lines":["Show only rows where Advisor is not empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r2c-w08","lines":["Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r2c-w09","lines":["Filter Market value above $500,000","Filter Advisor starting with “ca”"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r2c-w10","lines":["Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r2c-w11","lines":["Filter Custodian to Northgate","Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r2c-l01","lines":["Show only rows where Category is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r2c-l02","lines":["Show only rows where Counterparty is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r2c-l03","lines":["Show only rows where Category is not empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r2c-l04","lines":["Show only rows where Counterparty is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r2c-l05","lines":["Show only rows where Counterparty is empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r2c-l06","lines":["Show only rows where Category is not empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r2c-l07","lines":["Show only rows where Counterparty is empty","Sort by Amount, descending"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r2c-l08","lines":["Filter Counterparty starting with “ell”"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r2c-l09","lines":["Filter Owner to exactly “casey ortiz”"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r2c-l10","lines":["Filter Counterparty to exactly “cedar works”"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-r2c-l11","lines":["Filter Amount above $5,000","Show only rows where Counterparty is not empty"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-plain-w01","lines":["Filter Market value above $2,000,000"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-plain-w02","lines":["Sort by Market value, descending"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-plain-w03","lines":["Hide Custodian"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-plain-w04","lines":["Show Household, Advisor and Market value","Hide Account number, Registration type, Custodian, Concentration, Unrealized gain and Restricted holdings","Put Household, Advisor and Market value first"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-plain-w05","lines":["Filter Registration type to Taxable"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-plain-w06","lines":["Group by Custodian"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-plain-w07","lines":["Show Advisor"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-plain-l01","lines":["Filter Amount above $5,000"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-plain-l02","lines":["Sort by Amount, descending"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-plain-l03","lines":["Hide Rate and Units"],"notes":[]}
+{"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-plain-l05","lines":["Show only rows where Cleared is Yes"],"notes":[]}
