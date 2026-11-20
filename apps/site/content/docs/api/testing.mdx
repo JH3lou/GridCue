@@ -65,7 +65,8 @@ Synthetic rows to load into a test database, keyed by column ID. For each column
 
 - empty cells (`null`, and `""` on a text or enum column);
 - whitespace-only text, and placeholder text such as "N/A", which is a value;
-- one text in two letter cases, the same text without its accent ("Ålder Fen" and "Alder Fen"), the same text with spaces around it, and text holding `%`, `_`, a backslash, `!` and `[`;
+- one text in two letter cases, the same text without its accent ("Ålder Fen" and "Alder Fen"), a second pair that differs only by an é ("Hazél Tor" and "Hazel Tor"), the same text with spaces around it, and text holding `%`, `_`, a backslash, `!` and `[`;
+- text of the letters A to Z alone, one starting with a small letter, and not all of one length, so an order by character code or by length shows;
 - negative numbers and zero, both ends of a range, and the values just past them;
 - dates on each side of a day's start and end, and every declared enum value;
 - yes, no and empty.
@@ -74,7 +75,33 @@ A restricted column gets plain values and is in no case. A date-and-time column 
 
 ### cases
 
-One View State for each edge of each column and operator the column allows, then each filter beside a filter on another column joined with "and", two filters on one column, a filter on a hidden column, an "or" group, an "or" group inside an "and", and sorts: two columns at once, and each text and enum column on its own, each way. With `limit.set` in `operations` there are count cases too: a count keeps the first rows of the sorted, filtered rows, never a row with no value in the first sorted column, and a row with no value in a later sorted column where its first one puts it before the cut.
+One View State for each edge of each column and operator the column allows, then each filter beside a filter on another column joined with "and", two filters on one column, a filter on a hidden column, alone, inside an "or" group, inside an "or" group inside an "and", and inside an "and" group inside an "or", an "or" group, an "or" group of three filters, and an "or" group inside an "and". Each text operator has two accent cases: "Ålder Fen" is not "Alder Fen", and "Hazél Tor" is not "Hazel Tor".
+
+Then the sorts:
+
+- two columns at once, each direction on each;
+- two columns where some rows have no value in the second;
+- each number column on its own, each way, by its value and not as text;
+- each text and enum column on its own, each way, and one of each as the second of two sorts, each way;
+- each column a case sorts by, beside a filter, each way, and once with its column hidden;
+- two sorts beside a filter, the second a number, date or yes/no column, an enum and text, each way;
+- one sort and two beside each "or" group, each way, with no count, and the same beside each shape of a filter on a hidden column, with the sorted columns hidden too;
+- a sort on a hidden column, and a second sort on a hidden column;
+- a sort with long runs of rows that tie, for reading in pages.
+
+A sort by two or more columns starts with a number, date or yes/no column.
+
+With `limit.set` in `operations` there are count cases too:
+
+- a count keeps the first rows of the sorted, filtered rows, and a count beside each "or" group does too;
+- it never keeps a row with no value in the first sorted column;
+- it keeps a row with no value in a later sorted column where its first one puts it before the cut, for each column that holds empty cells, text and enum columns among them;
+- for each number, date and yes/no column, each way, a count that cuts inside a run of rows that tie, and one beside a filter;
+- for each number, date and yes/no column, a count with a second sort that cuts inside a run of rows that tie on the first, so the second decides which of them it keeps. The second is sorted each way at the same cut;
+- for each, a count with three sorts that cuts inside a run of rows that tie on the first two, so the third decides, and one with four sorts, where the fourth decides. The last is sorted each way at the same cut;
+- for each text and enum column, a count with it sorted second that cuts inside a run of rows that tie on the first, each way, and a count sorted by it, each way. Both sit beside a filter that keeps only the values whose order is checked;
+- for each number, date and yes/no column, a count sorted by it with its column hidden, and one count with a second sort, and one with a third, on a hidden column, each way;
+- beside each "or" group, and beside each shape of a filter on a hidden column with the sorted columns hidden too, a count of the first rows, a count that cuts inside a run of rows that tie, and a count with two sorts that cuts inside a run of rows that tie on the first, the second each way.
 
 Each case is a `QueryCheckCase`. Its `name` is the rule, then the view in plain words, such as "not equal keeps empty cells, and ignores case on text (Custodian is not “åLDER fen”)". Its `state` is a View State to run through your query. No case groups, and restricted columns and the id column are in none. The rows each case keeps come from `applyView`, so the check holds whatever meaning core holds when it runs.
 
@@ -83,21 +110,45 @@ Each case is a `QueryCheckCase`. Its `name` is the rule, then the view in plain 
 `compare(ids)` takes the ids your Data Query returned for `state`, in the order it returned them.
 
 - **The ids are checked as a set.** "4" and 4 are the same id. A repeated id counts once.
-- **When the case sorts, the order is checked too**, for the rows that hold a value in every sorted column. Where a row with an empty cell goes is yours, and so is the order of rows that tie. Of text, only text made of the letters A to Z is ordered, since a database orders other text by its own collation. An enum is ordered by its values' IDs, as text, the same way: not by its labels, and not in the order its values are declared, as a database's own enum type sorts.
+- **When the case sorts, the order is checked too.** Of text, only text made of the letters A to Z, with single spaces between words, is ordered, since a database orders other text by its own collation. An enum is ordered by its values' IDs, as text, the same way: not by its labels, and not in the order its values are declared, as a database's own enum type sorts.
 - **It returns a plain message** naming the case, the missing ids and the extra ids.
 - **Anything but a list of ids throws `INPUT_CONFIG`.**
+
+Three things are yours, because a database has no load order and GridCue doesn't state where an empty cell sorts:
+
+- **Rows that tie on every sorted column may come in any order.**
+- **A row with an empty sort cell is checked by its leading sorted columns that hold a value,** up to its first empty one. Where it sits among the rows that share those values is yours, so `NULLS FIRST` and `NULLS LAST` both pass. It must still come after every row those columns put ahead of it, and before every row they put behind it. A row with no value in the first sorted column may sit anywhere.
+- **A count that cuts inside a run of tied rows may keep any of the tied rows for its last places.** It must keep every row ahead of them, none behind them, and its number of rows in all. Every row the sorts put ahead of a row it keeps must be kept too. This is the one case where the ids aren't compared as one fixed set. A query that keeps every tied row (`RANK`, `WITH TIES`), drops the tied run, keeps fewer or more rows than the count asks for, or, where a later sort decides which tied rows it keeps, cuts by the first sort alone, fails.
 
 A failure reads like this. It came from a query that wrote "is not" as SQL `<>`, on a small schema with a Custodian text column:
 
 ```text
-not equal keeps empty cells, and ignores case on text (Custodian is not “åLDER fen”): 4 rows missing, ids 18, 21, 28 and 66; 8 rows extra, ids 1, 9, 13, 20, 42, 55, 60 and 61
+not equal keeps empty cells, and ignores case on text (Custodian is not “åLDER fen”): 4 rows missing, ids 33, 34, 51 and 57; 8 rows extra, ids 17, 22, 27, 28, 46, 49, 54 and 64
 ```
 
 The query dropped the empty cells (4 rows missing) and, being case-sensitive, kept rows GridCue leaves out (8 rows extra). Ten ids are named at most, then "and 3 more".
 
+A count that returns the wrong number of rows says how many came back and how many the count asks for, after any missing and extra ids. This came from a count taken with `RANK`, on the wealth example's schema:
+
+```text
+a count that cuts inside tied rows keeps its number of rows: every row ahead of the tie, none behind it, and any of the tied (the first 14 rows, sorted by Market value, descending): 18 rows came back, and the count asks for 14
+```
+
+Rows out of order name the first row out of place. This came from `ORDER BY (a IS NULL OR b IS NULL), a, b`, which puts every row with an empty sort cell after the rest:
+
+```text
+a row with no value in a later sorted column keeps its place by the columns before it (sorted by Market value, ascending, then Concentration, ascending): wrong order: id 76 came before id 59, which belongs ahead of it by Market value
+```
+
+When every row that came back holds a value in every sorted column, the message reads "wrong order: id 12 came where id 40 belongs".
+
 ### What it doesn't test
 
-- A count over a page: run each case in pages too, as the [guide](/docs/guides/rows-on-a-server#run-it-in-a-test) shows, so a count cut after paging fails.
-- Where empty cells sort. With no count, that includes a row with a value in the first sorted column and none in a later one: keep it in its place by the first column, as `applyView` does. Only the count case checks it.
+- A count over a page, or ties broken another way on each page: run each case in pages too, as the [guide](/docs/guides/rows-on-a-server#run-it-in-a-test) shows, so a count cut after paging fails, and so does a page that loses a row. The case "a paged read is the whole result cut in pieces" has long runs of rows that tie for this. A page that repeats a row and loses none still passes, since a repeated id counts once.
+- Where empty cells sort among the rows that share their leading sort values, and anywhere at all when the first sorted column is the empty one.
+- The order of rows that tie, and which tied rows a count keeps. Break ties by a unique column yourself, so two pages never repeat or skip a row.
+- The order of text with characters outside A to Z, and of two texts that differ only in letter case.
+- The order of a clock time with no offset beside instants on a date-and-time column, since a query may order it by the instant it names or as text.
+- A repeated id. `compare` reads it as one id, so a page that repeats a row passes when no row is missing.
 - Grouping and totals. A total over rows on a server is a Data Query of its own.
 - Whether your query is safe against injection. Bind values, and check column IDs against the schema.

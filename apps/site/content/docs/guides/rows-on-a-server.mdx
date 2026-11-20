@@ -39,7 +39,7 @@ This is what `applyView` and `matchesPredicate` do today. A Data Query that copi
 | View State | Keeps | Leaves out | A Data Query that copies it naively |
 | --- | --- | --- | --- |
 | `neq "x"` (text, number, enum) | every row whose cell isn't `x`, **including empty cells** | rows equal to `x` | SQL `<>` drops `NULL` rows |
-| `eq`, `in` on a text column | equal **ignoring case**, not accents: "Zoë" isn't "Zoe" | empty cells | SQL `=` is case-sensitive in some databases, and ignores accents in others (MySQL 8's default collation) |
+| `eq`, `in` on a text column | equal **ignoring case**, not accents: "Zoë" isn't "Zoe" | empty cells | SQL `=` is case-sensitive in some databases, and ignores accents in others (MySQL 8's default collation). A Swedish or Finnish collation that ignores accents keeps å, ä and ö apart and still reads é as e |
 | `eq`, `in` on an enum, number or yes/no column | exactly equal | empty cells | |
 | `contains`, `startsWith` | ignoring case, always, but not accents | empty cells | `LIKE` case and accent rules vary by database, and `%` and `_` in the value are plain text here |
 | `gt`, `gte`, `lt`, `lte` | as written | empty cells | |
@@ -54,16 +54,20 @@ More rows of the same table:
 - **An empty operand follows the same rules.** `eq ""` and `in [""]` keep exactly the empty cells. `neq ""` leaves them out. `contains ""` and `startsWith ""` keep every row, empty cells included.
 - **A date means the whole day** on a date or date-and-time column, in the schema's Calendar time zone. `eq 2026-03-08` keeps every instant from that day's midnight to the next, in that zone. `gt` leaves out the whole day, `gte` includes it, and `between` includes both days whole. A cell with a time and an offset is the day that instant falls on in the zone. A cell with a time and no offset is on its own date. With no `timeZone` in the Calendar, GridCue uses the browser's, which a server can't know: [name a time zone](/docs/api/schema#calendar) so both sides agree.
 - **A count never keeps an empty cell in the first sorted column.** "Top 10 by market value" shows seven rows when only seven have a market value. `NaN` counts as no value.
-- **Where empty cells sort.** In `applyView` today, a cell that is `null` or missing comes last going up and first going down, and `""` sorts as the shortest text. Rows that tie keep the order they were loaded in. GridCue doesn't promise this as a rule, and the Query Check doesn't test where empty cells go: it checks the order of rows that hold a value in every sorted column. A row with a value in the first sorted column and none in a later one still has its place by the first: `ORDER BY b IS NULL, a, b` moves it past rows it belongs before. With a count, the Query Check tests that.
-- **Text sorts ignoring case.** The Query Check checks the order of text made of the letters A to Z. How a database orders other text is its own collation's.
+- **Rows that tie are yours to order.** A database has no load order, so rows that tie on every sorted column may come in any order. Break ties by a unique column, such as the row's own key, so two pages never repeat or skip a row. In `applyView` today they keep the order they were loaded in. GridCue doesn't promise that as a rule.
+- **A count at a tie keeps any of the tied rows.** When "top 10" cuts inside a run of rows with the same value, your query may keep any of the tied rows for its last places. It must keep every row ahead of the tied value, none behind it, and ten rows in all. `RANK() <= 10` and `FETCH FIRST 10 ROWS WITH TIES` keep every tied row, which is more than ten, and the Query Check fails them.
+- **Where empty cells sort is yours, inside a rule.** In `applyView` today, a cell that is `null` or missing comes last going up and first going down, and `""` sorts as the shortest text. GridCue doesn't promise that, so `NULLS FIRST` and `NULLS LAST` both pass the Query Check, on any column in any direction. The rule: a row is placed by its leading sorted columns that hold a value, up to its first empty one. A row with a value in the first sorted column and none in the second sits among the rows that share its first value, first or last. `ORDER BY (a IS NULL OR b IS NULL), a, b` moves it past rows with another first value, and fails, with a count or without. A row with no value in the first sorted column may sit anywhere.
+- **Text sorts by its letters, ignoring case,** not by its length first. The Query Check checks the order of text made of the letters A to Z, with single spaces between words. How a database orders other text is its own collation's.
 - **An enum sorts by its values' IDs, as text,** not by its labels, and not in the order its values are declared. A database's own enum type sorts in declared order, so sort its column as text.
-- **Hiding a column never changes which rows or what order.** A filter or sort on a hidden column still holds.
+- **Every sort holds, whatever else the view does.** A second sort orders the rows that tie on the first, on a text or enum column too, each way, and each later sort the rows that tie on the sorts before it, in a count as well. Every sort, in its own direction, and the count still hold beside a filter or an "or" group, and where a column is hidden. Build the count one way for every View State: a query that uses `RANK()` or cuts by the first sort alone only where the filters hold an "or", or only where a column is hidden, fails.
+- **Hiding a column never changes which rows or what order.** A filter or sort on a hidden column still holds, inside an "or" or "and" group too, and so does a later sort on one. A count still sorts by a hidden column.
 
 ## 4. Never put a value or a column name into query text
 
 - **Values are parameters.** A value from the View State is bound with `?`, never joined into the query text.
 - **Column IDs are checked against the schema.** Look the ID up in your View Schema before you use it as an identifier, and refuse an unknown one. Never use a restricted column.
-- **Refuse a View State too large for your database.** A View State sets no limit on how deep its filter groups nest, how many filters it holds, or how long a list is, and a database does. The example answers 400 past 16 groups deep, 200 filters or a list of 1,000 values, and reads the request in a `try`, so a body nested too deep to read is a 400 too, never a 500.
+- **Refuse a View State too large for your database.** A View State sets no limit on how deep its filter groups nest, how many filters it holds, how long a list is, or how many sorts it holds, and a database does. The example answers 400 past 16 groups deep, 200 filters or a list of 1,000 values, and reads the request in a `try`, so a body nested too deep to read is a 400 too, never a 500.
+- **Refuse a column sorted twice.** A second sort on a column says nothing its first sort didn't, and SQLite refuses an `ORDER BY` of thousands of terms. The example answers 400 for a column sorted twice, so its sorts are never more than its columns.
 
 ## 5. Run the Query Check in your tests
 
@@ -127,8 +131,10 @@ The column ID is checked against the schema before it becomes an identifier. An 
 ```ts
 const usableColumn = (schema: ViewSchema, columnId: unknown, use: "filter" | "sort"): ColumnDescriptor => {
   const column = schema.columns.find((c) => c.id === columnId);
+  // The ID is not put in the message: it came from the request.
   if (!column) throw new DataQueryError(`A ${use} names a column this grid doesn't have.`);
   if (column.sensitivity === "restricted") throw new DataQueryError(`A ${use} names a restricted column.`);
+  if (!column.capabilities.includes(use)) throw new DataQueryError(`${column.label} can't be used to ${use}.`);
   return column;
 };
 ```
@@ -155,7 +161,9 @@ for (const c of check.cases) {
 Read each case twice, once in one page and once in small pages, so a count cut after paging fails too. A failure names the rule it tests, the view in words, and the ids that are missing or extra. This one came from a query that wrote "is not" as SQL `<>`, on a small schema with a Custodian text column:
 
 ```text
-not equal keeps empty cells, and ignores case on text (Custodian is not “åLDER fen”): 4 rows missing, ids 18, 21, 28 and 66; 8 rows extra, ids 1, 9, 13, 20, 42, 55, 60 and 61
+not equal keeps empty cells, and ignores case on text (Custodian is not “åLDER fen”): 4 rows missing, ids 33, 34, 51 and 57; 8 rows extra, ids 17, 22, 27, 28, 46, 49, 54 and 64
 ```
+
+A count that returns the wrong number of rows says how many came back and how many the count asks for. Rows out of order name the first row out of place. The [Testing](/docs/api/testing#compare) page shows both, and lists what is yours to choose.
 
 The Query Check only helps a Host that runs it, and it tests the meanings core holds when it runs. Run it on every schema you serve, and again when you change the query or upgrade GridCue.
