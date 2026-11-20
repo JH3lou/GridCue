@@ -25,6 +25,8 @@ const RULES: Record<string, RegExp> = {
   react: /^(\.\.\/index|\.\/[\w-]+|react)$/,
   server: /^(\.\.\/index|\.\/[\w-]+|node:[\w/]+|@typesafe-ai\/sdk)$/,
   tanstack: /^\.\.\/index$/,
+  // The Query Check: core only, so no test runner and no dependency of its own.
+  testing: /^\.\.\/core\/[\w-]+$/,
 };
 
 describe("package boundaries", () => {

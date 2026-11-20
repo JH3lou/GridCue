@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+**Query Check for a Host's own Data Query** (ADR 0032)
+- New entry `gridcue/testing` exports `queryCheck(schema, { id, operations?, notNull? })`, with the types `QueryCheck`, `QueryCheckCase` and `QueryCheckOptions`. It builds synthetic rows from your View Schema and a list of cases. Load `rows` into a test database, run each case's `state` through your own Data Query, and pass the ids it returns, in order, to `compare`. It imports no test runner and never reads or sends a real row.
+- The cases cover the edges of each column and operator (empty cells, text case, accents and padding, `%` and `_`, number ranges, date edges), then filters beside one another, and the sorts, each text and enum column on its own. A count case appears only when `operations` lists `limit.set`. `compare` checks the ids as a set, and the order too for the rows that hold a value in every sorted column. An enum is ordered by its values' IDs, as text. Its message names the case, the missing ids and the extra ids.
+- GridCue still never writes a Data Query. Nothing in the package builds SQL.
+- New guide, [Rows on a server](https://gridcue.dev/docs/guides/rows-on-a-server), and API page, [Testing](https://gridcue.dev/docs/api/testing). The Next.js example gains a paged page with its own Data Query on `node:sqlite` (Host code), and a test that runs the Query Check against it.
+
 **Query Adapter for rows the Host fetches** (ADR 0032)
 - `createQueryAdapter` is for rows your own server fetches. It holds the View State and never fetches, and it never writes a Data Query. Build your Data Query from the View State each time it changes, and show your own loading and fetch errors.
 - `countBeforePaging: true` lists `limit.set`, and only then. Set it when your server sorts, keeps the first N rows and then pages, and your Data Query keeps the rows `applyView` keeps for a count. Left out, a count ends as a sort with the note that the count was not applied.

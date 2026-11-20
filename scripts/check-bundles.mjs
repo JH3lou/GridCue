@@ -1,18 +1,28 @@
-// Fails if a browser bundle contains the canary key or any direct Jev code.
+// Fails if a browser bundle contains the canary key, any direct Jev code, the Query Check, or the Next.js example's
+// server-only Data Query.
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
-const FORBIDDEN = ["gridcue-bundle-canary", "api.typesafe.ai", "TypeSafeClient"];
+// The Query Check's own error text (packages/gridcue/src/testing/index.ts). `gridcue/testing` is for tests, and no
+// client bundle may import it.
+const QUERY_CHECK = "queryCheck takes options after the schema";
+const FORBIDDEN = ["gridcue-bundle-canary", "api.typesafe.ai", "TypeSafeClient", QUERY_CHECK];
+// The paged example's Data Query runs only on the server: SQLite and its table (examples/next/app/api/rows/query.ts).
+const NEXT_FORBIDDEN = [...FORBIDDEN, "node:sqlite", "DatabaseSync", "grid_rows"];
 const ASSETS = /\.(js|mjs|html|css|json|map)$/;
 const ROOTS = [
   { dir: "examples/vite/dist", files: ASSETS },
   // The Site is static and has no key at all (ADR 0016). Its docs quote server code, so names like TypeSafeClient
   // can't be forbidden there. Instead, the Jev provider's own error text (packages/gridcue/src/server/jev.ts), which
   // the docs never quote, marks the provider having been bundled for the browser.
-  { dir: "apps/site/build/client", files: ASSETS, forbidden: ["gridcue-bundle-canary", "The Jev provider needs @typesafe-ai/sdk"] },
-  { dir: "examples/next/.next/static", files: ASSETS },
+  {
+    dir: "apps/site/build/client",
+    files: ASSETS,
+    forbidden: ["gridcue-bundle-canary", "The Jev provider needs @typesafe-ai/sdk", QUERY_CHECK],
+  },
+  { dir: "examples/next/.next/static", files: ASSETS, forbidden: NEXT_FORBIDDEN },
   // Pages Next prerenders are served to browsers as-is. Route handlers' server code here is not.
-  { dir: "examples/next/.next/server/app", files: /\.(html|rsc)$/ },
+  { dir: "examples/next/.next/server/app", files: /\.(html|rsc)$/, forbidden: NEXT_FORBIDDEN },
 ];
 
 const missing = ROOTS.filter(({ dir }) => !existsSync(dir)).map(({ dir }) => dir);
