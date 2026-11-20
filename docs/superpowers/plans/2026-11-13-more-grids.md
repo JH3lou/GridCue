@@ -91,22 +91,22 @@ Spec 4.2 and 5.1. ADR 0031.
 Spec 5.2. Needs PR 1.
 
 ### Task 2.1: Label (lead)
-- [ ] Name the six TanStack v8 examples from spec section 10 before the guide exists. Fetch them into scratch, outside the repo, at v8.21.3.
+- [x] Name the six TanStack v8 examples from spec section 10 before the guide exists. Fetch them into scratch, outside the repo, at v8.21.3.
 
 ### Task 2.2: CI run and guide (Sonnet)
 **Files:** `packages/gridcue/test/tanstack-legacy.test.ts`, `apps/site/content/docs/guides/tanstack-v8.mdx`, `apps/site/content/docs/guides/meta.json`.
-- [ ] The contract suite on `useLegacyTable`, owned and Host-controlled.
-- [ ] The guide: install `@tanstack/react-table@9`; change the import to `/legacy`; add GridCue as for v9; then move to `useTable`. It says React 18 is needed for v9 and 19 for `gridcue/react`, and that the Rows Adapter remains for apps that can't move.
+- [x] The contract suite on `useLegacyTable`, owned and Host-controlled.
+- [x] The guide: install `@tanstack/react-table@9`; change the import to `/legacy`; add GridCue as for v9; then move to `useTable`. It says React 18 is needed for v9 and 19 for `gridcue/react`, and that the Rows Adapter remains for apps that can't move.
 
 ### Task 2.3: Held-out run (Sonnet, a separate agent; lead reports)
-- [ ] An agent that didn't write the guide moves each of the six examples using only the guide, in scratch. The lead reports how many run unchanged after the import change and what each other one needed. No bar; a failure goes to the owner.
+- [x] An agent that didn't write the guide moves each of the six examples using only the guide, in scratch. The lead reports how many run unchanged after the import change and what each other one needed. No bar; a failure goes to the owner.
 
 ### Task 2.4: Skill (Sonnet), links (Haiku)
-- [ ] `skills/gridcue/references/setup.md`: the v8 row becomes the steps. `pnpm check:skills`.
-- [ ] `get-started/quick-start` links the new guide.
+- [x] `skills/gridcue/references/setup.md`: the v8 row becomes the steps. `pnpm check:skills`.
+- [x] `get-started/quick-start` links the new guide.
 
 ### Task 2.5: Review (Opus), gate
-- [ ] A throwaway copy of the Vite example on `useLegacyTable`, outside the repo, checked in a real browser, light and dark. Screenshots in the PR.
+- [x] A throwaway copy of the Vite example on `useLegacyTable`, outside the repo, checked in a real browser, light and dark. Screenshots in the PR. The lead made the copy as a local edit of the example, following the guide's steps, and discarded it.
 
 ## PR 3: A grid that can't group says so (`fix/grid-cant-group`)
 
