@@ -109,7 +109,7 @@ A pluggable service that picks among closed, Host-approved choices to help inter
 _Avoid_: Model, LLM, AI backend
 
 **Controller**:
-The single object a developer creates to wire one grid to GridCue. It takes a View Schema, a Grid Adapter, and an Intent Provider, and runs a request from Utterance to applied View Plan.
+The single object a developer creates to wire one grid to GridCue. It takes a View Schema, a Grid Adapter, and an Intent Provider, the Local Resolver, or both, and runs a request from Utterance to applied View Plan.
 _Avoid_: Client, engine, instance
 
 **Grid Adapter**:
