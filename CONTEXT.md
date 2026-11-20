@@ -36,6 +36,10 @@ _Avoid_: Match, hit, reference
 What one row of a grid is, such as "account", declared by the Host. In a request it means the rows, not a column.
 _Avoid_: Entity type, record type
 
+**Declared Grid**:
+One of the grids the Host lists as places a request can be sent, each with its own Row Noun.
+_Avoid_: Screen, page, route, tab
+
 **Value Group**:
 A Host-named category over several enum values of one column, such as Retirement = IRA and Roth IRA.
 _Avoid_: Category, bucket, tag
@@ -63,6 +67,10 @@ _Avoid_: Fallback, no-op success
 **Unsupported Segment**:
 A part of an Utterance that asks for something outside the view-only boundary, such as editing data or placing a trade.
 _Avoid_: Rejected intent, error
+
+**Grid Offer**:
+GridCue's offer to open another Declared Grid when a request names that grid or is about its rows. The User chooses, and the Host opens the grid.
+_Avoid_: Redirect, jump, navigation
 
 ## Views
 
@@ -113,6 +121,10 @@ _Avoid_: Summary, explanation
 **View Sentence**:
 The plain-English reading of a whole View State, such as "Taxable accounts over $1,000,000, grouped by Advisor." The View State is the record; the sentence is how it reads.
 _Avoid_: Description, caption, summary
+
+**Saved View**:
+A View State the Host stores under a name the User chose. GridCue saves and opens one by request through the Host, and never stores it.
+_Avoid_: Bookmark, preset, layout, favourite
 
 ## Integration points
 
