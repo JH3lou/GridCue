@@ -699,15 +699,16 @@ describe("AG Grid adapter: one apply, however the grid answers", () => {
   it("refuses an apply or restore asked for from inside a write that is put back, and tells no one", async () => {
     const { api, schema } = makeGrid(latest, "clientSide", rows, columnDefs);
     let adapter: ReturnType<typeof createAgGridAdapter> | undefined;
-    let inner: Array<Promise<unknown>> = [];
+    const inner: Array<Promise<unknown>> = [];
     let throws = 1;
     const reentrant: AgGridApiLike = {
       ...callsOf(api),
+      // Called twice: by the write, then by putting the grid back. Each time, the Host asks for an apply and a restore.
       setFilterModel: (model) => {
         api.setFilterModel(model);
-        if (!adapter || inner.length > 0) return;
+        if (!adapter) return;
         const other = validated(adapter, [{ type: "sort.set", sorts: [{ columnId: "value", direction: "desc" }] }]);
-        inner = [adapter.apply(other), adapter.restore(adapter.getState())];
+        inner.push(adapter.apply(other), adapter.restore(adapter.getState()));
       },
       applyColumnState: (params) => {
         if (throws-- > 0) throw new Error("the Host's comparator threw");
@@ -721,7 +722,7 @@ describe("AG Grid adapter: one apply, however the grid answers", () => {
     adapter.subscribe((s) => told.push(s));
     const plan = validated(adapter, [filter("value", "gt", 6), { type: "sort.set", sorts: [{ columnId: "value", direction: "asc" }] }]);
     await expect(adapter.apply(plan)).rejects.toThrow("comparator");
-    expect(inner).toHaveLength(2);
+    expect(inner).toHaveLength(4);
     for (const refused of await Promise.all(inner)) expect(refused).toMatchObject({ ok: false, code: "ADAPTER_FAILED" });
     expect(told).toHaveLength(0);
     expect(written(api)).toBe(grid);
