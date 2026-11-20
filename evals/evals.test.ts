@@ -14,6 +14,18 @@ describe("evals with the Mock Provider", () => {
   }
 });
 
+// Reading cases: a question where a plan was expected is a reported miss; a wrong view fails.
+describe("reading evals with the Mock Provider", () => {
+  for (const file of ["cases-reading.jsonl", "cases-reading-heldout.jsonl"]) {
+    for (const c of loadCases(new URL(`./${file}`, import.meta.url))) {
+      it(`${file}: ${c.id}`, async () => {
+        const result = await runCase(c, provider);
+        expect(result.verdict, JSON.stringify(result.plan, null, 1)).not.toBe("unsafe");
+      });
+    }
+  }
+});
+
 describe("the verdict", () => {
   const show = { type: "columns.show", columnIds: ["custodian"] };
   const hide = { type: "columns.hide", columnIds: ["custodian"] };

@@ -1,4 +1,5 @@
 import { type ConfidencePolicy, DEFAULT_CONFIDENCE } from "./compile";
+import { formatAmount } from "./format";
 import type { ColumnDescriptor, FilterGroup, FilterPredicate, Scalar, ViewOperation, ViewPlan, ViewSchema, ViewState } from "./protocol";
 
 const OPERATOR_TEXT: Record<FilterPredicate["operator"], string> = {
@@ -16,16 +17,12 @@ const OPERATOR_TEXT: Record<FilterPredicate["operator"], string> = {
   isNotEmpty: "to not empty",
 };
 
-const currency = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
-
 /** Formats a filter value for people, using the column's kind and approved enum labels. */
 export const formatValue = (value: Scalar, column?: ColumnDescriptor): string => {
   if (value === null) return "empty";
   if (column?.kind === "boolean" || typeof value === "boolean") return value ? "Yes" : "No";
   if (column?.kind === "enum") return column.enumValues?.find((e) => e.id === value)?.label ?? String(value);
-  if (typeof value === "number" && column?.kind === "currency") return currency.format(value);
-  if (typeof value === "number" && column?.kind === "percent") return `${Math.round(value * 1000) / 10}%`;
-  if (typeof value === "number") return value.toLocaleString("en-US");
+  if (typeof value === "number") return formatAmount(value, column?.kind);
   return `“${value}”`;
 };
 
@@ -99,8 +96,9 @@ export interface Preview {
   /** One line per operation, in order. */
   lines: string[];
   /**
-   * What the request asked for that the plan leaves out, such as a count on a grid that can't limit rows ("top 10"
-   * where the adapter has no `limit.set`, ADR 0018). Not an operation, so never a line; `text` includes them.
+   * Where the plan differs from the request's words: a count on a grid that can't limit rows ("top 10" where the
+   * adapter has no `limit.set`, ADR 0018), or rows with no value that leaving something out hides too ("exclude
+   * accounts over $1m"). Not an operation, so never a line; `text` includes them, and both UIs show them.
    * `renderPreview` always sets it; optional so a Preview built by hand (a fixture, a story) still type-checks.
    */
   notes?: string[];
@@ -115,6 +113,16 @@ export const droppedLimit = (plan: Partial<Pick<ViewPlan, "evidence">>): number 
   return Number.isInteger(count) && count > 0 ? count : undefined;
 };
 
+/**
+ * Columns a plan filters to "everything except what the request named" ("exclude accounts over $1m", "non-retirement").
+ * Such a filter also leaves out rows with no value in that column, which the request didn't name.
+ */
+const leftOutEmpty = (plan: Pick<ViewPlan, "operations"> & Partial<Pick<ViewPlan, "evidence">>): string[] => {
+  const filtered = new Set(plan.operations.flatMap((op) => (op.type === "filter.add" ? [op.predicate.columnId] : [])));
+  const columns = (plan.evidence ?? []).flatMap((e) => (e.key.endsWith(".leftOutEmpty") && e.selectedId ? [e.selectedId] : []));
+  return [...new Set(columns)].filter((id) => filtered.has(id));
+};
+
 /** Renders exactly what a plan will change. Deterministic: the same plan always gives the same text. */
 export const renderPreview = (
   plan: Pick<ViewPlan, "operations"> & Partial<Pick<ViewPlan, "evidence">>,
@@ -124,7 +132,11 @@ export const renderPreview = (
 ): Preview => {
   const lines = plan.operations.map((op) => describe(op, schema, current));
   const count = droppedLimit(plan);
-  const notes = count === undefined ? [] : [`Count not applied: this grid can't show only the first ${count.toLocaleString("en-US")}`];
+  const label = (id: string) => schema.columns.find((c) => c.id === id)?.label ?? id;
+  const notes = [
+    ...(count === undefined ? [] : [`Count not applied: this grid can't show only the first ${count.toLocaleString("en-US")}`]),
+    ...leftOutEmpty(plan).map((id) => `Rows with no ${label(id)} are hidden too`),
+  ];
   const joined = [...lines, ...notes].map((l, i) => (i === 0 ? l : l.charAt(0).toLowerCase() + l.slice(1))).join("; ");
   return { lines, notes, text: `${joined ? `${joined}. ` : ""}No records will be changed.` };
 };

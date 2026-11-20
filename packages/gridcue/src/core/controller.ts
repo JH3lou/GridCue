@@ -124,6 +124,7 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
       mentions: session.mentions,
       answers: session.answers,
       operations: adapter.getCapabilities().operations,
+      defaultState: adapter.getDefaultState(),
       ...(options.confidence ? { confidence: options.confidence } : {}),
       newId: (prefix) => `${prefix}_${++ids}`,
     });

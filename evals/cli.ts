@@ -110,9 +110,14 @@ const core = await run(new URL("./cases.jsonl", import.meta.url), "cases.jsonl")
 const extra = live ? await run(new URL("./cases-live.jsonl", import.meta.url), "cases-live.jsonl") : undefined;
 const fanout = live ? await run(new URL("./cases-fanout.jsonl", import.meta.url), "cases-fanout.jsonl") : undefined;
 const chassis = live ? await run(new URL("./cases-chassis.jsonl", import.meta.url), "cases-chassis.jsonl") : undefined;
+// Reading cases (comparison symbols, negative amounts, quoted text): none may be unsafe with either provider.
+// Mismatches are reported, not failed.
+const reading = await run(new URL("./cases-reading.jsonl", import.meta.url), "cases-reading.jsonl");
+// The same classes in other words, labelled before the fixes and first run after them (2026-11-10).
+const readingHeldOut = await run(new URL("./cases-reading-heldout.jsonl", import.meta.url), "cases-reading-heldout.jsonl");
 
 // Applying a view the user did not ask for is release-blocking with any provider.
-// With the Mock Provider every case must match exactly, because its answers are deterministic.
-if (core.unsafe > 0 || (extra?.unsafe ?? 0) > 0 || (fanout?.unsafe ?? 0) > 0 || (chassis?.unsafe ?? 0) > 0 || (!live && core.mismatch > 0))
-  process.exit(1);
-if (strict && [core, extra, fanout, chassis].some((counts) => (counts?.mismatch ?? 0) > 0)) process.exit(1);
+// With the Mock Provider every core case must match exactly, because its answers are deterministic.
+const all = [core, extra, fanout, chassis, reading, readingHeldOut];
+if (all.some((counts) => (counts?.unsafe ?? 0) > 0) || (!live && core.mismatch > 0)) process.exit(1);
+if (strict && all.some((counts) => (counts?.mismatch ?? 0) > 0)) process.exit(1);

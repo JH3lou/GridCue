@@ -21,7 +21,9 @@ export const findMentions = <T>(text: string, entries: ReadonlyArray<{ item: T; 
       if (!n) continue;
       const tokens = n.match(/[\p{L}\p{N}]+/gu);
       if (!tokens || tokens.length === 0) continue;
-      const pattern = tokens.map(escapeRegExp).join("[^\\p{L}\\p{N}]*");
+      // A symbol that ends a name ("account #") is part of it, so the longer name wins and none of it is left unread.
+      const symbol = /([^\p{L}\p{N}\s])$/u.exec(n)?.[1];
+      const pattern = tokens.map(escapeRegExp).join("[^\\p{L}\\p{N}]*") + (symbol ? ` ?${escapeRegExp(symbol)}` : "");
       const re = new RegExp(`(?<![\\p{L}\\p{N}])${pattern}(?:s|es)?(?![\\p{L}\\p{N}])`, "gu");
       for (const m of text.matchAll(re)) {
         hits.push({ item, start: m.index ?? 0, end: (m.index ?? 0) + m[0].length });

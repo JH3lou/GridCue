@@ -196,16 +196,25 @@ interface ControllerState {
 | `issues` | `Issue[]` | Problems found, each with a stable `code`, a `message` safe to show Users and an optional `path`. |
 | `canUndo` | `boolean` | `true` when the last apply can be undone: the grid is still at the revision that apply produced. |
 
-`Preview` has two fields:
+`Preview` has three fields:
 
 ```ts
 interface Preview {
   /** One line per operation, in order. */
   lines: string[];
+  /** Where the plan differs from the request's words. Not operations, so never lines. */
+  notes?: string[];
   /** The whole preview as one sentence, ending with the no-data-change assurance. */
   text: string;
 }
 ```
+
+A note says something the User should read before applying:
+
+- "Count not applied: this grid can't show only the first 10", when the request gave a count and the grid can't limit rows.
+- "Rows with no Market value are hidden too", when the request left rows out ("exclude accounts over $1M") and the filter that keeps the rest also drops rows with no value in that column.
+
+`renderPreview` always sets `notes`, and `text` includes them. A custom UI that shows `lines` should show `notes` too; the built-in bar and the registry's `PreviewPanel` do.
 
 The Preview is deterministic: the same plan always gives the same text, and `text` always ends with "No records will be changed."
 

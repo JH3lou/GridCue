@@ -33,6 +33,13 @@ export const runCommandBarSuite = (name: string, renderBar: (controller: GridCue
       await waitFor(() => expect(adapter.getState().state.sorts).toHaveLength(0));
     });
 
+    it("says where the plan differs from the request's words", async () => {
+      const { user, input } = setup();
+      await user.type(input, "exclude value over $100{Enter}");
+      expect(await screen.findByText("Filter Value at or below $100")).toBeTruthy();
+      expect(screen.getByText("Rows with no Value are hidden too.")).toBeTruthy();
+    });
+
     it("applies a ready preview with Ctrl+Enter without leaving the input", async () => {
       const { adapter, user, input } = setup();
       await user.type(input, "sort by value{Enter}");
