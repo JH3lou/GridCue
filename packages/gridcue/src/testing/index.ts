@@ -1073,19 +1073,28 @@ export const queryCheck = (schema: ViewSchema, options: QueryCheckOptions): Quer
   // An or group of three filters: each keeps a row the other two don't, and not every row is kept. A Data Query that
   // reads a group of three or more another way than a group of two fails here, and in the sorts and the count beside it.
   // Filters on three columns first, then on two.
+  // Searched lazily, in the order the triples are made: a wide schema has millions of them, and the first that holds
+  // is the one used.
   const orOfThree = (() => {
-    const columnsOf = (list: readonly Single[]) => new Set(list.map((s) => s.columnId)).size;
-    const triples = splitters.flatMap((a, i) =>
-      splitters.slice(i + 1).flatMap((b, j) => splitters.slice(i + j + 2).map((c) => [a, b, c] as const)),
-    );
-    return [...triples]
-      .filter((t) => columnsOf(t) >= 2)
-      .sort((x, y) => columnsOf(y) - columnsOf(x))
-      .find(([a, b, c]) => {
-        const all = either(either(a.keeps, b.keeps), c.keeps);
-        const without = [either(b.keeps, c.keeps), either(a.keeps, c.keeps), either(a.keeps, b.keeps)];
-        return sizeOf(all) < total && without.every((rest) => !same(rest, all));
-      });
+    const columnsOf = (a: Single, b: Single, c: Single) => new Set([a.columnId, b.columnId, c.columnId]).size;
+    const holds = (a: Single, b: Single, c: Single) => {
+      const all = either(either(a.keeps, b.keeps), c.keeps);
+      const without = [either(b.keeps, c.keeps), either(a.keeps, c.keeps), either(a.keeps, b.keeps)];
+      return sizeOf(all) < total && without.every((rest) => !same(rest, all));
+    };
+    for (const columns of [3, 2]) {
+      for (let i = 0; i < splitters.length; i++) {
+        for (let j = i + 1; j < splitters.length; j++) {
+          for (let k = j + 1; k < splitters.length; k++) {
+            const a = splitters[i] as Single;
+            const b = splitters[j] as Single;
+            const c = splitters[k] as Single;
+            if (columnsOf(a, b, c) === columns && holds(a, b, c)) return [a, b, c] as const;
+          }
+        }
+      }
+    }
+    return undefined;
   })();
   if (orOfThree) {
     const [a, b, c] = orOfThree;
