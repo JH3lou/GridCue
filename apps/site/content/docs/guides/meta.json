@@ -3,6 +3,7 @@
   "pages": [
     "vite-tanstack",
     "tanstack-v8",
+    "ag-grid",
     "next-rows-adapter",
     "rows-on-a-server",
     "server-handler",
