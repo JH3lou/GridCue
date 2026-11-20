@@ -671,6 +671,31 @@ describe("AG Grid adapter: one apply, however the grid answers", () => {
     for (const state of seen) expect(state).toEqual(before);
   });
 
+  it("refuses an apply or restore asked for from inside a write, and keeps the first write whole", async () => {
+    const { api, schema } = makeGrid(latest, "clientSide", rows, columnDefs);
+    let adapter: ReturnType<typeof createAgGridAdapter> | undefined;
+    let inner: Array<Promise<unknown>> = [];
+    const reentrant: AgGridApiLike = {
+      ...callsOf(api),
+      setFilterModel: (model) => {
+        api.setFilterModel(model);
+        if (!adapter || inner.length > 0) return;
+        const other = validated(adapter, [{ type: "sort.set", sorts: [{ columnId: "value", direction: "desc" }] }]);
+        inner = [adapter.apply(other), adapter.restore(adapter.getState())];
+      },
+    };
+    adapter = createAgGridAdapter({ schema, api: reentrant });
+    const told: VersionedViewState[] = [];
+    adapter.subscribe((s) => told.push(s));
+    const result = await adapter.apply(
+      validated(adapter, [filter("value", "gt", 6), { type: "sort.set", sorts: [{ columnId: "value", direction: "asc" }] }]),
+    );
+    expect(result.ok).toBe(true);
+    for (const refused of await Promise.all(inner)) expect(refused).toMatchObject({ ok: false, code: "ADAPTER_FAILED" });
+    expect(told).toHaveLength(1);
+    expect(adapter.getState().state.sorts).toEqual([{ columnId: "value", direction: "asc" }]);
+  });
+
   it("puts the grid back and rethrows when a write throws, as when a Host's comparator throws", async () => {
     const { api, schema } = makeGrid(latest, "clientSide", rows, columnDefs);
     const thrown = new Error("the Host's comparator threw");

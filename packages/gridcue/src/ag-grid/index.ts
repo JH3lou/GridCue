@@ -340,6 +340,8 @@ export const createAgGridAdapter = (options: AgGridAdapterOptions): GridAdapter 
    * would see and report half a write. `write` reads the grid after, or puts it back.
    */
   let writing = false;
+  /** An apply or restore asked for from a grid callback inside a write: refused, so the first write stays whole. */
+  const BUSY: ApplyResult = { ok: false, code: "ADAPTER_FAILED", message: "GridCue is already changing the grid, so nothing was changed." };
   /** The grid's View State. Inside a write, the last one reported, since the grid holds half the change. */
   const fresh = (): VersionedViewState => {
     if (!writing) sync();
@@ -475,6 +477,7 @@ export const createAgGridAdapter = (options: AgGridAdapterOptions): GridAdapter 
     async apply(plan) {
       if (!isApplicable(plan)) return { ok: false, code: "ADAPTER_NOT_APPLICABLE", message: "Only validated plans can be applied." };
       if (api.isDestroyed()) return { ok: false, code: "ADAPTER_FAILED", message: "The grid is destroyed." };
+      if (writing) return BUSY;
       if (plan.baseRevision !== fresh().revision) return { ok: false, code: "ADAPTER_STALE_REVISION", message: "The view changed first." };
       const unlisted = plan.operations.find((op) => !operations.includes(op.type));
       if (unlisted)
@@ -483,6 +486,7 @@ export const createAgGridAdapter = (options: AgGridAdapterOptions): GridAdapter 
     },
     async restore(snapshot) {
       if (api.isDestroyed()) return { ok: false, code: "ADAPTER_FAILED", message: "The grid is destroyed." };
+      if (writing) return BUSY;
       sync();
       // GridCue never writes a grouping: Community has none, and an Enterprise grouping stays the User's. So the grid
       // holds a snapshot only with the grouping it has, which every snapshot this adapter took has: undo runs only
