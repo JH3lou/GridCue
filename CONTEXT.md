@@ -86,6 +86,10 @@ _Avoid_: Approved plan, valid plan
 The deterministic, human-readable description of exactly what a View Plan would change, shown before anything is applied.
 _Avoid_: Summary, explanation
 
+**View Sentence**:
+The plain-English reading of a whole View State, such as "Taxable accounts over $1,000,000, grouped by Advisor." The View State is the record; the sentence is how it reads.
+_Avoid_: Description, caption, summary
+
 ## Integration points
 
 **Intent Provider**:
@@ -93,7 +97,7 @@ A pluggable service that picks among closed, Host-approved choices to help inter
 _Avoid_: Model, LLM, AI backend
 
 **Controller**:
-The single object a developer creates to wire one grid to GridCue. It takes a View Schema, a Grid Adapter, and an Intent Provider, and runs a request from Utterance to applied View Plan.
+The single object a developer creates to wire one grid to GridCue. It takes a View Schema, a Grid Adapter, and an Intent Provider, the Local Resolver, or both, and runs a request from Utterance to applied View Plan.
 _Avoid_: Client, engine, instance
 
 **Grid Adapter**:
@@ -111,6 +115,10 @@ _Avoid_: Suggestion, completion
 **Mock Provider**:
 An Intent Provider that answers from fixed rules instead of a model, so GridCue runs with no account or key. It powers tests and the public fake demo.
 _Avoid_: Fake model, stub, dummy provider
+
+**Local Resolver**:
+GridCue's own deterministic reader, which runs in the User's browser. It resolves a request it can read in full and declines the rest. With no Intent Provider it runs alone; with one and `local: true` it reads first, and the provider is called only for what it declines.
+_Avoid_: Rules engine, offline mode, fast path
 
 **Server Handler**:
 A small Host-side endpoint that holds the Intent Provider's credentials and answers resolution requests, so keys never reach the User's browser.

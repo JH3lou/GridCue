@@ -29,12 +29,23 @@ These explain what the source alone can't: the product boundary, the pipeline, a
 - [0009: Grid adapters report manual view changes](./adr/0009-grid-adapters-report-manual-changes.md)
 - [0010: Protocol 0.1 additions](./adr/0010-protocol-0-1-additions.md)
 - [0011: `gridcue/server` resolves to the real module on edge runtimes](./adr/0011-server-entry-runs-on-edge-runtimes.md)
+- [0012: The compiler decides between competing Operation Families](./adr/0012-operation-family-precedence.md)
+- [0013: Deterministic Mentions, literal columns, and a pinned Jev model](./adr/0013-deterministic-mentions-and-literal-columns.md)
+- [0014: Per-part fan-out](./adr/0014-per-part-fan-out.md)
+- [0015: Resolution chassis](./adr/0015-resolution-chassis.md)
+- [0016: The Site is static on Workers static assets](./adr/0016-site-is-static-on-workers-assets.md)
+- [0017: A new filter replaces the current filters](./adr/0017-a-new-filter-replaces-the-current-filters.md)
+- [0018: Size words, the main value column, and counts](./adr/0018-size-words-main-value-column-and-counts.md)
+- [0019: A ready plan uses everything GridCue read](./adr/0019-a-ready-plan-uses-everything-it-read.md)
+- [0020: The Local Resolver reads first, and a provider is optional](./adr/0020-local-resolver-and-optional-provider.md), not yet built
+- [0021: The View State is the record](./adr/0021-the-view-state-is-the-record.md), not yet built
 
 ### Planning
 
 - [Build-plan interview](./planning/build-plan-grill.md): open questions and the owner's answers
 - [Bootstrap work order](./planning/bootstrap-work-order.md): the original proposal, kept for history
 - [Handoff, 2026-09-24](./planning/handoff-2026-09-24.md): where the first build stopped, open follow-ups, and next steps
+- [Four bets interview](./planning/four-bets-grill.md): test results and the owner's answers for the View Sentence, as-you-type, the Local Resolver, and terse requests
 
 ### Runbooks
 
