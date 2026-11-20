@@ -1,6 +1,6 @@
 # Two gates for pins, totals and density
 
-**Status:** accepted with the operation set spec (2026-11-13). Built for pins, density and totals: the `pin` and `aggregate` column defaults, `renders` with `"pinning"`, `"density"` and `"totals"`, and "This grid can't …" for each. Not yet built: the TanStack count.
+**Status:** accepted with the operation set spec (2026-11-13). Built: the `pin` and `aggregate` column defaults, `renders` with `"pinning"`, `"density"` and `"totals"` for pins, density and totals, with "This grid can't …" for each, and `"count"` on the TanStack Table adapter.
 
 A pin or a total reaches a grid through two gates, and each gate has its own default. A density passes the second gate only.
 

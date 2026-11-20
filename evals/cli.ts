@@ -4,12 +4,16 @@ import type { IntentProvider, ResolutionRequest, ResolutionResult } from "gridcu
 import { createMockProvider } from "gridcue/mock";
 import { createJevProvider, JEV_SIGNALS, type JevClient, type JevSignal, type JevStrategy } from "gridcue/server";
 import {
+  caseFiles,
   type EvalCase,
+  failsTanStackRun,
+  LIVE_ONLY_SETS,
   loadCases,
   mockOptionsFor,
   passesWithoutRenders,
   REVIEW_R2_FOR_THE_OWNER,
   runCase,
+  runOnTanStack,
   runWithoutGrouping,
   runWithoutRenders,
   type Verdict,
@@ -32,6 +36,11 @@ const signals: Partial<Record<JevSignal, boolean>> = {
 for (const s of Object.keys(signals))
   if (!(JEV_SIGNALS as readonly string[]).includes(s)) throw new Error(`Unknown signal "${s}". Use ${JEV_SIGNALS.join(", ")}.`);
 const setup = [live ? strategy : "", ...Object.entries(signals).map(([s, v]) => `${v ? "+" : "-"}${s}`)].filter(Boolean).join(" ");
+// Exits once everything printed has been written: to a pipe, `process.exit` alone can cut the report off.
+const exit = async (code: number) => {
+  await new Promise<void>((resolve) => process.stdout.write("", () => resolve()));
+  process.exit(code);
+};
 if (live && !process.env.JEV_API_KEY) {
   console.log("Skipping live evals: JEV_API_KEY is not set.");
   process.exit(0);
@@ -135,10 +144,76 @@ const run = async (file: URL, label: string, forTheOwner: readonly string[] = []
   return { ...counts, unsafe: counts.unsafe - owners };
 };
 
+/**
+ * Every set on the TanStack Table adapter as well as the Rows Adapter (operation set spec, section 10), with the case's
+ * `renders` plus "count". A case fails when its TanStack result differs from its Rows Adapter result in any part, or
+ * when it is a wrong view by its labels; the live-only sets are judged by their labels only with `--live`. With
+ * `--live` the two runs ask the model apart, so a difference is reported and not failed. `perSet` prints a table for
+ * each set; otherwise one totals line. Returns how many cases failed.
+ */
+const tanStackRun = async (perSet: boolean): Promise<number> => {
+  type Counts = Record<Verdict | "unsafe, not judged" | "unsafe, the owner's" | "differs", number>;
+  const zero = (): Counts => ({
+    exact: 0,
+    safe_abstention: 0,
+    rejected: 0,
+    mismatch: 0,
+    unsafe: 0,
+    "unsafe, not judged": 0,
+    "unsafe, the owner's": 0,
+    differs: 0,
+  });
+  const totals = zero();
+  let cases = 0;
+  let failed = 0;
+  const started = Date.now();
+  for (const file of caseFiles()) {
+    const counts = zero();
+    const judged = live || !LIVE_ONLY_SETS.includes(file);
+    for (const c of loadCases(new URL(file, import.meta.url))) {
+      useProviderFor(c);
+      const result = await runOnTanStack(c, provider);
+      cases++;
+      const verdict = result.tanstack?.verdict;
+      // The owner's decisions in the review fixes' second held-out set are ready here, as on the Rows Adapter.
+      const forTheOwner = file === "cases-review-fixes-heldout-r2.jsonl" && REVIEW_R2_FOR_THE_OWNER.includes(c.id);
+      // A wrong view in a live-only set is counted apart: with the Mock Provider those labels are not judged.
+      if (verdict)
+        counts[
+          verdict === "unsafe" && !judged ? "unsafe, not judged" : verdict === "unsafe" && forTheOwner ? "unsafe, the owner's" : verdict
+        ]++;
+      if (!result.same) counts.differs++;
+      const wrong = judged && verdict === "unsafe" && !forTheOwner;
+      if (failsTanStackRun(result, { wrong, live })) failed++;
+      if (wrong) console.log(`UNSAFE on TanStack: ${file}: ${c.id}`);
+      if (!result.same) console.log(`DIFFERS on TanStack: ${file}: ${c.id} (“${c.utterance}”)\n    ${result.why.join("\n    ")}`);
+      else if (verbose) console.log(`ok on TanStack ${file}: ${c.id} (${verdict})`);
+    }
+    for (const k of Object.keys(totals) as Array<keyof Counts>) totals[k] += counts[k];
+    if (perSet) {
+      console.log(
+        `GridCue evals on the TanStack Table adapter: ${file}${judged ? "" : " (held to the Rows Adapter only)"} (${live ? "Jev" : "Mock Provider"})`,
+      );
+      console.table(counts);
+    }
+  }
+  const line = Object.entries(totals)
+    .map(([k, n]) => `${n} ${k}`)
+    .join(", ");
+  console.log(
+    `GridCue evals on the TanStack Table adapter: ${cases} cases in ${caseFiles().length} sets: ${line} (${Date.now() - started} ms)`,
+  );
+  return failed;
+};
+
+// `--adapter=tanstack` runs every set on the TanStack Table adapter and the Rows Adapter, one table for each set.
+if (flag("adapter") === "tanstack") await exit((await tanStackRun(true)) > 0 ? 1 : 0);
+if (flag("adapter") !== undefined && flag("adapter") !== "rows")
+  throw new Error(`Unknown adapter "${flag("adapter")}". Use rows or tanstack.`);
+
 // `--grid=no-group` runs every existing set on a grid that doesn't list `group.set` instead (more grids spec, 10).
 // A case whose expected plan groups must end not applied; every other case must keep its verdict on the Rows Adapter.
 // A case unsafe on both grids fails too, except in the live-only sets, whose Mock wrong views are known and not judged.
-const LIVE_ONLY_SETS = ["cases-live.jsonl", "cases-fanout.jsonl", "cases-chassis.jsonl"];
 if (flag("grid") === "no-group") {
   const dir = new URL("./", import.meta.url);
   const files = readdirSync(dir)
@@ -619,5 +694,11 @@ const mockMustMatch = [
   providerPicksHeldOut,
   viewWords,
 ];
-if (all.some((counts) => (counts?.unsafe ?? 0) > 0) || (!live && mockMustMatch.some((counts) => counts.mismatch > 0))) process.exit(1);
-if (strict && all.some((counts) => (counts?.mismatch ?? 0) > 0)) process.exit(1);
+// The TanStack run, after every Rows Adapter set, so the TanStack count path is in the gate (operation set spec,
+// section 10). It prints one totals line, and a line for each case that fails. With `--live` it would ask the model
+// twice for each case, so it runs only when asked for, with `--adapter=tanstack`.
+const tanStackFailed = live ? 0 : await tanStackRun(false);
+if (live) console.log("GridCue evals on the TanStack Table adapter: not run with --live. Run it with --adapter=tanstack.");
+if (tanStackFailed > 0) await exit(1);
+if (all.some((counts) => (counts?.unsafe ?? 0) > 0) || (!live && mockMustMatch.some((counts) => counts.mismatch > 0))) await exit(1);
+if (strict && all.some((counts) => (counts?.mismatch ?? 0) > 0)) await exit(1);

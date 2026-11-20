@@ -55,7 +55,7 @@ Success means:
 - **Editing the View Sentence's text in place.** A part of the current view can still be removed, through a Preview: the command bar builds that (ADR 0039).
 - **New view operations.** OR filters, and a minimum, a maximum or a count of rows as a total, stay unreachable by request. "Starts with", empty and not empty are now read by code (named filters spec, 5.2), and so are pinning, density and totals (a sum or an average), where the grid draws them (operation set spec, 5.2). The sentence words them for reading and says the first three can't be typed back; pins, density and totals can, on a grid that draws them.
 - **A completion menu.** Tab completes only when one name fits.
-- **`limit.set` in the TanStack Table adapter.**
+- **`limit.set` in the TanStack Table adapter.** It is now built, outside the four bets: the TanStack Table adapter lists it with `renders: ["count"]` and GridCue's count piece, and never on a table that holds one page of its rows (operation set spec, 5.5; ADR 0027).
 
 ## 4. Shared pieces
 

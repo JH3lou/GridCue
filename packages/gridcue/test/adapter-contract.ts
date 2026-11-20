@@ -39,13 +39,14 @@ const planFor = (adapter: GridAdapter, operations: ViewOperation[]): ViewPlan =>
 
 /**
  * What a Host's table draws beyond the rows, as an adapter's `renders` option names it, and the operation each name
- * lets the adapter list (operation set spec, 4.2). An adapter lists each one only when its `renders` names it.
- * "count" is the operation set's PR 4: no adapter takes it yet.
+ * lets the adapter list (operation set spec, 4.2). An adapter lists each one only when its `renders` names it, apart
+ * from `limit.set` on an adapter that keeps a count with no option.
  */
 export const LISTED_BY_RENDERS = {
   pinning: "columns.pin",
   density: "density.set",
   totals: "aggregation.set",
+  count: "limit.set",
 } as const;
 export type RenderName = keyof typeof LISTED_BY_RENDERS;
 
@@ -53,7 +54,10 @@ export type RenderName = keyof typeof LISTED_BY_RENDERS;
 export interface ContractOptions {
   /** The adapter's `renders` option. Absent: none. */
   renders?: readonly RenderName[];
-  /** True when the adapter keeps a count with no option, as the Rows Adapter does (ADR 0018), and so lists `limit.set`. */
+  /**
+   * True when the adapter keeps a count with no option, as the Rows Adapter does (ADR 0018), and so lists `limit.set`.
+   * The TanStack Table adapter lists it only with `renders: ["count"]` (ADR 0027).
+   */
   keepsCount?: boolean;
 }
 
@@ -137,6 +141,15 @@ const OPERATION_CHECKS: Record<string, (h: ContractHarness) => Step[]> = {
       holds: (s) => expect(s.limit).toBe(2),
     },
     { operations: [{ type: "limit.set", count: 5 }], holds: (s) => expect(s.limit).toBe(5) },
+    {
+      // A plan that changes only the sort keeps the count: validation applies what the plan says (the count question is
+      // the compiler's, spec 5.1), and the count then keeps the first rows of the new order.
+      operations: [{ type: "sort.set", sorts: [{ columnId: a, direction: "asc" }] }],
+      holds: (s) => {
+        expect(s.limit).toBe(5);
+        expect(s.sorts).toEqual([{ columnId: a, direction: "asc" }]);
+      },
+    },
     { operations: [{ type: "limit.set", count: null }], holds: (s) => expect(s.limit).toBeUndefined() },
   ],
 };
@@ -158,14 +171,14 @@ const validated = (adapter: GridAdapter, operations: ViewOperation[]) => {
  */
 export const runAdapterContract = (name: string, make: () => ContractHarness, options: ContractOptions = {}) => {
   const renders = options.renders ?? [];
-  const listed = [...(options.keepsCount ? ["limit.set"] : []), ...renders.map((r) => LISTED_BY_RENDERS[r])];
+  const listed = [...new Set([...(options.keepsCount ? ["limit.set"] : []), ...renders.map((r) => LISTED_BY_RENDERS[r])])];
   describe(`${name}: adapter contract`, () => {
-    it("lists columns.pin, density.set and aggregation.set each only when its renders names it", () => {
+    it("lists columns.pin, density.set, aggregation.set and limit.set each only when its renders names it", () => {
       const operations = make().adapter.getCapabilities().operations;
       for (const [rendered, op] of Object.entries(LISTED_BY_RENDERS)) {
-        expect(operations.includes(op), `${op}, with renders ${JSON.stringify(renders)}`).toBe(renders.includes(rendered as RenderName));
+        const named = renders.includes(rendered as RenderName) || (op === "limit.set" && !!options.keepsCount);
+        expect(operations.includes(op), `${op}, with renders ${JSON.stringify(renders)}`).toBe(named);
       }
-      expect(operations.includes("limit.set")).toBe(!!options.keepsCount);
     });
 
     it("lists the MVP operations, and beyond them only what the suite checks", () => {
