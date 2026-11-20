@@ -89,3 +89,13 @@
 {"id":"nr-lv-ledger-ivers-late","values":true,"schema":"ledger","utterance":"Gale Ivers was late to the meeting","expect":{"mustNotBeReady":true}}
 {"id":"nr-lv-ledger-cedar-called","values":true,"schema":"ledger","utterance":"Cedar Works called to say hello","expect":{"mustNotBeReady":true}}
 {"id":"nr-lv-ledger-dunmore-lunch","values":true,"schema":"ledger","utterance":"I had lunch with Frankie Dunmore yesterday","expect":{"mustNotBeReady":true}}
+{"id":"nr-dt-audit-last-quarter","utterance":"the audit was booked last quarter","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"nr-dt-closed-books-yesterday","utterance":"we closed the books yesterday","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"nr-dt-trip-this-month","utterance":"my trip to Lisbon was this month","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"nr-dt-hired-last-year","utterance":"we hired a new controller last year","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"nr-dt-last-90-days-hard","utterance":"the last 90 days were hard on the team","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"nr-dt-ytd-good","utterance":"YTD has been a good year for us","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"nr-dt-posted-today-email","utterance":"I posted the update to the team today","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"nr-dt-moved-office","utterance":"the office moved in the past 2 years","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"nr-dt-paid-vendor-today","utterance":"please pay the vendor invoice booked today","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"nr-dt-between-dates-meeting","utterance":"the meeting is between 2026-01-01 and 2026-03-31","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}

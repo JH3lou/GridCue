@@ -54,18 +54,33 @@ Return a new object on every call, so a caller can't change your capabilities by
 
 An apply is done when the grid holds the state, not when you asked it to. A grid that updates at once returns at once. A grid that updates later, such as a table whose state the Host controls, needs a wait: check that the grid holds what you wrote, and read its Revision at that moment, before any later change can land. Bound the wait, and throw when it runs out, so the Controller can recover and tell the User. The TanStack adapter waits up to 1,000 ms (ADR 0031).
 
-A filter your grid evaluates must mean what GridCue's `matchesPredicate` means, since a User's request is read by that definition. Two cases matter after the text and empty forms:
+A filter your grid evaluates must mean what GridCue's `matchesPredicate` means, since a User's request is read by that definition. Three cases matter after the text and empty forms. The first two are here, and dates have [their own section](#dates-are-whole-days):
 
 - **Empty** (`isEmpty`, `isNotEmpty`) means no value: `undefined`, `null`, or an empty string `""`. A cell holding `0`, `false` or a placeholder such as "Unassigned" has a value. `isNotEmpty` is the exact opposite.
 - **Exact text** (`eq` on a `string` column) ignores letter case: "avery lane" matches "Avery Lane" and "AVERY LANE", and not "Avery Lane, Jr." `startsWith` and `contains` ignore case on every column. On any other kind, `eq` compares the value as it is.
 
-Call `matchesPredicate(value, predicate, column)` from the root entry, or copy its rules. The TanStack Table adapter's `gridcueFilterFn` does the first.
+Call `matchesPredicate(value, predicate, column, { timeZone })` from the root entry, or copy its rules. The TanStack Table adapter's `gridcueFilterFn` does the first.
 
 If the grid can't represent the result, return a failure and change nothing. The TanStack adapter, for example, refuses OR and nested filter groups with `ADAPTER_UNSUPPORTED_FILTER`.
 
 **`restore(snapshot)`** writes `snapshot.state` back, for undo. It bumps the Revision like any other change, and, like `apply`, is done only when the grid holds the snapshot.
 
 **`subscribe(listener)`** calls `listener` with the new `{ revision, state }` on every view change, including the User's own clicks on column headers. It returns a function that unsubscribes.
+
+### Dates are whole days
+
+A date in a filter means the whole day in the schema's [Calendar](/docs/api/schema#calendar) time zone, on `date` and `datetime` columns alike. "Booked after 2026-01-31" keeps a row on 2026-02-01 and drops one stamped late on the 31st. A filter holds days, such as `"2026-01-31"`, or `{ min, max }` for `between`, with both ends included. A cell is first turned into its day:
+
+- **A date string** such as `"2026-01-31"` is that day.
+- **A `Date`, or a string with a time and an offset** (`"2026-01-31T23:30:00-05:00"`, `"2026-02-01T04:30:00Z"`) is the day that instant falls on in the Calendar's time zone. The same instant is the 31st in `America/New_York` and the 1st in `UTC`.
+- **A string with a time and no offset** (`"2026-01-31T23:30:00"`) is its own date part, the 31st, in any zone.
+- **A cell that can't be read as a date** matches no date comparison (on, before, after, between): text such as `"13/11/2026"` or `"soon"`, or a number. An empty cell (`undefined`, `null` or `""`) matches none either, and still matches `isEmpty`. Text or a number that can't be read as a date holds a value, so it is not empty.
+
+This is a change. Before, a date filter compared cells as they were, so a column of epoch numbers or `"11/13/2026"` text matched a filter written the same way, the Host's own View State included. Now no filter on a `date` or `datetime` column matches such a cell. If your rows hold dates in another form, turn each cell into an ISO date, an ISO date and time, or a `Date` before the rows reach the grid, or declare the column as `number` or `string`.
+
+A filter value that holds a time is compared as an instant. GridCue never writes one from a request.
+
+Pass the time zone: `matchesPredicate(cell, predicate, column, { timeZone: schema.calendar?.timeZone })`, or call `matchesFilter(row, filter, schema)`, which reads it from the schema. With no time zone, the runtime's is read when the row is filtered, so a grid that filters on a server should set `calendar.timeZone` ([Going to production](/docs/guides/going-to-production#11-set-the-time-zone)). A grid that keeps the zone beside a column, as the TanStack Table adapter does beside the column's kind, gives the same rows as `applyView`. Build one `Intl.DateTimeFormat` for each zone, not for each row, if you copy these rules instead.
 
 ### `observesChanges`
 
@@ -155,6 +170,7 @@ Every Grid Adapter in GridCue passes the same contract suite: `packages/gridcue/
 - rejects plans that were not validated, and leaves the view unchanged;
 - reports manual changes, so a stale plan is refused;
 - restores an exact snapshot;
+- writes, and clears, filters on a date column, on a date-and-time column of strings and on one of `Date` objects;
 - doesn't advertise `columns.pin`, `aggregation.set`, or `density.set`;
 - hands out capabilities a caller can't use to corrupt the adapter;
 - stops notifying after unsubscribe;
@@ -163,7 +179,8 @@ Every Grid Adapter in GridCue passes the same contract suite: `packages/gridcue/
 The suite is not part of the npm package. Copy the file into your tests, change its imports from `../src/...` to `gridcue`, and run it with Vitest:
 
 ```ts
-import { runAdapterContract } from "./adapter-contract";
+import { defineSchema } from "gridcue";
+import { DATED_COLUMNS, DATED_ROWS, runAdapterContract } from "./adapter-contract";
 import { createMyGridAdapter } from "../src/my-grid-adapter";
 
 runAdapterContract("My grid adapter", () => {
@@ -174,6 +191,12 @@ runAdapterContract("My grid adapter", () => {
     manualChange: () => grid.sortBy("team", "asc"), // the User changing the view by hand
     numericColumn: "value", // supports filter and sort, and is numeric
     otherColumn: "name", // supports filter and sort
+    // A fresh grid over the suite's dated rows, its schema read from them: a date column and two date-and-time ones.
+    dated: () =>
+      createMyGridAdapter(
+        defineSchema(DATED_COLUMNS.map((id) => ({ id })), { sampleRows: DATED_ROWS }),
+        createTestGrid(DATED_ROWS),
+      ),
   };
 });
 ```

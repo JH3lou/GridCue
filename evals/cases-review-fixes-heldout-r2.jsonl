@@ -1,0 +1,57 @@
+{"id":"rf2-hide-extra-word-01","utterance":"hide pending accounts where gain is below $0","expect":{"mustNotBeReady":true}}
+{"id":"rf2-hide-extra-word-02","utterance":"remove stale entries where amount is under $100","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"rf2-hide-extra-word-03","utterance":"hide my accounts where gain is below $0","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"unrealized_gain","operator":"gte","value":0}}]},"alsoAcceptsAsk":true}
+{"id":"rf2-hide-extra-word-04","utterance":"drop taxable accounts where gain is below $0","expect":{"mustNotBeReady":true}}
+{"id":"rf2-hide-extra-word-05","utterance":"exclude restricted accounts where market value is over $2m","expect":{"mustNotBeReady":true}}
+{"id":"rf2-hide-extra-word-06","utterance":"remove cleared entries where amount is under $100","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"rf2-hide-extra-word-07","utterance":"leave out inactive accounts where market value is under $50k","expect":{"mustNotBeReady":true}}
+{"id":"rf2-hide-extra-word-08","utterance":"drop our entries where rate is over 5%","schema":"ledger","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"rate","operator":"lte","value":0.05}}]},"alsoAcceptsAsk":true}
+{"id":"rf2-hide-extra-word-09","utterance":"Exclude travel entries where amount is over $1,000.","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"rf2-hide-extra-word-10","utterance":"hide accounts where gain is below $0","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"unrealized_gain","operator":"gte","value":0}}]}}
+{"id":"rf2-hide-extra-word-11","utterance":"exclude entries where amount is under $100","schema":"ledger","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"amount","operator":"gte","value":100}}]}}
+{"id":"rf2-hide-extra-word-12","utterance":"remove rows where concentration is over 30%","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"concentration","operator":"lte","value":0.3}}]}}
+{"id":"rf2-hide-column-where-01","utterance":"hide concentration where market value is over $1m","expect":{"mustNotBeReady":true}}
+{"id":"rf2-hide-column-where-02","utterance":"hide restricted holdings where market value is over $1m","expect":{"mustNotBeReady":true}}
+{"id":"rf2-hide-column-where-03","utterance":"hide the advisor column where custodian is Northgate","expect":{"mustNotBeReady":true}}
+{"id":"rf2-hide-column-where-04","utterance":"hide largest position where gain is below $0","expect":{"mustNotBeReady":true}}
+{"id":"rf2-hide-column-where-05","utterance":"hide units where amount is over $500","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"rf2-hide-column-where-06","utterance":"hide counterparty where amount is over $1,000","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"rf2-hide-column-where-07","utterance":"hide cleared where amount is under $100","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"rf2-hide-column-where-08","utterance":"Hide the rate column where category is travel.","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"rf2-hide-column-where-09","utterance":"hide concentration","expect":{"status":"ready","operations":[{"type":"columns.hide","columnIds":["concentration"]}]}}
+{"id":"rf2-hide-column-where-10","utterance":"show accounts where market value is over $1m and hide concentration","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"market_value","operator":"gt","value":1000000}},{"type":"columns.hide","columnIds":["concentration"]}]}}
+{"id":"rf2-hide-column-where-11","utterance":"hide the units column, then show entries where amount is over $500","schema":"ledger","expect":{"status":"ready","operations":[{"type":"columns.hide","columnIds":["units"]},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"amount","operator":"gt","value":500}}]}}
+{"id":"rf2-hide-column-where-12","utterance":"hide the restricted holdings column","expect":{"status":"ready","operations":[{"type":"columns.hide","columnIds":["has_restricted_holding"]}]}}
+{"id":"rf2-count-then-sort-01","utterance":"top 10 by market value, then sort by household","expect":{"mustNotBeReady":true}}
+{"id":"rf2-count-then-sort-02","utterance":"largest 5 accounts by gain, sorted by advisor","expect":{"mustNotBeReady":true}}
+{"id":"rf2-count-then-sort-03","utterance":"smallest 5 entries by amount and sort by owner","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"rf2-count-then-sort-04","utterance":"Top 10 accounts by market value; then sort them by household.","expect":{"mustNotBeReady":true}}
+{"id":"rf2-count-then-sort-05","utterance":"top 3 by concentration then sort by custodian","expect":{"mustNotBeReady":true}}
+{"id":"rf2-count-then-sort-06","utterance":"top 10 entries by units, sorted by counterparty","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"rf2-count-then-sort-07","utterance":"top 10 by market value","expect":{"status":"ready","operations":[{"type":"sort.set","sorts":[{"columnId":"market_value","direction":"desc"}]},{"type":"limit.set","count":10}]}}
+{"id":"rf2-count-then-sort-08","utterance":"sort by household, then show only the first 10 rows","expect":{"status":"ready","operations":[{"type":"sort.set","sorts":[{"columnId":"household","direction":"asc"}]},{"type":"limit.set","count":10}]}}
+{"id":"rf2-count-then-sort-09","utterance":"top 10 accounts by market value for taxable accounts","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"registration_type","operator":"eq","value":"taxable"}},{"type":"sort.set","sorts":[{"columnId":"market_value","direction":"desc"}]},{"type":"limit.set","count":10}]}}
+{"id":"rf2-count-then-sort-10","utterance":"smallest 5 entries by amount","schema":"ledger","expect":{"status":"ready","operations":[{"type":"sort.set","sorts":[{"columnId":"amount","direction":"asc"}]},{"type":"limit.set","count":5}]}}
+{"id":"rf2-count-then-sort-11","utterance":"sort by owner, then show only the first 5 rows","schema":"ledger","expect":{"status":"ready","operations":[{"type":"sort.set","sorts":[{"columnId":"owner","direction":"asc"}]},{"type":"limit.set","count":5}]}}
+{"id":"rf2-count-then-group-01","utterance":"show only the first 5 rows, then group by advisor","state":{"sorts":[{"columnId":"market_value","direction":"desc"}]},"expect":{"status":"ready","operations":[{"type":"limit.set","count":5},{"type":"group.set","columnIds":["advisor_name"]}]},"alsoAcceptsAsk":true}
+{"id":"rf2-count-then-group-02","utterance":"top 10 by market value, grouped by custodian","expect":{"status":"ready","operations":[{"type":"sort.set","sorts":[{"columnId":"market_value","direction":"desc"}]},{"type":"limit.set","count":10},{"type":"group.set","columnIds":["custodian"]}]},"alsoAcceptsAsk":true}
+{"id":"rf2-count-then-group-03","utterance":"group by custodian, show only the first 5 rows, then group by advisor","state":{"sorts":[{"columnId":"market_value","direction":"desc"}]},"expect":{"mustNotBeReady":true}}
+{"id":"rf2-count-then-group-04","utterance":"top 10 by market value per custodian","expect":{"mustNotBeReady":true}}
+{"id":"rf2-count-then-group-05","utterance":"show only the first 5 rows and group by advisor","expect":{"mustNotBeReady":true}}
+{"id":"rf2-count-then-group-06","utterance":"smallest 5 entries by amount, grouped by category","schema":"ledger","expect":{"status":"ready","operations":[{"type":"sort.set","sorts":[{"columnId":"amount","direction":"asc"}]},{"type":"limit.set","count":5},{"type":"group.set","columnIds":["category"]}]},"alsoAcceptsAsk":true}
+{"id":"rf2-count-then-group-07","utterance":"group by owner, then top 3 entries by amount","schema":"ledger","expect":{"mustNotBeReady":true}}
+{"id":"rf2-count-then-group-08","utterance":"group by custodian, then show only the first 5 rows","state":{"sorts":[{"columnId":"market_value","direction":"desc"}]},"expect":{"mustNotBeReady":true}}
+{"id":"rf2-count-then-group-09","utterance":"group by advisor","expect":{"status":"ready","operations":[{"type":"group.set","columnIds":["advisor_name"]}]}}
+{"id":"rf2-count-then-group-10","utterance":"group by custodian","state":{"sorts":[{"columnId":"market_value","direction":"desc"}],"limit":10},"expect":{"status":"ready","operations":[{"type":"group.set","columnIds":["custodian"]}]}}
+{"id":"rf2-count-then-group-11","utterance":"group by category","schema":"ledger","expect":{"status":"ready","operations":[{"type":"group.set","columnIds":["category"]}]}}
+{"id":"rf2-count-then-group-12","utterance":"group by owner","schema":"ledger","state":{"sorts":[{"columnId":"amount","direction":"desc"}],"limit":5},"expect":{"status":"ready","operations":[{"type":"group.set","columnIds":["owner"]}]}}
+{"id":"rf2-controls-near-01","utterance":"hide the concentration column","expect":{"status":"ready","operations":[{"type":"columns.hide","columnIds":["concentration"]}]}}
+{"id":"rf2-controls-near-02","utterance":"show only taxable accounts","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"registration_type","operator":"eq","value":"taxable"}}]}}
+{"id":"rf2-controls-near-03","utterance":"top 5 by gain","expect":{"status":"ready","operations":[{"type":"sort.set","sorts":[{"columnId":"unrealized_gain","direction":"desc"}]},{"type":"limit.set","count":5}]}}
+{"id":"rf2-controls-near-04","utterance":"sort by advisor then by market value","expect":{"status":"ready","operations":[{"type":"sort.set","sorts":[{"columnId":"advisor_name","direction":"asc"},{"columnId":"market_value","direction":"asc"}]}]}}
+{"id":"rf2-controls-near-05","utterance":"group by custodian and sort by gain","expect":{"status":"ready","operations":[{"type":"group.set","columnIds":["custodian"]},{"type":"sort.set","sorts":[{"columnId":"unrealized_gain","direction":"asc"}]}]}}
+{"id":"rf2-controls-near-06","utterance":"Hide accounts where market value is over $2m, sorted by gain.","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"market_value","operator":"lte","value":2000000}},{"type":"sort.set","sorts":[{"columnId":"unrealized_gain","direction":"asc"}]}]}}
+{"id":"rf2-controls-near-07","utterance":"hide the units column","schema":"ledger","expect":{"status":"ready","operations":[{"type":"columns.hide","columnIds":["units"]}]}}
+{"id":"rf2-controls-near-08","utterance":"show only travel entries","schema":"ledger","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"category","operator":"eq","value":"travel"}}]}}
+{"id":"rf2-controls-near-09","utterance":"top 5 entries by amount","schema":"ledger","expect":{"status":"ready","operations":[{"type":"sort.set","sorts":[{"columnId":"amount","direction":"desc"}]},{"type":"limit.set","count":5}]}}
+{"id":"rf2-controls-near-10","utterance":"group by owner and sort by amount","schema":"ledger","expect":{"status":"ready","operations":[{"type":"group.set","columnIds":["owner"]},{"type":"sort.set","sorts":[{"columnId":"amount","direction":"asc"}]}]}}

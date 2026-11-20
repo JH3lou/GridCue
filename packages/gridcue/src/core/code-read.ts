@@ -1,10 +1,13 @@
 import { isExposed, operatorsFor } from "./columns";
+import { isDay } from "./dates";
 import { formatAmount } from "./format";
 import { leavesRowsOut } from "./lead";
 import { type Mention, matchMentions } from "./mentions";
 import {
   type Clause,
   comparisonSpans,
+  type DateOptions,
+  dateReadings,
   directionSpans,
   isComparisonWord,
   type Literal,
@@ -47,6 +50,11 @@ type Span = { start: number; end: number };
  * something other than the rows (`valueStatement`). "Avery Lane's accounts" is read: the spec reads a possessive after a
  * value, where a House Term before one asks.
  *
+ * A date is one too (ADR 0026; spec 5.5): a relative form ("last 90 days", "this quarter"), a range of two ISO dates,
+ * or one ISO date compared with a date column named right after the rows (`dateFilters`). Its days are fixed when the
+ * request is read, from today in the Calendar's time zone. Where a column goes it asks (`dateQuestion`), and so does one
+ * said as a statement (`dateStatement`). Every other time word asks, in every part (`timeWordsOutside`).
+ *
  * Text and empty forms are read only as the words the spec shows and nothing else:
  * - a text form: a column, then "starts with", "starting with", "begins with" or "beginning with", or "is exactly",
  *   "exactly", "=", "equals" or "equal to", then quoted text (`advisor starts with "Av"`);
@@ -79,10 +87,10 @@ type Span = { start: number; end: number };
  */
 
 /**
- * The kinds of code-read filter read so far: a text form, an empty form, a House Term (ADR 0024) and a Local Value (ADR
- * 0025). Dates join later.
+ * The kinds of code-read filter: a text form, an empty form, a House Term (ADR 0024), a Local Value (ADR 0025) and a
+ * date (ADR 0026).
  */
-export type CodeReadKind = "text" | "empty" | "term" | "value";
+export type CodeReadKind = "text" | "empty" | "term" | "value" | "date";
 
 /** The filter a code-read filter reads, on one column. */
 export interface CodeReadPredicate {
@@ -114,6 +122,14 @@ export interface CodeReadFilter extends CodeReadSpan {
    * too, when the part names several.
    */
   localValue?: string;
+  /**
+   * For a date (spec 5.5), where the date's own words start, past the column named right before them. The predicate's
+   * column is that column's, or "" when none is named there: the compiler then takes the provider's pick of a date
+   * column, or asks which.
+   */
+  dateAt?: number;
+  /** For a relative date form, its words as written ("last 90 days"). The Preview names them after the dates (spec 4.5). */
+  dateWords?: string;
 }
 
 /** An empty form after its column. */
@@ -1181,14 +1197,549 @@ export const valueStatement = (
   return undefined;
 };
 
+// --- Dates (named filters spec, 5.5; ADR 0026) ---------------------------------------------------------------------
+
+/** The column kinds a date is read on: a date column, and a date-and-time one, where a date means the whole day. */
+const DATE_KINDS: ReadonlySet<string> = new Set(["date", "datetime"]);
+/** What may join a column to the date words right after it, besides a space: "is" ("booked is this month"). */
+const JOINS_DATE = ["is"] as const;
+/** What may sit between a column and an ISO date it compares with, past the comparison's own words: "booked on". */
+const JOINS_ISO_DATE = ["is", "on"] as const;
+
+/**
+ * The column whose name ends right before `at`, with a space between, or one of `joins` with a space on each side, if
+ * any. `byEnd` holds the part's column names by where each ends, the longest at each end.
+ */
+const columnRightBefore = (
+  text: string,
+  byEnd: ReadonlyMap<number, Mention>,
+  at: number,
+  joins: readonly string[],
+): Mention | undefined => {
+  const spaceBefore = (end: number) => {
+    let at2 = end;
+    while (at2 > 0 && /\s/u.test(text[at2 - 1] ?? "")) at2--;
+    return at2 < end ? at2 : undefined;
+  };
+  const end = spaceBefore(at);
+  if (end === undefined) return undefined;
+  const named = byEnd.get(end);
+  if (named) return named;
+  for (const word of joins) {
+    const start = end - word.length;
+    if (start < 1 || text.slice(start, end) !== word) continue;
+    const before = spaceBefore(start);
+    const joined = before === undefined ? undefined : byEnd.get(before);
+    if (joined) return joined;
+  }
+  return undefined;
+};
+
+/**
+ * Whether a name's words win over a date's (spec 5.5: time words are read outside a declared name): the name crosses the
+ * date's own words, which start at `wordsAt`, and is not a shorter name inside the date's span. So "last month" in the
+ * column "Last month return" and "today" in the Local Value "Today Partners" are the name's, and the name "YTD" is the
+ * name's when the words are "ytd". A shorter name inside the date ("year" in "this year") is the date's own, as any
+ * name inside a code-read filter is.
+ */
+export const nameHoldsDate = (name: Span, date: Span, wordsAt = date.start): boolean =>
+  name.start < date.end &&
+  wordsAt < name.end &&
+  !(name.start >= date.start && name.end <= date.end && name.end - name.start < date.end - wordsAt);
+
+/**
+ * The dates a part reads with code (spec 5.5), as code-read filters:
+ * - a relative form ("last 90 days", "this quarter", "today"), when today is known, and a range of two ISO dates
+ *   ("between 2026-01-01 and 2026-03-31"), from `dateReadings`. The filter's column is the one named right before the
+ *   words, with a space or "is" between ("booked in the last 90 days", "booked is today"), wherever the Mentions put
+ *   that name: after the Row Noun or a value they read it as the rows ("entries booked this quarter"). With no column
+ *   named there, the column is "", and the compiler takes the provider's pick of a date column or asks which. The Row
+ *   Noun is never the column;
+ * - one ISO date with a comparison ("after 2026-01-31", "on or before 2026-06-30", "on 2026-01-31"), only where the
+ *   date column named right before it sits right after the Row Noun or a named value ("entries booked after
+ *   2026-01-31", "travel entries booked after 2026-01-31"): there the Mentions may lose its name, and a provider may
+ *   read it as the rows. Anywhere else, the date is read as it is today, and is no code-read filter.
+ * A one-day form ("today") reads `eq`, and the rest `between`, with today's operators. Each filter's words start at its
+ * column's name, when one is named.
+ */
+const dateFilters = (
+  clause: Clause,
+  columns: readonly Mention[],
+  mentions: readonly Mention[],
+  schema: ViewSchema,
+  dates: DateOptions,
+): CodeReadFilter[] => {
+  const own = mentions.filter((m) => m.clauseIndex === clause.index);
+  // A form's words inside a name are the name's: "last month return" is a column, "YTD return" too. A name that holds
+  // the form's words, crosses them or is the same words wins; a shorter name inside the form ("year" in "this year") is
+  // the form's own, as any name inside a code-read filter is.
+  const readings = dateReadings(clause.text, dates).filter((r) => !own.some((m) => nameHoldsDate(m, r, r.at)));
+  const isoDates = clause.literals.filter((lit) => lit.kind === "date" && lit.comparator !== "between" && isDay(String(lit.value)));
+  if (readings.length === 0 && isoDates.length === 0) return [];
+  const kindOf = (id: string) => schema.columns.find((col) => col.id === id)?.kind;
+  // The part's column names by where each ends, the longest at each end: worked out once for the part.
+  const byEnd = new Map<number, Mention>();
+  for (const m of columns) {
+    const held = byEnd.get(m.end);
+    if (!held || m.start < held.start) byEnd.set(m.end, m);
+  }
+  const found: CodeReadFilter[] = readings.map((r) => {
+    const column = columnRightBefore(clause.text, byEnd, r.start, JOINS_DATE);
+    return {
+      clauseIndex: clause.index,
+      start: column ? column.start : r.start,
+      end: r.end,
+      kind: "date" as const,
+      predicate: {
+        columnId: column?.columnId ?? "",
+        operator: r.oneDay ? "eq" : "between",
+        value: r.oneDay ? r.first : { min: r.first, max: r.last },
+      },
+      dateAt: r.start,
+      ...(r.words !== undefined ? { dateWords: r.words } : {}),
+    };
+  });
+  const bare = isoDates.length > 0 ? unquoted(clause.text) : clause.text;
+  // Where the part names its rows: the Row Noun in either number ("entries"), "rows", "records" or "ones", or a named
+  // value. An entity word is not among them: it names another record ("no vendor booked after …").
+  // Worked out once for the part, as where each such name ends.
+  let rowsEnd: ReadonlySet<number> | undefined;
+  const afterRows = (at: number) => {
+    rowsEnd ??= new Set(
+      [
+        ...rowNouns(bare, schema, new Set(schema.columns.filter((col) => !!col.entity).map((col) => col.id))),
+        ...own.filter((m) => m.valueId !== undefined),
+      ].map((r) => r.end),
+    );
+    let end = at;
+    while (end > 0 && /\s/u.test(clause.text[end - 1] ?? "")) end--;
+    return end < at && rowsEnd.has(end);
+  };
+  for (const lit of isoDates) {
+    if (readings.some((r) => lit.at >= r.start && lit.at < r.end)) continue;
+    const compared = comparisonSpans(clause.text, lit, bare);
+    const before = compared.find((s) => s.end === lit.at);
+    if (!lit.comparator && !/\son\s+$/u.test(clause.text.slice(Math.max(0, lit.at - 8), lit.at))) continue;
+    const column = columnRightBefore(clause.text, byEnd, before ? before.start : lit.at, before ? JOINS_DATE : JOINS_ISO_DATE);
+    if (!column || !DATE_KINDS.has(kindOf(column.columnId) ?? "")) continue;
+    // Only a date column named right after the rows, where the Mentions may lose its name or a provider read it as the
+    // rows ("entries booked after 2026-01-31", "travel entries booked after …"). Anywhere else, the date reads as it
+    // does today.
+    if (!afterRows(column.start)) continue;
+    const end = lit.at + literalText(clause.text, lit).length;
+    const after = compared.find((s) => s.start === end);
+    found.push({
+      clauseIndex: clause.index,
+      start: column.start,
+      end: after ? after.end : end,
+      kind: "date",
+      predicate: { columnId: column.columnId, operator: lit.comparator ?? "eq", value: String(lit.value) },
+      dateAt: before ? before.start : lit.at,
+    });
+  }
+  return found;
+};
+
+/**
+ * The time words GridCue keeps as its own (ADR 0024, spec 5.4): the units its date forms are made of ("today", "days",
+ * "quarter", "YTD"), and "tomorrow", "ago", "next", "recent" and the month names, which it kept before it read dates. A
+ * House Term is never named with one, and a Local Value made only of them is never read. "May" counts only before a
+ * number, "quarter" not after "a", and "next" not before a place in the grid.
+ */
+/** What a place in the grid is said of: "the next column", "the 2nd column", "the third row". Never a time. */
+const PLACED_IN_GRID = "columns?|cols?|fields?|rows?|ones?|place|position|spot|level|page";
+const OWN_TIME_WORDS = [
+  "days?",
+  "today",
+  "yesterday",
+  "tomorrow",
+  "weeks?",
+  "months?",
+  // "A quarter" is a share ("a quarter of the entries", "above a quarter"); a period is "this", "last" or "the" one.
+  "(?<!(?<![\\p{L}\\p{N}'])a )quarters?",
+  "years?",
+  "[mqy]td",
+  "ago",
+  // "Next to" is a place, and "the next column" or "the next one" is a place in the grid.
+  `next(?! (?:to|${PLACED_IN_GRID})(?![\\p{L}\\p{N}']))`,
+  "recent",
+  "january",
+  "february",
+  "march",
+  "april",
+  "may(?= \\d)",
+  "june",
+  "july",
+  "august",
+  "september",
+  "october",
+  "november",
+  "december",
+];
+/**
+ * Every word GridCue reads as a time word, outside a date form: its own (`OWN_TIME_WORDS`), and the rest, which ask as
+ * those do but may be a word of a name. Inside a declared name or a Local Value, every one is the name's.
+ */
+/** A day of the month in words, third to thirty-first: "the fifteenth". "First" and "second" are places as often. */
+const DAY_OF_MONTH =
+  "(?:(?:twenty|thirty)[ -])?(?:third|fourth|fifth|sixth|seventh|eighth|ninth)|(?:twenty|thirty)[ -]first|twenty[ -]second|tenth|eleventh|twelfth|(?:thir|four|fif|six|seven|eigh|nine)teenth|twentieth|thirtieth";
+const TIME_WORDS = [
+  ...OWN_TIME_WORDS,
+  "daily",
+  "tonight",
+  "weekly",
+  "weekends?",
+  "weekdays?",
+  "fortnights?",
+  "fortnightly",
+  "monthly",
+  "quarterly",
+  "yearly",
+  "annual",
+  "annually",
+  "decades?",
+  // A span of the books with no fixed days: "this period", "prior periods". A dictated full stop is gone by now
+  // (`normalize`).
+  "periods?",
+  "hours?",
+  "hourly",
+  "minutes?",
+  "wks?",
+  "yrs?",
+  "recently",
+  "lately",
+  "upcoming",
+  "(?:mon|tues|wednes|thurs|fri|satur|sun)days?",
+  // A weekday, a unit or a day written short: "mon", "qtr", "mo", "yday".
+  "mon|tues?|wed|thu(?:rs?)?|fri|sat|sun",
+  "qtrs?|mos?|mths?|mnths?|hrs?",
+  "yday|tmrw",
+  // A count written with its unit: "90d", "2wk", "6mo".
+  "\\d+(?:d|h|hrs?|days?|wks?|weeks?|mos?|mths?|months?|qtrs?|yrs?|years?)",
+  // A time of day: "morning", "noon", "9am", "9:30".
+  "mornings?|afternoons?|evenings?|nights?|overnight|noon|midday|midnight",
+  "\\d{1,2}(?::\\d{2})? ?[ap]\\.?m\\.?",
+  "\\d{1,2}:\\d{2}",
+  // The end of a period: "eod", "eom".
+  "eo[dwmqy]",
+  // A season or a holiday.
+  "(?:spring|summer|autumn|winter)s?",
+  "christmas|xmas|easter|thanksgiving|holidays?",
+  // A month's name written short.
+  "jan",
+  "feb",
+  "mar",
+  "apr",
+  "jun",
+  "jul",
+  "aug",
+  "sept?",
+  "oct",
+  "nov",
+  "dec",
+  // A quarter or a half by number or place, and a fiscal year: "q1", "3q", "h1", "1st half", "back half", "fy2026".
+  "q[1-4]",
+  "[1-4]q",
+  "h[12]|[12]h",
+  "(?:1st|2nd|first|second|back|front|latter|last)[ -]half",
+  "fy(?:td)?(?:[ -]?\\d{2,4})?|fiscal",
+  // A period written short: twelve months trailing, last or next ("ttm"), and the close of business ("cob", "eob").
+  "[lnt]tm|[lnt]\\.t\\.m\\.?",
+  "cob|eob",
+  "(?:close|end|start|open) of (?:business|play|trading)",
+  // A unit with a prefix: "semiannual", "biweekly", "bi-monthly".
+  "(?:semi|bi|tri)-?(?:annual(?:ly)?|daily|weekly|monthly|quarterly|yearly)",
+  // A unit joined to where in it: "midyear", "yearend". "Month-end" is two words already.
+  "(?:mid|pre|post)(?:day|week|month|quarter|year)",
+  "(?:day|week|month|quarter|year)(?:ends?|start|long)",
+  // A day of the month, and a decade, in digits or in words: "the 15th", "on the fifteenth", "the 90s", "the nineties".
+  // An ordinal before a column or a row is a place in the grid: "put the 2nd column first".
+  `\\d{1,2}(?:st|nd|rd|th)(?! (?:${PLACED_IN_GRID})(?![\\p{L}\\p{N}']))`,
+  `(?<=(?<![\\p{L}\\p{N}'])on the )(?:${DAY_OF_MONTH})(?! ?[\\p{L}\\p{N}])`,
+  "'?\\d0s|\\d{3}0s",
+  "(?:twen|thir|for|fif|six|seven|eigh|nine)ties",
+  // Up to now, said as one phrase: "to date", "so far", "as of now", "in the past".
+  "to[ -]date|(?:so|thus)[ -]far|(?:as of|up to|until|till|til|through|thru) (?:now|the present)|the past(?! ?[\\p{L}\\p{N}])",
+];
+/**
+ * A word that places a period ("this", "last", "prior", "previous", "past", "since", "until"), right after the rows or
+ * a date column and right before a word GridCue doesn't read: "travel entries this fy", "last quater", "since
+ * inception", "since the start". It names a period GridCue has no form for, or a time word written wrong, so it asks as one
+ * (`timeWordsOutside`). The word after it is the next whole word; one GridCue reads for the view (`READ_AFTER_PERIOD`)
+ * or a name is no period. Compiled once.
+ */
+const PERIOD_LEAD = /(?<![\p{L}\p{N}'])(?:this|last|prior|previous|past|since|until|till|til)(?![\p{L}\p{N}'])/u;
+const PERIOD_THEN_WORD =
+  /(?<![\p{L}\p{N}'])(?:this|last|prior|previous|past|(?:since|until|till|til)(?: the)?) (\p{L}[\p{L}'-]*)(?![\p{L}\p{N}'])/u;
+const PERIOD_THEN_WORD_G = new RegExp(PERIOD_THEN_WORD.source, "gu");
+const WHOLE_PERIOD_LEAD = /^(?:this|last|prior|previous|past|since|until|till|til)$/u;
+/**
+ * The words GridCue reads for the view itself, which may follow "this" or "last" with no period meant: "this view",
+ * "this column", "the last filter". The words on `core/placed.ts`'s lists and its verbs are read too.
+ */
+const READ_AFTER_PERIOD: ReadonlySet<string> = new Set([
+  "view",
+  "views",
+  "grid",
+  "table",
+  "page",
+  "screen",
+  "layout",
+  "list",
+  "filters",
+  "sorting",
+  "sorts",
+  "grouping",
+  "groups",
+  "row",
+  "one",
+  "change",
+  "changes",
+  "order",
+  "density",
+]);
+const readAfterPeriod = (word: string) => READ_AFTER_PERIOD.has(word) || onPlacedLists(word) || isChangeVerb(word);
+/** The words that may stand between the rows and a period: "travel entries for this fy", "since the last review". */
+const PERIOD_LEAD_INS: ReadonlySet<string> = new Set(["in", "for", "from", "during", "over", "within", "since", "until", "the"]);
+const LETTER = /\p{L}/u;
+/**
+ * Whether `at` in `masked` is right after one of `ends` (where the rows, or a date column, are named), with only spaces
+ * and the lead-ins of `PERIOD_LEAD_INS` between: "travel entries this fy", "entries booked during last cycle".
+ */
+const rightAfter = (masked: string, at: number, ends: ReadonlySet<number>): boolean => {
+  let end = at;
+  for (;;) {
+    while (end > 0 && masked[end - 1] === " ") end--;
+    if (end < at && ends.has(end)) return true;
+    let start = end;
+    while (start > 0 && LETTER.test(masked[start - 1] ?? "")) start--;
+    if (start === end || !PERIOD_LEAD_INS.has(masked.slice(start, end))) return false;
+    end = start;
+  }
+};
+/**
+ * The first "this", "last" or the like right after the rows (`ends`) and right before a word GridCue doesn't read, in
+ * `masked` text; `undefined` if none.
+ */
+const periodThenWord = (masked: string, ends: ReadonlySet<number>): RegExpExecArray | undefined => {
+  PERIOD_THEN_WORD_G.lastIndex = 0;
+  for (let hit = PERIOD_THEN_WORD_G.exec(masked); hit; hit = PERIOD_THEN_WORD_G.exec(masked)) {
+    // A lead after "since the" starts the period itself ("since the last review"): the next look finds it.
+    if (!readAfterPeriod(hit[1] ?? "") && !WHOLE_PERIOD_LEAD.test(hit[1] ?? "") && rightAfter(masked, hit.index, ends)) {
+      PERIOD_THEN_WORD_G.lastIndex = 0;
+      return hit;
+    }
+    // The word after may be a lead itself ("since last mo"): look again from it.
+    PERIOD_THEN_WORD_G.lastIndex = hit.index + 1;
+  }
+  PERIOD_THEN_WORD_G.lastIndex = 0;
+  return undefined;
+};
+/**
+ * A time word; a date written with slashes ("1/31/2026", "1/2026"); or a year, a number from 1900 to 2099 right after a
+ * word that places it in time ("in 2024", "since 2025", "during 2023"). Not after "of", "for", "from" or "through",
+ * which lead an amount as often ("a value of 2000", "from 1000 to 2000"). Compiled once: reading must stay fast.
+ */
+const TIME_WORD = new RegExp(
+  [
+    String.raw`(?<![\p{L}\p{N}'])(?:${TIME_WORDS.join("|")})(?![\p{L}\p{N}'])`,
+    String.raw`(?<![\p{L}\p{N}/])\d{1,2}/(?:\d{1,2}/)?\d{2,4}(?![\p{L}\p{N}/])`,
+    String.raw`(?<=(?<![\p{L}\p{N}'])(?:in|during|since|until|till|before|after) )(?:19|20)\d\d(?![\p{L}\p{N}/'-]|[.,]\d)`,
+  ].join("|"),
+  "u",
+);
+const TIME_WORDS_G = new RegExp(TIME_WORD.source, "gu");
+/** One time word or date, whole: for telling the words of a phrase about time apart. */
+const WHOLE_TIME_WORD = new RegExp(`^(?:${TIME_WORD.source})$`, "u");
+/** One of GridCue's own time words, from the start of some text. Compiled once. */
+const OWN_TIME_WORD = new RegExp(String.raw`^(?:${OWN_TIME_WORDS.join("|")})(?![\p{L}\p{N}'])`, "u");
+/**
+ * Whether `words` (lower case) are one of the time words GridCue keeps as its own (`OWN_TIME_WORDS`): "today", "month",
+ * "ytd", "january", and "may", which is one before a number. `next` is the word written after them: "may items" holds
+ * none, and "may" with no next word may stand before a number, so it is one. A House Term may not be named one (ADR
+ * 0024), and a Local Value made only of them is never read: their words would be read as a date, or asked about, as
+ * well as read as the name. The other time words ("weekly", "q1", "summer") ask outside a name, and inside one they
+ * are the name's.
+ */
+export const isTimeWord = (words: string, next = "1"): boolean => {
+  const read = OWN_TIME_WORD.exec(`${words} ${next}`);
+  return !!read && read[0].length >= words.length;
+};
+/** Words that lead a time word in the phrase a question names: "this week", "since january", "next 30 days". */
+const TIME_LEAD =
+  /^(?:this|last|past|next|previous|prior|current|coming|since|before|after|until|till|through|over|under|above|below|within|early|late|mid)$/u;
+/** Words that may follow one: "90 days ago". */
+const TIME_TAIL = /^(?:ago)$/u;
+const NUMBER_WORD = /^\d[\d,.]*$/u;
+
+/**
+ * The first phrase about time in a part that GridCue doesn't read (spec 5.5), as written: a time word ("week",
+ * "january", "ago", "next", "recent", "q1", "1/31/2026", "may" before a number) outside a date form GridCue read,
+ * outside a declared name, and outside quoted text, with the words that make one phrase of it ("this week", "since
+ * january", "90 days ago", "next 30 days", "after jan 31, 2026"); or a period GridCue has no word for, "this", "last"
+ * or the like before a word it doesn't read ("this fy", `periodThenWord`). "Last" with nothing after it is a place
+ * ("put advisor last"), and is no time word.
+ * `undefined` when there is none. Each such phrase asks and is never dropped, in every part, whether or not it holds a
+ * code-read filter. "Next to" is a place, not a time.
+ *
+ * `read` are where the part's readings sit: its code-read filters, a date literal's own words, and its Local Values,
+ * each as one span. `mentions` are the request's Mentions.
+ */
+export const timeWordsOutside = (
+  clause: Clause,
+  mentions: readonly Mention[],
+  read: readonly Span[],
+  schema: ViewSchema,
+): { start: number; end: number; text: string } | undefined => {
+  const quoted = unquoted(clause.text, MASK);
+  // Most parts hold no time word: they are read no further.
+  if (!TIME_WORD.test(quoted) && !PERIOD_THEN_WORD.test(quoted)) return undefined;
+  const dated = clause.literals.filter((lit) => lit.words !== undefined);
+  const plain = dated.length > 0 ? unquoted(clause.text) : clause.text;
+  const nouns = rowNouns(quoted, schema);
+  const named = [...mentions.filter((m) => m.clauseIndex === clause.index), ...columnNames(clause, mentions, schema)];
+  const names: Span[] = [
+    ...named,
+    ...nouns,
+    ...read,
+    ...dated.flatMap((lit) => [{ start: lit.at, end: lit.at + (lit.words?.length ?? 0) }, ...comparisonSpans(clause.text, lit, plain)]),
+  ];
+  const masked = names.reduce(
+    (t, s) => (s.end > s.start ? t.slice(0, s.start) + MASK.repeat(s.end - s.start) + t.slice(s.end) : t),
+    quoted,
+  );
+  const word = TIME_WORDS_G.exec(masked);
+  TIME_WORDS_G.lastIndex = 0;
+  // A period GridCue has no word for ("this fy", "prior period"), only right after the rows it would filter or a date
+  // column: the Row Noun, a value, or a date column's name ("Break this down" names none). Beside a code-read filter every word must be placed already, and an
+  // unplaced one asks (`core/placed.ts`). Of a time word and a period, the first is the phrase asked about.
+  const rows =
+    read.length > 0 || !PERIOD_LEAD.test(masked)
+      ? undefined
+      : new Set(
+          [
+            ...rowNouns(quoted, schema, new Set(schema.columns.filter((col) => !!col.entity).map((col) => col.id))),
+            ...named.filter(
+              (m) => m.valueId !== undefined || DATE_KINDS.has(schema.columns.find((col) => col.id === m.columnId)?.kind ?? ""),
+            ),
+          ].map((n) => n.end),
+        );
+  const period = rows && periodThenWord(masked, rows);
+  const hit = word && (!period || word.index <= period.index) ? word : period;
+  if (!hit) return undefined;
+  // The phrase: the words on each side that belong to it, up to a masked name or anything else.
+  const tokens = [...masked.matchAll(/[^\s,]+|,/gu)].map((m) => ({ start: m.index, end: m.index + m[0].length, text: m[0] }));
+  const at = tokens.findIndex((t) => t.start <= hit.index && hit.index < t.end);
+  if (at < 0) return { start: hit.index, end: hit.index + hit[0].length, text: clause.text.slice(hit.index, hit.index + hit[0].length) };
+  const timeOrNumber = (text: string) => WHOLE_TIME_WORD.test(text) || NUMBER_WORD.test(text);
+  let first = at;
+  while (first > 0) {
+    const prev = tokens[first - 1]?.text ?? "";
+    if (!(timeOrNumber(prev) || TIME_LEAD.test(prev))) break;
+    first--;
+  }
+  // A time word of more than one word ("1st half", "9 am") runs to the token its last word is in.
+  const hitEnd = hit.index + hit[0].length;
+  let last = at;
+  while ((tokens[last + 1]?.start ?? Number.POSITIVE_INFINITY) < hitEnd) last++;
+  for (;;) {
+    const next = tokens[last + 1]?.text ?? "";
+    if (timeOrNumber(next) || TIME_TAIL.test(next)) last++;
+    else if (next === "," && NUMBER_WORD.test(tokens[last + 2]?.text ?? "")) last += 2;
+    else break;
+  }
+  const start = tokens[first]?.start ?? hit.index;
+  const end = tokens[last]?.end ?? hit.index + hit[0].length;
+  return { start, end, text: clause.text.slice(start, end) };
+};
+
+/** The question for a time word GridCue doesn't read (spec 5.5, section 9). */
+export const datesPrompt = (words: string) => `I'm not sure which dates “${words}” means. Use dates like 2026-01-31, or “last 90 days”.`;
+
+/** Whether the schema has a date column a filter could use: exposed, of a date kind, and filterable. */
+export const hasDateColumn = (schema: ViewSchema): boolean =>
+  schema.columns.some((col) => isExposed(col) && DATE_KINDS.has(col.kind) && col.capabilities.includes("filter"));
+
+/** The words a date filter was read from, for its questions: "last 90 days", "between 2026-01-01 and 2026-03-31". */
+export const dateWordsOf = (r: CodeReadFilter, clause: Clause): string =>
+  r.dateWords ?? clause.text.slice(r.dateAt ?? r.start, r.end).trim();
+
+/**
+ * The question for the first date in a part that GridCue can't read where it sits, if any (spec 4.1, 5.5):
+ * - on a grid with no date column: "This grid has no date column for “year to date”.";
+ * - where a column goes, in a part that sorts or groups ("sort by last month"), or before "column": a date stands for
+ *   rows, not a column.
+ * `dates` are the part's date filters.
+ */
+export const dateQuestion = (
+  dates: readonly CodeReadFilter[],
+  clause: Clause,
+  schema: ViewSchema,
+): { id: "none" | "column"; prompt: string } | undefined => {
+  const [first] = dates;
+  if (!first) return undefined;
+  if (!hasDateColumn(schema)) return { id: "none", prompt: `This grid has no date column for “${dateWordsOf(first, clause)}”.` };
+  const text = unquoted(clause.text);
+  const sortsOrGroups = SORTS_OR_GROUPS.test(text);
+  for (const r of dates) {
+    if ((sortsOrGroups && BY_BEFORE.test(text.slice(0, r.start))) || COLUMN_AFTER.test(text.slice(r.end))) {
+      return { id: "column", prompt: `“${clause.text.slice(r.start, r.end)}” stands for rows, not a column. Name a column instead.` };
+    }
+  }
+  return undefined;
+};
+
+/**
+ * The question for the first date in a part said as a statement and not a request, if any. It reuses the checks a form
+ * said as a statement goes through (`statement`), and asks about the words that make it one: "entries were booked last
+ * quarter", "the entries are in the last 90 days", "my booked is today". `dates` are the part's date filters.
+ */
+export const dateStatement = (
+  dates: readonly CodeReadFilter[],
+  clause: Clause,
+  mentions: readonly Mention[],
+  schema: ViewSchema,
+): string | undefined => {
+  if (dates.length === 0) return undefined;
+  const said = saidIn(clause, mentions, schema);
+  for (const r of dates) {
+    const at = r.dateAt ?? r.start;
+    const named =
+      r.start < at
+        ? clause.text
+            .slice(r.start, at)
+            .trimEnd()
+            .replace(/\s+is$/u, "")
+        : "";
+    const column = { start: r.start, end: r.start + named.length, columnId: r.predicate.columnId };
+    const found = statement(said, { start: r.start, end: r.end }, column, clause.text.slice(column.end, at));
+    if (found) return placedPrompt(found);
+  }
+  return undefined;
+};
+
 /**
  * The code-read filters in a request, part by part, in the order written. `mentions` are the request's Mentions, from
  * `matchMentions` with the same schema; their values are never read as a column. A filter's words never overlap
  * another reading's; where two readings would, neither is kept, and the part reads as before. A House Term's conditions
  * share its words, and are one reading.
+ *
+ * Dates (spec 5.5) are read with `dates`: today, or a function that gives it, called only when a relative form needs it.
+ * Without today, relative forms are not read, and the compiler asks about their words. Ranges of two ISO dates, and one
+ * ISO date compared with a date column the Mentions lost, are read either way. The year starts in the schema's
+ * Calendar's first month.
  */
-export const readCodeFilters = (input: NormalizedInput, mentions: readonly Mention[], schema: ViewSchema): CodeReadFilter[] => {
+export const readCodeFilters = (
+  input: NormalizedInput,
+  mentions: readonly Mention[],
+  schema: ViewSchema,
+  dates: Pick<DateOptions, "today"> = {},
+): CodeReadFilter[] => {
   const column = (id: string) => schema.columns.find((col) => col.id === id);
+  const dateOptions: DateOptions = {
+    ...(dates.today !== undefined ? { today: dates.today } : {}),
+    ...(schema.calendar?.fiscalYearStart !== undefined ? { fiscalYearStart: schema.calendar.fiscalYearStart } : {}),
+  };
   return input.clauses.flatMap((clause) => {
     // A column named by its own name, never the Row Noun.
     const columns = columnNames(clause, mentions, schema).filter((m) => !isRowNoun(clause, m, schema.rowNoun));
@@ -1197,6 +1748,7 @@ export const readCodeFilters = (input: NormalizedInput, mentions: readonly Menti
       ...textForm(clause, columns, mentions, schema),
       ...emptyForms(clause, columns, column, said),
       ...houseTerms(clause, said),
+      ...dateFilters(clause, columns, mentions, schema, dateOptions),
     ];
     const apart = (f: CodeReadFilter, g: CodeReadFilter) =>
       g === f || (f.kind === "term" && g.kind === "term" && g.start === f.start && g.end === f.end) || g.start >= f.end || f.start >= g.end;

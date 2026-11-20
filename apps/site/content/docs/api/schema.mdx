@@ -61,6 +61,7 @@ interface SchemaOptions {
   rowNoun?: string;
   defaultMeasure?: string;
   houseTerms?: HouseTerm[];
+  calendar?: Calendar;
   sampleRows?: ReadonlyArray<Record<string, unknown>>;
 }
 ```
@@ -74,6 +75,7 @@ interface SchemaOptions {
 | `rowNoun` | `string` | none | What one row is, such as `"account"`. Its name in a request means the rows, not a column. |
 | `defaultMeasure` | `string` | none | The column a size word ranks by when the request names none: "top accounts", "largest to smallest", "smallest first" sort by it, descending for top, largest and biggest, ascending for smallest. It must name a column; a restricted or unsortable one is never used. Without it, GridCue asks which column. |
 | `houseTerms` | `HouseTerm[]` | none | Words your firm uses for a fixed set of conditions, such as "large" for Market value above $1,000,000. See [House Terms](#houseterms). |
+| `calendar` | `Calendar` | none | The time zone and the first month of your year, which turn date words such as "last 90 days" into dates. See [calendar](#calendar). |
 | `sampleRows` | `ReadonlyArray<Record<string, unknown>>` | none | Rows used only to infer missing kinds. They never leave the caller. |
 
 ## houseTerms
@@ -132,6 +134,29 @@ A name also throws when it holds:
 - a name the schema already uses among its words: "Big gain" holds the alias "gain", "Northgate large" a value, and "Big accounts" the `rowNoun`. GridCue never looks for a term inside a declared name, so such a term could never be found.
 
 A `between` condition throws when its `min` is above its `max`: it would keep no row.
+
+## calendar
+
+```ts
+interface Calendar {
+  timeZone?: string;
+  fiscalYearStart?: number;
+}
+
+defineSchema(columns, { calendar: { timeZone: "America/New_York", fiscalYearStart: 1 } });
+```
+
+The Calendar turns date words in a request into fixed days, and says which day a cell is on. It holds those two fields and nothing else, and it is never sent to an Intent Provider. How requests use it is on [Requests](/docs/concepts/requests#dates).
+
+| Name | Type | Default | Description |
+| --- | --- | --- | --- |
+| `timeZone` | `string` | The browser's time zone | An IANA name, such as `"America/New_York"` or `"Asia/Kolkata"`. Today, and the day a date-and-time cell is on, are worked out in it. |
+| `fiscalYearStart` | `number` | `1` | The month your year starts in, 1 to 12. "This year", "last year" and "YTD" follow it, and quarters are counted in threes from it. With `4`, a year runs from April 1 to March 31, and on 2026-11-13 "this quarter" is 2026-10-01 to 2026-12-31. |
+
+- **The default time zone is read late.** With no `timeZone`, GridCue reads the runtime's time zone when a request is read or a row is filtered, never when the schema is built: the browser's in a browser, and the machine's on a server. So a server that renders rows for Users in another zone filters by the server's days. Set `timeZone` when rows render on a server, or when your data is booked in one zone and Users sit in another. See [Going to production](/docs/guides/going-to-production#11-set-the-time-zone).
+- **Leaving out `calendar`** is the same as `calendar: {}`: the browser's time zone and a year that starts in January.
+- **Both Grid Adapters use it.** `applyView` reads it from the schema, and the TanStack Table adapter stores the time zone beside the column's kind, so both keep the same rows.
+- **A bad value throws `INPUT_SCHEMA`** when the schema is built: a `timeZone` the runtime doesn't know, a `fiscalYearStart` that is not a whole number from 1 to 12, a field other than those two, or a `calendar` that is not an object.
 
 ## ColumnOverride
 
@@ -281,6 +306,7 @@ console.log(describeProviderPayload(schema));
 | A House Term's label or alias is a name already in use, or one of GridCue's own words | `House Term "<label>": the name "<name>" is also a name of the column <label>.` or `… is one of GridCue's own words.` |
 | A House Term's label or alias holds one of GridCue's own words, an amount, or a name already in use | `House Term "<label>": the name "<name>" holds “<word>”, one of GridCue's own words.`, `… holds an amount, which GridCue reads on its own.` or `… holds “<word>”, a name the schema already uses, so the term could never be found.` |
 | A House Term's `between` condition starts above where it ends | `House Term "<label>", condition 1: its range starts at 5, above where it ends at 2, so it keeps no row.` |
+| `calendar` is not an object, holds a field other than `timeZone` and `fiscalYearStart`, or has a bad value | `calendar.timeZone must be an IANA time zone name, such as America/New_York.`, `calendar.fiscalYearStart must be a month from 1 to 12.`, `calendar holds only timeZone and fiscalYearStart, not <field>.` or `calendar must be an object.` |
 | The built schema fails the `ViewSchema` shape, such as an empty label or ID | `Invalid schema: <path>: <problem>` |
 
 ```ts

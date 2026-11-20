@@ -10,7 +10,7 @@ export {
   type LocalValues,
 } from "./core/controller";
 export * from "./core/errors";
-export { matchesFilter, matchesPredicate } from "./core/evaluate";
+export { type MatchOptions, matchesFilter, matchesPredicate } from "./core/evaluate";
 export { LITERAL_COLUMN_KINDS, type Mention, type MentionColumn, matchMentions } from "./core/mentions";
 export {
   type Clause,
@@ -18,6 +18,7 @@ export {
   type Literal,
   type LiteralKind,
   type NormalizedInput,
+  type NormalizeOptions,
   normalize,
   type TextMatchKind,
 } from "./core/normalize";

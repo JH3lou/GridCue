@@ -2,19 +2,26 @@ import { MVP_OPERATIONS } from "./adapter";
 import {
   amountWithoutName,
   type CodeReadFilter,
+  dateQuestion,
+  dateStatement,
+  datesPrompt,
+  dateWordsOf,
   emptyWordsOutside,
   isRowNoun,
   localValueFilters,
   type NamedValue,
+  nameHoldsDate,
   namesAfterCodeRead,
   termQuestion,
   termWordsOutside,
   textFormStatement,
+  timeWordsOutside,
   unreadAdverbs,
   valuePlaceQuestion,
   valueStatement,
 } from "./code-read";
 import { isExposed, operatorsFor } from "./columns";
+import { addDays, isDay } from "./dates";
 import { matchesPredicate } from "./evaluate";
 import { formatAmount } from "./format";
 import { afterExclusionLead, governedClears, LEAD_IN, leavesRowsOut, nothingAfter, saidToStay, viewRequest } from "./lead";
@@ -106,7 +113,10 @@ export interface CompileInput {
    * only when every word in it is placed, and what the provider proposes for it is limited to what its words name.
    * Each filter is in the plan, decided by code, where the column's kind and allowed operators take it; otherwise the
    * part asks. A span with no filter places its words and adds nothing. A part that holds none is compiled exactly as
-   * it is with this left out.
+   * it is with this left out. A date with no column named (spec 5.5) takes the provider's confident pick of a date
+   * column the part doesn't name for something else, or the User's answer; otherwise the part asks which.
+   *
+   * Whatever this holds, a time word outside a date code read ("this week", "since january") asks, in every part.
    */
   codeRead?: readonly (CodeReadSpan | CodeReadFilter)[];
   /**
@@ -531,6 +541,39 @@ const filtersCanAllHold = (predicates: readonly FilterPredicate[], column: Colum
   return [null, ...exact, made].some((cell) => predicates.every((p) => matchesPredicate(cell, p, column)));
 };
 
+/** The column kinds a date is read on (spec 5.5). */
+const DATE_COLUMN_KINDS: ReadonlySet<string> = new Set(["date", "datetime"]);
+
+/**
+ * Whether some day can match every one of these filters on a date column (spec 5.5): "this month" and "last month"
+ * together keep no row. Each filter that compares with a day narrows the days that can match, both ends included; a
+ * filter it can't read this way ("is not empty", a time of day) is left as it is. "Is empty" beside a filter on a day
+ * keeps no row.
+ */
+const daysCanAllHold = (predicates: readonly FilterPredicate[]): boolean => {
+  let low = "0001-01-01";
+  let high = "9999-12-31";
+  for (const p of predicates) {
+    const v = p.value;
+    const day = typeof v === "string" && isDay(v) ? v : undefined;
+    const range =
+      typeof v === "object" && v !== null && !Array.isArray(v) && typeof v.min === "string" && typeof v.max === "string" ? v : undefined;
+    if (p.operator === "isEmpty") return predicates.length === 1;
+    if (p.operator === "between" && range && isDay(String(range.min)) && isDay(String(range.max))) {
+      if (String(range.min) > low) low = String(range.min);
+      if (String(range.max) < high) high = String(range.max);
+    } else if (day && (p.operator === "eq" || p.operator === "gte" || p.operator === "gt")) {
+      const from = p.operator === "gt" ? (day === "9999-12-31" ? "9999-12-32" : addDays(day, 1)) : day;
+      if (from > low) low = from;
+      if (p.operator === "eq" && day < high) high = day;
+    } else if (day && (p.operator === "lte" || p.operator === "lt")) {
+      const to = p.operator === "lt" ? (day === "0001-01-01" ? "0000-12-31" : addDays(day, -1)) : day;
+      if (to < high) high = to;
+    }
+  }
+  return low <= high;
+};
+
 /**
  * A Local Value's filter beside another filter on its column that no row can match with it (architecture, "Compile":
  * contradictory operations). Filters combine with "and" (ADR 0017), so the view would show no rows: "Avery Lane's
@@ -568,7 +611,13 @@ export const emptyViewQuestion = (
   for (const [columnId, predicates] of byColumn) {
     if (predicates.length < 2 || !predicates.some((p) => added.has(p.id))) continue;
     const column = schema.columns.find((col) => col.id === columnId);
-    if (column?.kind !== "string" || filtersCanAllHold(predicates, column)) continue;
+    const canAllHold =
+      column?.kind === "string"
+        ? filtersCanAllHold(predicates, column)
+        : DATE_COLUMN_KINDS.has(column?.kind ?? "")
+          ? daysCanAllHold(predicates)
+          : true;
+    if (!column || canAllHold) continue;
     return {
       id: "plan.empty_view",
       prompt: `No row matches every ${column.label} filter, so the view would be empty. Ask for the rows to keep.`,
@@ -593,10 +642,21 @@ export const compile = (c: CompileInput): ViewPlan => {
   const local = localReading(c, answers);
   // The filters the plan makes for Local Values, by predicate ID, for the check on filters no row can match together.
   const localFilterIds = new Set<string>();
+  // The same for dates read by code (spec 5.5), and the column each date with none named was given.
+  const dateFilterIds = new Set<string>();
+  const resolvedDates = new Map<CodeReadFilter, string>();
+  // A date's words inside a Local Value are the value's: "Today Partners" is a name, not today (spec 5.5).
   const codeReadAll: readonly (CodeReadSpan | CodeReadFilter)[] =
     local.filters.length === 0
       ? (c.codeRead ?? [])
-      : [...(c.codeRead ?? []), ...local.filters].sort((a, b) => a.clauseIndex - b.clauseIndex || a.start - b.start);
+      : [
+          ...(c.codeRead ?? []).filter(
+            (r) =>
+              !(isCodeReadFilter(r) && r.kind === "date") ||
+              !local.filters.some((v) => v.clauseIndex === r.clauseIndex && nameHoldsDate(v, r, r.dateAt)),
+          ),
+          ...local.filters,
+        ].sort((a, b) => a.clauseIndex - b.clauseIndex || a.start - b.start);
   // The Mentions, with any column named right after a code-read filter's words, which they read as the rows.
   const found = c.mentions ?? [];
   const mentions: readonly Mention[] = c.restricted?.length
@@ -768,6 +828,16 @@ export const compile = (c: CompileInput): ViewPlan => {
       // A refusal stays a refusal: the words a provider refuses a part for ("email", "export") are not asked about.
       const refused =
         !clause.keeps && proposed.families.some((f) => KNOWN_FAMILY_IDS.has(f.id) && !isView(f.id) && f.confidence >= bands.clarify);
+      // A time word outside a date form GridCue read is never dropped (spec 5.5): "this week", "since january", "90 days
+      // ago" ask, in every part, with a code-read filter or without. Declared names and quoted text are not looked in.
+      if (!refused) {
+        const time = timeWordsOutside(clause, mentions, [...codeRead, ...(local.asks.get(clause.index)?.spans ?? [])], c.schema);
+        if (time) {
+          clarifications.push({ id: `${key}.dates`, prompt: datesPrompt(time.text), required: true });
+          continue;
+        }
+      }
+      const dateFilters = codeRead.filter((r): r is CodeReadFilter => isCodeReadFilter(r) && r.kind === "date");
       // A House Term is read only as the rows to keep (spec 4.1, 5.3): left out, where a column goes, or said as a
       // statement, it asks, before anything else is asked about the part.
       if (beside && !refused) {
@@ -818,6 +888,18 @@ export const compile = (c: CompileInput): ViewPlan => {
         const asks = valueStatement(localFilters, otherFilters, clause, partMentions, c.schema);
         if (asks) {
           clarifications.push({ id: `${key}.local.${asks.id}`, prompt: asks.prompt, required: true });
+          continue;
+        }
+        // A date said as a statement asks, as a form does: "entries were booked last quarter" (spec 5.5).
+        const said = dateStatement(dateFilters, clause, partMentions, c.schema);
+        if (said) {
+          clarifications.push({ id: `${key}.date.statement`, prompt: said, required: true });
+          continue;
+        }
+        // A date is read only as the rows to keep, and only on a grid with a date column (spec 5.5).
+        const where = dateQuestion(dateFilters, clause, c.schema);
+        if (where) {
+          clarifications.push({ id: `${key}.date.${where.id}`, prompt: where.prompt, required: true });
           continue;
         }
       }
@@ -1664,19 +1746,10 @@ export const compile = (c: CompileInput): ViewPlan => {
               lit.kind === "text"
                 ? (answered ?? (named && (!provided || provided.id === named.id) ? named : undefined))
                 : (answered ?? named ?? provided ?? picked.find((col) => fits.includes(col.kind) && !used.has(col.id)));
+            // A date on a date-and-time column means the whole day in the Calendar's time zone (ADR 0026).
             const operator = lit.kind === "text" ? "contains" : (lit.comparator ?? "eq");
-            // A date against a column that holds times of day would keep or drop rows by the hour. GridCue asks.
-            if (lit.kind === "date" && target?.kind === "datetime") {
-              clarifications.push({
-                id: `${key}.literal${j}.datetime`,
-                prompt: `${target.label} holds times of day, so GridCue can't filter it by date yet.`,
-                required: true,
-              });
-              return;
-            }
             if (!target || !operatorsFor(target).includes(operator)) {
-              // A date-and-time column can't take a date yet, so it is never offered for one.
-              const options = optionsFor(lit.kind === "date" ? ["date"] : fits, "filter");
+              const options = optionsFor(fits, "filter");
               const first =
                 pickFits && pick.confidence >= bands.clarify && options.some((o) => o.id === pickCol.id) ? pickCol.id : undefined;
               clarifications.push({
@@ -1700,10 +1773,59 @@ export const compile = (c: CompileInput): ViewPlan => {
               clarifications.push({ id: `${key}.exclude`, prompt: EXCLUDE_PROMPT, required: true });
               return;
             }
-            at(pred(target.id, kept, operator === "between" ? { min: lit.value, max: lit.upper ?? lit.value } : lit.value), lit.at);
+            const made = pred(target.id, kept, operator === "between" ? { min: lit.value, max: lit.upper ?? lit.value } : lit.value);
+            at(made, lit.at);
+            // A relative date form's literal (`normalize` with today) names its words after its dates (spec 4.5).
+            if (lit.words !== undefined)
+              evidence.push({ key: `${key}.dateWords.${made}`, selectedId: lit.words, confidence: 1, source: "deterministic" });
             // "At or below $1m" also leaves out rows with no amount, which "exclude accounts over $1m" didn't name.
             if (excludes) evidence.push({ key: `${key}.leftOutEmpty`, selectedId: target.id, confidence: 1, source: "deterministic" });
           });
+          /** The column for a date with none named right before it, or `undefined` when the part asks which (spec 5.5). */
+          const dateColumnFor = (r: CodeReadFilter, i: number): string | undefined => {
+            const answerKey = `${key}.date${i}.column`;
+            const takes = (col: ColumnDescriptor | undefined): col is ColumnDescriptor =>
+              !!col &&
+              DATE_COLUMN_KINDS.has(col.kind) &&
+              col.capabilities.includes("filter") &&
+              operatorsFor(col).includes(r.predicate.operator);
+            const answered = answers[answerKey] ? column(answers[answerKey]) : undefined;
+            if (takes(answered)) {
+              note(answerKey, answered.id, 1, "user");
+              return answered.id;
+            }
+            // A column the part names is the User's, for its own change ("sorted by posted") or for another date ("booked
+            // this quarter"): never taken for this date. Names inside a code-read filter count too.
+            const named = new Set([
+              ...partMentions.filter((m) => m.valueId === undefined).map((m) => m.columnId),
+              ...readFilters.flatMap((f) => (f.kind === "date" && f.predicate.columnId ? [f.predicate.columnId] : [])),
+            ]);
+            const inSpan = (j: number) => {
+              const lit = clause.literals[j];
+              return !!lit && lit.at >= r.start && lit.at < r.end;
+            };
+            // The provider's date column comes from its proposal: the limit on its picks keeps it from a sort or a
+            // grouping, which no word names (spec 4.2).
+            const picks = [
+              ...narrowed.columns.filter((p) => p.confidence >= bands.ready).map((p) => ({ id: p.id, confidence: p.confidence })),
+              ...(res.literalColumns ?? [])
+                .filter((l) => l.confidence >= bands.ready && inSpan(l.literalIndex))
+                .map((l) => ({ id: l.columnId, confidence: l.confidence })),
+            ].filter((p) => takes(column(p.id)) && !named.has(p.id) && !used.has(p.id));
+            const ids = [...new Set(picks.map((p) => p.id))];
+            const [only] = ids;
+            if (ids.length === 1 && only) {
+              note(answerKey, only, Math.max(...picks.map((p) => p.confidence)), "provider");
+              return only;
+            }
+            clarifications.push({
+              id: answerKey,
+              prompt: `Which date column should “${dateWordsOf(r, clause)}” filter?`,
+              options: optionsFor(null, "filter").filter((o) => takes(column(o.id))),
+              required: true,
+            });
+            return undefined;
+          };
           // Each code-read filter, as code read it (spec 4.1). Its column was checked above. "Or" next to one asks below,
           // whatever the other side names: GridCue never joins a code-read filter to anything with "or".
           // A House Term's filters carry its label in `host` evidence, which the Preview names (spec 4.5). They go where
@@ -1712,6 +1834,23 @@ export const compile = (c: CompileInput): ViewPlan => {
           // Several Local Values of one column are one filter, made where the first of them sits (spec 5.4).
           const valueColumns = new Set<string>();
           readFilters.forEach((r, i) => {
+            if (r.kind === "date") {
+              // A date's column is the one named right before it. With none named, it is the provider's confident pick
+              // of a date column the part doesn't name for something else, or the User's answer; otherwise GridCue asks
+              // which (spec 5.5). The fixed days are written with today's operators.
+              const columnId = r.predicate.columnId || dateColumnFor(r, i);
+              if (!columnId) return;
+              used.add(columnId);
+              const id = pred(columnId, r.predicate.operator, r.predicate.value);
+              resolvedDates.set(r, columnId);
+              dateFilterIds.add(id);
+              sides.push({ at: r.start, columnId: `\u0000code-read ${i}` });
+              note(`${key}.codeRead${i}`, `${columnId}.${r.predicate.operator}`, 1, "deterministic");
+              if (r.dateWords !== undefined)
+                evidence.push({ key: `${key}.dateWords.${id}`, selectedId: r.dateWords, confidence: 1, source: "deterministic" });
+              placedAt.set(id, r.start);
+              return;
+            }
             if (r.kind === "value") {
               // Values of one column are one side of an "or": "Avery Lane or Blake Moreno" is one filter.
               sides.push({ at: r.start, columnId: r.predicate.columnId });
@@ -2081,7 +2220,15 @@ export const compile = (c: CompileInput): ViewPlan => {
           undone.has(clause.index),
       )
       .map((clause) => ({ clauseIndex: clause.index, text: clause.text }));
-    const unused = [...unusedReadings(others, mentions, operations, evidence, c.schema.rowNoun, codeReadAll), ...leftOver];
+    // A date with no column named counts as read by the filter on the column it was given (spec 4.4).
+    const codeReadUsed =
+      resolvedDates.size === 0
+        ? codeReadAll
+        : codeReadAll.map((r) => {
+            const columnId = isCodeReadFilter(r) ? resolvedDates.get(r) : undefined;
+            return columnId !== undefined && isCodeReadFilter(r) ? { ...r, predicate: { ...r.predicate, columnId } } : r;
+          });
+    const unused = [...unusedReadings(others, mentions, operations, evidence, c.schema.rowNoun, codeReadUsed), ...leftOver];
     for (const left of unused.sort((a, b) => a.clauseIndex - b.clauseIndex)) {
       if (asked.has(left.clauseIndex)) continue;
       asked.add(left.clauseIndex);
@@ -2095,8 +2242,14 @@ export const compile = (c: CompileInput): ViewPlan => {
   }
   // A Local Value's filter beside another filter on its column that no row can match with it never leaves a ready plan:
   // the view would be empty. With no Local Value in the plan, nothing here runs.
-  if (status === "ready" && localFilterIds.size > 0) {
-    const asks = emptyViewQuestion(operations, viewOf(c.state), viewOf(c.defaultState), c.schema, localFilterIds);
+  if (status === "ready" && (localFilterIds.size > 0 || dateFilterIds.size > 0)) {
+    const asks = emptyViewQuestion(
+      operations,
+      viewOf(c.state),
+      viewOf(c.defaultState),
+      c.schema,
+      new Set([...localFilterIds, ...dateFilterIds]),
+    );
     if (asks) {
       clarifications.push(asks);
       status = "needs_clarification";
@@ -2514,9 +2667,15 @@ const codeReadQuestion = (
   mentions: readonly Mention[],
   next: Clause | undefined,
 ): string | undefined => {
+  // A date with no column named right before it takes one later: the provider's pick, or the User's answer.
+  if (r.kind === "date" && !r.predicate.columnId) return undefined;
   const col = column(r.predicate.columnId);
   const label = col?.label ?? r.predicate.columnId;
   const words = clause.text.slice(r.start, r.end);
+  // A date goes only to a date column: "amount in the last 90 days" names a column that holds none (spec 5.5).
+  if (r.kind === "date" && col && !DATE_COLUMN_KINDS.has(col.kind)) {
+    return `${label} can't be compared with “${dateWordsOf(r, clause)}”. Name a column that holds dates.`;
+  }
   if (!col?.capabilities.includes("filter")) return `GridCue can't filter ${label} here. Try a different filter.`;
   if ((r.kind === "text" || r.kind === "value") && col.kind !== "string") {
     return `GridCue can match text only in a text column, and ${label} isn't one.`;
@@ -2532,6 +2691,7 @@ const codeReadQuestion = (
   if (!operatorsFor(col).includes(r.predicate.operator)) {
     // A House Term's conditions were checked when the schema was built; one built by hand may still hold another.
     if (r.kind === "term") return `GridCue can't filter ${label} the way “${words}” needs here.`;
+    if (r.kind === "date") return `GridCue can't filter ${label} by “${dateWordsOf(r, clause)}” here. Try a different filter.`;
     return `GridCue can't filter ${label} ${FORM_WORDS[r.predicate.operator] ?? "that way"} here.`;
   }
   return undefined;
