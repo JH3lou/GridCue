@@ -29,7 +29,7 @@ The kind of change a Clause asks for, such as filter, sort, show only some colum
 _Avoid_: Intent, action type, command
 
 **Mention**:
-A column or enum value a Clause names by one of the Host's declared labels or aliases, found by deterministic code before any provider call. A name used for the rows themselves, as in "biggest accounts first", is not a Mention.
+A column or enum value a Clause names by one of the Host's declared labels or aliases, found by deterministic code before any provider call. A name used for the rows themselves, as in "biggest accounts first", is not a Mention. A Local Value and a House Term are not Mentions either: a Mention is sent to the Intent Provider, and they never are.
 _Avoid_: Match, hit, reference
 
 **Row Noun**:
@@ -39,6 +39,14 @@ _Avoid_: Entity type, record type
 **Value Group**:
 A Host-named category over several enum values of one column, such as Retirement = IRA and Roth IRA.
 _Avoid_: Category, bucket, tag
+
+**Local Value**:
+A value of a text column that GridCue reads from the grid's own rows in the User's browser, with the Host's approval. It is never sent to an Intent Provider.
+_Avoid_: Distinct value, facet, lookup
+
+**House Term**:
+A Host-named list of fixed conditions on the rows, all of which must hold, such as Large = Market value above $1,000,000. It is never sent to an Intent Provider.
+_Avoid_: Semantic alias, business rule, macro
 
 **Strategy**:
 Which questions an Intent Provider asks for each Clause, chosen by the Host. Jev offers "focused" (fewest questions) and "fan-out" (the default).
@@ -69,6 +77,10 @@ _Avoid_: Version, etag
 **View Schema**:
 The Host's declaration of which columns exist, what they mean, and what may be done with each.
 _Avoid_: Metadata, column config
+
+**Calendar**:
+The Host's time zone and the first month of its year, which turn date words in a request into dates.
+_Avoid_: Locale, date settings
 
 **View Operation**:
 One atomic kind of view change, such as adding a filter or setting the sort.
