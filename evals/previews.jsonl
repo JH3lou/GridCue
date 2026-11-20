@@ -1025,3 +1025,175 @@
 {"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-plain-l02","lines":["Sort by Amount, descending"],"notes":[]}
 {"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-plain-l03","lines":["Hide Rate and Units"],"notes":[]}
 {"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-plain-l05","lines":["Show only rows where Cleared is Yes"],"notes":[]}
+{"file":"cases-names.jsonl","id":"lv-middle","lines":["Filter Registration type to Taxable"],"notes":[]}
+{"file":"cases-names.jsonl","id":"lv-end","lines":["Filter Registration type to Taxable"],"notes":[]}
+{"file":"cases-names.jsonl","id":"lv-table-taxable-for","lines":["Filter Registration type to Taxable"],"notes":[]}
+{"file":"cases-names.jsonl","id":"lv-table-sort-for","lines":["Sort by Market value, ascending; then Household, ascending"],"notes":[]}
+{"file":"cases-names.jsonl","id":"lv-table-group-for","lines":["Group by Advisor"],"notes":[]}
+{"file":"cases-names.jsonl","id":"lv-quoted-value-unchanged","lines":["Filter Advisor containing “avery lane”"],"notes":[]}
+{"file":"cases-names.jsonl","id":"lv-spec-quoted-lane","lines":["Filter Advisor containing “lane”"],"notes":[]}
+{"file":"cases-names.jsonl","id":"lv-one-word-taxable-for-lane","lines":["Filter Registration type to Taxable"],"notes":[]}
+{"file":"cases-names.jsonl","id":"lv-ledger-cleared-yes","lines":["Show only rows where Cleared is Yes"],"notes":[]}
+{"file":"cases-names.jsonl","id":"lv-ledger-sorted","lines":["Sort by Amount, descending"],"notes":[]}
+{"file":"cases-names.jsonl","id":"lv-ledger-group","lines":["Group by Category"],"notes":[]}
+{"file":"cases-provider-picks.jsonl","id":"pp-lv-sort-for-name","lines":["Sort by Account number, descending; then Advisor, descending; then Market value, descending"],"notes":[]}
+{"file":"cases-provider-picks.jsonl","id":"pp-lv-group-for-name","lines":["Group by Account number, then Advisor, then Custodian"],"notes":[]}
+{"file":"cases-provider-picks.jsonl","id":"pp-lv-hide-for-name","lines":["Hide Account number, Advisor and Custodian"],"notes":[]}
+{"file":"cases-provider-picks.jsonl","id":"pp-lv-show-for-name","lines":["Show Account number, Advisor and Custodian"],"notes":[]}
+{"file":"cases-provider-picks.jsonl","id":"pp-lv-value-beside-name-taxable","lines":["Filter Registration type to Taxable","Sort by Advisor, descending; then Concentration, descending"],"notes":[]}
+{"file":"cases-provider-picks.jsonl","id":"pp-lv-ledger-sort-for-owner","lines":["Sort by Owner, descending; then Amount, descending"],"notes":[]}
+{"file":"cases-provider-picks.jsonl","id":"pp-lv-ledger-value-for-counterparty","lines":["Filter Category to Fees"],"notes":[]}
+{"file":"cases-provider-picks.jsonl","id":"pp-lv-ledger-group-for-list","lines":["Group by Owner, then Category"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-owner-possessive","lines":["Filter Owner to exactly “Avery Lane”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-owner-for","lines":["Filter Owner to exactly “Avery Lane”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-owner-is","lines":["Filter Owner to exactly “Avery Lane”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-owner-show","lines":["Filter Owner to exactly “Avery Lane”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-owner-bare","lines":["Filter Owner to exactly “Avery Lane”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-owner-lower-lead-in","lines":["Filter Owner to exactly “Blake Moreno”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-owner-upper-possessive","lines":["Filter Owner to exactly “Casey Ortiz”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-owner-final-period","lines":["Filter Owner to exactly “Dana Whitfield”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-owner-where-owner-is","lines":["Filter Owner to exactly “Emerson Hale”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-owner-want-to-see","lines":["Filter Owner to exactly “Frankie Dunmore”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-owner-can-you-list","lines":["Filter Owner to exactly “Gale Ivers”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-owner-hyphen","lines":["Filter Owner to exactly “Avery Lane”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-owner-of","lines":["Filter Owner to exactly “Dana Whitfield”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-owner-with","lines":["Filter Owner to exactly “Emerson Hale”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-cp-possessive-form","lines":["Filter Counterparty to exactly “Cedar Works”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-cp-for","lines":["Filter Counterparty to exactly “Cedar Works”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-cp-is","lines":["Filter Counterparty to exactly “Dunmore Freight”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-cp-holds-category-word","lines":["Filter Counterparty to exactly “Fairholm Software”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-cp-holds-category-and-group","lines":["Filter Counterparty to exactly “Hollis Travel Group”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-cp-holds-alias-word","lines":["Filter Counterparty to exactly “Greaves Consulting”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-cp-ampersand","lines":["Filter Counterparty to exactly “Birch & Fenn Ltd”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-cp-no-ampersand","lines":["Filter Counterparty to exactly “Birch & Fenn Ltd”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-cp-trailing-period","lines":["Filter Counterparty to exactly “Alder Supply Co”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-cp-the","lines":["Filter Counterparty to exactly “Ellery Partners”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-list-two-owners","lines":["Filter Owner to any of “Avery Lane” and “Blake Moreno”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-list-and-owners","lines":["Filter Owner to any of “Avery Lane” and “Blake Moreno”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-list-three-owners","lines":["Filter Owner to any of “Avery Lane”, “Blake Moreno” and “Casey Ortiz”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-list-two-cps","lines":["Filter Counterparty to any of “Cedar Works” and “Dunmore Freight”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-list-three-cps","lines":["Filter Counterparty to any of “Alder Supply Co”, “Cedar Works” and “Ellery Partners”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-owner-and-cp","lines":["Filter Owner to exactly “Avery Lane”","Filter Counterparty to exactly “Cedar Works”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-with-category","lines":["Filter Owner to exactly “Avery Lane”","Filter Category to Fees"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-category-then-value","lines":["Filter Category to Travel","Filter Owner to exactly “Blake Moreno”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-with-category-and-cp","lines":["Filter Counterparty to exactly “Fairholm Software”","Filter Category to Fees"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-cp-travel-with-category","lines":["Filter Counterparty to exactly “Hollis Travel Group”","Filter Category to Software"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-with-amount","lines":["Filter Owner to exactly “Avery Lane”","Filter Amount above $50,000"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-cp-with-amount-under","lines":["Filter Counterparty to exactly “Cedar Works”","Filter Amount below $10,000"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-with-iso-date","lines":["Filter Owner to exactly “Casey Ortiz”","Filter Booked above “2026-03-01”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-with-starts-with","lines":["Filter Owner to exactly “Blake Moreno”","Filter Counterparty starting with “fa”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-with-no-counterparty","lines":["Filter Owner to exactly “Dana Whitfield”","Show only rows where Counterparty is empty"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-with-no-category","lines":["Filter Owner to exactly “Emerson Hale”","Show only rows where Category is empty"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-cp-with-booked-empty","lines":["Filter Counterparty to exactly “Cedar Works”","Show only rows where Booked is empty"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-with-software-category","lines":["Filter Owner to exactly “Gale Ivers”","Filter Category to Software"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-beside-sort-leading","lines":["Filter Owner to exactly “Blake Moreno”","Sort by Units, ascending"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-beside-group","lines":["Filter Owner to exactly “Casey Ortiz”","Group by Category"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-beside-hide-trailing","lines":["Filter Owner to exactly “Dana Whitfield”","Hide Rate"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-two-words-category-and-group","lines":["Filter Category to Travel"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-own-word-software-category","lines":["Filter Category to Software"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-own-word-travel-category","lines":["Filter Category to Travel"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-own-word-consulting-alias","lines":["Filter Category to Services"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-own-word-group-not-value","lines":["Group by Category"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-poss-avery","lines":["Filter Advisor to exactly “Avery Lane”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-for-avery","lines":["Filter Advisor to exactly “Avery Lane”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-advisor-is-avery","lines":["Filter Advisor to exactly “Avery Lane”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-the-alder-household","lines":["Filter Household to exactly “Alder Household”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-show-birch-household","lines":["Filter Household to exactly “Birch Household”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-show-me-casey","lines":["Filter Advisor to exactly “Casey Ortiz”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-please-dana","lines":["Filter Advisor to exactly “Dana Whitfield”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-can-you-emerson","lines":["Filter Advisor to exactly “Emerson Hale”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-i-want-cedar","lines":["Filter Household to exactly “Cedar Household”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-list-dunmore-accounts","lines":["Filter Household to exactly “Dunmore Household”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-upper-case","lines":["Filter Advisor to exactly “Avery Lane”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-lower-case","lines":["Filter Advisor to exactly “Avery Lane”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-bare-household-lower","lines":["Filter Household to exactly “Alder Household”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-bare-advisor","lines":["Filter Advisor to exactly “Blake Moreno”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-just-casey","lines":["Filter Advisor to exactly “Casey Ortiz”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-only-dana","lines":["Filter Advisor to exactly “Dana Whitfield”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-greaves-poss","lines":["Filter Household to exactly “Greaves Household”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-where-household-is","lines":["Filter Household to exactly “Hollis Household”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-full-stop","lines":["Filter Household to exactly “Ivers Household”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-capital-household","lines":["Filter Household to exactly “Jessup Household”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-kestrel-bare","lines":["Filter Household to exactly “Kestrel Household”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-lomax","lines":["Filter Household to exactly “Lomax Household”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-household-possessive","lines":["Filter Household to exactly “Cedar Household”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-hyphen-between-words","lines":["Filter Advisor to exactly “Avery Lane”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-trailing-please","lines":["Filter Advisor to exactly “Casey Ortiz”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-advisor-colon","lines":["Filter Advisor to exactly “Dana Whitfield”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-list-two-or","lines":["Filter Advisor to any of “Avery Lane” and “Blake Moreno”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-list-three","lines":["Filter Advisor to any of “Avery Lane”, “Blake Moreno” and “Casey Ortiz”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-list-accounts-for-or","lines":["Filter Advisor to any of “Avery Lane” and “Dana Whitfield”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-list-advisor-is-or","lines":["Filter Advisor to any of “Avery Lane” and “Blake Moreno”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-list-two-households","lines":["Filter Household to any of “Alder Household” and “Birch Household”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-list-three-households","lines":["Filter Household to any of “Alder Household”, “Cedar Household” and “Greaves Household”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-list-and","lines":["Filter Advisor to any of “Avery Lane” and “Blake Moreno”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-beside-taxable","lines":["Filter Registration type to Taxable","Filter Advisor to exactly “Avery Lane”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-household-amount","lines":["Filter Household to exactly “Alder Household”","Filter Market value above $500,000"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-beside-ira","lines":["Filter Advisor to exactly “Casey Ortiz”","Filter Registration type to IRA"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-beside-trust","lines":["Filter Advisor to exactly “Blake Moreno”","Filter Registration type to Trust"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-beside-custodian","lines":["Filter Custodian to Northgate","Filter Advisor to exactly “Emerson Hale”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-beside-concentration","lines":["Filter Advisor to exactly “Avery Lane”","Filter Concentration above 10%"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-beside-sort-household","lines":["Filter Household to exactly “Alder Household”","Sort by Market value, descending"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-beside-group","lines":["Filter Advisor to exactly “Avery Lane”","Group by Advisor"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-beside-group-custodian","lines":["Filter Household to exactly “Alder Household”","Group by Custodian"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-beside-text-form","lines":["Filter Advisor to exactly “Avery Lane”","Filter Household starting with “al”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-beside-empty-form","lines":["Filter Household to exactly “Alder Household”","Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-two-columns-values","lines":["Filter Advisor to exactly “Avery Lane”","Filter Household to exactly “Alder Household”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-conflict-no-advisor","lines":["Filter Advisor to exactly “Avery Lane”","Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-conflict-starts-with","lines":["Filter Advisor to exactly “Avery Lane”","Filter Advisor starting with “bl”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-conflict-two-advisors","lines":["Filter Advisor to any of “Avery Lane” and “Blake Moreno”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-mixed-columns-and","lines":["Filter Advisor to exactly “Avery Lane”","Filter Household to exactly “Alder Household”"],"notes":[]}
+{"file":"cases-names-natural-heldout.jsonl","id":"n4-w-advisor-full","lines":["Filter Advisor to exactly “Avery Lane”"],"notes":[]}
+{"file":"cases-names-natural-heldout.jsonl","id":"n4-w-advisor-bare","lines":["Filter Advisor to exactly “Dana Whitfield”"],"notes":[]}
+{"file":"cases-names-natural-heldout.jsonl","id":"n4-w-advisor-lower","lines":["Filter Advisor to exactly “Emerson Hale”"],"notes":[]}
+{"file":"cases-names-natural-heldout.jsonl","id":"n4-w-two-advisors","lines":["Filter Advisor to any of “Avery Lane” and “Blake Moreno”"],"notes":[]}
+{"file":"cases-names-natural-heldout.jsonl","id":"n4-w-household-full","lines":["Filter Household to exactly “Alder Household”"],"notes":[]}
+{"file":"cases-names-natural-heldout.jsonl","id":"n4-w-household-poss","lines":["Filter Household to exactly “Greaves Household”"],"notes":[]}
+{"file":"cases-names-natural-heldout.jsonl","id":"n4-w-with-enum","lines":["Filter Advisor to exactly “Blake Moreno”","Filter Registration type to Taxable"],"notes":[]}
+{"file":"cases-names-natural-heldout.jsonl","id":"n4-w-with-hide","lines":["Filter Household to exactly “Dunmore Household”","Hide Advisor"],"notes":[]}
+{"file":"cases-names-natural-heldout.jsonl","id":"n4-w-two-columns","lines":["Filter Advisor to exactly “Emerson Hale”","Filter Household to exactly “Ivers Household”"],"notes":[]}
+{"file":"cases-names-natural-heldout.jsonl","id":"n4-l-owner-full","lines":["Filter Owner to exactly “Frankie Dunmore”"],"notes":[]}
+{"file":"cases-names-natural-heldout.jsonl","id":"n4-l-two-owners","lines":["Filter Owner to any of “Blake Moreno” and “Casey Ortiz”"],"notes":[]}
+{"file":"cases-names-natural-heldout.jsonl","id":"n4-l-cp-ampersand","lines":["Filter Counterparty to exactly “Birch & Fenn Ltd”"],"notes":[]}
+{"file":"cases-names-natural-heldout.jsonl","id":"n4-l-cp-two","lines":["Filter Counterparty to any of “Alder Supply Co” and “Fairholm Software”"],"notes":[]}
+{"file":"cases-names-natural-heldout.jsonl","id":"n4-l-cp-and-owner","lines":["Filter Owner to exactly “Casey Ortiz”","Filter Counterparty to exactly “Greaves Consulting”"],"notes":[]}
+{"file":"cases-names-picks-heldout.jsonl","id":"lvp1-ledger-sort-for-owner","lines":["Filter Owner to exactly “Avery Lane”"],"notes":[]}
+{"file":"cases-names-picks-heldout.jsonl","id":"lvp1-ledger-group-for-cp","lines":["Filter Counterparty to exactly “Cedar Works”"],"notes":[]}
+{"file":"cases-names-picks-heldout.jsonl","id":"lvp1-ledger-hide-for-owner","lines":["Filter Owner to exactly “Blake Moreno”"],"notes":[]}
+{"file":"cases-names-picks-heldout.jsonl","id":"lvp1-ledger-category-value-for-owner","lines":["Filter Owner to exactly “Dana Whitfield”"],"notes":[]}
+{"file":"cases-names-picks-heldout.jsonl","id":"lvp1-ledger-boolean-value-for-owner","lines":["Filter Owner to exactly “Casey Ortiz”"],"notes":[]}
+{"file":"cases-names-picks-heldout.jsonl","id":"lvp1-ledger-travel-for-hollis-travel-group","lines":["Filter Counterparty to exactly “Hollis Travel Group”"],"notes":[]}
+{"file":"cases-names-picks-heldout.jsonl","id":"lvp1-ledger-software-for-fairholm-software","lines":["Filter Counterparty to exactly “Fairholm Software”"],"notes":[]}
+{"file":"cases-names-picks-heldout.jsonl","id":"lvp1-ledger-services-for-greaves-consulting","lines":["Filter Counterparty to exactly “Greaves Consulting”"],"notes":[]}
+{"file":"cases-names-picks-heldout.jsonl","id":"lvp1-ledger-group-pick-beside-named-sort","lines":["Filter Owner to exactly “Avery Lane”","Sort by Units, descending"],"notes":[]}
+{"file":"cases-names-picks-heldout.jsonl","id":"lvp1-ledger-sort-pick-on-owner-column","lines":["Filter Owner to exactly “Emerson Hale”"],"notes":[]}
+{"file":"cases-names-picks-heldout.jsonl","id":"lvp1-ledger-sort-pick-beside-named-group","lines":["Filter Owner to exactly “Gale Ivers”","Group by Category"],"notes":[]}
+{"file":"cases-names-picks-heldout.jsonl","id":"lvp1-ledger-other-column-for-owner","lines":["Filter Owner to exactly “Frankie Dunmore”"],"notes":[]}
+{"file":"cases-names-picks-heldout.jsonl","id":"lvp1-ledger-list-with-sort-pick","lines":["Filter Owner to any of “Avery Lane” and “Blake Moreno”"],"notes":[]}
+{"file":"cases-names-picks-heldout.jsonl","id":"lvp1-ledger-category-word-hide-pick","lines":["Filter Counterparty to exactly “Cedar Works”","Filter Category to Fees"],"notes":[]}
+{"file":"cases-names-picks-heldout.jsonl","id":"lvp1-ledger-other-category-value-beside-named-one","lines":["Filter Owner to exactly “Casey Ortiz”","Filter Category to Fees"],"notes":[]}
+{"file":"cases-names-picks-heldout.jsonl","id":"lvp1-wealth-sort-for-advisor","lines":["Filter Advisor to exactly “Avery Lane”"],"notes":[]}
+{"file":"cases-names-picks-heldout.jsonl","id":"lvp1-wealth-group-for-household","lines":["Filter Household to exactly “Alder Household”"],"notes":[]}
+{"file":"cases-names-picks-heldout.jsonl","id":"lvp1-wealth-value-pick-for-advisor","lines":["Filter Advisor to exactly “Blake Moreno”"],"notes":[]}
+{"file":"cases-names-picks-heldout.jsonl","id":"lvp1-wealth-hide-for-household","lines":["Filter Household to exactly “Cedar Household”"],"notes":[]}
+{"file":"cases-names-picks-heldout.jsonl","id":"lvp1-wealth-other-value-beside-named","lines":["Filter Advisor to exactly “Dana Whitfield”","Filter Registration type to Taxable"],"notes":[]}
+{"file":"cases-names-picks-heldout.jsonl","id":"lvp1-wealth-group-pick-beside-named-sort","lines":["Filter Advisor to exactly “Avery Lane”","Sort by Market value, descending"],"notes":[]}
+{"file":"cases-names-picks-heldout.jsonl","id":"lvp1-wealth-list-with-sort-pick","lines":["Filter Advisor to any of “Avery Lane” and “Blake Moreno”"],"notes":[]}
+{"file":"cases-names-heldout-wealth-r2.jsonl","id":"r2-whole-three-word-value","lines":["Filter Counterparty to exactly “Hollis Travel Group”"],"notes":[]}
+{"file":"cases-names-heldout-wealth-r2.jsonl","id":"r2-possessive","lines":["Filter Advisor to exactly “Dana Whitfield”"],"notes":[]}
+{"file":"cases-names-heldout-wealth-r2.jsonl","id":"r2-for","lines":["Filter Advisor to exactly “Emerson Hale”"],"notes":[]}
+{"file":"cases-names-heldout-wealth-r2.jsonl","id":"r2-lowercase-typed","lines":["Filter Advisor to exactly “Casey Ortiz”"],"notes":[]}
+{"file":"cases-names-heldout-wealth-r2.jsonl","id":"r2-uppercase-household","lines":["Filter Household to exactly “Jessup Household”"],"notes":[]}
+{"file":"cases-names-heldout-wealth-r2.jsonl","id":"r2-household-show","lines":["Filter Household to exactly “Kestrel Household”"],"notes":[]}
+{"file":"cases-names-heldout-wealth-r2.jsonl","id":"r2-ledger-owner","lines":["Filter Owner to exactly “Gale Ivers”"],"notes":[]}
+{"file":"cases-names-heldout-wealth-r2.jsonl","id":"r2-ledger-cp-for","lines":["Filter Counterparty to exactly “Greaves Consulting”"],"notes":[]}
+{"file":"cases-names-heldout-wealth-r2.jsonl","id":"r2-ledger-punctuated-value","lines":["Filter Counterparty to exactly “Birch & Fenn Ltd”"],"notes":[]}
+{"file":"cases-names-heldout-wealth-r2.jsonl","id":"r2-list-three","lines":["Filter Advisor to any of “Avery Lane”, “Blake Moreno” and “Casey Ortiz”"],"notes":[]}
+{"file":"cases-names-heldout-wealth-r2.jsonl","id":"r2-list-or-accounts","lines":["Filter Advisor to any of “Casey Ortiz” and “Emerson Hale”"],"notes":[]}
+{"file":"cases-names-heldout-wealth-r2.jsonl","id":"r2-list-ledger-or","lines":["Filter Owner to any of “Frankie Dunmore” and “Gale Ivers”"],"notes":[]}
+{"file":"cases-names-heldout-wealth-r2.jsonl","id":"r2-list-and","lines":["Filter Advisor to any of “Dana Whitfield” and “Emerson Hale”"],"notes":[]}
+{"file":"cases-names-heldout-wealth-r2.jsonl","id":"r2-value-plus-registration","lines":["Filter Advisor to exactly “Emerson Hale”","Filter Registration type to Trust"],"notes":[]}
+{"file":"cases-names-heldout-wealth-r2.jsonl","id":"r2-two-columns-for","lines":["Filter Advisor to exactly “Avery Lane”","Filter Household to exactly “Alder Household”"],"notes":[]}
+{"file":"cases-names-heldout-wealth-r2.jsonl","id":"r2-ledger-two-columns-for","lines":["Filter Owner to exactly “Avery Lane”","Filter Counterparty to exactly “Cedar Works”"],"notes":[]}
+{"file":"cases-names-heldout-wealth-r2.jsonl","id":"r2-quoted-contains-unchanged","lines":["Filter Advisor containing “hale”"],"notes":[]}
+{"file":"cases-names-heldout-wealth-r2.jsonl","id":"r2-export","lines":["Filter Advisor to exactly “Avery Lane”"],"notes":[]}

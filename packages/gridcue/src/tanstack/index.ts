@@ -7,6 +7,7 @@ import {
   type GridAdapter,
   GridCueError,
   isApplicable,
+  type LocalValues,
   MVP_OPERATIONS,
   matchesPredicate,
   resultingState,
@@ -38,8 +39,52 @@ export interface TanStackTableLike {
   setColumnVisibility(visibility: Record<string, boolean>): void;
   setColumnOrder(order: string[]): void;
   getAllLeafColumns(): Array<{ id: string; columnDef: { header?: unknown } }>;
-  getCoreRowModel(): { rows: Array<{ getValue(columnId: string): unknown }> };
+  getCoreRowModel(): { rows: Array<{ getValue(columnId: string): unknown }>; flatRows?: Array<{ getValue(columnId: string): unknown }> };
 }
+
+/**
+ * Local Values from a table's own rows (named filters spec, 5.4; ADR 0025): for each column id, a function that
+ * reads that column's value from every row the table has loaded, sub-rows included. These are the rows before the
+ * table filters, sorts, groups or pages them, so a name is found while the User's filter hides its row. A table that
+ * pages on a server holds only its page: pass the Host's own list to `localValues` instead.
+ *
+ * Each function returns the same array while the table's data is the same array, so the Controller keeps its index.
+ * Values are passed on as the table holds them; the Controller drops any that are not text. A column id the table
+ * doesn't have throws `INPUT_CONFIG` here. If the table later loses one, reading throws and the request stops with
+ * `INPUT_LOCAL_VALUES`. `createGridCue` still checks each column against the schema.
+ */
+export const localValuesFromTable = (
+  table: Pick<TanStackTableLike, "getAllLeafColumns" | "getCoreRowModel">,
+  columnIds: readonly string[],
+): LocalValues => {
+  const missing = (): string | undefined => {
+    const leaves = new Set(table.getAllLeafColumns().map((c) => c.id));
+    return columnIds.find((id) => !leaves.has(id));
+  };
+  const absent = missing();
+  if (absent !== undefined) {
+    throw new GridCueError("INPUT_CONFIG", `localValuesFromTable names “${absent}”, which is not a column of this table.`);
+  }
+  // TanStack keeps its core row model while the table's data is the same array, so its rows mark the data.
+  let rowsRead: unknown;
+  const kept = new Map<string, readonly unknown[]>();
+  const reader = (columnId: string) => (): readonly unknown[] => {
+    if (missing() !== undefined) throw new Error("The table no longer has a column localValuesFromTable reads.");
+    const model = table.getCoreRowModel();
+    const rows = model.flatRows ?? model.rows;
+    if (rows !== rowsRead) {
+      rowsRead = rows;
+      kept.clear();
+    }
+    let values = kept.get(columnId);
+    if (!values) {
+      values = rows.map((row) => row.getValue(columnId));
+      kept.set(columnId, values);
+    }
+    return values;
+  };
+  return Object.fromEntries(columnIds.map((id) => [id, reader(id)]));
+};
 
 /**
  * The filter value GridCue stores in TanStack's column filter state. `host` carries the

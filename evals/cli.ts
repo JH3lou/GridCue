@@ -93,7 +93,11 @@ const describe = (ms: number) => {
 
 const run = async (file: URL, label: string) => {
   const counts: Record<Verdict, number> = { exact: 0, safe_abstention: 0, rejected: 0, mismatch: 0, unsafe: 0 };
-  for (const c of loadCases(file)) {
+  const cases = loadCases(file);
+  // A case that says `"values": true` runs with its schema's Local Values (evals/local-values.ts).
+  const withValues = cases.filter((c) => c.values).length;
+  const named = withValues > 0 ? `${label}, ${withValues} with Local Values` : label;
+  for (const c of cases) {
     seen = {};
     useProviderFor(c);
     const started = Date.now();
@@ -108,7 +112,7 @@ const run = async (file: URL, label: string) => {
       console.log(`${verdict.toUpperCase()}: ${c.id}`);
     }
   }
-  console.log(`GridCue evals: ${label} (${live ? "Jev" : "Mock Provider"}${setup ? `, ${setup}` : ""})`);
+  console.log(`GridCue evals: ${named} (${live ? "Jev" : "Mock Provider"}${setup ? `, ${setup}` : ""})`);
   console.table(counts);
   return counts;
 };
@@ -347,6 +351,47 @@ const houseTermsHeldOut3 = await run(
   new URL("./cases-house-terms-heldout-r3.jsonl", import.meta.url),
   "cases-house-terms-heldout-r3.jsonl",
 );
+// Local Values (named filters spec, 5.4): whole values of the name columns in each position, lists, a value beside other
+// changes, one word of a value, a value where a column goes or where rows are left out, and refused requests that hold
+// a value. Each case says `"values": true` and runs with its schema's Local Values (evals/local-values.ts), labelled
+// before the code (2026-11-14). Before the code, with no Local Values, the Mock Provider gave: 2 exact, 15 asked as
+// labelled, 1 refused as labelled, 33 safe misses, and 9 wrong views, each a name dropped beside another reading ("show
+// taxable accounts for Avery Lane" filters Taxable alone), of 60. After it: 37 exact, 16 asked as labelled, 1 refused
+// as labelled, 6 safe misses, no wrong view. The 6 are the Mock Provider's (evals/evals.test.ts names them).
+const names = await run(new URL("./cases-names.jsonl", import.meta.url), "cases-names.jsonl");
+// The Local Values held-out sets, labelled from spec 5.4 and the declared name columns before the code, and first run
+// after it (2026-11-14), each case with its schema's Local Values. With the Mock Provider:
+// - the wealth form set: 45 exact, 51 asked as labelled, 4 refused as labelled, 7 safe misses, 4 wrong views (a value's
+//   filter beside another filter on the same column that leaves no row, twice; two values of one column in separate
+//   places read as any of them; values of two columns joined by "and" read as two filters), of 111;
+// - the ledger form set: 49 exact, 54 asked as labelled, 5 refused as labelled, 2 safe misses, 1 wrong view ("Travel
+//   Group entries" filters Category to Travel and drops "Group", as before the code), of 111;
+// - sentences that hold a value and are not requests: 21 asked, 1 refused, none ready, of 22;
+// - scripted provider picks for a value's words: 22 exact, 1 asked as labelled, of 23;
+// - the natural set, by a labeller who saw only the product definition, the schemas and the name columns: 14 exact, 13
+//   asked as labelled, 2 refused as labelled, 15 safe misses, no wrong view, of 44, after 3 labels were corrected to
+//   spec 5.4's table: "everyone but …" and "… except …" ask, rather than filter to the other values.
+// 8 of their requests showed a view the User didn't ask for before the code and now ask. Their safe misses are
+// reported, not failed; a wrong view fails.
+const namesHeldOutWealth = await run(new URL("./cases-names-heldout-wealth.jsonl", import.meta.url), "cases-names-heldout-wealth.jsonl");
+const namesHeldOutLedger = await run(new URL("./cases-names-heldout-ledger.jsonl", import.meta.url), "cases-names-heldout-ledger.jsonl");
+const namesNotRequestsHeldOut = await run(
+  new URL("./cases-names-not-requests-heldout.jsonl", import.meta.url),
+  "cases-names-not-requests-heldout.jsonl",
+);
+const namesPicksHeldOut = await run(new URL("./cases-names-picks-heldout.jsonl", import.meta.url), "cases-names-picks-heldout.jsonl");
+const namesNaturalHeldOut = await run(new URL("./cases-names-natural-heldout.jsonl", import.meta.url), "cases-names-natural-heldout.jsonl");
+// A second held-out set for Local Values, labelled from spec 5.4 and the declared name columns, and first run after the
+// fix for the first sets' wrong views (2026-11-14), most cases with their schema's Local Values and two without: a
+// value beside another filter on its column that leaves no row, two values of one column apart, values of two columns
+// joined by "and", a word built on "group" that the part doesn't group by, whole values in each shape spec 5.4 reads,
+// one word of a value, and a value where rows are left out, in a column slot or in a sentence that is not a request.
+// With the Mock Provider: 17 exact, 37 asked as labelled, 2 refused as labelled, no wrong view, of 56; one request
+// labelled ready asked, which its label accepts. 2 of its requests showed a view the User didn't ask for before the code
+// and now ask: "Travel Group" requests that filtered Category to Travel, where the grid holds Hollis Travel Group. Three
+// cases that ran with no Local Values were taken out after the review (2026-11-14): with none, every request reads as
+// before this PR, and they test readings outside it. Its safe misses are reported, not failed; a wrong view fails.
+const namesHeldOut2 = await run(new URL("./cases-names-heldout-wealth-r2.jsonl", import.meta.url), "cases-names-heldout-wealth-r2.jsonl");
 
 // Applying a view the user did not ask for is release-blocking with any provider.
 // With the Mock Provider every core case must match exactly, because its answers are deterministic.
@@ -383,6 +428,13 @@ const all = [
   houseTermsNaturalHeldOut,
   houseTermsHeldOut2,
   houseTermsHeldOut3,
+  names,
+  namesHeldOutWealth,
+  namesHeldOutLedger,
+  namesNotRequestsHeldOut,
+  namesPicksHeldOut,
+  namesNaturalHeldOut,
+  namesHeldOut2,
 ];
 const mockMustMatch = [
   core,

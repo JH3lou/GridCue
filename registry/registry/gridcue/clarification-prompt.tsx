@@ -7,13 +7,25 @@ export interface ClarificationPromptProps {
   onAnswer: (clarificationId: string, optionId: string) => void;
 }
 
+/**
+ * A choice may be a long name the grid holds: it wraps inside the row, on as many lines as it needs. One line stays 32px
+ * high, as `size="sm"` is: 20px of text, 5px above and below, and the border.
+ */
+const CHOICE = "h-auto min-h-8 max-w-full shrink justify-start py-[5px] text-start whitespace-normal wrap-anywhere";
+
 /** Offers a clarification's bounded choices as buttons. */
 export function ClarificationPrompt({ clarification, onAnswer }: ClarificationPromptProps) {
   if (!clarification.options?.length) return null;
   return (
     <fieldset aria-label={clarification.prompt} className="m-0 flex min-w-0 flex-wrap gap-2 border-0 p-0">
       {clarification.options.map((option) => (
-        <Button key={option.id} size="sm" variant="outline" className={PRESS} onClick={() => onAnswer(clarification.id, option.id)}>
+        <Button
+          key={option.id}
+          size="sm"
+          variant="outline"
+          className={`${PRESS} ${CHOICE}`}
+          onClick={() => onAnswer(clarification.id, option.id)}
+        >
           {option.label}
         </Button>
       ))}

@@ -177,7 +177,7 @@ Spec 4.3, 4.5, 5.3. ADR 0024.
 - [x] A test resolves every request the Site demo suggests, with the demo's provider, and checks the plan its comment promises. No test does this today (`apps/site/app/routes/demo.tsx:18`). The command bar's starters and the four bets reuse it.
 - [x] Site: `api/schema` (`houseTerms`), `get-started/describe-your-domain` (a "House terms" section), `concepts/requests`, `safety` (terms are not sent). `docs/internals/product.md` and `intent-protocol.md`: the "large" and "big" paragraphs now point to House Terms.
 - [x] `skills/gridcue`: when to declare a term, and that its names must be its own. `pnpm check:skills`. Changelog (Haiku).
-- [x] Browser check of the bracketed Preview lines in both UIs, light and dark: the built-in bar in the Vite example and the registry bar in the Site demo. The Next.js example was built and typechecked, not opened.
+- [x] Browser check of the bracketed Preview lines in both UIs, light and dark: the registry Command Bar in the Vite example, the registry's pieces in the Site demo, and the built-in bar in the Next.js example. The built-in bar was checked after the PR opened, from the Local Values branch: the first check took the Vite example's bar for it.
 
 ### Task 3.7: Review (Opus), then gate
 - [x] The reviewer hunts for a term's word that also changes something else in the plan.
@@ -189,41 +189,41 @@ Spec 4.3, 5.4. ADR 0025.
 
 ### Task 4.1: Label the name cases (Sonnet, three separate agents)
 **Files:** new `evals/cases-names.jsonl`; held-out sets outside the repo.
-- [ ] Form dev set, 60, both schemas: whole values in each position, lists, a value beside other filters and other changes, one word of a value, ties with a declared name, a value where a column goes, a value left out, and refused requests that hold a value.
-- [ ] Two form held-out sets of at least 60, one for each schema, each by its own labeller, from spec 5.4 alone.
-- [ ] Natural held-out set, 30. Not-a-request sentences: 10 more for each set from Task 2.2 ("Avery Lane called about the trust accounts").
-- [ ] Baseline with the Mock Provider and no `localValues`, before any code.
+- [x] Form dev set, 60, both schemas: whole values in each position, lists, a value beside other filters and other changes, one word of a value, ties with a declared name, a value where a column goes, a value left out, and refused requests that hold a value.
+- [x] Two form held-out sets of at least 60, one for each schema, each by its own labeller, from spec 5.4 alone.
+- [x] Natural held-out set, 30. Not-a-request sentences: 10 more for each set from Task 2.2 ("Avery Lane called about the trust accounts").
+- [x] Baseline with the Mock Provider and no `localValues`, before any code.
 
 ### Task 4.2: The value index and what counts as a name (Fable)
 **Files:** new `core/local-values.ts`, tests.
-- [ ] Tests first: a whole value with other letter case and punctuation; no plural; the longest name; a value inside a longer value; an amount inside a value; a value made only of GridCue's own words; a value two columns hold; a value that is also a declared name; one word of one, five and six values; a word that is a declared name.
-- [ ] A word index built once for each column's values. Bars on 50,000 distinct names: built in at most 250 ms, a request looked up in at most 5 ms. Report both at 1,000 and 10,000.
-- [ ] One pure function from a part and the indexes to whole-value hits, ties and one-word hits, each with its span.
+- [x] Tests first: a whole value with other letter case and punctuation; no plural; the longest name; a value inside a longer value; an amount inside a value; a value made only of GridCue's own words; a value two columns hold; a value that is also a declared name; one word of one, five and six values; a word that is a declared name.
+- [x] A word index built once for each column's values. Bars on 50,000 distinct names: built in at most 250 ms, a request looked up in at most 5 ms. Report both at 1,000 and 10,000.
+- [x] One pure function from a part and the indexes to whole-value hits, ties and one-word hits, each with its span.
 
 ### Task 4.3: The Controller and the compiler (Opus)
 **Files:** `core/controller.ts`, `core/code-read.ts`, `core/compile.ts`, `core/unused.ts`, `core/errors.ts`, `index.ts`, tests. Needs 4.2.
-- [ ] Tests first: each `INPUT_CONFIG` case; `INPUT_LOCAL_VALUES` when a function throws; the index kept for the same array and rebuilt for a new one; one test per row of the table in spec 5.4; each question, each answer and "None of these".
-- [ ] `GridCueOptions.localValues`. The request is built before values are looked at.
-- [ ] The request-equality test with `localValues` on and off, over every labelled request, again as a run of the operation set's payload pin test. A test that the provider is called once whether or not a value matched.
-- [ ] A whole value is an exact filter in the grid's letter case; several make one `in` filter.
-- [ ] Every existing labelled request with the fixture's values on: the same verdict and operations.
+- [x] Tests first: each `INPUT_CONFIG` case; `INPUT_LOCAL_VALUES` when a function throws; the index kept for the same array and rebuilt for a new one; one test per row of the table in spec 5.4; each question, each answer and "None of these".
+- [x] `GridCueOptions.localValues`. The request is built before values are looked at.
+- [x] The request-equality test with `localValues` on and off, over every labelled request, again as a run of the operation set's payload pin test. A test that the provider is called once whether or not a value matched.
+- [x] A whole value is an exact filter in the grid's letter case; several make one `in` filter.
+- [x] Every existing labelled request with the fixture's values on: the same verdict and operations.
 
 ### Task 4.4: The TanStack Table helper (Opus)
 **Files:** `tanstack/index.ts`, `test/tanstack.test.ts`.
-- [ ] `localValuesFromTable(table, columnIds)` reads every loaded row, whatever filters the table has. A test filters the table and still finds a hidden row's value.
+- [x] `localValuesFromTable(table, columnIds)` reads every loaded row, whatever filters the table has. A test filters the table and still finds a hidden row's value.
 
 ### Task 4.5: Held-out run and the real Host test (lead)
-- [ ] One run of each held-out set. Bar: 0 wrong views. Report the exact share, the natural set's ask rate, how often the one-word question fired, and with how many choices. The sets join the repo.
-- [ ] A real Host application, in a throwaway clone, with `localValues` on its name columns. Report counts only, with no value written down: values that are also a declared name, values made only of GridCue's own words, and how often the one-word question fires on its earlier request set. Its own tests pass unchanged.
+- [x] One run of each held-out set. Bar: 0 wrong views. Report the exact share, the natural set's ask rate, how often the one-word question fired, and with how many choices. The sets join the repo.
+- [x] A real Host application, in a throwaway clone, with `localValues` on its name columns. Report counts only, with no value written down: values that are also a declared name, values made only of GridCue's own words, and how often the one-word question fires on its earlier request set. Its own tests pass unchanged. Done with the 123 names its own test files hold for its name columns; its live data was not read. As it stands, those columns allow "contains" alone, so `createGridCue` refuses them (`INPUT_CONFIG`, added here because of this test). With exact text allowed in the test harness only: typed whole, 113 values read, 5 tie with a declared name, 1 is not read, and 4 ask about other words. On its earlier 289 requests the one-word question fired 0 times and 1 request changed, from ready to asking, because it holds a whole value. Its typecheck, lint, tests and build pass with this build installed.
 
 ### Task 4.6: Examples, Site, skill (Sonnet)
-- [ ] The Next.js example passes `localValues` from its rows. The Vite example uses `localValuesFromTable`. The Site demo reads its rows' names and suggests "Avery Lane's accounts".
-- [ ] Site: `api/create-grid-cue` (`localValues`, `INPUT_LOCAL_VALUES`), `api/adapters` (`localValuesFromTable`), `safety` (read in the browser, never sent; what the Utterance still carries), `get-started/describe-your-domain`, `guides/vite-tanstack`, `guides/next-rows-adapter`, `concepts/requests`. `docs/internals/product.md` and `architecture.md`: the distinct-value resolver paragraph and the payload list.
-- [ ] `skills/gridcue`: `localValues` for each adapter, which columns to name, and a paged grid's own list. `pnpm check:skills`. Changelog (Haiku).
-- [ ] Browser check in the Vite example, the Next.js example and the Site, light and dark: six choices with long names at 320 px wide, and keyboard order through them. Screenshots.
+- [x] The Next.js example passes `localValues` from its rows. The Vite example uses `localValuesFromTable`. The Site demo reads its rows' names and suggests "Avery Lane's accounts".
+- [x] Site: `api/create-grid-cue` (`localValues`, `INPUT_LOCAL_VALUES`), `api/adapters` (`localValuesFromTable`), `safety` (read in the browser, never sent; what the Utterance still carries), `get-started/describe-your-domain`, `guides/vite-tanstack`, `guides/next-rows-adapter`, `concepts/requests`. `docs/internals/product.md` and `architecture.md`: the distinct-value resolver paragraph and the payload list.
+- [x] `skills/gridcue`: `localValues` for each adapter, which columns to name, and a paged grid's own list. `pnpm check:skills`. Changelog (Haiku).
+- [x] Browser check in the Vite example, the Next.js example and the Site, light and dark: six choices with long names at 320 px wide, and keyboard order through them. Screenshots. The check found that a long choice did not wrap in either UI, and that the built-in bar's input row overflowed a 320 px page; both are fixed here (order plan, section 11).
 
 ### Task 4.7: Review (Opus), then gate
-- [ ] The reviewer hunts two things: a request whose provider payload differs with `localValues` on, and a ready plan from a sentence that is not a view request.
+- [x] The reviewer hunts two things: a request whose provider payload differs with `localValues` on, and a ready plan from a sentence that is not a view request.
 - [ ] One live run, on the owner's command. `pnpm lint`, `pnpm check`, and the browser bundle check.
 
 ## PR 5: Dates (`feat/relative-dates`)

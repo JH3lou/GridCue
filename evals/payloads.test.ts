@@ -8,9 +8,9 @@ import { labelledRequests, loadPayloads, providerRequest } from "./payloads";
 // A change that means to alter the request, or a new labelled set, records again with `pnpm build && pnpm
 // eval:payloads`, and its pull request says why.
 //
-// House Terms are never sent (named filters spec, 4.3; ADR 0024): the request is built before they are looked at. So
-// each request on the wealth or ledger schema is also sent with its schema's House Terms declared, or without them for
-// a case that declares them, and must equal the same record. No second pin is kept.
+// House Terms and Local Values are never sent (named filters spec, 4.3; ADRs 0024 and 0025): the request is built
+// before they are looked at. So each request on the wealth or ledger schema is also sent with its schema's House Terms
+// switched, with its Local Values switched, and with both, and each must equal the same record. No second pin is kept.
 describe("the provider request for every labelled request", () => {
   const recorded = loadPayloads();
   const labelled = labelledRequests();
@@ -22,6 +22,8 @@ describe("the provider request for every labelled request", () => {
       expect(await providerRequest(c)).toEqual(recorded.get(key));
       if (c.schema === undefined || c.schema === "ledger") {
         expect(await providerRequest({ ...c, terms: !c.terms }), "with the House Terms switched").toEqual(recorded.get(key));
+        expect(await providerRequest({ ...c, values: !c.values }), "with the Local Values switched").toEqual(recorded.get(key));
+        expect(await providerRequest({ ...c, terms: !c.terms, values: !c.values }), "with both switched").toEqual(recorded.get(key));
       }
     });
   }

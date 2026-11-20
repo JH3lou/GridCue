@@ -36,6 +36,7 @@ const PROMISES: Record<string, Promised> = {
     status: "ready",
     operations: [is("market_value", "gt", 1_000_000), is("registration_type", "eq", "taxable")],
   },
+  "Avery Lane's accounts": { status: "ready", operations: [is("advisor_name", "eq", "Avery Lane")] },
   "Show IRAs at Northgate": {
     status: "ready",
     operations: [is("registration_type", "eq", "ira"), is("custodian", "eq", "northgate")],

@@ -22,6 +22,12 @@ const schema = defineSchema(wealthColumns, {
   ],
 });
 const rows = generateAccounts();
+// Local Values: the names this grid holds, read in the browser so "Avery Lane's accounts" filters to that advisor.
+// The rows never leave the page; the Server Handler sees only the request.
+const localValues = {
+  advisor_name: () => rows.map((row) => row.advisor_name),
+  household: () => rows.map((row) => row.household),
+};
 const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 
 const format = (columnId: string, value: unknown): string => {
@@ -37,7 +43,7 @@ export function AccountsView() {
   // The whole GridCue setup: an adapter over the rows you already have, and a controller.
   const [{ adapter, cue }] = useState(() => {
     const adapter = createRowsAdapter({ schema, initialState: wealthInitialState });
-    return { adapter, cue: createGridCue({ adapter, provider: createRemoteProvider({ endpoint: "/api/gridcue" }) }) };
+    return { adapter, cue: createGridCue({ adapter, provider: createRemoteProvider({ endpoint: "/api/gridcue" }), localValues }) };
   });
   const { state } = useSyncExternalStore(adapter.subscribe, adapter.getState, adapter.getState);
   const view = applyView(rows, state, schema);

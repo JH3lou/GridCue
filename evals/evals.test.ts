@@ -384,6 +384,97 @@ describe("House Terms, third held-out set, with the Mock Provider", () => {
   }
 });
 
+// Local Values (named filters spec, 5.4; ADR 0025). The dev set was labelled after the lead set the name columns' values
+// and before the code (2026-11-14); each case runs with its schema's Local Values (evals/local-values.ts). With the Mock
+// Provider: 37 exact, 16 asked as labelled, 1 refused as labelled, 6 safe misses, no wrong view, of 60 (2026-11-14).
+// Before the code: 9 wrong views (a name dropped beside another reading: "show taxable accounts for Avery Lane"
+// filtered Taxable alone), 2 exact, 15 asked as labelled, 1 refused as labelled and 33 safe misses.
+//
+// The 6 safe misses are the Mock Provider's, not the reading's, and each asked the same way before the code. Four parts
+// start with a name, a word the Mock doesn't know, so it proposes nothing for them (`viewRequest` in `core/lead.ts`):
+// the sort, the grouping and the amount's column come from the provider (spec 4.1), and the part asks. Two are requests
+// to edit the data that the Mock doesn't refuse ("set the advisor to …", "move … to Harborline"); the placed-words check
+// asks about "set", "move" and "to". A value is never sent to a provider, so the Mock can't know better. Each must ask,
+// never be ready; with a provider that proposes the change, or refuses, each is as labelled (`test/local-values-
+// controller.test.ts`).
+const NAME_MOCK_MISSES = new Set([
+  "lv-table-three-filters",
+  "lv-beside-sort-desc",
+  "lv-beside-group",
+  "lv-ledger-longest-software-amount",
+  "lv-refused-set-advisor",
+  "lv-refused-move",
+]);
+describe("Local Values, with the Mock Provider", () => {
+  const ledgerProvider = createMockProvider(mockOptionsFor({ schema: "ledger" }));
+  for (const c of loadCases(new URL("./cases-names.jsonl", import.meta.url))) {
+    it(`cases-names.jsonl: ${c.id}`, async () => {
+      const result = await runCase(c, c.schema === "ledger" ? ledgerProvider : provider);
+      const want = NAME_MOCK_MISSES.has(c.id) ? /^mismatch$/ : /^(exact|safe_abstention|rejected)$/;
+      expect(result.verdict, JSON.stringify(result.plan, null, 1)).toMatch(want);
+      if (NAME_MOCK_MISSES.has(c.id)) expect(result.status).toBe("needs_clarification");
+    });
+  }
+});
+
+// The Local Values held-out sets, labelled from spec 5.4 and the declared name columns before the code, and first run
+// after it (2026-11-14), each case run with its schema's Local Values (evals/local-values.ts) and the Mock Provider set
+// up for its fixture. With the Mock Provider:
+// - the wealth form set: 45 exact, 51 asked as labelled, 4 refused as labelled, 7 safe misses, 4 wrong views, of 111.
+//   Two give a value's filter and another filter on the same column that leave no row ("Avery Lane's accounts with no
+//   advisor", `… where advisor starts with "Bl"`); one reads two values of one column in separate places, not a list,
+//   as any of them ("Avery Lane's accounts for Blake Moreno"); one reads values of two columns joined by "and" as two
+//   filters ("Avery Lane and the Alder household"), where "and" between values of one column reads as any of them;
+// - the ledger form set: 49 exact, 54 asked as labelled, 5 refused as labelled, 2 safe misses, 1 wrong view, of 111
+//   ("Travel Group entries" filters Category to Travel and drops "Group", as it did before the code);
+// - sentences that hold a value and are not requests: 21 asked, 1 refused, none ready, of 22;
+// - scripted provider picks for a value's words: 22 exact, 1 asked as labelled, of 23;
+// - the natural set, by a labeller who saw only the product definition, the schemas and the name columns: 14 exact, 13
+//   asked as labelled, 2 refused as labelled, 15 safe misses, no wrong view, of 44, after 3 labels were corrected to
+//   the spec's reading: "everyone but Dana Whitfield", "all accounts except Avery Lane's" and, on the ledger, "everyone
+//   except Avery Lane" ask, as spec 5.4's table says of "everyone except Avery Lane". They were labelled ready with
+//   the other values, and asked.
+// 8 of their requests showed a view the User didn't ask for before the code and now ask. A safe miss is reported by
+// `pnpm eval`; a wrong view fails.
+describe("Local Values, held-out sets, with the Mock Provider", () => {
+  const ledgerProvider = createMockProvider(mockOptionsFor({ schema: "ledger" }));
+  for (const file of [
+    "cases-names-heldout-wealth.jsonl",
+    "cases-names-heldout-ledger.jsonl",
+    "cases-names-not-requests-heldout.jsonl",
+    "cases-names-picks-heldout.jsonl",
+    "cases-names-natural-heldout.jsonl",
+  ]) {
+    for (const c of loadCases(new URL(`./${file}`, import.meta.url))) {
+      it(`${file}: ${c.id}`, async () => {
+        const result = await runCase(c, c.schema === "ledger" ? ledgerProvider : provider);
+        expect(result.verdict, JSON.stringify(result.plan, null, 1)).not.toBe("unsafe");
+      });
+    }
+  }
+});
+
+// A second held-out set for Local Values, labelled from spec 5.4 and the declared name columns, and first run after the
+// fix for the first sets' wrong views (2026-11-14). Most cases run with their schema's Local Values and two without:
+// a value beside another filter on its column that no row can match with it, two values of one column apart from each
+// other, values of two columns joined by "and", a word built on "group" that the part doesn't group by, whole values
+// in each shape spec 5.4 reads, one word of a value, and a value where rows are left out, in a column slot or in a
+// sentence that is not a view request. With the Mock Provider: 17 exact, 37 asked as labelled, 2 refused as labelled, no
+// wrong view, of 56. One request labelled ready asked, which its label accepts ("Casey Ortiz's restricted holdings" asks
+// about the value's words). 2 of its requests showed a view the User didn't ask for before the code and now ask: "Travel
+// Group" requests that filtered Category to Travel, where the grid holds Hollis Travel Group. Three cases that ran with
+// no Local Values were taken out after the review: with none, every request reads as before this PR, and they test
+// readings outside it. A safe miss is reported by `pnpm eval`; a wrong view fails.
+describe("Local Values, second held-out set, with the Mock Provider", () => {
+  const ledgerProvider = createMockProvider(mockOptionsFor({ schema: "ledger" }));
+  for (const c of loadCases(new URL("./cases-names-heldout-wealth-r2.jsonl", import.meta.url))) {
+    it(`cases-names-heldout-wealth-r2.jsonl: ${c.id}`, async () => {
+      const result = await runCase(c, c.schema === "ledger" ? ledgerProvider : provider);
+      expect(result.verdict, JSON.stringify(result.plan, null, 1)).not.toBe("unsafe");
+    });
+  }
+});
+
 // Every existing set, run again on a grid without `group.set` (more grids spec, 10). A case whose expected plan groups
 // or ungroups must end not applied; every other case must keep the verdict it has on the Rows Adapter. A case that
 // starts grouped is left out, since a grid that can't group never holds a grouping, and so is a case with a scripted

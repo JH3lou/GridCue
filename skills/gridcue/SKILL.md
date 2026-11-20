@@ -47,12 +47,25 @@ A part with one of these forms is ready only when every word in it is one GridCu
 
 A House Term (`houseTerms` in the schema options) names a fixed list of conditions: "large accounts" previews `Filter Market value above $1,000,000 (Large)`, one line for each condition, each with the term's label in brackets. Code reads it, and the provider never decides what it means: the provider still receives the request, the same with the term declared or not, but never the term's conditions. These asks are expected, not bugs, so don't add words or aliases to make them pass: a term left out ("accounts that aren't large", "hide large accounts"), a term where a column goes ("sort by large"), "or" ("large or taxable accounts"), and a word GridCue doesn't place beside the term ("large accounts called about retirement"). "Largest accounts" is a size word, not the term, and still asks which column to sort by. Use a term to name a placeholder such as "Unassigned" too. See [references/domain.md](references/domain.md) and [Describe your domain](https://gridcue.dev/docs/get-started/describe-your-domain#house-terms).
 
+## Local Values
+
+`localValues` (an option of `createGridCue`) lets a request name a value the grid's rows hold: "Avery Lane's accounts" previews `Filter Advisor to exactly “Avery Lane”`. It is off unless set, and it is the answer to "the User wants to ask for a person or a household by name". Never fill `enumValues` with every name for this. A value is read in the browser by GridCue's own code and is never sent to a provider: the request and the number of provider calls are the same with it on or off. A name the User types is in their request, as any word is.
+
+- **Which columns.** Ask the User which columns hold names (an advisor, a household, a counterparty). Each must be a text column that is exposed, not `restricted`, and allows `filter`, and if it sets `allowedOperators`, they must include `eq` and `in`; `createGridCue` throws `INPUT_CONFIG` for any other. Never name a restricted column, or a category column with a few values (that is `enumValues`).
+- **TanStack Table:** `localValues: localValuesFromTable(table, ["advisor_name", "household"])`, with `localValuesFromTable` from `gridcue/tanstack-table`. It reads every loaded row whatever filters the table has. Keep the table's `data` the same array between renders, so GridCue keeps its index.
+- **Rows Adapter:** the adapter holds no rows, so pass one function for each column: `localValues: { advisor_name: () => rows.map((row) => row.advisor_name) }`. The functions are synchronous. GridCue keeps its index while a function returns the same array, so return a new array when the values change: a change made in place is not seen.
+- **A paged grid** holds one page, and GridCue reads only what the function returns. Return the Host's own list of every name, not the page, with the same shape. Don't use `localValuesFromTable` for a table that pages on a server.
+- **A function that throws** stops the request with `INPUT_LOCAL_VALUES` ("Couldn't read this grid's values. The view hasn't changed."). Don't swallow the error to make it pass.
+- **These asks are expected, not bugs,** so don't add aliases or words to make them pass: a value left out ("hide Avery Lane"), a value where a column goes ("sort by Avery Lane"), a statement ("Avery Lane is an advisor"), "accounts held by Avery Lane" (“by” isn't placed), a value two columns hold, and one word of a value ("Lane's accounts" asks "Did you mean Advisor: Avery Lane?"; six or more values ask for the full name).
+
+See [Describe your domain](https://gridcue.dev/docs/get-started/describe-your-domain#local-values), [`createGridCue`](https://gridcue.dev/docs/api/create-grid-cue#local-values) and [Requests](https://gridcue.dev/docs/concepts/requests#local-values).
+
 ## Hard rules
 
 Never trade these away, even if asked to "just make it work":
 
 - **The Jev key lives only on the server.** Never put it in a `VITE_` or `NEXT_PUBLIC_` variable, client code, logs, fixtures, or commits. Browser code talks to the app's own endpoint with `createRemoteProvider`.
-- **Rows never go to a provider.** Only column names, labels, aliases, and approved values are sent. Mark any column whose names or values are sensitive as `restricted`.
+- **Rows never go to a provider.** Only column names, labels, aliases, and approved values are sent; `localValues` are read in the browser and never sent. Mark any column whose names or values are sensitive as `restricted`.
 - **Never bypass preview, apply, or undo.** Don't write filter, sort, or grouping state from model output directly; GridCue's controller does that after the User approves.
 - **Protect the endpoint** with the app's own authentication and rate limits.
 - **View-only.** Never wire GridCue to edit records, trade, export, email, or navigate.

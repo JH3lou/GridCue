@@ -13,7 +13,17 @@ import {
   TEXT_MATCH_WORDS,
   unquoted,
 } from "./normalize";
-import { type CodeReadSpan, isChangeVerb, onPlacedLists, PREPOSITIONS, QUANTIFIERS, rowNouns, type UnplacedWord } from "./placed";
+import {
+  type CodeReadSpan,
+  GROUP_VERBS,
+  isChangeVerb,
+  onPlacedLists,
+  PREPOSITIONS,
+  QUANTIFIERS,
+  rowNouns,
+  SORT_VERBS,
+  type UnplacedWord,
+} from "./placed";
 import type { ColumnDescriptor, FilterOperator, FilterValue, HouseTerm, ViewSchema } from "./protocol";
 import { escapeRegExp, findMentions } from "./text-match";
 
@@ -30,6 +40,12 @@ type Span = { start: number; end: number };
  * left out ("not large", "hide large accounts"), where a column or an amount goes ("sort by large", "accounts under
  * large"), describing the rows' owner ("large households' accounts") or said as a statement ("accounts are large") is
  * read, so that no provider's pick can stand in for it, and the compiler asks (`termQuestion`).
+ *
+ * A Local Value (ADR 0025; spec 5.4) is one too: a whole value of a column the Host names in `localValues`, found by
+ * `core/local-values.ts`. It reads as an exact filter in the grid's own letter case (`localValueFilters`). Left out or
+ * where a column goes it asks (`valuePlaceQuestion`), and so does one said as a statement or with a possessive that owns
+ * something other than the rows (`valueStatement`). "Avery Lane's accounts" is read: the spec reads a possessive after a
+ * value, where a House Term before one asks.
  *
  * Text and empty forms are read only as the words the spec shows and nothing else:
  * - a text form: a column, then "starts with", "starting with", "begins with" or "beginning with", or "is exactly",
@@ -63,19 +79,23 @@ type Span = { start: number; end: number };
  */
 
 /**
- * The kinds of code-read filter read so far: a text form, an empty form, and a House Term (ADR 0024). Local Values and
- * dates join later.
+ * The kinds of code-read filter read so far: a text form, an empty form, a House Term (ADR 0024) and a Local Value (ADR
+ * 0025). Dates join later.
  */
-export type CodeReadKind = "text" | "empty" | "term";
+export type CodeReadKind = "text" | "empty" | "term" | "value";
 
 /** The filter a code-read filter reads, on one column. */
 export interface CodeReadPredicate {
   columnId: string;
-  /** A text form reads `startsWith` or `eq`, and an empty form `isEmpty` or `isNotEmpty`. A House Term's condition may use any. */
+  /**
+   * A text form reads `startsWith` or `eq`, and an empty form `isEmpty` or `isNotEmpty`. A House Term's condition may use
+   * any. A Local Value reads `eq`, or `in` when its part names several values of its column.
+   */
   operator: FilterOperator;
   /**
    * The quoted text of a text form, as `normalize` keeps it (lower case), or a House Term's condition's value as the Host
-   * declared it. An empty form has none.
+   * declared it. A Local Value's is the value as the grid holds it, in its own letter case, or the list of them. An empty
+   * form has none.
    */
   value?: FilterValue;
 }
@@ -89,6 +109,11 @@ export interface CodeReadFilter extends CodeReadSpan {
   predicate: CodeReadPredicate;
   /** For a House Term, its label as the Host declared it, also when the User typed an alias. The Preview names it. */
   term?: string;
+  /**
+   * For a Local Value, the value these words name, as the grid holds it. The predicate may hold others of its column
+   * too, when the part names several.
+   */
+  localValue?: string;
 }
 
 /** An empty form after its column. */
@@ -151,11 +176,23 @@ const PICK_WORDS = ["the", "a", "an", ...QUANTIFIERS, ...DEMONSTRATIVES, "of"] a
  */
 const ONLY_THE_ROWS = new RegExp(String.raw`^\s+(?:${PREPOSITIONS.join("|")})((?:\s+(?:${PICK_WORDS.join("|")}))*)(\s+#)?[\s.!?]*$`, "u");
 
+/** Where a part names rows, and its text with them marked, for one form's column (`statement`). */
+interface KnownRows {
+  nouns: Span[];
+  rows: Span[];
+  marked?: string;
+  markedRows?: string;
+}
 /** A part's text, its schema, and its names (`saidIn`). */
 interface Said {
   text: string;
   schema: ViewSchema;
   names: readonly Mention[];
+  /**
+   * What `statement` worked out for the part, by the column of the form it read: worked out once, however many forms
+   * or Local Values the part holds.
+   */
+  known?: Map<string, KnownRows>;
 }
 /**
  * Where the part names rows: by a noun (`rowNouns`: the Row Noun, an entity word, "rows", "records" or "ones") or by a
@@ -227,19 +264,23 @@ const statement = (said: Said, form: Span, column: Span & { columnId: string }, 
   const saysOfColumn = SAYS_OF_COLUMN.test(afterColumn);
   const picks = saysOfColumn ? PICKS_BEFORE.exec(before) : null;
   if (picks) return picks[1];
-  const { nouns, rows } = rowsIn(said, column.columnId);
+  said.known ??= new Map();
+  const part: KnownRows = said.known.get(column.columnId) ?? rowsIn(said, column.columnId);
+  said.known.set(column.columnId, part);
+  const { nouns, rows } = part;
   const question = QUESTION_BEFORE.exec(before);
   if (question && !rows.some((r) => r.end <= question.index)) return question[1];
   const be = BE_BEFORE.exec(text.slice(0, form.start));
   if (be) return be[1];
   const mark = (spans: readonly Span[]) =>
     spans.reduce((t, n) => t.slice(0, n.start) + "#".padEnd(n.end - n.start, " ") + t.slice(n.end), text);
-  const marked = mark(nouns);
   const having = /^(?:has|have|having)\b/.exec(text.slice(form.start)) ? form.start : HAVING_BEFORE.exec(text.slice(0, form.start))?.index;
-  const picked = having === undefined ? null : PICKED_ROWS.exec(mark(rows).slice(0, having));
+  if (having !== undefined && part.markedRows === undefined) part.markedRows = mark(rows);
+  const picked = having === undefined ? null : PICKED_ROWS.exec((part.markedRows ?? "").slice(0, having));
   if (picked) return picked[1];
   if (saysOfColumn) {
-    const only = ONLY_THE_ROWS.exec(marked.slice(form.end));
+    if (part.marked === undefined) part.marked = mark(nouns);
+    const only = ONLY_THE_ROWS.exec(part.marked.slice(form.end));
     if (only && (only[1] || only[2]))
       return text
         .slice(form.end)
@@ -963,6 +1004,182 @@ const describedNoun = (
 };
 /** ADR 0019's question, for words GridCue can't place. */
 const placedPrompt = (words: string) => `I'm not sure what to do with “${words}”. Try rephrasing that part.`;
+
+/** A Local Value a part names whole, as the grid holds it, and where its words sit in the part (`core/local-values.ts`). */
+export interface NamedValue extends Span {
+  columnId: string;
+  value: string;
+}
+
+/** What may join a Local Value's own column to it: a space, "is" or a colon ("advisor is Avery Lane", "owner: Gale Ivers"). */
+const JOINS_VALUE = /^(?:\s+is\s+|\s*:\s*|\s+)/u;
+
+/**
+ * The code-read filters for the Local Values a part names whole (ADR 0025; spec 4.1, 5.4): one for each, in the order
+ * written, an exact filter with the value in the grid's own letter case. Several values of one column make one filter,
+ * so each of them holds the same `in` filter, with the values in the order first written. A value's own column named
+ * right before it, joined only by a space, "is" or a colon, is the filter's own words, as a text form's column is:
+ * "advisor is Avery Lane" names the column once, for this filter. `mentions` are the request's Mentions; `others` are
+ * where the part's other code-read filters sit, and a name inside one is never taken.
+ */
+export const localValueFilters = (
+  clause: Clause,
+  values: readonly NamedValue[],
+  mentions: readonly Mention[],
+  others: readonly Span[],
+): CodeReadFilter[] => {
+  const columns = mentions.filter((m) => m.clauseIndex === clause.index && m.valueId === undefined);
+  const byColumn = new Map<string, string[]>();
+  for (const v of values) {
+    const list = byColumn.get(v.columnId) ?? [];
+    if (!list.includes(v.value)) list.push(v.value);
+    byColumn.set(v.columnId, list);
+  }
+  return values
+    .map((v): CodeReadFilter => {
+      const own = columns.find(
+        (m) =>
+          m.columnId === v.columnId &&
+          m.end <= v.start &&
+          JOINS_VALUE.exec(clause.text.slice(m.end, v.start))?.[0].length === v.start - m.end &&
+          !others.some((o) => o.start < v.start && m.start < o.end),
+      );
+      const list = byColumn.get(v.columnId) ?? [v.value];
+      return {
+        clauseIndex: clause.index,
+        start: own?.start ?? v.start,
+        end: v.end,
+        kind: "value",
+        predicate:
+          list.length > 1
+            ? { columnId: v.columnId, operator: "in", value: [...list] }
+            : { columnId: v.columnId, operator: "eq", value: v.value },
+        localValue: v.value,
+      };
+    })
+    .sort((a, b) => a.start - b.start);
+};
+
+/** How many characters next to a Local Value are read to tell where it stands. */
+const NEAR_VALUE = 120;
+/** "Sort", "order" and "group", in any form the placed-words lists hold: after one, "by" leads to a column. */
+const SORTS_OR_GROUPS = new RegExp(String.raw`(?<![\p{L}\p{N}'])(?:${[...SORT_VERBS, ...GROUP_VERBS].join("|")})(?![\p{L}\p{N}'])`, "u");
+/** A form of "be" or "have" right after a Local Value: "Avery Lane is an advisor", "the Alder household has trusts". */
+const SAID_OF_VALUE = /^\s+(is|are|was|were|isn't|aren't|wasn't|weren't|has|have|had|hasn't|haven't)(?![\p{L}\p{N}'])/u;
+
+/** Where a Local Value's own words start: past its column's name, when the filter's words start with it. */
+const valueWordsStart = (r: CodeReadFilter, clause: Clause, mentions: readonly Mention[]): { at: number; column?: Mention } => {
+  const column = mentions.find(
+    (m) => m.clauseIndex === clause.index && m.valueId === undefined && m.columnId === r.predicate.columnId && m.start === r.start,
+  );
+  if (!column) return { at: r.start };
+  return { at: column.end + (JOINS_VALUE.exec(clause.text.slice(column.end))?.[0].length ?? 0), column };
+};
+
+/**
+ * The question for the first Local Value in a part that stands where GridCue never reads one, if any (spec 4.1, 5.4):
+ * - left out, it asks: "hide Avery Lane", "accounts not for Avery Lane", "everyone except Avery Lane";
+ * - where a column goes, it asks: "sort by Avery Lane", "group by Blake Moreno", "the Avery Lane column". "By" leads to
+ *   a column only in a part that sorts or groups: in "accounts held by Avery Lane" the placed-words check asks about
+ *   "by", which is placed only beside a sort or a grouping.
+ * `values` are the part's Local Values, from `localValueFilters`.
+ */
+export const valuePlaceQuestion = (
+  values: readonly CodeReadFilter[],
+  clause: Clause,
+  mentions: readonly Mention[],
+  schema: ViewSchema,
+): { id: "leftOut" | "column"; prompt: string } | undefined => {
+  if (values.length === 0) return undefined;
+  const text = unquoted(clause.text);
+  const leavesOut = leavesRowsOut(text) && !/(?<![\p{L}\p{N}'])columns?(?![\p{L}\p{N}'])/u.test(text);
+  const sortsOrGroups = SORTS_OR_GROUPS.test(text);
+  // Only the words near a value decide where it stands, so each check reads a few words before it and not the whole part
+  // again for each value. The window starts at a space, so it never starts inside a word.
+  const near = (to: number) => text.slice(Math.max(0, text.lastIndexOf(" ", Math.max(0, to - NEAR_VALUE))), to);
+  for (const v of values) {
+    const { at } = valueWordsStart(v, clause, mentions);
+    const words = clause.text.slice(at, v.end);
+    if (leavesOut || LEFT_OUT_BEFORE.test(near(v.start)) || LEFT_OUT_BEFORE.test(near(at))) {
+      return { id: "leftOut", prompt: `GridCue can't leave out “${words}” yet. Ask for the rows to keep.` };
+    }
+    if ((sortsOrGroups && BY_BEFORE.test(near(v.start))) || COLUMN_AFTER.test(text.slice(v.end, v.end + NEAR_VALUE))) {
+      const label = schema.columns.find((c) => c.id === v.predicate.columnId)?.label ?? v.predicate.columnId;
+      return { id: "column", prompt: `${v.localValue ?? words} is a value in ${label}, not a column.` };
+    }
+  }
+  return undefined;
+};
+
+/**
+ * The question for the first Local Value in a part said in a way that makes the part no request for rows, if any. It
+ * reuses the checks a form said as a statement goes through (`statement`), and asks about the words that make it one:
+ * - its own column, said with "is", in a statement: "every advisor is Avery Lane", "which advisor is Avery Lane", "my
+ *   advisor is Avery Lane", "advisor is Avery Lane for every account". "Accounts whose advisor is Avery Lane" is read;
+ * - a value said as what the rows are: "accounts are Avery Lane's", "the advisor on these is Avery Lane";
+ * - a value that says something itself: "Avery Lane is an advisor", "the Alder household has trust accounts". After a
+ *   relative word it is read: "accounts that Avery Lane has";
+ * - a value with a possessive that owns something other than the rows: "Avery Lane's household", "Avery Lane's market
+ *   value". "Avery Lane's accounts" is read, as is "Avery Lane's taxable accounts": named values, yes/no columns and
+ *   other code-read filters may describe the rows between.
+ * `values` are the part's Local Values, and `others` its other code-read filters. The compiler asks this after the
+ * placed-words check, so a part with words GridCue can't place ("who is Casey Ortiz") names them all.
+ */
+export const valueStatement = (
+  values: readonly CodeReadFilter[],
+  others: readonly CodeReadFilter[],
+  clause: Clause,
+  mentions: readonly Mention[],
+  schema: ViewSchema,
+): { id: "possessive" | "statement"; prompt: string } | undefined => {
+  if (values.length === 0) return undefined;
+  const said = saidIn(clause, mentions, schema);
+  const text = unquoted(clause.text);
+  const nouns = rowNouns(text, schema);
+  const { rows } = rowsIn(said, "");
+  const entities = new Set(
+    schema.columns
+      .filter((c) => isExposed(c) && !!c.entity?.trim() && singular(c.entity) !== singular(schema.rowNoun ?? ""))
+      .map((c) => c.entity?.trim().toLowerCase()),
+  );
+  // The other code-read filters describe the rows between a possessive and its noun, as named values do.
+  const describing = [...values, ...others].map((r) => [r]);
+  // A Local Value's own possessive mark is judged with it, below: it owns the rows or the part asks. So it is no
+  // possessive before the next value: "Avery Lane's Alder household accounts" is read as "Avery Lane's taxable accounts"
+  // is. The marks are blanked once, keeping offsets.
+  const pieces: string[] = [];
+  let kept = 0;
+  for (const v of values) {
+    // Three characters: the mark, and the one after that tells it from a word ("'s" in "lane's", not "'sx").
+    const mark = POSSESSIVE_MARK.exec(clause.text.slice(v.end, v.end + 3))?.[0];
+    if (mark === undefined || v.end < kept) continue;
+    pieces.push(clause.text.slice(kept, v.end), " ".repeat(mark.length));
+    kept = v.end + mark.length;
+  }
+  const saidOfValue: Said = kept === 0 ? said : { ...said, text: pieces.join("") + clause.text.slice(kept) };
+  for (const v of values) {
+    const { at, column } = valueWordsStart(v, clause, mentions);
+    const words = clause.text.slice(at, v.end);
+    const mark = POSSESSIVE_MARK.exec(clause.text.slice(v.end))?.[0];
+    if (mark !== undefined) {
+      const owner = describedNoun(v.end + mark.length, describing.find(([r]) => r === v) ?? [v], describing, said, nouns);
+      const isRows =
+        !!owner && nouns.some((n) => n.start === owner.start && n.end === owner.end) && !entities.has(text.slice(owner.start, owner.end));
+      if (!isRows) return { id: "possessive", prompt: placedPrompt(clause.text.slice(at, owner ? owner.end : v.end + mark.length)) };
+      continue;
+    }
+    const form = { start: v.start, end: v.end };
+    const found = column
+      ? statement(saidOfValue, form, column, clause.text.slice(column.end, at))
+      : statement(saidOfValue, form, { start: at, end: v.end, columnId: v.predicate.columnId });
+    if (found) return { id: "statement", prompt: placedPrompt(found) };
+    const verb = SAID_OF_VALUE.exec(text.slice(v.end));
+    if (verb && !asksWhichHave(said, rows, v.end + verb[0].length - (verb[1]?.length ?? 0))) {
+      return { id: "statement", prompt: placedPrompt(`${words}${verb[0]}`) };
+    }
+  }
+  return undefined;
+};
 
 /**
  * The code-read filters in a request, part by part, in the order written. `mentions` are the request's Mentions, from

@@ -15,6 +15,7 @@ import {
   type ViewState,
 } from "gridcue";
 import { type EvalHouseTerm, ledgerHouseTerms, wealthHouseTerms } from "./house-terms";
+import { type EvalLocalValues, ledgerLocalValues, wealthLocalValues } from "./local-values";
 
 export interface EvalCase {
   id: string;
@@ -33,6 +34,12 @@ export interface EvalCase {
    * those two schemas declare terms. A case without it runs on the schema as the fixture defines it.
    */
   terms?: boolean;
+  /**
+   * Runs with the Local Values of its schema's name columns (evals/local-values.ts): Advisor and Household on the
+   * wealth fixture, Owner and Counterparty on the ledger. Only those two schemas have them. A case without it runs with
+   * no Local Values.
+   */
+  values?: boolean;
   /**
    * A scripted answer from the Intent Provider, written by the labeller before the code. It is replayed in place of
    * the provider the case runs with, the way ADR 0022's tests replay an answer, so the case checks what code does with
@@ -125,6 +132,14 @@ export const houseTermsFor = (c: Pick<EvalCase, "schema" | "terms">): EvalHouseT
   if (c.schema === undefined) return wealthHouseTerms;
   if (c.schema === "ledger") return ledgerHouseTerms;
   throw new Error(`No House Terms are declared for the "${c.schema}" schema.`);
+};
+
+/** The Local Values a case runs with: its schema's when it says `values: true`, else none. */
+export const localValuesFor = (c: Pick<EvalCase, "schema" | "values">): EvalLocalValues | undefined => {
+  if (!c.values) return undefined;
+  if (c.schema === undefined) return wealthLocalValues;
+  if (c.schema === "ledger") return ledgerLocalValues;
+  throw new Error(`No Local Values are set for the "${c.schema}" schema.`);
 };
 
 /** The wealth and ledger fixtures' schemas with their House Terms declared, built as a Host would build them. */
@@ -230,9 +245,12 @@ export const runCase = async (c: EvalCase, provider: IntentProvider, make: typeo
   const adapter = c.grid === "no-group" ? withoutGrouping(rows) : rows;
   if (c.state) adapter.setState((view) => ({ ...view, ...c.state }));
   const answer = c.providerAnswer;
+  // A case with values reads its schema's Local Values; it throws for a schema that has none.
+  const localValues = localValuesFor(c);
   const cue: GridCueController = make({
     adapter,
     provider: answer ? { resolve: async () => structuredClone(answer) } : provider,
+    ...(localValues ? { localValues } : {}),
   });
   const plan = await cue.propose(c.utterance);
   const { status, preview } = cue.getState();
