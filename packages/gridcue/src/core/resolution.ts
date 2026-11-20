@@ -1,9 +1,9 @@
 import { z } from "zod";
+import { isExposed, operatorsFor } from "./columns";
 import type { Mention } from "./mentions";
 import type { Clause, Literal, NormalizedInput } from "./normalize";
 import type { ColumnCapability, OperationType, ViewCapabilities, ViewSchema, ViewState } from "./protocol";
 import { ColumnKind, EnumValue, FilterOperator, PROTOCOL_VERSION, SortSpec } from "./protocol";
-import { isExposed, operatorsFor } from "./schema";
 
 /** The longest Utterance the protocol accepts. */
 export const MAX_UTTERANCE_LENGTH = 2000;

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { isDeepStrictEqual } from "node:util";
-import { ledgerInitialState, ledgerMockOptions, ledgerSchema } from "@gridcue-internal/ledger-fixtures";
-import { wealthInitialState, wealthMockOptions, wealthSchema } from "@gridcue-internal/wealth-fixtures";
+import { ledgerColumns, ledgerInitialState, ledgerMockOptions, ledgerSchema, ledgerSchemaOptions } from "@gridcue-internal/ledger-fixtures";
+import { wealthColumns, wealthInitialState, wealthMockOptions, wealthSchema, wealthSchemaOptions } from "@gridcue-internal/wealth-fixtures";
 import {
   createGridCue,
   createRowsAdapter,
@@ -14,6 +14,7 @@ import {
   type ViewPlan,
   type ViewState,
 } from "gridcue";
+import { type EvalHouseTerm, ledgerHouseTerms, wealthHouseTerms } from "./house-terms";
 
 export interface EvalCase {
   id: string;
@@ -27,6 +28,11 @@ export interface EvalCase {
   schema?: "dated" | "group-names" | "ledger";
   /** "no-group" runs on a grid that doesn't list `group.set` (more grids spec, 5.3). */
   grid?: "no-group";
+  /**
+   * Runs on a schema that declares its House Terms (evals/house-terms.ts): the wealth fixture's or the ledger's. Only
+   * those two schemas declare terms. A case without it runs on the schema as the fixture defines it.
+   */
+  terms?: boolean;
   /**
    * A scripted answer from the Intent Provider, written by the labeller before the code. It is replayed in place of
    * the provider the case runs with, the way ADR 0022's tests replay an answer, so the case checks what code does with
@@ -113,6 +119,26 @@ const withoutGrouping = (adapter: RowsAdapter): RowsAdapter => ({
   },
 });
 
+/** The House Terms a case runs with: its schema's declared terms when it says `terms: true`, else none. */
+export const houseTermsFor = (c: Pick<EvalCase, "schema" | "terms">): EvalHouseTerm[] | undefined => {
+  if (!c.terms) return undefined;
+  if (c.schema === undefined) return wealthHouseTerms;
+  if (c.schema === "ledger") return ledgerHouseTerms;
+  throw new Error(`No House Terms are declared for the "${c.schema}" schema.`);
+};
+
+/** The wealth and ledger fixtures' schemas with their House Terms declared, built as a Host would build them. */
+const wealthSchemaWithTerms = defineSchema(wealthColumns, { ...wealthSchemaOptions, houseTerms: wealthHouseTerms });
+const ledgerSchemaWithTerms = defineSchema(ledgerColumns, { ...ledgerSchemaOptions, houseTerms: ledgerHouseTerms });
+
+/** The schema a wealth or ledger case runs on: its fixture's, with the House Terms declared when it says `terms: true`. */
+export const fixtureSchemaFor = (c: Pick<EvalCase, "schema" | "terms">) => {
+  houseTermsFor(c);
+  if (c.schema === "ledger") return c.terms ? ledgerSchemaWithTerms : ledgerSchema;
+  if (c.schema === undefined) return c.terms ? wealthSchemaWithTerms : wealthSchema;
+  throw new Error(`The "${c.schema}" schema is not a fixture's.`);
+};
+
 /** The Mock Provider's settings for the app a case runs in: which column a bare amount or percentage names there. */
 export const mockOptionsFor = (c: Pick<EvalCase, "schema">) => (c.schema === "ledger" ? ledgerMockOptions : wealthMockOptions);
 
@@ -189,6 +215,9 @@ export const judge = (c: EvalCase, plan: ViewPlan | null, status: string): Verdi
  * source's to look inside the compiler.
  */
 export const runCase = async (c: EvalCase, provider: IntentProvider, make: typeof createGridCue = createGridCue) => {
+  // A case with terms runs on its fixture's schema with the fixture's House Terms declared; it throws for a schema that
+  // declares none.
+  const terms = houseTermsFor(c) !== undefined;
   // A case's state is the view the User is looking at. The default view, which a reset returns to, stays the fixture's.
   const rows =
     c.schema === "dated"
@@ -196,8 +225,8 @@ export const runCase = async (c: EvalCase, provider: IntentProvider, make: typeo
       : c.schema === "group-names"
         ? createRowsAdapter({ schema: groupNamesSchema })
         : c.schema === "ledger"
-          ? createRowsAdapter({ schema: ledgerSchema, initialState: ledgerInitialState })
-          : createRowsAdapter({ schema: wealthSchema, initialState: wealthInitialState });
+          ? createRowsAdapter({ schema: terms ? ledgerSchemaWithTerms : ledgerSchema, initialState: ledgerInitialState })
+          : createRowsAdapter({ schema: terms ? wealthSchemaWithTerms : wealthSchema, initialState: wealthInitialState });
   const adapter = c.grid === "no-group" ? withoutGrouping(rows) : rows;
   if (c.state) adapter.setState((view) => ({ ...view, ...c.state }));
   const answer = c.providerAnswer;

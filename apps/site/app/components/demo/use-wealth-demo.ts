@@ -18,7 +18,7 @@ import {
   tableFeatures,
   useTable,
 } from "@tanstack/react-table";
-import { createGridCue, type GridCueController, type IntentProvider, type ResolutionRequest } from "gridcue";
+import { createGridCue, type GridCueController, type IntentProvider, type ResolutionRequest, type SchemaOptions } from "gridcue";
 import { createMockProvider } from "gridcue/mock";
 import { createTanStackAdapter, gridcueFilterFn, schemaFromTanStack } from "gridcue/tanstack-table";
 import { useState } from "react";
@@ -60,6 +60,22 @@ const columns: Array<ColumnDef<typeof features, AccountRow>> = wealthColumns.map
   cell: (info) => formatCell(c.id, info.getValue()),
 }));
 
+/** The fixture's schema options plus the demo's House Terms, which GridCue reads in the browser and never sends. */
+const demoSchemaOptions: SchemaOptions = {
+  ...wealthSchemaOptions,
+  houseTerms: [
+    { label: "Large", aliases: ["big"], where: [{ columnId: "market_value", operator: "gt", value: 1_000_000 }] },
+    {
+      label: "Needs attention",
+      aliases: ["need attention", "needing attention"],
+      where: [
+        { columnId: "concentration", operator: "gt", value: 0.1 },
+        { columnId: "has_restricted_holding", operator: "eq", value: true },
+      ],
+    },
+  ],
+};
+
 /** What the provider was sent last: shown in the developer panel to prove no rows leave the page. */
 export interface LastRequest {
   request: ResolutionRequest | null;
@@ -81,7 +97,7 @@ export function useWealthDemo(rowCount: number) {
   });
   // Create the controller once: useTable returns a new object whenever table state changes.
   const [cue] = useState<GridCueController>(() => {
-    const schema = schemaFromTanStack(table, wealthSchemaOptions);
+    const schema = schemaFromTanStack(table, demoSchemaOptions);
     const mock = createMockProvider(wealthMockOptions);
     const provider: IntentProvider = {
       resolve: (request, signal) => {

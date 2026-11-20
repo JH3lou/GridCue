@@ -634,8 +634,11 @@ describe("chassis compiler rules (ADR 0015)", () => {
       { type: "sort.set", sorts: [{ columnId: "value", direction: "desc" }] },
       { type: "group.set", columnIds: ["name"] },
     ]);
+    // Read as the Household column, "largest … first" still speaks of a size the column doesn't hold: it asks which
+    // column, and never sorts Household from Z to A.
     const column = compileWith("largest households first", { families: [hi("sort")] }, [households], { "c0.reading.name": "column" });
-    expect(column.operations).toEqual([{ type: "sort.set", sorts: [{ columnId: "name", direction: "desc" }] }]);
+    expect(column.operations).toEqual([]);
+    expect(column.clarifications.map((q) => q.prompt)).toEqual(["Which column should be sorted by?"]);
   });
 
   it("drops an ambiguous noun the provider reads as the rows, and keeps one it reads as the column", () => {

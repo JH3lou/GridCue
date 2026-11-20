@@ -1,0 +1,21 @@
+{"id":"h1-nr-what-large","utterance":"What does large mean?","terms":true,"expect":{"mustNotBeReady":true}}
+{"id":"h1-nr-why-attention","utterance":"Why does this account need attention?","terms":true,"expect":{"mustNotBeReady":true}}
+{"id":"h1-nr-favourite","utterance":"Large accounts are my favourite.","terms":true,"expect":{"mustNotBeReady":true}}
+{"id":"h1-nr-think-big","utterance":"I think the big accounts are doing well","terms":true,"expect":{"mustNotBeReady":true}}
+{"id":"h1-nr-problem","utterance":"Unassigned accounts are a problem for the team","terms":true,"expect":{"mustNotBeReady":true}}
+{"id":"h1-nr-reviewed","utterance":"The large accounts were reviewed yesterday.","terms":true,"expect":{"mustNotBeReady":true}}
+{"id":"h1-nr-thanks","utterance":"Thanks, the large accounts look right now.","terms":true,"expect":{"mustNotBeReady":true}}
+{"id":"h1-nr-defined","utterance":"Is a large account one over a million?","terms":true,"expect":{"mustNotBeReady":true}}
+{"id":"h1-nr-who-handles","utterance":"Who handles the orphaned accounts?","terms":true,"expect":{"mustNotBeReady":true}}
+{"id":"h1-nr-call","utterance":"I need to call the accounts that need attention","terms":true,"expect":{"mustNotBeReady":true}}
+{"id":"h1-nr-remind","utterance":"Remind me about the accounts needing attention on Friday","terms":true,"expect":{"mustNotBeReady":true}}
+{"id":"h1-nr-bigthanks","utterance":"Big thanks for the help","terms":true,"expect":{"mustNotBeReady":true}}
+{"id":"h1-nr-bigday","utterance":"It is a big day for the team","terms":true,"expect":{"mustNotBeReady":true}}
+{"id":"h1-nr-explain-review","utterance":"Explain what needs review","schema":"ledger","terms":true,"expect":{"mustNotBeReady":true}}
+{"id":"h1-nr-material-audit","utterance":"That entry was material to the audit.","schema":"ledger","terms":true,"expect":{"mustNotBeReady":true}}
+{"id":"h1-nr-risk","utterance":"Do you think material entries are a risk?","schema":"ledger","terms":true,"expect":{"mustNotBeReady":true}}
+{"id":"h1-nr-matter","utterance":"Please explain why uncoded entries matter","schema":"ledger","terms":true,"expect":{"mustNotBeReady":true}}
+{"id":"h1-nr-sizeable-bonus","utterance":"Our bonus pool was a sizeable one this year","schema":"ledger","terms":true,"expect":{"mustNotBeReady":true}}
+{"id":"h1-nr-uncategorized-feel","utterance":"I feel uncategorized sometimes","schema":"ledger","terms":true,"expect":{"mustNotBeReady":true}}
+{"id":"h1-nr-define","utterance":"Large accounts: how is that defined?","terms":true,"expect":{"mustNotBeReady":true}}
+{"id":"h1-nr-need-attention-me","utterance":"I need attention, can anyone help?","terms":true,"expect":{"mustNotBeReady":true}}

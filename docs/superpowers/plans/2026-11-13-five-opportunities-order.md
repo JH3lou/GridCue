@@ -349,6 +349,16 @@ The review of each planning record left these to the lead. None changes an appro
 | 2 | Twenty cases N1 labelled to ask how to match (N2) | Relabelled to the reading spec 5.2 gives, in the three named-fixes sets. Only their expected result changed |
 | 2 | Letter case in the exact-text Preview line (N2) | Lower case, "Filter Advisor to exactly “avery lane”", as spec 5.2 and today's "containing" lines have it, for text the User quotes. Section 9's "Avery Lane" is the line for a Local Value (N4), which shows the value as the Host stores it. The spec is unchanged |
 | 2 | "Thanks" beside a form (N2) | Asks: it is not on spec 4.2's list. The list grows one word at a time on held-out evidence, as the spec says |
+| 2 | The terms the sets are labelled against (N3) | Declared before labelling. Wealth: Large (alias "big") is Market value above $1,000,000; Needs attention ("need attention", "needing attention") is Concentration above 10% and Restricted holdings is Yes; Unassigned ("orphaned") is Advisor is empty. Ledger: Material ("sizeable") is Amount above $10,000; Needs review ("need review", "needing review") is Cleared is No and Amount above $5,000; Uncoded ("uncategorized", "uncategorised") is Category is empty |
+| 2 | Where the terms live (N3) | In the eval harness, the two examples and the Site demo, not in the fixtures. With the terms declared, one existing labelled request changes: "uncategorised entries please" goes from a safe miss to the labelled view through Uncoded's alias. The plan's bar was no change at all, so the fixtures stay as they are |
+| 2 | A term's name (N3) | Stricter than spec 5.3's whole-name rule. `defineSchema` also refuses a name that holds one of GridCue's own words among its words ("Top tier", "Out of policy", "Due today"), an amount or a count ("Tier 1"), a column's or value's name, the Row Noun or an entity word ("Big gain"), or only words a comparison is written with ("More", "Valued", "Worth"). Each such name was read twice in a review probe: as the term and as the word. The owner may relax it for small words such as "of" |
+| 2 | Where a term is not read (N3) | Past spec 5.3's left out, where a column goes, and "or": a term asks right after a comparison word ("accounts under large"), after a preposition with nothing after it ("accounts at large"), right after an amount ("gain 50k large"), and before a possessive ("large households' accounts") |
+| 2 | A statement that holds a term (N3) | It asks, as beside a form: a form of "be" before the term ("accounts are large"), the rows right before a term that is no "-ing" or "-ed" word ("accounts need attention"), a singular noun for the rows anywhere before it, or the rows anywhere before a term said as a verb ("Northgate needs attention"). A term asked for with a relative word or "which", listed after a comma or a joining word, or before the noun it describes, is read. Section 12 C lists what is still ready |
+| 2 | A provider's No for a yes/no column (N3) | In a part with a code-read filter, a yes/no column named on its own keeps only Yes, or only No after a negation; a provider's other answer is dropped and the part asks. This also holds beside the text-forms PR's forms. A part with no code-read filter is section 12 A |
+| 2 | The two D4 narrowings the held-out sets called for (N3) | They hold on every grid, with terms or without. An adverb nothing reads beside a value, a yes/no column, an amount or a date asks ("accounts largely in taxable"); adverbs that say what "only", "all" or "now" say are read as before. A size or age word asks which column to sort by when the only column it could order holds no amount or date ("which advisor has the largest accounts", "accounts by advisor, largest first"); "sort by advisor, largest first" reads as before. Each was a wrong view in the release. "Accounts really in retirement" and "taxable accounts held directly" read before and now ask |
+| 2 | A word made from a term's name (N3) | With terms declared, "largely", "larger", "bigger" and "materials" ask in a part with no term: the User may mean the term. "Largest" stays a size word, and "larger than $2m" a comparison |
+| 2 | The Row Noun beside a code-read filter (N3) | A Row Noun that is also a column's alias is read as the rows there: "show the advisor column for large accounts" no longer also shows the Account number column, which the release did for a form too |
+| 2 | Six dev cases the Mock Provider can't answer (N3) | "Large accounts over $5m", a spec 5.3 row, and five like it ask with the Mock Provider, which answers nothing for a part that starts with a word it doesn't know. They are ready with a scripted provider. The gate names the six and requires them to ask; the Mock is not changed here |
 | 3 | Totals an adapter doesn't apply (O3) | O3 settles how an adapter says which functions it applies, before its code, and the lead checks it |
 | 3 | Where a row with no value sits in a sort | Out of scope, as the spec says. The rendered-rows bar is 100% on which rows show, the groups and the totals. Views that differ only in this are counted and reported |
 | 4 | An operation a Query Adapter's `without` removes (G4) | G4 wires each one to the shared "this grid can't" result, and labels a set for it |
@@ -365,7 +375,7 @@ Live Jev runs wait for the owner's command each time. So does every merge.
 
 ## 12. Wrong views found while building, not yet planned
 
-The reviews and held-out rounds of wave 1, and of wave 2's text-forms PR, found these. Each is in the release too. None is in an approved plan, and no wave 1 PR could fix them inside its one concern. For A and B the lead recommends two fix PRs, each with its own labelled sets, built the way the wave 1 fixes were: every change asks, and none adds a reading. They wait for the owner.
+The reviews and held-out rounds of wave 1, and of wave 2's text-forms and House Terms PRs, found these. Each is in the release too. None is in an approved plan, and no wave 1 PR could fix them inside its one concern. For A and B the lead recommends two fix PRs, each with its own labelled sets, built the way the wave 1 fixes were: every change asks, and none adds a reading. They wait for the owner.
 
 **A. Reading: a word or symbol GridCue drops, in a part with no code-read filter.** Named filters' every-word rule does not reach these parts (its spec 4.2), and the Local Resolver that would is in the four bets.
 
@@ -389,7 +399,12 @@ The reviews and held-out rounds of wave 1, and of wave 2's text-forms PR, found 
 | "cleared is no", "restricted holdings is no" | Shows the Yes rows |
 | "sort by advisor, unassigned last" | Sorts and drops "unassigned last" |
 
-The last five were found by the text-forms PR's reviews (wave 2). That PR also found that the plural "entries" is not read as the ledger's Row Noun "entry" outside a part with a form: a miss, not a wrong view.
+| "cleared entries", "material entries, cleared", with a provider that answers No for Cleared | Shows the No rows |
+| "accounts smaller than taxable", "accounts under trust", "entries greater than fees" | Filters the value and drops the comparison |
+| "taxable households' accounts" | Filters Taxable and drops the possessive |
+| "show larger taxable accounts", on a grid with no House Terms | Filters Taxable and drops "larger" |
+
+The five before these were found by the text-forms PR's reviews (wave 2), and these four by the House Terms PR's. Each of the four reads the same in the release. The text-forms PR also found that the plural "entries" is not read as the ledger's Row Noun "entry" outside a part with a form: a miss, not a wrong view.
 
 With this fix in, the can't-group question can narrow back to the grouping verb (more grids spec 5.3).
 
@@ -402,7 +417,7 @@ With this fix in, the can't-group question can narrow back to the grouping verb 
 | No grouped row model | "View updated."; the rows are not grouped |
 | A column that names a built-in filter function | A GridCue filter on it shows no rows |
 
-**C. A statement read as a request, in a part that holds a form.** The text-forms PR reads a form by which words a part holds, not where they sit (named filters spec 4.2). Four rounds narrowed the statements its reviews found, and its three held-out rounds ended with none ready. The last independent check still found these ready as "Show only rows where Advisor is empty"; each asked in the release:
+**C. A statement read as a request, in a part that holds a form or a House Term.** The text-forms PR reads a form by which words a part holds, not where they sit (named filters spec 4.2). Four rounds narrowed the statements its reviews found, and its three held-out rounds ended with none ready. The last independent check still found these ready as "Show only rows where Advisor is empty"; each asked in the release:
 
 | Sentence | Why it slips through |
 | --- | --- |
@@ -410,6 +425,14 @@ With this fix in, the can't-group question can narrow back to the grouping verb 
 | "which of the advisors is missing", "which accounts advisor is missing" | The question word is not right before the column |
 | "for every account, advisor is empty" | The phrase about the rows comes before the form |
 | "advisor is empty for every account please", "advisor is empty, for every account" | A word or a comma sits around the phrase about the rows |
+
+The House Terms PR's last check found the same class beside a term, each ready with the term's filters:
+
+| Sentence | Why it slips through |
+| --- | --- |
+| "these accounts at Northgate, need attention", "entries for travel: need review" | A comma or a colon before a term lists it, as in "show accounts, need attention" |
+| "trusts need attention", on a grid whose Host declared "Need attention" and no "Needs attention" | Nothing marks a term as a verb but a first word that ends in a verb's "s", or the same name declared with and without it |
+| "advisors that need attention" | Filters the accounts, as "advisors with restricted holdings" does in the release |
 
 The release reads statements this way where no form is involved: "the accounts are at Northgate" previews "Filter Custodian to Northgate". The owner decides between leaving these until the Local Resolver's grammar (ADR 0020), as the spec has it, and a stricter rule in a fix PR: read "C is empty" and "has a C" only in the shapes spec 5.2 lists, and ask on anything else around them.
 

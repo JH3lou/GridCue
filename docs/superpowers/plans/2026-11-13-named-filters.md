@@ -146,41 +146,41 @@ Spec 4.3, 4.5, 5.3. ADR 0024.
 
 ### Task 3.1: Declare the terms, then label (lead, then Sonnet, two separate agents)
 **Files:** new `evals/cases-house-terms.jsonl`; held-out sets outside the repo.
-- [ ] The lead declares three terms on each schema before any labelling: one comparison, two conditions, and one empty or exact-text condition.
-- [ ] Form dev set, 40, both schemas: a term alone, beside values and amounts, beside another change, left out, in a column slot, with "or", and next to a size word.
-- [ ] Form held-out set, at least 40, both schemas, from spec 5.3 alone. Natural held-out set, 30. Not-a-request sentences: 10 more for each of the two sets from Task 2.2.
-- [ ] Baseline with the Mock Provider, before any code.
+- [x] The lead declares three terms on each schema before any labelling: one comparison, two conditions, and one empty or exact-text condition.
+- [x] Form dev set, 40, both schemas: a term alone, beside values and amounts, beside another change, left out, in a column slot, with "or", and next to a size word.
+- [x] Form held-out set, at least 40, both schemas, from spec 5.3 alone. Natural held-out set, 30. Not-a-request sentences: 10 more for each of the two sets from Task 2.2.
+- [x] Baseline with the Mock Provider, before any code.
 
 ### Task 3.2: `houseTerms` in the View Schema (Opus)
 **Files:** `core/protocol.ts`, `core/schema.ts`, `core/validate.ts`, `index.ts`, `test/schema.test.ts`.
-- [ ] Tests first: every way a term can be wrong in spec 5.3, and each name collision.
-- [ ] `SchemaOptions.houseTerms`, `ViewSchema.houseTerms`, `HouseTerm`. The name is `houseTerms` because the root entry already exports `unknownTerm` (order plan, D5). `defineSchema` checks each condition with validation's own value check.
-- [ ] `buildCandidates` and `describeProviderPayload` are unchanged; a test pins both.
+- [x] Tests first: every way a term can be wrong in spec 5.3, and each name collision.
+- [x] `SchemaOptions.houseTerms`, `ViewSchema.houseTerms`, `HouseTerm`. The name is `houseTerms` because the root entry already exports `unknownTerm` (order plan, D5). `defineSchema` checks each condition with validation's own value check.
+- [x] `buildCandidates` and `describeProviderPayload` are unchanged; a test pins both.
 
 ### Task 3.3: Reading a term (Opus)
 **Files:** `core/code-read.ts`, `core/compile.ts`, `core/unused.ts`, `core/preview.ts`, `core/controller.ts`, tests. Needs 3.2.
-- [ ] Tests first, one per row of the table in spec 5.3.
-- [ ] A term is a code-read filter: each condition a filter, `host` evidence with the term's label, and the label in brackets on each Preview line.
-- [ ] A left-out term and a term where a column goes ask.
-- [ ] The request is built before terms are looked at. The request-equality test of spec 4.3 over every labelled request: the operation set's payload pin test, run with the terms declared and without. No second pin test is built.
-- [ ] Fake-provider tests: a sort, a column and a value proposed for the term's word are each dropped.
+- [x] Tests first, one per row of the table in spec 5.3.
+- [x] A term is a code-read filter: each condition a filter, `host` evidence with the term's label, and the label in brackets on each Preview line.
+- [x] A left-out term and a term where a column goes ask.
+- [x] The request is built before terms are looked at. The request-equality test of spec 4.3 over every labelled request: the operation set's payload pin test, run with the terms declared and without. No second pin test is built.
+- [x] Fake-provider tests: a sort, a column and a value proposed for the term's word are each dropped.
 
 ### Task 3.4: Nothing old changes (lead)
-- [ ] Every existing labelled request with the terms declared: the same verdict and operations. Bar: 0 changes.
-- [ ] If it holds, the wealth fixture declares Large and Needs attention. If not, the terms stay in the eval schema and the Site demo declares its own.
+- [x] Every existing labelled request with the terms declared: the same verdict and operations. Bar: 0 changes. One changed: "uncategorised entries please" goes from a safe miss to its labelled view through Uncoded's alias. `evals/house-terms.test.ts` names it and holds every other request to no change.
+- [x] If it holds, the wealth fixture declares Large and Needs attention. If not, the terms stay in the eval schema and the Site demo declares its own. It did not hold by that one request, so the fixtures declare no terms.
 
 ### Task 3.5: Held-out run (lead)
-- [ ] One run of each set. Bar: 0 wrong views. Report the exact share, the natural set's ask rate, and how often a term was left out. The sets join the repo.
+- [x] One run of each set. Bar: 0 wrong views. Report the exact share, the natural set's ask rate, and how often a term was left out. The sets join the repo.
 
 ### Task 3.6: Examples, Site, skill (Sonnet)
-- [ ] Both examples use the fixture's terms. The Site demo suggests "large taxable accounts".
-- [ ] A test resolves every request the Site demo suggests, with the demo's provider, and checks the plan its comment promises. No test does this today (`apps/site/app/routes/demo.tsx:18`). The command bar's starters and the four bets reuse it.
-- [ ] Site: `api/schema` (`houseTerms`), `get-started/describe-your-domain` (a "House terms" section), `concepts/requests`, `safety` (terms are not sent). `docs/internals/product.md` and `intent-protocol.md`: the "large" and "big" paragraphs now point to House Terms.
-- [ ] `skills/gridcue`: when to declare a term, and that its names must be its own. `pnpm check:skills`. Changelog (Haiku).
-- [ ] Browser check of the bracketed Preview lines in both UIs, light and dark.
+- [x] Both examples declare Large and Needs attention themselves, since the fixture declares none (Task 3.4). The Site demo declares the same two and suggests "Large taxable accounts".
+- [x] A test resolves every request the Site demo suggests, with the demo's provider, and checks the plan its comment promises. No test does this today (`apps/site/app/routes/demo.tsx:18`). The command bar's starters and the four bets reuse it.
+- [x] Site: `api/schema` (`houseTerms`), `get-started/describe-your-domain` (a "House terms" section), `concepts/requests`, `safety` (terms are not sent). `docs/internals/product.md` and `intent-protocol.md`: the "large" and "big" paragraphs now point to House Terms.
+- [x] `skills/gridcue`: when to declare a term, and that its names must be its own. `pnpm check:skills`. Changelog (Haiku).
+- [x] Browser check of the bracketed Preview lines in both UIs, light and dark: the built-in bar in the Vite example and the registry bar in the Site demo. The Next.js example was built and typechecked, not opened.
 
 ### Task 3.7: Review (Opus), then gate
-- [ ] The reviewer hunts for a term's word that also changes something else in the plan.
+- [x] The reviewer hunts for a term's word that also changes something else in the plan.
 - [ ] One live run, on the owner's command. `pnpm lint`, `pnpm check`.
 
 ## PR 4: Local Values (`feat/local-values`)

@@ -38,6 +38,13 @@ const NEW_SETS = new Set([
   "cases-text-forms-heldout-r3.jsonl",
   "cases-not-requests-heldout.jsonl",
   "cases-provider-picks-heldout.jsonl",
+  "cases-house-terms.jsonl",
+  "cases-house-terms-heldout.jsonl",
+  "cases-house-terms-not-requests-heldout.jsonl",
+  "cases-house-terms-picks-heldout.jsonl",
+  "cases-house-terms-natural-heldout.jsonl",
+  "cases-house-terms-heldout-r2.jsonl",
+  "cases-house-terms-heldout-r3.jsonl",
 ]);
 // Each holds a text form spec 5.2 reads. PR 1 labelled them to ask how to match; all but r2-ask-28 now expect the
 // spec's reading, and r2-ask-28 asks about "thanks", which the placed-words lists don't hold.

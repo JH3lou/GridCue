@@ -91,7 +91,7 @@ Most view commands can be resolved from the utterance plus schema metadata. Row 
 
 ### 4. Ambiguity is visible
 
-“Show large accounts” has no universal threshold. Unless the host supplies an approved meaning for `large`, GridCue asks what the user means. It does not quietly choose $1 million.
+“Show large accounts” has no universal threshold. Unless the host declares `large` as a House Term, a fixed list of conditions such as Market value above $1,000,000, GridCue asks what the user means. With the term declared, code reads it and the Preview states the threshold, so the user sees what `large` meant. A House Term is never sent to an Intent Provider. GridCue never chooses $1 million itself.
 
 ### 5. Mixed-scope requests fail safely
 
@@ -160,7 +160,7 @@ The defaults are `ready` 0.85 and `clarify` 0.65. They are unchanged since the f
 | “Biggest sleeve drift first; group by strategist” | Sort drift descending, group by strategist |
 | “Only accounts with a restriction, and show the restriction reason” | Filter restriction flag; reveal permitted reason column |
 | “Hide PII and give me a compact exceptions view” | Hide columns tagged as PII if the host exposes that alias; density is deferred or unsupported |
-| “Show gains close to becoming long term” | Clarify or use an explicit host-defined semantic alias; never invent the day threshold |
+| “Show gains close to becoming long term” | Clarify, or use a House Term the host declared on its own column; never invent the day threshold |
 | “Sell anything over 10%” | Reject: trade execution is outside the view-only boundary |
 
 ## Success measures

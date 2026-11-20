@@ -165,6 +165,9 @@ describe("a grid that can't group, fourth held-out set, with the Mock Provider",
 // - sentences that hold a form and are not view requests: 19 asked, 1 refused, none ready, of 20;
 // - the limit on a provider's picks, each case with a scripted answer that proposes a sort, a column or a value for the
 //   form's words: 14 exact, 6 asked as labelled, of 20. Before the code, 8 wrong views.
+// Each set gained 10 cases that hold a House Term, labelled before its code and run with the schema's terms declared
+// (named filters spec, 5.3): the sentences that are not requests all ask, before and after; of the provider picks, 9
+// exact and 1 asked as labelled, where 9 showed a wrong view before.
 // Two classes a review found joined the first two sets with their fixes (2026-11-14). These cases were written beside
 // the fix, from the lead's rulings, so they are regression cases and not a held-out measure:
 // - a column asked for beside a form ("show only household where advisor is empty"): 22 cases that must not be ready,
@@ -271,6 +274,113 @@ describe("not requests and provider picks, held-out sets, with the Mock Provider
         expect(result.verdict, JSON.stringify(result.plan, null, 1)).toMatch(/^(exact|safe_abstention|rejected)$/);
       });
     }
+  }
+});
+
+// House Terms (named filters spec, 5.3; ADR 0024). The dev set was labelled after the lead declared three terms on each
+// schema and before the code (2026-11-14); each case runs on its schema with them declared. With the Mock Provider: 23
+// exact, 12 asked as labelled, 6 safe misses, no wrong view, of 41 (2026-11-14). Before the code: 1 wrong view ("show
+// large taxable accounts" filtered Taxable alone), 10 asked as labelled and 30 safe misses.
+//
+// The 6 safe misses are the Mock Provider's, not the reading's: each part starts with a word the Mock doesn't know (a
+// term, or the plural "entries" before "needing"), so the Mock reads the part as acting on something and proposes
+// nothing (`viewRequest` in `core/lead.ts`). A term is never sent to a provider, so the Mock can't know better. The term
+// is still read, but the sort, the grouping and the amount's column come from the provider (spec 4.1, 4.2), and the
+// part asks. Each must ask, never be ready; with a provider that proposes them, each is ready as labelled.
+const MOCK_MISSES = new Set([
+  "ht-large-over-5m",
+  "ht-large-sorted",
+  "ht-large-grouped",
+  "ht-material-over-50k",
+  "ht-uncoded-sorted",
+  "ht-review-sorted",
+]);
+describe("House Terms, with the Mock Provider", () => {
+  const ledgerProvider = createMockProvider(mockOptionsFor({ schema: "ledger" }));
+  for (const c of loadCases(new URL("./cases-house-terms.jsonl", import.meta.url))) {
+    it(`cases-house-terms.jsonl: ${c.id}`, async () => {
+      const result = await runCase(c, c.schema === "ledger" ? ledgerProvider : provider);
+      const want = MOCK_MISSES.has(c.id) ? /^mismatch$/ : /^(exact|safe_abstention|rejected)$/;
+      expect(result.verdict, JSON.stringify(result.plan, null, 1)).toMatch(want);
+      if (MOCK_MISSES.has(c.id)) expect(result.status).toBe("needs_clarification");
+    });
+  }
+});
+
+// The House Terms held-out sets, labelled before the code from the declared terms and first run after it (2026-11-14),
+// each case run with its schema's terms declared and the Mock Provider set up for its fixture:
+// - the form set: 55 exact, 65 asked as labelled, 3 refused as labelled, 4 safe misses, 1 wrong view
+//   (h1-contain-largely: "accounts largely in taxable" filters Taxable and drops "largely", as it did before the code),
+//   of 128;
+// - sentences that hold a term and are not requests: 20 asked, 1 refused, none ready, of 21;
+// - scripted provider picks for a term's words: 19 exact, 5 asked as labelled, of 24. Before the code, 21 showed a
+//   wrong view;
+// - the natural set, by a labeller who saw only the product definition, the schemas and the terms: 21 exact, 20 asked
+//   as labelled, 1 refused as labelled, 13 safe misses, 1 wrong view (hn-w-largest-advisor: "which advisor has the
+//   largest accounts?" sorts by Advisor, as it did before the code), of 56.
+// The fix narrowed each wrong view's class to a question (order plan, D4), so these sets are regression cases now: a
+// word made from a term's name in a part with no code-read filter asks, and a size word on its own sorts only a column
+// that holds an amount or a date. Now the form set has 66 asked and the natural set 21, with no wrong view.
+// A safe miss is reported by `pnpm eval`; a wrong view fails.
+describe("House Terms, held-out sets, with the Mock Provider", () => {
+  const ledgerProvider = createMockProvider(mockOptionsFor({ schema: "ledger" }));
+  for (const file of [
+    "cases-house-terms-heldout.jsonl",
+    "cases-house-terms-not-requests-heldout.jsonl",
+    "cases-house-terms-picks-heldout.jsonl",
+    "cases-house-terms-natural-heldout.jsonl",
+  ]) {
+    for (const c of loadCases(new URL(`./${file}`, import.meta.url))) {
+      it(`${file}: ${c.id}`, async () => {
+        const result = await runCase(c, c.schema === "ledger" ? ledgerProvider : provider);
+        expect(result.verdict, JSON.stringify(result.plan, null, 1)).not.toBe("unsafe");
+      });
+    }
+  }
+});
+
+// A second held-out set for House Terms, labelled from the declared terms and the spec and first run after the fix for
+// the first sets' wrong views (2026-11-14), each case run with its schema's terms declared and the Mock Provider set up
+// for its fixture: words made from a term's name ("largely", "bigly"), a size word after "which" and a column, each
+// term alone and beside an amount, a term left out, in a column slot, with "or", and in sentences that are not view
+// requests. With the Mock Provider: 10 exact, 29 asked as labelled, 1 refused as labelled, no safe miss, 2 wrong views
+// (r2-form-largely-8: "records largely in the Travel category" filters Category to Travel and drops "largely", on the
+// ledger, where no term is made from it; r2-nat-size-2: "accounts by advisor, largest first" sorts Advisor descending),
+// of 42, after one label was corrected to the spec's reading (r2-term-ready-10: "just the material ones" holds only a
+// row verb, small words and the term, so it filters Amount above $10,000, spec 4.2 and 5.3). Both wrong views were
+// ready the same way before the code. 9 of its requests were ready before the code with a view the User didn't ask
+// for, and now ask. The fix narrowed each wrong view's class to a question (order plan, D4): an adverb nothing reads
+// beside what a part keeps asks about the word, with or without terms ("largely", "mostly", "roughly"), and a size or
+// age word's phrase ("largest first", "newest first") sorts a column that holds no size only where the part says "sort"
+// or "order" itself. Now: 10 exact, 31 asked, 1 refused, no wrong view. A safe miss is reported by `pnpm eval`; a wrong
+// view fails.
+describe("House Terms, second held-out set, with the Mock Provider", () => {
+  const ledgerProvider = createMockProvider(mockOptionsFor({ schema: "ledger" }));
+  for (const c of loadCases(new URL("./cases-house-terms-heldout-r2.jsonl", import.meta.url))) {
+    it(`cases-house-terms-heldout-r2.jsonl: ${c.id}`, async () => {
+      const result = await runCase(c, c.schema === "ledger" ? ledgerProvider : provider);
+      expect(result.verdict, JSON.stringify(result.plan, null, 1)).not.toBe("unsafe");
+    });
+  }
+});
+
+// A third held-out set for House Terms, labelled from the declared terms and the spec and first run after the fix for
+// the second set's wrong views (2026-11-14), most cases run with their schema's terms declared and three without:
+// adverbs nothing reads ("largely", "mostly", "roughly") beside a value, an amount or a term, a size word's phrase after
+// "by" and a column that holds no size, each term's aliases, and a term left out, in a column slot, with "or", or in a
+// sentence that is not a view request. With the Mock Provider: 7 exact, 33 asked as labelled, 1 safe miss (r3-term-1:
+// "which big accounts do we have" asks about "do we", which spec 4.2 does not place), no wrong view, of 41, after 7
+// labels were corrected: r3-term-1 to r3-term-6 held a predicate "type" the harness drops, and r3-term-ask-15
+// ("material entries without a category") is ready with the Material filter and Category empty, as spec 5.2, 5.3 and
+// 4.2 read it. 14 of its requests showed a view the User didn't ask for before the code and now ask. A safe miss is
+// reported by `pnpm eval`; a wrong view fails.
+describe("House Terms, third held-out set, with the Mock Provider", () => {
+  const ledgerProvider = createMockProvider(mockOptionsFor({ schema: "ledger" }));
+  for (const c of loadCases(new URL("./cases-house-terms-heldout-r3.jsonl", import.meta.url))) {
+    it(`cases-house-terms-heldout-r3.jsonl: ${c.id}`, async () => {
+      const result = await runCase(c, c.schema === "ledger" ? ledgerProvider : provider);
+      expect(result.verdict, JSON.stringify(result.plan, null, 1)).not.toBe("unsafe");
+    });
   }
 });
 

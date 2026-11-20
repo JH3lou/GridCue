@@ -102,6 +102,92 @@ const CHANGED: Record<string, string[] | null> = {
   "cases-text-forms-heldout.jsonl: h2f-59": null,
   "cases-text-forms-natural-heldout.jsonl: n1-led-ambig-blanks-last": null,
   "cases-text-forms-natural-heldout.jsonl: n1-wea-advisor-exact": null,
+  // House Terms (named filters spec, 5.3 and 4.5). Each request says `"terms": true`; their Previews were recorded
+  // before a term was read (2026-11-14), when each asked, or showed rows the User didn't ask for. A filter a term made
+  // names the term in brackets, as the Host declared it, also when the User typed an alias ("big", "orphaned").
+  // - "show large taxable accounts" showed Taxable alone, dropping "large";
+  "cases-house-terms.jsonl: ht-large-taxable": ["Filter Market value above $1,000,000 (Large)", "Filter Registration type to Taxable"],
+  // - a scripted provider's sort, grouping, column change or value for the term's own words was shown; it is dropped;
+  "cases-provider-picks.jsonl: pp-ht-sort-for-large": ["Filter Market value above $1,000,000 (Large)"],
+  "cases-provider-picks.jsonl: pp-ht-group-for-big": ["Filter Market value above $1,000,000 (Large)"],
+  "cases-provider-picks.jsonl: pp-ht-hide-for-attention": [
+    "Filter Concentration above 10% (Needs attention)",
+    "Show only rows where Restricted holdings is Yes (Needs attention)",
+  ],
+  "cases-provider-picks.jsonl: pp-ht-value-for-unassigned": ["Show only rows where Advisor is empty (Unassigned)"],
+  "cases-provider-picks.jsonl: pp-ht-sort-for-material": ["Filter Amount above $10,000 (Material)"],
+  "cases-provider-picks.jsonl: pp-ht-group-for-uncoded": ["Show only rows where Category is empty (Uncoded)"],
+  "cases-provider-picks.jsonl: pp-ht-value-for-needs-review": [
+    "Show only rows where Cleared is No (Needs review)",
+    "Filter Amount above $5,000 (Needs review)",
+  ],
+  "cases-provider-picks.jsonl: pp-ht-show-column-for-large": ["Filter Market value above $1,000,000 (Large)"],
+  "cases-provider-picks.jsonl: pp-ht-group-extra-with-sort": [
+    "Filter Market value above $1,000,000 (Large)",
+    "Sort by Unrealized gain, ascending",
+  ],
+  // - "sort by large" with a provider that sorts by Market value: a term where a column goes asks;
+  "cases-provider-picks.jsonl: pp-ht-sort-by-large": null,
+  // - and each of these asked before, and now reads the term.
+  "cases-house-terms.jsonl: ht-large-accounts": ["Filter Market value above $1,000,000 (Large)"],
+  "cases-house-terms.jsonl: ht-big-alias": ["Filter Market value above $1,000,000 (Large)"],
+  "cases-house-terms.jsonl: ht-large-bare": ["Filter Market value above $1,000,000 (Large)"],
+  "cases-house-terms.jsonl: ht-big-lead-in": ["Filter Market value above $1,000,000 (Large)"],
+  "cases-house-terms.jsonl: ht-needs-attention": [
+    "Filter Concentration above 10% (Needs attention)",
+    "Show only rows where Restricted holdings is Yes (Needs attention)",
+  ],
+  "cases-house-terms.jsonl: ht-needing-attention": [
+    "Filter Concentration above 10% (Needs attention)",
+    "Show only rows where Restricted holdings is Yes (Needs attention)",
+  ],
+  "cases-house-terms.jsonl: ht-needs-attention-label": [
+    "Filter Concentration above 10% (Needs attention)",
+    "Show only rows where Restricted holdings is Yes (Needs attention)",
+  ],
+  "cases-house-terms.jsonl: ht-unassigned": ["Show only rows where Advisor is empty (Unassigned)"],
+  "cases-house-terms.jsonl: ht-orphaned-alias": ["Show only rows where Advisor is empty (Unassigned)"],
+  "cases-house-terms.jsonl: ht-big-hide-column": ["Filter Market value above $1,000,000 (Large)", "Hide Custodian"],
+  "cases-house-terms.jsonl: ht-two-terms": [
+    "Filter Market value above $1,000,000 (Large)",
+    "Filter Concentration above 10% (Needs attention)",
+    "Show only rows where Restricted holdings is Yes (Needs attention)",
+  ],
+  "cases-house-terms.jsonl: ht-two-terms-comma": [
+    "Show only rows where Advisor is empty (Unassigned)",
+    "Filter Market value above $1,000,000 (Large)",
+  ],
+  "cases-house-terms.jsonl: ht-material-entries": ["Filter Amount above $10,000 (Material)"],
+  "cases-house-terms.jsonl: ht-sizeable-alias": ["Filter Amount above $10,000 (Material)"],
+  "cases-house-terms.jsonl: ht-needs-review": [
+    "Show only rows where Cleared is No (Needs review)",
+    "Filter Amount above $5,000 (Needs review)",
+  ],
+  "cases-house-terms.jsonl: ht-needing-review": [
+    "Show only rows where Cleared is No (Needs review)",
+    "Filter Amount above $5,000 (Needs review)",
+  ],
+  "cases-house-terms.jsonl: ht-uncoded": ["Show only rows where Category is empty (Uncoded)"],
+  "cases-house-terms.jsonl: ht-uncategorised-alias": ["Show only rows where Category is empty (Uncoded)"],
+  "cases-house-terms.jsonl: ht-material-fees": ["Filter Amount above $10,000 (Material)", "Filter Category to Fees"],
+  "cases-house-terms.jsonl: ht-material-grouped": ["Filter Amount above $10,000 (Material)", "Group by Owner"],
+  "cases-house-terms.jsonl: ht-hide-rate-show-material": ["Hide Rate", "Filter Amount above $10,000 (Material)"],
+  "cases-house-terms.jsonl: ht-uncoded-needs-review": [
+    "Show only rows where Category is empty (Uncoded)",
+    "Show only rows where Cleared is No (Needs review)",
+    "Filter Amount above $5,000 (Needs review)",
+  ],
+  // The two wrong views of the House Terms held-out run, each narrowed to a question as a class (order plan, D4), and
+  // each ready the same way before the terms: a word made from a term's name ("largely") in a part with no code-read
+  // filter, and a size word on its own giving its direction to a column that holds no amounts.
+  "cases-house-terms-heldout.jsonl: h1-contain-largely": null,
+  "cases-house-terms-natural-heldout.jsonl: hn-w-largest-advisor": null,
+  // The two wrong views of the second held-out run, each ready the same way before the terms, and each narrowed to a
+  // question as a class: an adverb nothing reads beside what a part keeps ("records largely in the Travel category"),
+  // whatever the terms are named, and a size word's phrase giving its direction to a column that holds no size where
+  // nothing says to sort ("accounts by advisor, largest first").
+  "cases-house-terms-heldout-r2.jsonl: r2-form-largely-8": null,
+  "cases-house-terms-heldout-r2.jsonl: r2-nat-size-2": null,
 };
 
 describe("the Preview of every labelled request", () => {
