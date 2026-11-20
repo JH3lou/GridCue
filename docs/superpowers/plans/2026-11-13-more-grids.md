@@ -63,28 +63,28 @@ Spec 4.2 and 5.1. ADR 0031.
 
 ### Task 1.1: Harnesses (Sonnet)
 **Files:** `packages/gridcue/test/tanstack.test.ts`, `packages/gridcue/test/adapter-contract.ts`.
-- [ ] The new contract test, "applies, then undoes": apply a two-operation plan and expect `getState()` to hold the written state and the very Revision `apply` returned (today's defect); then `restore` the snapshot taken before, and expect the first state back with a new Revision.
-- [ ] Three dev harnesses from spec section 10 that run the whole suite through `renderHook`: table-owned; Host-controlled sorting and filters with handlers; `useLegacyTable` Host-controlled.
-- [ ] A fourth, Host-controlled sorting with no handler. It takes no write, so it runs one test: the apply fails and the table is unchanged.
-- [ ] `@tanstack/react-table` 9.2.4, exact, in `packages/gridcue` dev dependencies.
+- [x] The new contract test, "applies, then undoes": apply a two-operation plan and expect `getState()` to hold the written state and the very Revision `apply` returned (today's defect); then `restore` the snapshot taken before, and expect the first state back with a new Revision.
+- [x] Three dev harnesses from spec section 10 that run the whole suite through `renderHook`: table-owned; Host-controlled sorting and filters with handlers; `useLegacyTable` Host-controlled.
+- [x] A fourth, Host-controlled sorting with no handler. It takes no write, so it runs one test: the apply fails and the table is unchanged.
+- [x] `@tanstack/react-table` 9.2.4, exact, in `packages/gridcue` dev dependencies.
 
 ### Task 1.2: The wait (Opus)
 **Files:** `packages/gridcue/src/tanstack/index.ts`, `packages/gridcue/src/core/adapter.ts` (doc comment only), `packages/gridcue/src/core/controller.ts` (the recovery), tests. Needs 1.1.
-- [ ] Tests first: owned returns in the same tick; controlled waits for the render; no handler fails after 1,000 ms and the Controller says "Nothing was changed"; a manual change during the wait fails with recovery; `restore` waits the same way.
-- [ ] The recovery after a failed apply: a part of the view the plan writes is the plan's own only when it holds its old value or the value the plan wrote. Test: a sort apply waits, the User clicks a header and changes the sort, the wait fails, and the User's sort stays.
-- [ ] After a write, compare the table's View State with the written one; wait on store notifications up to the bound; return the store's Revision.
-- [ ] `GridAdapter.apply`'s doc comment states 4.2.
+- [x] Tests first: owned returns in the same tick; controlled waits for the render; no handler fails after 1,000 ms and the Controller says "Nothing was changed"; a manual change during the wait fails with recovery; `restore` waits the same way.
+- [x] The recovery after a failed apply: a part of the view the plan writes is the plan's own only when it holds its old value or the value the plan wrote. Test: a sort apply waits, the User clicks a header and changes the sort, the wait fails, and the User's sort stays.
+- [x] After a write, compare the table's View State with the written one; wait on store notifications up to the bound; return the store's Revision.
+- [x] `GridAdapter.apply`'s doc comment states 4.2.
 
 ### Task 1.3: Held-out run (lead)
-- [ ] Write the two held-out harnesses from spec section 10 after the build. Run the suite once. Report pass or fail per test, and the wait's median and worst.
+- [x] Write the two held-out harnesses from spec section 10 after the build. Run the suite once. Report pass or fail per test, and the wait's median and worst. An agent that did not build the code wrote and ran them, and the lead reports.
 
 ### Task 1.4: Docs (Sonnet), changelog (Haiku)
-- [ ] Site: `guides/vite-tanstack` (a controlled slice needs its handler; set state, then fetch), `guides/build-an-adapter` (the new test; an apply is done when the grid holds it).
-- [ ] `skills/gridcue/references/troubleshooting.md`: "Undo refused on a controlled table" and its fix. `pnpm check:skills`.
-- [ ] `packages/gridcue/CHANGELOG.md`.
+- [x] Site: `guides/vite-tanstack` (a controlled slice needs its handler; set state, then fetch), `guides/build-an-adapter` (the new test; an apply is done when the grid holds it).
+- [x] `skills/gridcue/references/troubleshooting.md`: "Undo refused on a controlled table" and its fix. `pnpm check:skills`.
+- [x] `packages/gridcue/CHANGELOG.md`.
 
 ### Task 1.5: Review (Opus), gate
-- [ ] Both UIs: no change; a smoke check that apply and undo work in the Vite example.
+- [x] Both UIs: no change; a smoke check that apply and undo work in the Vite example.
 
 ## PR 2: v8 apps through `useLegacyTable` (`docs/tanstack-v8-bridge`)
 
