@@ -90,7 +90,7 @@ More than one plan meant to build each of these. One PR builds it. The others us
 | --- | --- | --- | --- |
 | The payload pin test: the provider request for every labelled request equals the last recorded one | O1 | N2 to N5, R2, R3, C3, four bets PR 2 | O, N, R, C and the bets each planned their own |
 | `core/view-words.ts`: closed forms read by code | O1, grown in O2 and O3 | N2 imports its form words. The Local Resolver calls it | N said "whichever lands second moves both into one module". They stay two modules: a reader and a check |
-| The count rule, as one function of a plan and its view | O1 | C1 (edits), C4 (removals). Not `proposeView` | C had no rule for a view with a count |
+| The count rule, as one function of a plan and its view | O1 | C1 (edits), C4 (removals), C5 (the sort starter). Not `proposeView` | C had no rule for a view with a count |
 | The "this grid can't" result: a question with no choices, nothing applied | G3 | O2 and O3 (pins, density, totals without `renders`), G4, G6 | O said "unsupported" and an Unsupported Segment. G said a question |
 | The ledger fixture (two name columns, date, date-and-time, number, currency, percent, category, yes/no), and a schema per case file in `evals/run.ts` | N2 | O3, G5, G6, R1, R2, C1 to C5, four bets PR 3 and PR 4 | N and G each planned a ledger. R planned households as its second schema. C planned an inline one. O planned its own |
 | `buildResolutionRequest` picks the fields it sends | N2 | C3 (`Clause.source`), four bets PR 2 | C3 and four bets PR 2 each planned it. N would have sent two new literal fields |
