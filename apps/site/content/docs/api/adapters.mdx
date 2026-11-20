@@ -297,7 +297,9 @@ adapter.setState((s) => ({ ...s, sorts: [{ columnId: "market_value", direction: 
 
 ### What it never holds
 
-The View State never holds a count without `countBeforePaging`, totals, pinned columns without `"pinning"` in `renders`, or a density other than `"comfortable"` without `"density"`. Your Data Query or table would never carry them out, and no request could take them away. An `initialState` or `setState` that holds one throws `INPUT_CONFIG`, naming it, and `restore` of such a snapshot fails with `ADAPTER_NOT_APPLICABLE`. A count of `null` is no count. A View State saved from a grid with `countBeforePaging`, such as one kept in the URL, needs its count taken out before it reaches a grid without it.
+The View State never holds a count without `countBeforePaging`, totals, pinned columns without `"pinning"` in `renders`, or a density other than `"comfortable"` without `"density"`. Your Data Query or table would never carry them out, and no request could take them away. An `initialState` or `setState` that holds one throws `INPUT_CONFIG`, naming it. `restore` of such a snapshot fails with `ADAPTER_NOT_APPLICABLE`, and so does `apply` of a plan whose view holds one, such as a plan validated on another grid. A count of `null` is held as no count.
+
+This covers only those four. An operation you take out with [`without`](#without) is one GridCue no longer changes, and your own controls may still set that part with `setState`: a grid without `group.set` can group a page from its own menu. A View State saved from a grid with `countBeforePaging`, such as one kept in the URL, needs its count taken out before it reaches a grid without it.
 
 ### countBeforePaging
 

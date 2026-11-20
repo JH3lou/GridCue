@@ -193,6 +193,25 @@ describe("Query Adapter: a bad `without` throws INPUT_CONFIG, naming it", () => 
   it("a starting view with no count, written as a count of null, is no count", () => {
     expect(configError({ initialState: { ...createQueryAdapter({ schema }).getDefaultState(), limit: null } })).toBeUndefined();
   });
+
+  // A saved view may write "no count" as null. The View State then holds no count at all, so a request reads as on a
+  // grid that never had one. Held as null, every sort after it ended in "Couldn't interpret that request."
+  it.each([false, true])(
+    "a count of null is held as no count, and a sort after it is ready (countBeforePaging %s)",
+    async (countBeforePaging) => {
+      const start = createQueryAdapter({ schema }).getDefaultState();
+      const adapter = createQueryAdapter({ schema, countBeforePaging, initialState: { ...start, limit: null } as never });
+      expect("limit" in adapter.getState().state).toBe(false);
+      expect("limit" in adapter.getDefaultState()).toBe(false);
+      adapter.setState((s) => ({ ...s, limit: null }) as never);
+      expect("limit" in adapter.getState().state).toBe(false);
+      await adapter.restore({ ...adapter.getState(), state: { ...start, limit: null } as never });
+      expect("limit" in adapter.getState().state).toBe(false);
+      const cue = createGridCue({ adapter, provider });
+      await cue.propose("sort by market value descending");
+      expect(cue.getState()).toMatchObject({ status: "ready", preview: { lines: ["Sort by Market value, descending"] } });
+    },
+  );
 });
 
 // A Query Adapter's View State never holds what the adapter lists no operation for, of the parts only an opt-in
@@ -556,6 +575,46 @@ describe("Query Adapter: the View State and its Revisions", () => {
     expect(result).toMatchObject({ ok: false, code: "ADAPTER_NOT_APPLICABLE" });
     expect(adapter.getState()).toEqual(before);
     expect(calls).toBe(0);
+  });
+
+  // The plan's own operations are all listed here, but it was validated on a grid whose view held a count, so the
+  // state it would write holds that count too. Both grids are at their first Revision.
+  it("refuses a plan whose resulting view holds a count it can't keep, though every operation is listed", async () => {
+    const start = createQueryAdapter({ schema }).getDefaultState();
+    const counting = createQueryAdapter({ schema, countBeforePaging: true, initialState: { ...start, sorts: [valueDesc], limit: 10 } });
+    const plan = validated(counting, [{ type: "columns.hide", columnIds: ["advisor"] }]);
+    const adapter = createQueryAdapter({ schema });
+    expect(plan.baseRevision).toBe(adapter.getState().revision);
+    const before = adapter.getState();
+    let calls = 0;
+    adapter.subscribe(() => calls++);
+    expect(await adapter.apply(plan)).toMatchObject({
+      ok: false,
+      code: "ADAPTER_NOT_APPLICABLE",
+      message: expect.stringContaining("a count"),
+    });
+    expect(adapter.getState()).toEqual(before);
+    expect(calls).toBe(0);
+    // The grid it was validated on still takes it.
+    expect(await counting.apply(plan)).toMatchObject({ ok: true });
+  });
+
+  // `without` takes an operation out of what GridCue may change. It is not one of the four parts the View State never
+  // holds, so the Host's own controls may still set it.
+  it("a part `without` took out can still be set by the Host's own controls", () => {
+    const adapter = createQueryAdapter({ schema, without: ["group.set", "sort.set"] });
+    adapter.setState((s) => ({ ...s, groupBy: ["advisor"], sorts: [valueDesc] }));
+    expect(adapter.getState().state).toMatchObject({ groupBy: ["advisor"], sorts: [valueDesc] });
+  });
+
+  it("refuses a plan-shaped value whose operations aren't operations, as any plan that wasn't validated", async () => {
+    const adapter = createQueryAdapter({ schema });
+    const before = adapter.getState();
+    for (const operations of [[null], [undefined], [3], [{}], [{ type: 3 }]]) {
+      const result = await adapter.apply({ ...planFor(before, []), operations } as never);
+      expect(result).toMatchObject({ ok: false, code: "ADAPTER_NOT_APPLICABLE" });
+    }
+    expect(adapter.getState()).toEqual(before);
   });
 });
 
