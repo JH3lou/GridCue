@@ -1,9 +1,9 @@
 ---
 title: Adapters
-description: The GridAdapter interface, the Rows Adapter with applyView, and the TanStack Table adapter.
+description: The GridAdapter interface, the Rows Adapter with applyView, the Query Adapter, and the TanStack Table adapter.
 ---
 
-A Grid Adapter translates GridCue's View State to one grid library. It holds no language logic: it reports the grid's current view, applies a validated View Plan all at once, restores a snapshot for undo, and tells GridCue when the view changes. GridCue ships two adapters: the Rows Adapter for rows you keep in memory, and the TanStack Table adapter.
+A Grid Adapter translates GridCue's View State to one grid library. It holds no language logic: it reports the grid's current view, applies a validated View Plan all at once, restores a snapshot for undo, and tells GridCue when the view changes. GridCue ships three adapters: the Rows Adapter for rows you keep in memory, the Query Adapter for rows your own Data Query fetches, and the TanStack Table adapter.
 
 ## GridAdapter
 
@@ -90,11 +90,11 @@ const MVP_OPERATIONS: readonly string[] = [
 ];
 ```
 
-The operations every adapter supports. With no [`renders`](#renders), the TanStack Table adapter reports exactly this list, and the Rows Adapter adds `limit.set`, since its rows are all in memory and a count is exact there. The TanStack Table adapter adds it with `renders: ["count"]` and [GridCue's count piece](#gridcuecountfeature). An adapter whose rows come a page at a time should not list `limit.set`: GridCue then sorts alone and says the count was not applied. `columns.pin`, `density.set` and `aggregation.set` are not in `MVP_OPERATIONS`: an adapter lists each only when the Host's table draws it, and a plan that uses one the adapter doesn't list fails validation with `PLAN_OPERATION_UNSUPPORTED`.
+The operations every adapter supports. With no [`renders`](#renders), the TanStack Table adapter reports exactly this list, and the Rows Adapter adds `limit.set`, since its rows are all in memory and a count is exact there. The TanStack Table adapter adds it with `renders: ["count"]` and [GridCue's count piece](#gridcuecountfeature). An adapter whose rows come a page at a time should not list `limit.set`: GridCue then sorts alone and says the count was not applied. The [Query Adapter](#createqueryadapter) lists it only when you say your server cuts before paging. `columns.pin`, `density.set` and `aggregation.set` are not in `MVP_OPERATIONS`: an adapter lists each only when the Host's table draws it, and a plan that uses one the adapter doesn't list fails validation with `PLAN_OPERATION_UNSUPPORTED`.
 
 ## renders
 
-Both adapters are headless. GridCue writes the View State, and your own markup draws it. So an adapter lists `columns.pin`, `density.set` and `aggregation.set` only when you say your table draws them:
+The adapters are headless. GridCue writes the View State, and your own markup draws it. So an adapter lists `columns.pin`, `density.set` and `aggregation.set` only when you say your table draws them:
 
 ```ts
 createRowsAdapter({ schema, renders: ["pinning", "density", "totals"] });
@@ -111,7 +111,7 @@ createTanStackAdapter({ schema, table, renders: ["pinning", "density", "totals",
 - **The default is none.** With none, the adapter's capabilities are what they were, and a request to pin, unpin, change density or show a total ends in "This grid can't pin columns.", "This grid can't change its density." or "This grid can't show totals.", with no choices and nothing applied. See [Requests](/docs/concepts/requests#pins-and-density) and [Totals](/docs/concepts/requests#totals).
 - **GridCue can't check it.** `renders` is a promise. A Host that names something its table doesn't draw gets a Preview, an apply and "View updated." with nothing for the User to see. Name only what you draw.
 - **Columns may be pinned and totalled by default.** Every column that isn't restricted has the `pin` [capability](/docs/api/schema#column-capabilities) unless its override says otherwise, and a number, currency or percent column has `aggregate` too. Density belongs to no column.
-- **Anything else throws `INPUT_CONFIG`** when the adapter is created: a name the adapter doesn't take, and a value that isn't a list. The Rows Adapter takes `"pinning"`, `"density"` and `"totals"`, so `"count"` throws there, since it keeps a count with no option. The TanStack Table adapter takes those and `"count"`. It also throws `INPUT_CONFIG` for `"pinning"` when the table has no `setColumnPinning` (register `columnPinningFeature`), or holds its pins as `left` and `right`, as TanStack Table v8 did, instead of `start` and `end`, and for `"totals"` when it can see the table isn't set up for it (see [gridcueAggregationFn](#gridcueaggregationfn)), and for `"count"` when it can see the table can't keep one (see [gridcueCountFeature](#gridcuecountfeature)).
+- **Anything else throws `INPUT_CONFIG`** when the adapter is created: a name the adapter doesn't take, and a value that isn't a list. The Rows Adapter takes `"pinning"`, `"density"` and `"totals"`, so `"count"` throws there, since it keeps a count with no option. The Query Adapter takes only `"pinning"` and `"density"`: see [where `renders` differs](#where-renders-differs). The TanStack Table adapter takes those and `"count"`. It also throws `INPUT_CONFIG` for `"pinning"` when the table has no `setColumnPinning` (register `columnPinningFeature`), or holds its pins as `left` and `right`, as TanStack Table v8 did, instead of `start` and `end`, and for `"totals"` when it can see the table isn't set up for it (see [gridcueAggregationFn](#gridcueaggregationfn)), and for `"count"` when it can see the table can't keep one (see [gridcueCountFeature](#gridcuecountfeature)).
 
 ## createRowsAdapter
 
@@ -129,7 +129,7 @@ interface RowsAdapterOptions {
 }
 ```
 
-A Grid Adapter for Hosts that keep rows in memory. It holds the View State itself; pair it with `applyView` to get the rows to render in any table.
+A Grid Adapter for Hosts that keep rows in memory. It holds the View State itself; pair it with `applyView` to get the rows to render in any table. It is for rows you hold: `applyView` filters, sorts and counts them here, so a count is exact. For rows your server fetches, use the [Query Adapter](#createqueryadapter). A Rows Adapter over a page of a larger set would preview a count and show every row of the page.
 
 | Name | Type | Default | Description |
 | --- | --- | --- | --- |
@@ -230,6 +230,124 @@ A shared test draws seeded views through both adapters, on rows with ties and em
 - **A `null` beside a `0` in a sorted number column.** TanStack's basic sort finds `null` smaller than `0` and `0` smaller than `null`, so it can draw the rows that hold values out of order. Leave an empty number cell missing (`undefined`) in a column that can hold `0`: TanStack's `sortUndefined` places it.
 
 A total on a column the view groups by would differ as well: TanStack Table shows the group's own value in that cell. GridCue never applies such a view; it asks instead, and validation refuses it. A User can still make one with the table's own controls.
+
+## createQueryAdapter
+
+```ts
+import { createQueryAdapter } from "gridcue";
+
+function createQueryAdapter(options: QueryAdapterOptions): QueryAdapter;
+
+interface QueryAdapterOptions {
+  schema: ViewSchema;
+  initialState?: ViewState;
+  countBeforePaging?: boolean;
+  without?: readonly string[];
+  renders?: ReadonlyArray<"pinning" | "density">;
+  maxSorts?: number;
+  maxGroups?: number;
+}
+```
+
+A Grid Adapter for Hosts whose rows come from their own Data Query: a server that filters, sorts and pages them. It holds the View State and never fetches. GridCue never writes a Data Query. You build yours from the View State, each time it changes.
+
+| Name | Type | Default | Description |
+| --- | --- | --- | --- |
+| `schema` | `ViewSchema` | required | The schema for these rows. |
+| `initialState` | `ViewState` | every schema column visible, in schema order, with no filters, sorts or groups | The starting view. It is also the view `view.reset` returns to. It throws `INPUT_CONFIG` when it holds something the adapter doesn't list: see [what it never holds](#what-it-never-holds). |
+| `countBeforePaging` | `boolean` | `false` | `true` only when your server sorts, cuts to the count, and then pages, so "top 10" is the true first ten. The adapter then lists `limit.set`. See [countBeforePaging](#countbeforepaging). Anything but `true` or `false` throws `INPUT_CONFIG`. |
+| `without` | `string[]` | none | Operations your Data Query can't carry out, such as `["group.set"]`. See [without](#without). |
+| `renders` | `("pinning" \| "density")[]` | none | What your table draws, so the adapter lists `columns.pin` and `density.set`. See [renders](#renders). |
+| `maxSorts` | `number` | `3` | Most sort levels allowed. |
+| `maxGroups` | `number` | `2` | Most group levels allowed. |
+
+It reports [`MVP_OPERATIONS`](#mvp_operations) less `without`, `limit.set` only with `countBeforePaging`, and `columns.pin` and `density.set` only for what `renders` names, with atomic apply, snapshot restore and `observesChanges: true`. It never lists `aggregation.set`: a total over rows on a server is a Data Query of its own. Revisions look like `query:0`, `query:1`, and so on.
+
+It never holds your rows, so it can't supply Local Values. A paged grid holds one page: pass `localValues` a function that returns your own list of every name, as in [Local Values](/docs/api/create-grid-cue#local-values).
+
+### QueryAdapter
+
+```ts
+interface QueryAdapter extends GridAdapter {
+  setState(update: (state: ViewState) => ViewState): VersionedViewState;
+}
+```
+
+`setState` is for your own controls, such as clicking a column header. It works as the [Rows Adapter's](#rowsadapter): it receives a copy of the current View State, commits what you return, bumps the revision and notifies subscribers. It throws `INPUT_CONFIG`, and changes nothing, when what you return holds something the adapter doesn't list.
+
+```tsx
+const [{ adapter, cue }] = useState(() => {
+  const adapter = createQueryAdapter({ schema, without: ["group.set"] });
+  return { adapter, cue: createGridCue({ adapter, provider }) };
+});
+const { state } = useSyncExternalStore(adapter.subscribe, adapter.getState, adapter.getState);
+
+// Your own Data Query, built from the View State each time it changes
+const rows = useMyQuery(state);
+
+// A header click
+adapter.setState((s) => ({ ...s, sorts: [{ columnId: "market_value", direction: "desc" }] }));
+```
+
+- **An apply is done when the View State changes.** Your subscription fires, you refetch, and the adapter doesn't wait for the rows. Loading and fetch errors are yours to show, as for a header click. Undo works the same way: `restore` changes the View State, and you refetch.
+- **Revisions.** Every change to the View State, GridCue's or your own, moves the Revision. A Preview made before it is refused as stale, and the User's own change is never overwritten.
+- **It refuses what it doesn't list.** A plan holding an operation the adapter doesn't list is refused with `ADAPTER_NOT_APPLICABLE` and the View State doesn't change, even when the plan didn't pass through the Controller.
+- **Catch your fetch errors in your subscriber.** An error a subscriber throws comes out of the change that notified it: `apply` and `restore` reject with it, and `setState` throws it. The View State has already changed by then, and the subscribers after yours don't hear of that change. Through the Controller the apply fails, and GridCue tries to put the previous view back. Show the fetch error in your table instead, as for a header click.
+- **Adjust the View State where you build the Data Query, not with `setState` in your subscriber.** A subscriber that calls `setState` as it is notified makes a newer change inside GridCue's, even when it returns the state unchanged, and `apply` returns that newer change. Subscribers before yours hear GridCue's change and then yours; subscribers after yours hear only yours, twice. An Undo straight after puts back the view from before GridCue's change, so it takes your change back too.
+
+### What it never holds
+
+The View State never holds a count without `countBeforePaging`, totals, pinned columns without `"pinning"` in `renders`, or a density other than `"comfortable"` without `"density"`. Your Data Query or table would never carry them out, and no request could take them away. An `initialState` or `setState` that holds one throws `INPUT_CONFIG`, naming it. `restore` of such a snapshot fails with `ADAPTER_NOT_APPLICABLE`, and so does `apply` of a plan whose view holds one, such as a plan validated on another grid. A count of `null` is held as no count.
+
+This covers only those four. An operation you take out with [`without`](#without) is one GridCue no longer changes, and your own controls may still set that part with `setState`: a grid without `group.set` can group a page from its own menu. A View State saved from a grid with `countBeforePaging`, such as one kept in the URL, needs its count taken out before it reaches a grid without it.
+
+### countBeforePaging
+
+With the default, `false`, the adapter doesn't list `limit.set`, since a count over one page of rows is not a count of the view. The same requests end differently on each grid:
+
+| Request, wealth schema | Rows Adapter used for a server grid | Query Adapter, defaults | Query Adapter, `countBeforePaging: true` |
+| --- | --- | --- | --- |
+| "top 10 accounts by market value" | Preview "Show only the first 10 rows"; a Host that ignores `limit` shows every row. A wrong view | Sort by Market value, descending. The Preview notes "Count not applied: this grid can't show only the first 10" | Sort and "Show only the first 10 rows"; your server cuts before paging |
+| "show only the first 5 rows", on a view sorted by Market value | Preview "Show only the first 5 rows" | "This grid can't show only the first 5 rows." and nothing applies | Preview "Show only the first 5 rows" |
+| "show only the first 5 rows", on a view with no sort | Asks "First 5 by which column?" | "This grid can't show only the first 5 rows." and nothing applies | Asks "First 5 by which column?" |
+| "group by advisor", with `without: ["group.set"]` | Groups, if your table can; nothing says if it can't | "This grid can't group rows." | Same |
+| "taxable accounts over $1m" | Applies | Applies, the same View State | Same |
+
+Set it to `true` only when your Data Query does what `applyView` does for a count: it sorts, keeps the first N rows, and only then pages. The rows it keeps are the first of the sorted view, and a row with no value in the first sorted column never fills the count. See [applyView](#applyview).
+
+### without
+
+`without` takes operations out of the ones the adapter lists. It can only remove.
+
+```ts
+createQueryAdapter({ schema, without: ["group.set"] });
+```
+
+A request, or any part of one, that asks for a change the grid no longer lists ends the whole request in one question with no choices, since no answer makes the grid able to. Nothing applies, the other parts of the request included: the User asked for every change, and showing only some would be a different view. They ask again without it to get the rest. The question depends on the operation:
+
+| Operation in `without` | What the User sees |
+| --- | --- |
+| `sort.set` | "This grid can't sort rows." |
+| `filter.add` | "This grid can't filter rows." |
+| `filter.clear` | "This grid can't clear filters." |
+| `group.set` | "This grid can't group rows." |
+| `columns.hide` | "This grid can't hide columns." |
+| `columns.show` | "This grid can't show hidden columns." |
+| `columns.order` | "This grid can't reorder columns." |
+| `view.reset` | "This grid can't reset the view." |
+
+A request that asks only for changes the grid lists reads as it does on a default Query Adapter. Where GridCue can't be sure the words ask for the removed change, it asks as it does on any grid. A provider's refusal of a part still comes first. See [A grid that can't group](/docs/concepts/requests#a-grid-that-cant-group).
+
+It throws `INPUT_CONFIG`, naming the entry, for:
+
+- a value that isn't a list;
+- a name that isn't one of `MVP_OPERATIONS`, such as a typo (`"group.sett"`). A typo can never leave an operation listed by accident;
+- a name that isn't text;
+- `"limit.set"`, `"columns.pin"`, `"density.set"` or `"aggregation.set"`. The adapter doesn't list them by default, so there is nothing to remove: leave `countBeforePaging` out, leave the name out of `renders`, and know that totals are never listed.
+
+### Where `renders` differs
+
+The Query Adapter takes `"pinning"` and `"density"` of [renders](#renders). `"totals"` and `"count"` throw `INPUT_CONFIG` here: a total over rows on a server is a Data Query of its own, and a count comes only from `countBeforePaging`. Your table draws pins and density from the View State, as with the Rows Adapter.
 
 ## createTanStackAdapter
 

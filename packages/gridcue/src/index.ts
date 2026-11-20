@@ -25,6 +25,7 @@ export {
 export { type RestrictedMention, screenRestricted } from "./core/policy";
 export * from "./core/preview";
 export * from "./core/protocol";
+export { createQueryAdapter, type QueryAdapter, type QueryAdapterOptions } from "./core/query-adapter";
 export { applyOperations } from "./core/reduce";
 export { createRemoteProvider, type RemoteProviderOptions } from "./core/remote";
 export * from "./core/resolution";
