@@ -335,13 +335,17 @@ export const createAgGridAdapter = (options: AgGridAdapterOptions): GridAdapter 
     n++;
     notify(current());
   };
+  /**
+   * True while `write` runs: an event the grid fires inside it, or a Host that reads the state from a grid callback,
+   * would see and report half a write. `write` reads the grid after, or puts it back.
+   */
+  let writing = false;
+  /** The grid's View State. Inside a write, the last one reported, since the grid holds half the change. */
   const fresh = (): VersionedViewState => {
-    sync();
+    if (!writing) sync();
     return current();
   };
   const defaultState = structuredClone(held);
-  /** True while `write` runs: an event the grid fires inside it would report half a write. `write` reads the grid after. */
-  let writing = false;
   for (const event of EVENTS)
     api.addEventListener(event, () => {
       if (!writing) sync();

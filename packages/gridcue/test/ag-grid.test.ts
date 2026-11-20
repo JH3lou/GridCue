@@ -636,6 +636,41 @@ describe("AG Grid adapter: one apply, however the grid answers", () => {
     expect(told[0]?.state.filters?.children).toHaveLength(1);
   });
 
+  it("reports no half write to a Host that reads the state from inside the write, whether it holds or is put back", async () => {
+    const { api, schema } = makeGrid(latest, "clientSide", rows, columnDefs);
+    let adapter: ReturnType<typeof createAgGridAdapter> | undefined;
+    const seen: VersionedViewState[] = [];
+    let throws = 0;
+    const reading: AgGridApiLike = {
+      ...callsOf(api),
+      setFilterModel: (model) => {
+        api.setFilterModel(model);
+        if (adapter) seen.push(adapter.getState());
+      },
+      applyColumnState: (params) => {
+        if (throws-- > 0) throw new Error("the Host's comparator threw");
+        return api.applyColumnState(params);
+      },
+    };
+    adapter = createAgGridAdapter({ schema, api: reading });
+    const before = adapter.getState();
+    const told: VersionedViewState[] = [];
+    adapter.subscribe((s) => told.push(s));
+    const ops: ViewOperation[] = [filter("value", "gt", 6), { type: "sort.set", sorts: [{ columnId: "value", direction: "asc" }] }];
+
+    throws = 1;
+    await expect(adapter.apply(validated(adapter, [...ops]))).rejects.toThrow("comparator");
+    expect(told).toHaveLength(0);
+    expect(adapter.getState()).toEqual(before);
+
+    const result = await adapter.apply(validated(adapter, [...ops]));
+    expect(result.ok).toBe(true);
+    expect(told).toHaveLength(1);
+    expect(told[0]?.state.sorts).toEqual([{ columnId: "value", direction: "asc" }]);
+    // Every read inside a write saw the view from before it.
+    for (const state of seen) expect(state).toEqual(before);
+  });
+
   it("puts the grid back and rethrows when a write throws, as when a Host's comparator throws", async () => {
     const { api, schema } = makeGrid(latest, "clientSide", rows, columnDefs);
     const thrown = new Error("the Host's comparator threw");
