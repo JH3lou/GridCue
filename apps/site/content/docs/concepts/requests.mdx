@@ -478,7 +478,7 @@ A Grid Adapter lists the operations it supports in `getCapabilities().operations
 
 Nothing in the request applies, the other parts included. The User asked for every change, and showing only some would be a different view. Ask again without the grouping to get the rest.
 
-Any other operation a grid doesn't list ends the same way, in its own question, such as "This grid can't sort rows." on a Query Adapter built with `without: ["sort.set"]`. The Host's Query Adapter lists them in [`without`](/docs/api/adapters#without), with every question. Nothing in the request applies, as for a grouping.
+Any other of the [`MVP_OPERATIONS`](/docs/api/adapters#mvp_operations) a grid doesn't list ends the same way, in its own question, such as "This grid can't sort rows." on a Query Adapter built with `without: ["sort.set"]`. The Host's Query Adapter lists them in [`without`](/docs/api/adapters#without), with every question. Nothing in the request applies, as for a grouping. A count is different: on a grid that doesn't list one, "top 10 accounts by market value" still sorts, with a note that the count was not applied. See [countBeforePaging](/docs/api/adapters#countbeforepaging).
 
 A grid that doesn't draw pins or density ends in the same question for them: see [A grid that doesn't draw them](#a-grid-that-doesnt-draw-them). The same goes for totals: see [A grid that doesn't show totals](#a-grid-that-doesnt-show-totals).
 

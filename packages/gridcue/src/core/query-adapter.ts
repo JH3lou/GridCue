@@ -3,19 +3,21 @@ import { MVP_OPERATIONS } from "./adapter";
 import { GridCueError } from "./errors";
 import { emptyViewState, type VersionedViewState, type ViewSchema, type ViewState } from "./protocol";
 import { createStateAdapter, renderedOperations, textOf } from "./state-adapter";
+import { isApplicable, resultingState } from "./validate";
 
 export interface QueryAdapterOptions {
   schema: ViewSchema;
   /**
    * The view the grid starts from, and the one `view.reset` returns to. Defaults to every column, in order. It may hold
    * a count only with `countBeforePaging`, pins only with “pinning” in `renders`, a density other than comfortable only
-   * with “density”, and never totals: anything else throws `INPUT_CONFIG`.
+   * with “density”, and never totals: anything else throws `INPUT_CONFIG`. A count written as `null` is held as no count.
    */
   initialState?: ViewState;
   /**
    * True only when the Host's server sorts, cuts to the count, and then pages, so "top 10" is the true first ten. Then
    * the adapter lists `limit.set`, and the Host's Data Query must keep what `applyView` keeps for a count. Off by
-   * default: a count then ends as a sort with a note that the count was not applied (ADR 0032).
+   * default: a count said with a sort then ends as the sort, with a note that the count was not applied, and a count
+   * on its own ends in the question “This grid can't show only the first N rows.” (ADR 0032).
    */
   countBeforePaging?: boolean;
   /**
@@ -95,11 +97,23 @@ const unlisted = (state: ViewState | undefined, operations: readonly string[]): 
 };
 
 /**
+ * A count written as `null`, as a saved view may write “no count”, is no count: the View State then holds none. Held as
+ * `null`, a request after it could not be read.
+ */
+const withoutNullCount = <S extends ViewState | undefined>(state: S): S => {
+  if (state === null || typeof state !== "object" || (state as { limit?: unknown }).limit !== null) return state;
+  const { limit: _null, ...rest } = state as ViewState;
+  return rest as S;
+};
+
+/**
  * A Grid Adapter for Hosts whose rows come from their own Data Query (ADR 0032). It holds the View State and never
  * fetches: the Host subscribes, builds its Data Query from the View State on each change, and shows its own loading and
  * fetch errors, as for a click on a column header. An apply is done when the View State changes. It lists only the
  * operations a Data Query can carry out: the MVP ones less `without`, a count only with `countBeforePaging`, and pins
- * and density only when `renders` names them. Its View State never holds what it doesn't list.
+ * and density only when `renders` names them. Its View State never holds a count, totals, pins or a density it doesn't
+ * list. `without` is different: it takes an operation out of what GridCue may change, and the Host's own controls may
+ * still set that part with `setState`.
  */
 export const createQueryAdapter = (options: QueryAdapterOptions): QueryAdapter => {
   const { countBeforePaging } = options;
@@ -116,13 +130,14 @@ export const createQueryAdapter = (options: QueryAdapterOptions): QueryAdapter =
     },
   });
   const operations = [...kept, ...(countBeforePaging ? ["limit.set"] : []), ...rendered];
-  const starting = unlisted(options.initialState, operations);
+  const initialState = withoutNullCount(options.initialState);
+  const starting = unlisted(initialState, operations);
   if (starting) {
     throw new GridCueError("INPUT_CONFIG", `initialState holds ${starting.part}, which this grid can't keep. ${starting.fix}`);
   }
   const holder = createStateAdapter({
     schema: options.schema,
-    initialState: options.initialState,
+    initialState,
     maxSorts: options.maxSorts,
     maxGroups: options.maxGroups,
     operations,
@@ -132,26 +147,31 @@ export const createQueryAdapter = (options: QueryAdapterOptions): QueryAdapter =
     ...holder,
     async apply(plan): Promise<ApplyResult> {
       // The Controller validates against this adapter's operations before it applies. This holds even when it didn't, so
-      // a count or a grouping the Host's Data Query can't carry out never reaches the View State.
-      const unlistedOp = Array.isArray(plan?.operations) ? plan.operations.find((op) => !operations.includes(op.type)) : undefined;
-      if (unlistedOp) {
-        return {
-          ok: false,
-          code: "ADAPTER_NOT_APPLICABLE",
-          message: `This grid doesn't list ${unlistedOp.type}, so the plan can't apply.`,
-        };
+      // a count or a grouping the Host's Data Query can't carry out never reaches the View State: not as an operation,
+      // and not in the view a plan validated on another grid would write.
+      const types: unknown[] = Array.isArray(plan?.operations)
+        ? plan.operations.map((op: unknown) => (op as { type?: unknown } | null)?.type)
+        : [];
+      const unlistedType = types.find((type): type is string => typeof type === "string" && !operations.includes(type));
+      if (unlistedType !== undefined) {
+        return { ok: false, code: "ADAPTER_NOT_APPLICABLE", message: `This grid doesn't list ${unlistedType}, so the plan can't apply.` };
       }
+      // Only a validated plan has a resulting view to check. Any other is refused by the holder.
+      const held = isApplicable(plan) ? unlisted(resultingState(plan), operations) : undefined;
+      if (held)
+        return { ok: false, code: "ADAPTER_NOT_APPLICABLE", message: `This plan's view holds ${held.part}, which this grid can't keep.` };
       return holder.apply(plan);
     },
     async restore(snapshot): Promise<ApplyResult> {
-      const held = unlisted(snapshot?.state, operations);
+      const state = withoutNullCount(snapshot?.state);
+      const held = unlisted(state, operations);
       if (held)
         return { ok: false, code: "ADAPTER_NOT_APPLICABLE", message: `This snapshot holds ${held.part}, which this grid can't keep.` };
-      return holder.restore(snapshot);
+      return holder.restore(state === snapshot?.state ? snapshot : { ...snapshot, state });
     },
     setState: (update) =>
       holder.setState((state) => {
-        const next = update(state);
+        const next = withoutNullCount(update(state));
         const held = unlisted(next, operations);
         if (held) throw new GridCueError("INPUT_CONFIG", `setState would hold ${held.part}, which this grid can't keep. ${held.fix}`);
         return next;

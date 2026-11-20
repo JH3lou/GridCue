@@ -916,6 +916,7 @@ export interface QueryCaseResult {
  * - A count alone passes when it asks only "This grid can't show only the first N rows.", with no choices, and nothing
  *   is refused.
  * - Clearing a count passes when it isn't ready: there is no count to clear, and nothing else to change.
+ *   For a sort with a count and for clearing one, a run that ended in an error fails: it read nothing.
  * - Pins, density or totals pass by `passesWithoutRenders`, as on a grid without `renders`, where the "This grid can't
  *   show only the first N rows." question may stand beside "This grid can't …" for a count in the same request.
  * - Any other case passes when its verdict is the one it has on the Rows Adapter without `renders`; where that is a
@@ -937,6 +938,7 @@ export const passesOnQueryAdapter = (file: string, result: QueryCaseResult): boo
     questions.every((q) => prompts.includes(q.prompt) && (q.options?.length ?? 0) === 0);
   switch (kind) {
     case "a sort with a count": {
+      if (query.status === "error") return false;
       if (query.status !== "ready") return true;
       const sortAlone = reading.filter((op) => (op as { type: string }).type !== "limit.set");
       return sameView(stripIds(ops), sortAlone) && counts.every((count) => (query.preview?.notes ?? []).includes(countNote(count)));
@@ -944,7 +946,7 @@ export const passesOnQueryAdapter = (file: string, result: QueryCaseResult): boo
     case "a count alone":
       return asksOnly(counts.map(cantCount));
     case "clears a count":
-      return query.status !== "ready";
+      return query.status !== "ready" && query.status !== "error";
     case "pins, density or totals": {
       const before = result.withRenders ?? result.rows;
       const cant = asksOnly([...result.prompts, ...counts.map(cantCount)]);
