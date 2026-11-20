@@ -88,7 +88,26 @@ const MVP_OPERATIONS: readonly string[] = [
 ];
 ```
 
-The operations every first-release adapter supports. The TanStack Table adapter reports exactly this list; the Rows Adapter adds `limit.set`, since its rows are all in memory and a count is exact there. An adapter whose rows come a page at a time should not list `limit.set`: GridCue then sorts alone and says the count was not applied. The protocol also defines `columns.pin`, `aggregation.set` and `density.set`, but they are not in `MVP_OPERATIONS`, no request family produces them today, and validation would reject them against these adapters with `PLAN_OPERATION_UNSUPPORTED`. GridCue changes the view only; `aggregation.set` exists in the protocol but is not part of the first release.
+The operations every adapter supports. With no [`renders`](#renders), the TanStack Table adapter reports exactly this list, and the Rows Adapter adds `limit.set`, since its rows are all in memory and a count is exact there. An adapter whose rows come a page at a time should not list `limit.set`: GridCue then sorts alone and says the count was not applied. `columns.pin` and `density.set` are not in `MVP_OPERATIONS`: an adapter lists each only when the Host's table draws it, and a plan that uses one the adapter doesn't list fails validation with `PLAN_OPERATION_UNSUPPORTED`. `aggregation.set` exists in the protocol but no adapter lists it. GridCue changes the view only.
+
+## renders
+
+Both adapters are headless. GridCue writes the View State, and your own markup draws it. So an adapter lists `columns.pin` and `density.set` only when you say your table draws them:
+
+```ts
+createRowsAdapter({ schema, renders: ["pinning", "density"] });
+createTanStackAdapter({ schema, table, renders: ["pinning", "density"] });
+```
+
+| Name | Lists | Your table must |
+| --- | --- | --- |
+| `"pinning"` | `columns.pin` | Keep the pinned columns in place at the start and the end while the rest scroll |
+| `"density"` | `density.set` | Set its row height, and its cell spacing, from the View State's `density` |
+
+- **The default is none.** With none, the adapter's capabilities are what they were, and a request to pin, unpin or change density ends in "This grid can't pin columns." or "This grid can't change its density.", with no choices and nothing applied. See [Requests](/docs/concepts/requests#pins-and-density).
+- **GridCue can't check it.** `renders` is a promise. A Host that names something its table doesn't draw gets a Preview, an apply and "View updated." with nothing for the User to see. Name only what you draw.
+- **Columns may be pinned by default.** Every column that isn't restricted has the `pin` [capability](/docs/api/schema#column-capabilities) unless its override says otherwise. Density belongs to no column.
+- **Anything else throws `INPUT_CONFIG`** when the adapter is created: a name that isn't `"pinning"` or `"density"`, and a value that isn't a list. So does `"count"` on the Rows Adapter, which keeps a count with no option, and `"totals"` or `"count"` on the TanStack Table adapter, which don't list them yet. The TanStack Table adapter also throws `INPUT_CONFIG` for `"pinning"` when the table has no `setColumnPinning` (register `columnPinningFeature`), or holds its pins as `left` and `right`, as TanStack Table v8 did, instead of `start` and `end`.
 
 ## createRowsAdapter
 
@@ -102,6 +121,7 @@ interface RowsAdapterOptions {
   initialState?: ViewState;
   maxSorts?: number;
   maxGroups?: number;
+  renders?: ReadonlyArray<"pinning" | "density">;
 }
 ```
 
@@ -113,8 +133,9 @@ A Grid Adapter for Hosts that keep rows in memory. It holds the View State itsel
 | `initialState` | `ViewState` | every schema column visible, in schema order, with no filters, sorts or groups | The starting view. It is also the view `view.reset` returns to. |
 | `maxSorts` | `number` | `3` | Most sort levels allowed. |
 | `maxGroups` | `number` | `2` | Most group levels allowed. |
+| `renders` | `("pinning" \| "density")[]` | none | What your table draws, so the adapter lists `columns.pin` and `density.set`. See [renders](#renders). |
 
-It reports `MVP_OPERATIONS`, atomic apply, snapshot restore and `observesChanges: true`. Revisions look like `rows:0`, `rows:1`, and so on.
+It reports `MVP_OPERATIONS` and `limit.set`, plus what `renders` names, atomic apply, snapshot restore and `observesChanges: true`. Revisions look like `rows:0`, `rows:1`, and so on.
 
 It never holds your rows, only the view, so it can't supply Local Values. Pass `localValues` to `createGridCue` with a function that reads your own rows: see [Local Values](/docs/api/create-grid-cue#local-values).
 
@@ -148,8 +169,12 @@ import { applyView } from "gridcue";
 function applyView<Row extends object>(rows: readonly Row[], state: ViewState, schema: ViewSchema): ViewResult<Row>;
 
 interface ViewResult<Row> {
-  /** Visible column IDs, in display order. */
+  /** Visible column IDs, in display order: start-pinned columns, the others, then end-pinned columns. */
   columns: string[];
+  /** The visible columns pinned to the start and to the end, each in its pin order. */
+  pinned: { start: string[]; end: string[] };
+  /** The row height the view asks for. */
+  density: "compact" | "comfortable" | "spacious";
   /** Filtered and sorted rows. */
   rows: Row[];
   /** Present when the view is grouped: one entry per distinct key, in first-seen order. */
@@ -161,7 +186,7 @@ Applies a View State to in-memory rows. It is pure: it never changes `rows`, and
 
 - **Filters** use each column's kind. Text comparisons on `string` columns ignore case; `contains` and `startsWith` always do. `gt`, `lt`, `between` and the like never match an empty cell.
 - **Sorts** apply level by level. Empty cells sort after other values in ascending order and before them in descending order.
-- **Columns** are the visible column IDs in `columnOrder`.
+- **Columns** are the visible column IDs in `columnOrder`, with the columns pinned to the start first and those pinned to the end last, each side in its pin order. `pinned` names them, for your table to keep in place; a hidden pinned column is in neither list and is pinned again when it is shown. `density` is the View State's, for your table to draw. They hold the View State whether or not the adapter lists the operations, so a table that draws neither can ignore them.
 - **Groups** are present only when `groupBy` has columns. Each group holds its rows in sorted order.
 
 It does not paginate.
@@ -178,6 +203,7 @@ interface TanStackAdapterOptions {
   table: TanStackTableLike;
   maxSorts?: number;
   maxGroups?: number;
+  renders?: ReadonlyArray<"pinning" | "density">;
 }
 ```
 
@@ -186,13 +212,17 @@ A Grid Adapter over a TanStack Table v9 instance. The Host keeps owning the tabl
 | Name | Type | Default | Description |
 | --- | --- | --- | --- |
 | `schema` | `ViewSchema` | required | The schema, usually from `schemaFromTanStack`. |
-| `table` | `TanStackTableLike` | required | A table from `useTable` or `constructTable` with the filtering, sorting, grouping, visibility and ordering features. |
+| `table` | `TanStackTableLike` | required | A table from `useTable` or `constructTable` with the filtering, sorting, grouping, visibility and ordering features, and `columnPinningFeature` for `renders: ["pinning"]`. |
 | `maxSorts` | `number` | `3` | Most sort levels allowed. |
 | `maxGroups` | `number` | `2` | Most group levels allowed. |
+| `renders` | `("pinning" \| "density")[]` | none | What your table draws, so the adapter lists `columns.pin` and `density.set`. See [renders](#renders). |
 
 Behavior to know:
 
-- It reports `MVP_OPERATIONS`, atomic apply, snapshot restore and `observesChanges: true`.
+- It reports `MVP_OPERATIONS` plus what `renders` names, atomic apply, snapshot restore and `observesChanges: true`.
+- With `"pinning"`, pins are read from and written to TanStack's own `columnPinning` state, which has GridCue's shape: `start` and `end`. A pin the User makes with the table's own controls is a view change like any other: the Revision changes and a pending Preview is refused. Without `"pinning"`, the adapter neither reads nor writes the table's pins.
+- On a grouped view, TanStack's own `groupedColumnMode: "reorder"`, its default, draws the grouped columns first among the unpinned ones. `applyView` keeps every column in its place. Set `groupedColumnMode: false` on the table to draw the order `applyView` gives. Pinned columns stay where their pins put them either way.
+- TanStack has no density. With `"density"`, the adapter holds it, starting at `comfortable`, and reads it back with the rest of the View State, so undo puts it back. Your table reads it from the View State and draws it.
 - The default view, which `view.reset` returns to, is the table's view when the adapter is created.
 - The revision (`tanstack:0`, `tanstack:1`, ...) changes only when the View State changes. Pagination, row selection, expanded rows and column sizing don't count.
 - TanStack column filters combine with AND only. A plan that needs OR, or a nested filter group, fails with `ADAPTER_UNSUPPORTED_FILTER` and nothing changes.
@@ -278,6 +308,7 @@ interface TanStackTableLike {
   setGrouping(grouping: string[]): void;
   setColumnVisibility(visibility: Record<string, boolean>): void;
   setColumnOrder(order: string[]): void;
+  setColumnPinning?(pinning: { start: string[]; end: string[] }): void;
   getAllLeafColumns(): Array<{ id: string; columnDef: { header?: unknown } }>;
   getCoreRowModel(): {
     rows: Array<{ getValue(columnId: string): unknown }>;
@@ -286,4 +317,4 @@ interface TanStackTableLike {
 }
 ```
 
-The parts of a TanStack Table v9 instance GridCue uses. Any table from `useTable` or `constructTable` with the filtering, sorting, grouping, visibility and ordering features fits.
+The parts of a TanStack Table v9 instance GridCue uses. Any table from `useTable` or `constructTable` with the filtering, sorting, grouping, visibility and ordering features fits. `setColumnPinning` is there when the table registers `columnPinningFeature`, which `renders: ["pinning"]` needs.

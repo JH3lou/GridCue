@@ -868,6 +868,46 @@
 {"file":"cases-text-forms.jsonl","id":"tf-r4-accounts-where-the-advisor-is-missing","lines":["Show only rows where Advisor is empty"],"notes":[]}
 {"file":"cases-text-forms.jsonl","id":"tf-r4-the-advisor-is-missing","lines":["Show only rows where Advisor is empty"],"notes":[]}
 {"file":"cases-text-forms.jsonl","id":"tf-r4-entries-that-have-a-category-ledger","lines":["Show only rows where Category is not empty"],"notes":[]}
+{"file":"cases-view-words.jsonl","id":"vw-pin-account-number","lines":["Pin Account number to the start"],"notes":[]}
+{"file":"cases-view-words.jsonl","id":"vw-pin-column-left","lines":["Pin Account number to the start"],"notes":[]}
+{"file":"cases-view-words.jsonl","id":"vw-pin-right","lines":["Pin Market value to the end"],"notes":[]}
+{"file":"cases-view-words.jsonl","id":"vw-pin-alias-advisor","lines":["Pin Advisor to the start"],"notes":[]}
+{"file":"cases-view-words.jsonl","id":"vw-pin-two-columns","lines":["Pin Advisor and Household to the start"],"notes":[]}
+{"file":"cases-view-words.jsonl","id":"vw-pin-the-column","lines":["Pin Household to the start"],"notes":[]}
+{"file":"cases-view-words.jsonl","id":"vw-pin-to-start","lines":["Pin Account number to the start"],"notes":[]}
+{"file":"cases-view-words.jsonl","id":"vw-pin-to-end","lines":["Pin Concentration to the end"],"notes":[]}
+{"file":"cases-view-words.jsonl","id":"vw-pin-two-alias-left","lines":["Pin Account number and Market value to the start"],"notes":[]}
+{"file":"cases-view-words.jsonl","id":"vw-freeze-column","lines":["Pin Advisor to the start"],"notes":[]}
+{"file":"cases-view-words.jsonl","id":"vw-pin-two-columns-right","lines":["Pin Custodian and Advisor to the end"],"notes":[]}
+{"file":"cases-view-words.jsonl","id":"vw-pin-alias-capital-period","lines":["Pin Market value to the end"],"notes":[]}
+{"file":"cases-view-words.jsonl","id":"vw-pin-alias-gain-right","lines":["Pin Unrealized gain to the end"],"notes":[]}
+{"file":"cases-view-words.jsonl","id":"vw-pin-two-word-label","lines":["Pin Registration type to the start"],"notes":[]}
+{"file":"cases-view-words.jsonl","id":"vw-unpin-one","lines":["Unpin Advisor"],"notes":[]}
+{"file":"cases-view-words.jsonl","id":"vw-unpin-two","lines":["Unpin all columns"],"notes":[]}
+{"file":"cases-view-words.jsonl","id":"vw-unpin-all-columns","lines":["Unpin all columns"],"notes":[]}
+{"file":"cases-view-words.jsonl","id":"vw-unpin-all","lines":["Unpin all columns"],"notes":[]}
+{"file":"cases-view-words.jsonl","id":"vw-unpin-everything","lines":["Unpin all columns"],"notes":[]}
+{"file":"cases-view-words.jsonl","id":"vw-unpin-the-column","lines":["Unpin all columns"],"notes":[]}
+{"file":"cases-view-words.jsonl","id":"vw-pin-hidden-column","lines":["Show Custodian","Pin Custodian to the start"],"notes":[]}
+{"file":"cases-view-words.jsonl","id":"vw-pin-hidden-column-right","lines":["Show Custodian","Pin Custodian to the end"],"notes":[]}
+{"file":"cases-view-words.jsonl","id":"vw-group-and-pin","lines":["Group by Advisor","Pin Advisor to the start"],"notes":[]}
+{"file":"cases-view-words.jsonl","id":"vw-sort-and-pin","lines":["Sort by Market value, descending","Pin Advisor to the start"],"notes":[]}
+{"file":"cases-view-words.jsonl","id":"vw-pin-and-density","lines":["Pin Advisor to the start","Use compact density"],"notes":[]}
+{"file":"cases-view-words.jsonl","id":"vw-density-compact-view","lines":["Use compact density"],"notes":[]}
+{"file":"cases-view-words.jsonl","id":"vw-density-comfortable-view","lines":["Use comfortable density"],"notes":[]}
+{"file":"cases-view-words.jsonl","id":"vw-density-spacious-view","lines":["Use spacious density"],"notes":[]}
+{"file":"cases-view-words.jsonl","id":"vw-density-compact-rows","lines":["Use compact density"],"notes":[]}
+{"file":"cases-view-words.jsonl","id":"vw-density-comfortable-rows","lines":["Use comfortable density"],"notes":[]}
+{"file":"cases-view-words.jsonl","id":"vw-density-spacious-rows","lines":["Use spacious density"],"notes":[]}
+{"file":"cases-view-words.jsonl","id":"vw-density-compact-density","lines":["Use compact density"],"notes":[]}
+{"file":"cases-view-words.jsonl","id":"vw-density-use-compact","lines":["Use compact density"],"notes":[]}
+{"file":"cases-view-words.jsonl","id":"vw-density-spacious-mode","lines":["Use spacious density"],"notes":[]}
+{"file":"cases-view-words.jsonl","id":"vw-density-use-comfortable","lines":["Use comfortable density"],"notes":[]}
+{"file":"cases-view-words.jsonl","id":"vw-density-compact-mode","lines":["Use compact density"],"notes":[]}
+{"file":"cases-view-words.jsonl","id":"vw-ledger-pin-entry","lines":["Pin Entry number to the start"],"notes":[]}
+{"file":"cases-view-words.jsonl","id":"vw-ledger-pin-two-right","lines":["Pin Owner and Amount to the end"],"notes":[]}
+{"file":"cases-view-words.jsonl","id":"vw-ledger-pin-alias","lines":["Pin Counterparty to the start"],"notes":[]}
+{"file":"cases-view-words.jsonl","id":"vw-ledger-unpin-all","lines":["Unpin all columns"],"notes":[]}
 {"file":"cases.jsonl","id":"accounts-over-1m","lines":["Filter Market value above $1,000,000"],"notes":[]}
 {"file":"cases.jsonl","id":"taxable-concentration","lines":["Filter Registration type to Taxable","Filter Concentration above 10%"],"notes":[]}
 {"file":"cases.jsonl","id":"group-and-sort","lines":["Group by Advisor","Sort by Market value, descending"],"notes":[]}
@@ -1451,6 +1491,151 @@
 {"file":"cases-dates-heldout-r3.jsonl","id":"dr3-d-11","lines":["Filter Category to Travel","Filter Posted at before 2026-04-01","Filter Booked after 2026-03-01"],"notes":["Whole days, in America/New_York time"]}
 {"file":"cases-dates-heldout-r3.jsonl","id":"dr3-d-15","lines":["Filter Booked from 2026-01-01 to 2026-03-31","Filter Posted at from 2026-04-01 to 2026-06-30"],"notes":["Whole days, in America/New_York time"]}
 {"file":"cases-dates-heldout-r3.jsonl","id":"dr3-d-17","lines":["Filter Booked from 2026-10-14 to 2026-11-13 (last 30 days)","Filter Posted at from 2026-10-01 to 2026-12-31 (this quarter)"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-view-words-heldout.jsonl","id":"hp1-pin-advisor","lines":["Pin Advisor to the start"],"notes":[]}
+{"file":"cases-view-words-heldout.jsonl","id":"hp1-pin-household-column","lines":["Pin Household to the start"],"notes":[]}
+{"file":"cases-view-words-heldout.jsonl","id":"hp1-pin-value-right","lines":["Pin Market value to the end"],"notes":[]}
+{"file":"cases-view-words-heldout.jsonl","id":"hp1-pin-acct-left","lines":["Pin Account number to the start"],"notes":[]}
+{"file":"cases-view-words-heldout.jsonl","id":"hp1-pin-two-aliases","lines":["Pin Market value and Advisor to the start"],"notes":[]}
+{"file":"cases-view-words-heldout.jsonl","id":"hp1-pin-three-start","lines":["Pin Household, Advisor and Custodian to the start"],"notes":[]}
+{"file":"cases-view-words-heldout.jsonl","id":"hp1-pin-concentration-end","lines":["Pin Concentration to the end"],"notes":[]}
+{"file":"cases-view-words-heldout.jsonl","id":"hp1-pin-aum-column-right","lines":["Pin Market value to the end"],"notes":[]}
+{"file":"cases-view-words-heldout.jsonl","id":"hp1-pin-capitalised","lines":["Pin Advisor to the start"],"notes":[]}
+{"file":"cases-view-words-heldout.jsonl","id":"hp1-freeze-advisor-column","lines":["Pin Advisor to the start"],"notes":[]}
+{"file":"cases-view-words-heldout.jsonl","id":"hp1-freeze-value-column","lines":["Pin Market value to the start"],"notes":[]}
+{"file":"cases-view-words-heldout.jsonl","id":"hp1-unpin-one","lines":["Unpin Advisor"],"notes":[]}
+{"file":"cases-view-words-heldout.jsonl","id":"hp1-unpin-two","lines":["Unpin all columns"],"notes":[]}
+{"file":"cases-view-words-heldout.jsonl","id":"hp1-unpin-all-columns","lines":["Unpin all columns"],"notes":[]}
+{"file":"cases-view-words-heldout.jsonl","id":"hp1-unpin-all","lines":["Unpin all columns"],"notes":[]}
+{"file":"cases-view-words-heldout.jsonl","id":"hp1-unpin-everything","lines":["Unpin all columns"],"notes":[]}
+{"file":"cases-view-words-heldout.jsonl","id":"hp1-pin-moves-to-end","lines":["Pin Advisor to the end"],"notes":[]}
+{"file":"cases-view-words-heldout.jsonl","id":"hp1-pin-beside-existing","lines":["Pin Advisor to the start"],"notes":[]}
+{"file":"cases-view-words-heldout.jsonl","id":"hp1-pin-hidden-concentration","lines":["Show Concentration","Pin Concentration to the start"],"notes":[]}
+{"file":"cases-view-words-heldout.jsonl","id":"hp1-pin-hidden-value-end","lines":["Show Market value","Pin Market value to the end"],"notes":[]}
+{"file":"cases-view-words-heldout.jsonl","id":"hp1-density-compact-view","lines":["Use compact density"],"notes":[]}
+{"file":"cases-view-words-heldout.jsonl","id":"hp1-density-comfortable-rows","lines":["Use comfortable density"],"notes":[]}
+{"file":"cases-view-words-heldout.jsonl","id":"hp1-density-spacious-view","lines":["Use spacious density"],"notes":[]}
+{"file":"cases-view-words-heldout.jsonl","id":"hp1-density-spacious-mode","lines":["Use spacious density"],"notes":[]}
+{"file":"cases-view-words-heldout.jsonl","id":"hp1-density-use-compact","lines":["Use compact density"],"notes":[]}
+{"file":"cases-view-words-heldout.jsonl","id":"hp1-density-compact-rows","lines":["Use compact density"],"notes":[]}
+{"file":"cases-view-words-heldout.jsonl","id":"hp1-density-comfortable-density","lines":["Use comfortable density"],"notes":[]}
+{"file":"cases-view-words-heldout.jsonl","id":"hp1-density-compact-mode","lines":["Use compact density"],"notes":[]}
+{"file":"cases-view-words-heldout.jsonl","id":"hp1-group-and-pin","lines":["Group by Advisor","Pin Advisor to the start"],"notes":[]}
+{"file":"cases-view-words-heldout.jsonl","id":"hp1-pin-then-sort","lines":["Pin Account number to the start","Sort by Market value, descending"],"notes":[]}
+{"file":"cases-view-words-heldout.jsonl","id":"hp1-sort-then-pin","lines":["Sort by Market value, descending","Pin Advisor to the start"],"notes":[]}
+{"file":"cases-view-words-heldout.jsonl","id":"hp1-pin-and-hide","lines":["Pin Advisor to the start","Hide Custodian"],"notes":[]}
+{"file":"cases-view-words-heldout.jsonl","id":"hp1-hide-and-pin-end","lines":["Hide Custodian","Pin Market value to the end"],"notes":[]}
+{"file":"cases-view-words-heldout.jsonl","id":"hp1-group-pin-density","lines":["Group by Custodian","Pin Household to the start","Use compact density"],"notes":[]}
+{"file":"cases-view-words-heldout.jsonl","id":"hp1-density-and-pin","lines":["Use spacious density","Pin Advisor to the start"],"notes":[]}
+{"file":"cases-view-words-heldout.jsonl","id":"hp1-filter-and-pin","lines":["Filter Market value above $1,000,000","Pin Advisor to the end"],"notes":[]}
+{"file":"cases-view-words-heldout.jsonl","id":"hp1-unpin-and-group","lines":["Unpin all columns","Group by Custodian"],"notes":[]}
+{"file":"cases-view-words-heldout.jsonl","id":"hp1-ledger-pin-entry","lines":["Pin Entry number to the start"],"notes":[]}
+{"file":"cases-view-words-heldout.jsonl","id":"hp1-ledger-pin-amount-right","lines":["Pin Amount to the end"],"notes":[]}
+{"file":"cases-view-words-heldout.jsonl","id":"hp1-ledger-pin-owner-counterparty","lines":["Pin Owner and Counterparty to the start"],"notes":[]}
+{"file":"cases-view-words-heldout.jsonl","id":"hp1-ledger-pin-posted-end","lines":["Pin Posted at to the end"],"notes":[]}
+{"file":"cases-view-words-heldout.jsonl","id":"hp1-ledger-freeze-owner","lines":["Pin Owner to the start"],"notes":[]}
+{"file":"cases-view-words-heldout.jsonl","id":"hp1-ledger-unpin-owner","lines":["Unpin Owner"],"notes":[]}
+{"file":"cases-view-words-heldout.jsonl","id":"hp1-ledger-spacious-rows","lines":["Use spacious density"],"notes":[]}
+{"file":"cases-view-words-heldout.jsonl","id":"hp1-ledger-sort-compact","lines":["Sort by Amount, descending","Use compact density"],"notes":[]}
+{"file":"cases-view-words-heldout.jsonl","id":"hp1-ledger-pin-rate-cleared","lines":["Pin Rate to the start","Show only rows where Cleared is Yes"],"notes":[]}
+{"file":"cases-view-words-heldout.jsonl","id":"hp1-ledger-pin-category-left","lines":["Pin Category to the start"],"notes":[]}
+{"file":"cases-view-words-heldout.jsonl","id":"hp1-ledger-pin-hidden-booked","lines":["Show Booked","Pin Booked to the start"],"notes":[]}
+{"file":"cases-view-words-heldout.jsonl","id":"hp1-ledger-unpin-all-and-hide","lines":["Unpin all columns","Hide Rate"],"notes":[]}
+{"file":"cases-view-words-heldout-r2.jsonl","id":"r2-L17","lines":["Pin Rate to the start"],"notes":[]}
+{"file":"cases-view-words-heldout-r2.jsonl","id":"r2-L18","lines":["Pin Cleared to the end"],"notes":[]}
+{"file":"cases-view-words-heldout-r2.jsonl","id":"r2-L19","lines":["Use compact density"],"notes":[]}
+{"file":"cases-view-words-heldout-r2.jsonl","id":"r2-L20","lines":["Pin Counterparty to the start","Use spacious density"],"notes":[]}
+{"file":"cases-view-words-heldout-r2.jsonl","id":"r2-W04","lines":["Pin Account number to the start"],"notes":[]}
+{"file":"cases-view-words-heldout-r2.jsonl","id":"r2-W05","lines":["Pin Household to the start"],"notes":[]}
+{"file":"cases-view-words-heldout-r2.jsonl","id":"r2-W06","lines":["Pin Market value to the end"],"notes":[]}
+{"file":"cases-view-words-heldout-r2.jsonl","id":"r2-W07","lines":["Pin Household and Advisor to the start"],"notes":[]}
+{"file":"cases-view-words-heldout-r2.jsonl","id":"r2-W08","lines":["Show Custodian","Pin Custodian to the start"],"notes":[]}
+{"file":"cases-view-words-heldout-r2.jsonl","id":"r2-W09","lines":["Pin Unrealized gain to the start"],"notes":[]}
+{"file":"cases-view-words-heldout-r2.jsonl","id":"r2-W10","lines":["Unpin all columns"],"notes":[]}
+{"file":"cases-view-words-heldout-r2.jsonl","id":"r2-W11","lines":["Unpin all columns"],"notes":[]}
+{"file":"cases-view-words-heldout-r2.jsonl","id":"r2-W12","lines":["Use comfortable density"],"notes":[]}
+{"file":"cases-view-words-heldout-r2.jsonl","id":"r2-W15","lines":["Group by Advisor","Pin Advisor to the start"],"notes":[]}
+{"file":"cases-view-words-heldout-r2.jsonl","id":"r2-W27","lines":["Pin Advisor to the start"],"notes":[]}
+{"file":"cases-view-words-heldout-r2.jsonl","id":"r2-W31","lines":["Pin Advisor to the start","Sort by Market value, descending"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-a-03","lines":["Pin Account number to the start","Sort by Market value, descending"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-a-04","lines":["Pin Household to the start","Filter Registration type to Taxable"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-a-05","lines":["Use spacious density","Filter Custodian to Northgate"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-a-07","lines":["Group by Advisor","Pin Advisor to the start"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-a-08","lines":["Pin Market value to the start","Hide Custodian"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-a-10","lines":["Pin Concentration to the end","Group by Registration type"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-a-14","lines":["Use spacious density","Hide Concentration"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-a-15","lines":["Hide Unrealized gain","Use compact density"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-a-16","lines":["Pin Account number to the start","Sort by Household, ascending"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-a-18","lines":["Pin Registration type to the start","Group by Advisor"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-a-20","lines":["Pin Advisor and Custodian to the start","Use compact density"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-a-25","lines":["Pin Market value to the end","Group by Advisor"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-a-28","lines":["Hide Concentration","Use compact density","Group by Custodian"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-a-30","lines":["Use comfortable density","Sort by Household, ascending"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-a-31","lines":["Pin Entry number to the start","Show only rows where Cleared is Yes"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-a-35","lines":["Pin Amount to the end","Hide Rate"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-a-36","lines":["Pin Counterparty to the start","Sort by Amount, descending"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-a-38","lines":["Pin Owner and Entry number to the start","Group by Category"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-a-40","lines":["Hide Booked","Pin Posted at to the start"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-b-01","lines":["Pin Account number to the start"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-b-02","lines":["Pin Market value to the end"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-b-03","lines":["Pin Advisor and Household to the start"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-b-04","lines":["Pin Household to the start"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-b-05","lines":["Pin Concentration to the end"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-b-06","lines":["Pin Advisor to the start"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-b-07","lines":["Pin Registration type to the start"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-b-08","lines":["Use compact density"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-b-09","lines":["Use comfortable density"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-b-10","lines":["Use spacious density"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-b-11","lines":["Use compact density"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-b-12","lines":["Use spacious density"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-b-13","lines":["Hide Custodian","Pin Household to the start"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-b-14","lines":["Sort by Market value, descending","Pin Account number to the start"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-b-15","lines":["Group by Custodian","Use compact density"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-b-16","lines":["Filter Registration type to Taxable","Use spacious density"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-b-17","lines":["Pin Unrealized gain to the end"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-b-18","lines":["Pin Custodian to the end"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-b-20","lines":["Pin Entry number to the start"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-b-21","lines":["Pin Amount to the end"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-b-22","lines":["Pin Owner and Counterparty to the start"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-b-23","lines":["Use compact density"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-b-24","lines":["Use spacious density"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-b-25","lines":["Use comfortable density"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-b-26","lines":["Pin Category to the end"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-b-27","lines":["Pin Cleared to the start"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-b-28","lines":["Group by Category","Pin Owner to the start"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-b-29","lines":["Hide Rate","Use compact density"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-b-30","lines":["Pin Posted at to the start"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-d-01","lines":["Unpin all columns"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-d-02","lines":["Unpin Household"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-d-03","lines":["Unpin Advisor and Household"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-d-04","lines":["Unpin all columns"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-d-05","lines":["Unpin all columns"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-d-06","lines":["Unpin all columns"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-d-08","lines":["Unpin all columns","Sort by Market value, descending"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-d-09","lines":["Group by Custodian","Unpin Household"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-d-10","lines":["Unpin all columns","Pin Household to the start"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-d-12","lines":["Unpin all columns"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-d-13","lines":["Use compact density","Unpin all columns"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-d-14","lines":["Unpin Market value"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-d-15","lines":["Unpin all columns","Use spacious density"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-d-16","lines":["Unpin Amount"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-d-17","lines":["Unpin all columns"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-d-18","lines":["Unpin Owner and Entry number"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-d-19","lines":["Unpin all columns","Hide Rate"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-d-20","lines":["Unpin all columns","Use spacious density"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-d-21","lines":["Sort by Amount, descending","Unpin Owner"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-d-22","lines":["Unpin all columns"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-e-03","lines":["Pin Household to the start"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-e-08","lines":["Pin Market value to the start"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-e-09","lines":["Pin Market value to the end"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-e-10","lines":["Pin Registration type to the start"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-e-11","lines":["Pin Unrealized gain to the start"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-e-13","lines":["Pin Advisor to the start"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-e-19","lines":["Pin Amount to the start"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-e-20","lines":["Pin Counterparty to the start"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-e-22","lines":["Pin Owner to the start"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-e-24","lines":["Pin Category to the start"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-f-12","lines":["Unpin all columns","Pin Advisor to the start"],"notes":[]}
+{"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-f-13","lines":["Pin Household to the start"],"notes":[]}
 {"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-hide-extra-word-10","lines":["Filter Unrealized gain at or above $0"],"notes":["Rows with no Unrealized gain are hidden too"]}
 {"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-hide-extra-word-11","lines":["Filter Amount at or above $100"],"notes":["Rows with no Amount are hidden too"]}
 {"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-hide-extra-word-12","lines":["Filter Concentration at or below 30%"],"notes":["Rows with no Concentration are hidden too"]}

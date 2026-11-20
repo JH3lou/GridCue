@@ -18,17 +18,21 @@ import {
 } from "../index";
 
 type ColumnFilter = { id: string; value: unknown };
+/** TanStack Table v9's column pins: logical `start` and `end`, as GridCue's View State has them. */
+type ColumnPinning = { start: string[]; end: string[] };
 type TanStackState = {
   columnFilters?: ColumnFilter[];
   sorting?: Array<{ id: string; desc: boolean }>;
   grouping?: string[];
   columnVisibility?: Record<string, boolean>;
   columnOrder?: string[];
+  columnPinning?: Partial<ColumnPinning>;
 };
 
 /**
  * The parts of a TanStack Table v9 instance GridCue uses. Any table from `useTable`
  * or `constructTable` with the filtering, sorting, grouping, visibility, and ordering features fits.
+ * `setColumnPinning` is there when the table registers `columnPinningFeature`, which `renders: ["pinning"]` needs.
  */
 export interface TanStackTableLike {
   store: { state: TanStackState; subscribe(listener: () => void): { unsubscribe(): void } | (() => void) };
@@ -38,6 +42,7 @@ export interface TanStackTableLike {
   setGrouping(grouping: string[]): void;
   setColumnVisibility(visibility: Record<string, boolean>): void;
   setColumnOrder(order: string[]): void;
+  setColumnPinning?(pinning: ColumnPinning): void;
   getAllLeafColumns(): Array<{ id: string; columnDef: { header?: unknown } }>;
   getCoreRowModel(): { rows: Array<{ getValue(columnId: string): unknown }>; flatRows?: Array<{ getValue(columnId: string): unknown }> };
 }
@@ -153,7 +158,52 @@ export interface TanStackAdapterOptions {
   table: TanStackTableLike;
   maxSorts?: number;
   maxGroups?: number;
+  /**
+   * What the Host's markup draws beyond TanStack's rows and columns (operation set spec, 4.2; ADR 0029). `"pinning"`
+   * when it keeps pinned columns in place (`column.getStart("start")` and the start, center and end column lists), which
+   * needs `columnPinningFeature` registered. `"density"` when it sets its row height from the View State's `density`,
+   * which the adapter holds, since TanStack has none. The adapter lists `columns.pin` and `density.set` only for what
+   * this names. The default is none, and a request for either then asks "This grid can't …" and changes nothing. Name
+   * only what the table draws: GridCue can't check it. Any other name throws `INPUT_CONFIG`.
+   */
+  renders?: ReadonlyArray<"pinning" | "density">;
 }
+
+/**
+ * Reads `renders` against the table (operation set spec, 4.2). Every name the adapter doesn't take throws, "totals" and
+ * "count" included, which it can't list yet: an adapter that took a name and listed nothing would read as support.
+ */
+const readRenders = (renders: unknown, table: TanStackTableLike): { pinning: boolean; density: boolean } => {
+  if (renders === undefined) return { pinning: false, density: false };
+  if (!Array.isArray(renders)) throw new GridCueError("INPUT_CONFIG", "renders must be a list, such as [“pinning”, “density”].");
+  for (const name of renders) {
+    if (name === "pinning" || name === "density") continue;
+    if (name === "totals" || name === "count") {
+      throw new GridCueError("INPUT_CONFIG", `renders names “${name}”, which the TanStack Table adapter can't list yet. Leave it out.`);
+    }
+    throw new GridCueError(
+      "INPUT_CONFIG",
+      `renders names “${String(name)}”, which the TanStack Table adapter doesn't take. It takes “pinning” and “density”.`,
+    );
+  }
+  const pinning = renders.includes("pinning");
+  if (pinning && typeof table.setColumnPinning !== "function") {
+    throw new GridCueError(
+      "INPUT_CONFIG",
+      "renders names “pinning”, but the table has no setColumnPinning. Register columnPinningFeature.",
+    );
+  }
+  // TanStack Table v8 held pins as `left` and `right`; v9 reads only `start` and `end`, and a v8-shaped slice the Host
+  // still controls would leave every pin GridCue writes undrawn.
+  const held = table.store.state.columnPinning as Record<string, unknown> | undefined;
+  if (pinning && held && ("left" in held || "right" in held)) {
+    throw new GridCueError(
+      "INPUT_CONFIG",
+      "renders names “pinning”, but the table holds its column pins as “left” and “right”, as TanStack Table v8 did. Keep them as “start” and “end”.",
+    );
+  }
+  return { pinning, density: renders.includes("density") };
+};
 
 /**
  * How long an apply or restore waits for a table whose state the Host controls to render what GridCue wrote.
@@ -162,19 +212,28 @@ export interface TanStackAdapterOptions {
 const HOLD_WAIT_MS = 1_000;
 
 /** A Grid Adapter over a TanStack Table v9 instance. The Host keeps owning the table and its state. */
-export const createTanStackAdapter = ({ schema, table, maxSorts = 3, maxGroups = 2 }: TanStackAdapterOptions): GridAdapter => {
+export const createTanStackAdapter = ({ schema, table, maxSorts = 3, maxGroups = 2, renders }: TanStackAdapterOptions): GridAdapter => {
+  const draws = readRenders(renders, table);
   let n = 0;
+  // TanStack has no density, so the adapter holds it and reads it back with the rest of the View State: undo and
+  // restore keep it. It changes only when the table draws it.
+  let density: ViewState["density"] = emptyViewState([]).density;
   const leafIds = () => table.getAllLeafColumns().map((c) => c.id);
-  const read = (s: TanStackState = table.store.state): ViewState => {
+  const read = (s: TanStackState = table.store.state, held: ViewState["density"] = density): ViewState => {
     const leaves = leafIds();
     const order = s.columnOrder?.length ? [...s.columnOrder, ...leaves.filter((id) => !s.columnOrder?.includes(id))] : leaves;
     const predicates = (s.columnFilters ?? []).flatMap((f) => (isGridCueValue(f.value) ? f.value.predicates : []));
+    // Pins come from TanStack's own state, and only when the table draws them. Like TanStack's own column lists, an id
+    // that is no column of the table is skipped.
+    const pinned = (ids: readonly string[] | undefined) => (draws.pinning ? (ids ?? []).filter((id) => leaves.includes(id)) : []);
     return {
       ...emptyViewState(order),
       visibleColumnIds: order.filter((id) => s.columnVisibility?.[id] !== false),
+      pinnedColumnIds: { start: pinned(s.columnPinning?.start), end: pinned(s.columnPinning?.end) },
       filters: predicates.length ? { id: "root", type: "group", combinator: "and", children: predicates } : null,
       sorts: (s.sorting ?? []).map((x) => ({ columnId: x.id, direction: x.desc ? "desc" : "asc" })),
       groupBy: [...(s.grouping ?? [])],
+      density: held,
     };
   };
   const defaultState = read();
@@ -288,16 +347,25 @@ export const createTanStackAdapter = ({ schema, table, maxSorts = 3, maxGroups =
       columnOrder: [...next.columnOrder],
       columnVisibility: Object.fromEntries(next.columnOrder.map((id) => [id, next.visibleColumnIds.includes(id)])),
     } satisfies TanStackState;
+    // Pins go through TanStack's own state, and only on a table that draws them; one that doesn't keeps its own.
+    const columnPinning: ColumnPinning | undefined = draws.pinning
+      ? { start: [...next.pinnedColumnIds.start], end: [...next.pinnedColumnIds.end] }
+      : undefined;
+    const nextDensity = draws.density ? next.density : density;
     // The View State the table reads as once it holds every slice written here, in the form `read` gives.
-    const expected = JSON.stringify(read({ ...table.store.state, ...slices }));
+    const expected = JSON.stringify(read({ ...table.store.state, ...slices, ...(columnPinning ? { columnPinning } : {}) }, nextDensity));
     writing++;
     try {
+      // Held before the table's slices, so the notification their write sends carries it, and a write that changes only
+      // the density still counts as one change.
+      density = nextDensity;
       table._reactivity.batch(() => {
         table.setColumnFilters(slices.columnFilters);
         table.setSorting(slices.sorting);
         table.setGrouping(slices.grouping);
         table.setColumnOrder(slices.columnOrder);
         table.setColumnVisibility(slices.columnVisibility);
+        if (columnPinning) table.setColumnPinning?.(columnPinning);
       });
       // Done only when the table holds it, with the Revision that change produced (ADR 0031).
       return { ok: true, state: await untilHeld(expected) };
@@ -313,7 +381,7 @@ export const createTanStackAdapter = ({ schema, table, maxSorts = 3, maxGroups =
   return {
     getSchema: () => schema,
     getCapabilities: () => ({
-      operations: [...MVP_OPERATIONS],
+      operations: [...MVP_OPERATIONS, ...(draws.pinning ? ["columns.pin"] : []), ...(draws.density ? ["density.set"] : [])],
       maxSorts,
       maxGroups,
       supportsAtomicApply: true,

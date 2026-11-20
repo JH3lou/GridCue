@@ -239,10 +239,12 @@ A money or percentage column infers as `number`. Declare it as `currency` or `pe
 ```ts
 type ColumnCapability = "filter" | "sort" | "group" | "aggregate" | "show" | "hide" | "reorder" | "pin";
 
-const DEFAULT_CAPABILITIES: ColumnCapability[] = ["filter", "sort", "group", "show", "hide", "reorder"];
+const DEFAULT_CAPABILITIES: ColumnCapability[] = ["filter", "sort", "group", "show", "hide", "reorder", "pin"];
 ```
 
-Every column that is not restricted gets `DEFAULT_CAPABILITIES` unless its override says otherwise. `aggregate` and `pin` exist in the protocol but are not defaults, and no first-release adapter supports the operations that use them.
+Every column that is not restricted gets `DEFAULT_CAPABILITIES` unless its override says otherwise. `pin` is a default: a pin is a view change with no data risk. Pass a narrower `capabilities` list, one without `"pin"`, to keep a column from being pinned. A column's `pin` says whether the change is allowed; whether it shows depends on the grid. An adapter lists `columns.pin` only when the Host says its table draws pins, with [`renders`](/docs/api/adapters#renders). `aggregate` exists in the protocol but is not a default, and no adapter supports the operation that uses it.
+
+Density belongs to no column, so it has no capability.
 
 ## schemaFromTanStack
 

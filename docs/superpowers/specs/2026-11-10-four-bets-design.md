@@ -53,7 +53,7 @@ Success means:
 - **A symbol grammar** (`/adv -mv !trust`).
 - **Storing, naming, or sharing views.** The Host does that with the View State. GridCue gives it `describeView` and `proposeView`.
 - **Editing the View Sentence's text in place.** A part of the current view can still be removed, through a Preview: the command bar builds that (ADR 0039).
-- **New view operations.** OR filters, pinning, aggregations, and density stay unreachable by request. "Starts with", empty and not empty are now read by code (named filters spec, 5.2). The sentence words them for reading and says they can't be typed back.
+- **New view operations.** OR filters and aggregations stay unreachable by request. "Starts with", empty and not empty are now read by code (named filters spec, 5.2), and so are pinning and density, where the grid draws them (operation set spec, 5.2). The sentence words them for reading and says the first three can't be typed back; pins and density can, on a grid that draws them.
 - **A completion menu.** Tab completes only when one name fits.
 - **`limit.set` in the TanStack Table adapter.**
 
@@ -150,7 +150,7 @@ const sentence = describeView(state, schema, { defaultState });
 //   unsaid: [] }
 ```
 
-- **Order:** rows, grouping, sorting, count, columns. The default view reads "All accounts." (or "All rows." with no Row Noun).
+- **Order:** rows, grouping, sorting, count, columns, pins, density. The default view reads "All accounts." (or "All rows." with no Row Noun).
 - **Labels only.** The sentence uses the Host's column and value labels, never IDs and never aliases.
 - **Columns are described against the default view:** "hide Custodian" when some are hidden, "show only A, B and C" when the order changed.
 - **The exact wording is settled by the round-trip test,** not by this spec. The example above is the starting point. Friendlier forms, such as "Taxable accounts", are used only where the test stays at 100% on both schemas.
@@ -158,7 +158,7 @@ const sentence = describeView(state, schema, { defaultState });
   - a value containing a quote mark;
   - a label that is an instruction word;
   - an OR filter;
-  - a pinned column, a summary, or a density;
+  - a summary;
   - a sentence longer than the Host's input limit.
 - **False is not a failure.** Requests can reach some of these views: several short requests can build one whose sentence is too long to type. False for any reason not on the list is a defect.
 - A sentence can be longer than the default 500-character limit. `proposeView` is the way to bring a view back, so the limit does not change.

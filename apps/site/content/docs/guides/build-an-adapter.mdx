@@ -35,7 +35,7 @@ interface GridAdapter {
 
 | Field | Meaning |
 | --- | --- |
-| `operations` | The operation types you support. Use `[...MVP_OPERATIONS]`: `filter.add`, `filter.clear`, `sort.set`, `group.set`, `columns.show`, `columns.hide`, `columns.order`, `view.reset` |
+| `operations` | The operation types you support. Start from `[...MVP_OPERATIONS]`: `filter.add`, `filter.clear`, `sort.set`, `group.set`, `columns.show`, `columns.hide`, `columns.order`, `view.reset`. Add `columns.pin` and `density.set` only when your grid draws them, and `limit.set` only when it keeps the first rows exactly. See [List an operation only when your grid draws it](#list-an-operation-only-when-your-grid-draws-it) |
 | `maxSorts`, `maxGroups` | Optional limits. Plans that exceed them fail validation |
 | `supportsAtomicApply` | Every operation applies or none do |
 | `supportsSnapshotRestore` | `restore` puts back an exact earlier view |
@@ -81,6 +81,12 @@ This is a change. Before, a date filter compared cells as they were, so a column
 A filter value that holds a time is compared as an instant. GridCue never writes one from a request.
 
 Pass the time zone: `matchesPredicate(cell, predicate, column, { timeZone: schema.calendar?.timeZone })`, or call `matchesFilter(row, filter, schema)`, which reads it from the schema. With no time zone, the runtime's is read when the row is filtered, so a grid that filters on a server should set `calendar.timeZone` ([Going to production](/docs/guides/going-to-production#11-set-the-time-zone)). A grid that keeps the zone beside a column, as the TanStack Table adapter does beside the column's kind, gives the same rows as `applyView`. Build one `Intl.DateTimeFormat` for each zone, not for each row, if you copy these rules instead.
+
+### List an operation only when your grid draws it
+
+GridCue writes a View State, and a grid draws it. `columns.pin` and `density.set` change nothing a User can see unless the grid keeps the pinned columns in place and sets its row height. An adapter that lists one the grid ignores gives a Preview, an apply and "View updated." with no visible change. So list each only when the grid does it, and give the Host an option to say so, as `createRowsAdapter` and `createTanStackAdapter` do with [`renders`](/docs/api/adapters#renders). Without it, a request for the operation ends in "This grid can't pin columns." or "This grid can't change its density.", with nothing applied.
+
+An adapter that lists `columns.pin` reads and writes `pinnedColumnIds` (`start` and `end`, each in pin order), and one that lists `density.set` reads and writes `density`. If your grid has no setting for either, as TanStack Table has none for density, hold the value in the adapter and return it from `getState()`, so `restore` and undo keep it. A pin the User makes with the grid's own controls is a view change like any other: bump the Revision and notify.
 
 ### `observesChanges`
 
@@ -171,7 +177,9 @@ Every Grid Adapter in GridCue passes the same contract suite: `packages/gridcue/
 - reports manual changes, so a stale plan is refused;
 - restores an exact snapshot;
 - writes, and clears, filters on a date column, on a date-and-time column of strings and on one of `Date` objects;
-- doesn't advertise `columns.pin`, `aggregation.set`, or `density.set`;
+- lists `columns.pin`, `density.set` and `aggregation.set` each only when its `renders` names it, and `limit.set` only when the adapter keeps a count with no option;
+- for each operation it lists beyond the first-release ones, applies it, reads it back, restores an exact snapshot, undoes it, and notifies once per apply;
+- refuses a plan that holds an operation it doesn't list, before it reaches the grid;
 - hands out capabilities a caller can't use to corrupt the adapter;
 - stops notifying after unsubscribe;
 - uses codes starting with `ADAPTER_` for every refused apply.
@@ -201,6 +209,12 @@ runAdapterContract("My grid adapter", () => {
 });
 ```
 
-`make` must return a fresh adapter each time.
+`make` must return a fresh adapter each time. Run the suite once for each way the adapter can be built: with no `renders`, and again with each `renders` it takes, saying so in the third argument. An adapter that keeps a count with no option, as the Rows Adapter does, says `keepsCount: true`.
+
+```ts
+runAdapterContract("My grid adapter, drawing pins", make, { renders: ["pinning"] });
+```
+
+The suite fails an adapter that lists an operation it has no checks for, so a new operation is a new entry in the suite before an adapter can list it.
 
 Then run a few real requests through `createGridCue` with the Mock Provider, and check the grid renders what the Preview said.

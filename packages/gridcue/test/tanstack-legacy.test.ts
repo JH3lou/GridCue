@@ -22,7 +22,7 @@ import {
   type LegacyColumnDef,
   useLegacyTable,
 } from "@tanstack/react-table/legacy";
-import { act, cleanup, renderHook } from "@testing-library/react";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createGridCue } from "../src/core/controller";
@@ -46,8 +46,12 @@ const columns: LegacyColumnDef<Account>[] = [
   { accessorKey: "name", header: "Name", cell: (info) => String(info.getValue()) },
 ];
 
-/** Which slices of the table's state the Host controls, with a change handler for each, as a v8 app does. */
-type Control = { sorting?: boolean; filters?: boolean; visibility?: boolean };
+/**
+ * Which slices of the table's state the Host controls, with a change handler for each, as a v8 app does. `pinning`
+ * says the shape the Host's pins start in: v9's `start` and `end`, or v8's `left` and `right` (`"v8"`).
+ */
+type Control = { sorting?: boolean; filters?: boolean; visibility?: boolean; pinning?: "v9" | "v8" };
+type Pins = { start: string[]; end: string[] } | { left: string[]; right: string[] };
 
 // A v8 app's table: its own state hooks, then the options it already passes, with GridCue's filter function as the
 // default. Only the hook's name and its import changed from `useReactTable`.
@@ -59,6 +63,7 @@ const useAccountsTable = <Row extends object = Account>(
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>({});
+  const [columnPinning, setColumnPinning] = useState<Pins>(control.pinning === "v8" ? { left: [], right: [] } : { start: [], end: [] });
   return useLegacyTable<Row>({
     data: rows,
     columns: rowColumns,
@@ -67,10 +72,12 @@ const useAccountsTable = <Row extends object = Account>(
       ...(control.sorting ? { sorting } : {}),
       ...(control.filters ? { columnFilters } : {}),
       ...(control.visibility ? { columnVisibility } : {}),
+      ...(control.pinning ? { columnPinning: columnPinning as never } : {}),
     },
     ...(control.sorting ? { onSortingChange: setSorting } : {}),
     ...(control.filters ? { onColumnFiltersChange: setColumnFilters } : {}),
     ...(control.visibility ? { onColumnVisibilityChange: setColumnVisibility } : {}),
+    ...(control.pinning ? { onColumnPinningChange: setColumnPinning as never } : {}),
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getSortedRowModel: getSortedRowModel(),
@@ -89,16 +96,16 @@ afterEach(cleanup);
 // The same app's table over the contract's dated rows.
 const datedColumns: LegacyColumnDef<(typeof DATED_ROWS)[number]>[] = DATED_COLUMNS.map((id) => ({ accessorKey: id, header: id }));
 
-const harnessOf = (control: Control) => () => {
+const harnessOf = (control: Control, renders?: ReadonlyArray<"pinning" | "density">) => () => {
   const hook = renderHook(() => useAccountsTable(control));
   // Created once, as the Vite guide does: the table object changes whenever table state changes.
   const table = hook.result.current as unknown as TanStackTableLike & { setSorting(sorting: SortingState): void };
-  const adapter = createTanStackAdapter({ schema: schemaFromTanStack(table), table });
+  const adapter = createTanStackAdapter({ schema: schemaFromTanStack(table), table, ...(renders ? { renders } : {}) });
   // The User's own change goes through React, as a header click does.
   const manualChange = () => act(() => table.setSorting([{ id: "team", desc: false }]));
   const dated = () => {
     const datedTable = renderHook(() => useAccountsTable(control, DATED_ROWS, datedColumns)).result.current as unknown as TanStackTableLike;
-    return createTanStackAdapter({ schema: schemaFromTanStack(datedTable), table: datedTable });
+    return createTanStackAdapter({ schema: schemaFromTanStack(datedTable), table: datedTable, ...(renders ? { renders } : {}) });
   };
   return { adapter, manualChange, numericColumn: "value", otherColumn: "name", dated };
 };
@@ -108,6 +115,46 @@ runAdapterContract(
   "TanStack Table adapter, v8 app on useLegacyTable, Host-controlled sorting, filters and visibility with handlers",
   harnessOf({ sorting: true, filters: true, visibility: true }),
 );
+
+// Pins and density (operation set spec, 4.2 and 5.3). `useLegacyTable` registers every stock feature, column pinning
+// included, so a v8 app's table has `setColumnPinning`. Its pins are TanStack Table v9's, `start` and `end`: v8's
+// `left` and `right` are gone, and a Host that still keeps its pins in that shape gets `INPUT_CONFIG` (below).
+const BOTH = ["pinning", "density"] as const;
+runAdapterContract("TanStack Table adapter, v8 app on useLegacyTable, table-owned, renders pinning and density", harnessOf({}, BOTH), {
+  renders: BOTH,
+});
+runAdapterContract(
+  "TanStack Table adapter, v8 app on useLegacyTable, Host-controlled sorting, filters, visibility and pins with handlers, renders pinning and density",
+  harnessOf({ sorting: true, filters: true, visibility: true, pinning: "v9" }, BOTH),
+  { renders: BOTH },
+);
+
+describe("a v8 app's column pins", () => {
+  const tableOf = (control: Control) =>
+    renderHook(() => useAccountsTable(control)).result.current as unknown as TanStackTableLike & {
+      getColumn(id: string): { pin(position: "start" | "end" | false): void } | undefined;
+    };
+
+  it("are held as start and end, which the adapter reads and writes", async () => {
+    const table = tableOf({ pinning: "v9" });
+    expect(table.store.state.columnPinning).toEqual({ start: [], end: [] });
+    const schema = schemaFromTanStack(table);
+    const adapter = createTanStackAdapter({ schema, table, renders: ["pinning"] });
+    const cue = createGridCue({ schema, adapter, provider: createMockProvider() });
+    await cue.propose("pin name to the end");
+    expect(await cue.apply()).toBe(true);
+    await waitFor(() => expect(table.store.state.columnPinning).toEqual({ start: [], end: ["name"] }));
+    act(() => table.getColumn("team")?.pin("start"));
+    expect(adapter.getState().state.pinnedColumnIds).toEqual({ start: ["team"], end: ["name"] });
+  });
+
+  it("throw INPUT_CONFIG when the Host keeps them as v8's left and right and renders names pinning", () => {
+    const table = tableOf({ pinning: "v8" });
+    const schema = schemaFromTanStack(table);
+    expect(() => createTanStackAdapter({ schema, table, renders: ["pinning"] })).toThrow(/“left” and “right”/);
+    expect(createTanStackAdapter({ schema, table, renders: ["density"] }).getCapabilities().operations).not.toContain("columns.pin");
+  });
+});
 
 // The guide's recipe for a v8 column with its own filter input. `defaultColumn: { filterFn: gridcueFilterFn }`
 // replaces v8's `auto` on every column that names no filter function, and `gridcueFilterFn` passes every row for a

@@ -39,6 +39,7 @@ const FILES = [
   "cases-house-terms.jsonl",
   "cases-names.jsonl",
   "cases-dates.jsonl",
+  "cases-view-words.jsonl",
 ];
 
 /**

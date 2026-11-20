@@ -87,7 +87,16 @@ import {
 import { REVERSAL_WORDING, unknownTerm } from "./terms";
 import { escapeRegExp } from "./text-match";
 import { unusedReadings } from "./unused";
-import { namesEveryRow, readViewWords } from "./view-words";
+import {
+  nameQuestion,
+  namesEveryRow,
+  pinListRunsOn,
+  readViewWords,
+  type ViewWordLeft,
+  type ViewWordsReading,
+  viewWordsLeft,
+  viewWordsQuestion,
+} from "./view-words";
 
 export interface ConfidencePolicy {
   /** At or above this, a decision is used as-is. Default 0.85. */
@@ -132,14 +141,23 @@ export interface CompileInput {
    * The view `view.reset` returns to (the adapter's `getDefaultState()`). A reset that keeps the current filters
    * ("reset everything except the filters") adds them to this view's own, so it is ready only when this is given and
    * has no filters. Otherwise GridCue asks. Its sort and count are what a reset leaves for the count rule (ADR 0027).
+   * Its columns and pins are what a pin or an unpin said after a reset starts from.
    */
-  defaultState?: { filters: ViewState["filters"]; sorts?: ViewState["sorts"]; limit?: ViewState["limit"] };
+  defaultState?: {
+    filters: ViewState["filters"];
+    sorts?: ViewState["sorts"];
+    limit?: ViewState["limit"];
+    visibleColumnIds?: ViewState["visibleColumnIds"];
+    pinnedColumnIds?: ViewState["pinnedColumnIds"];
+  };
   /**
    * The operations the grid supports (its adapter's capabilities). Left out, they are `MVP_OPERATIONS`. A count ("top
    * 10") becomes `limit.set` only where this lists it; otherwise the plan sorts alone and records the count as not
    * applied (ADR 0018). "Show only the first 5 rows" there ends in a question with no choices, and nothing applies
    * (ADR 0027). Where this doesn't list `group.set`, a part that asks to group or ungroup ends the whole request in
-   * "This grid can't group rows." (more grids spec, 5.3). A hint that suggests changes names only those listed here.
+   * "This grid can't group rows." (more grids spec, 5.3). Where it doesn't list `columns.pin` or `density.set`, a pin,
+   * unpin or density code read ends the whole request in "This grid can't pin columns." or "This grid can't change its
+   * density." (operation set spec, 4.2). A hint that suggests changes names only those listed here.
    */
   operations?: readonly string[];
   newId: (prefix: string) => string;
@@ -330,24 +348,37 @@ export interface CountQuestion {
 const countWords = (count: number) => count.toLocaleString("en-US");
 
 /**
- * An operation a request needs that the grid doesn't list. The operation set's pins, density and totals join this list
- * for a grid whose Host hasn't turned them on (operation set 4.2).
+ * An operation a request needs that the grid doesn't list. Pins and density are here for a grid whose Host hasn't
+ * turned them on with the adapter's `renders` (operation set 4.2); totals join them later.
  */
-export type UnlistedOperation = { type: "group.set" } | { type: "limit.set"; count: number };
+export type UnlistedOperation =
+  | { type: "group.set" }
+  | { type: "limit.set"; count: number }
+  | { type: "columns.pin" }
+  | { type: "density.set" };
 
 /**
  * "This grid can't …": the one question for a change the grid doesn't list (more grids spec, 5.3). It has no choices,
  * since no answer makes the grid able to. Its ID starts with its part's index, as the compiler's other questions do,
- * so the command bar can show it beside that part. The caller decides what else in the request stops with it.
+ * so the command bar can show it beside that part. A pin and a density each add their kind to the ID, so one part
+ * can ask both. The caller decides what else in the request stops with it.
  */
-export const cantQuestion = (clauseIndex: number, op: UnlistedOperation): Clarification => ({
-  id: `c${clauseIndex}.cant`,
-  prompt:
-    op.type === "group.set"
-      ? "This grid can't group rows."
-      : `This grid can't show only the first ${countWords(op.count)} ${op.count === 1 ? "row" : "rows"}.`,
-  required: true,
-});
+export const cantQuestion = (clauseIndex: number, op: UnlistedOperation): Clarification => {
+  switch (op.type) {
+    case "group.set":
+      return { id: `c${clauseIndex}.cant`, prompt: "This grid can't group rows.", required: true };
+    case "limit.set":
+      return {
+        id: `c${clauseIndex}.cant`,
+        prompt: `This grid can't show only the first ${countWords(op.count)} ${op.count === 1 ? "row" : "rows"}.`,
+        required: true,
+      };
+    case "columns.pin":
+      return { id: `c${clauseIndex}.cant.pin`, prompt: "This grid can't pin columns.", required: true };
+    case "density.set":
+      return { id: `c${clauseIndex}.cant.density`, prompt: "This grid can't change its density.", required: true };
+  }
+};
 
 /**
  * Any word built on "group": "group", "groups", "grouped", "grouping", "ungroup", "regroup", "subgroup", "groupwise",
@@ -659,11 +690,96 @@ export const compile = (c: CompileInput): ViewPlan => {
         ].sort((a, b) => a.clauseIndex - b.clauseIndex || a.start - b.start);
   // The Mentions, with any column named right after a code-read filter's words, which they read as the rows.
   const found = c.mentions ?? [];
-  const mentions: readonly Mention[] = c.restricted?.length
+  const allMentions: readonly Mention[] = c.restricted?.length
     ? found
     : [...found, ...namesAfterCodeRead(c.input, found, codeReadAll, c.schema)].sort(
         (a, b) => a.clauseIndex - b.clauseIndex || a.start - b.start,
       );
+  // View words come first (spec 4.1), read for each part before anything else. A part read whole uses the reader's
+  // operations, and the provider's families for it are ignored. A pin, unpin or density read at the end of a part
+  // ("group by advisor and pin advisor") is read only where the rest of the part is the provider's alone: the provider
+  // didn't refuse the part (a refusal runs first, as today), and no filter or Local Value code read sits in those words.
+  // The rest of the part is then compiled as if they weren't there. A part not read goes on exactly as before.
+  const refusedPart = (index: number) =>
+    (c.resolution.clauses.find((r) => r.clauseIndex === index)?.families ?? []).some(
+      (f) => KNOWN_FAMILY_IDS.has(f.id) && !isView(f.id) && f.confidence >= bands.clarify,
+    );
+  const viewWordsOf = new Map<number, ViewWordsReading>();
+  // Parts whose words would read as a pin, unpin or density but for a name of the Host's, with the question each asks.
+  const viewWordsAsks = new Map<number, string>();
+  // Parts with pin or density words that no form read, which a ready plan would drop (below).
+  const viewWordsLeftOf = new Map<number, ViewWordLeft[]>();
+  const lists = (op: string) => (c.operations ?? MVP_OPERATIONS).includes(op);
+  for (const clause of c.input.clauses) {
+    const codeReadIn = [...codeReadAll.filter((r) => r.clauseIndex === clause.index), ...(local.asks.get(clause.index)?.spans ?? [])];
+    // Words at the end of a part are its own only where nothing else reads them.
+    const ownTail = (from: number) =>
+      !refusedPart(clause.index) && codeReadIn.every((r) => r.end <= from) && clause.literals.every((lit) => lit.at < from);
+    const reading = readViewWords(clause, allMentions, c.schema);
+    const own = reading !== undefined && (reading.from === undefined || ownTail(reading.from));
+    // A pin list may run on into the next part, split before a column's name ("pin rate and cleared": "clear"). On a
+    // grid that lists what the words ask for, the part asks. On one that doesn't, the request ends in "This grid can't
+    // …" whatever the list holds, so the reading stays.
+    const next = c.input.clauses.find((x) => x.index === clause.index + 1);
+    const runsOn =
+      reading?.operations.every((op) => lists(op.type)) === true ? pinListRunsOn(reading, next, allMentions, c.schema) : undefined;
+    if (reading && runsOn !== undefined) {
+      if (own) viewWordsAsks.set(clause.index, runsOn);
+    } else if (reading && own) viewWordsOf.set(clause.index, reading);
+    else if (!reading) {
+      const asks = viewWordsQuestion(clause, allMentions, c.schema);
+      // A Host's name that holds a form word is in doubt only on a grid that lists the form's change. On any other
+      // grid the words can only be the name, and the part reads as it did before pins and density were read.
+      const inDoubt = asks && (asks.named === undefined || lists(asks.named));
+      if (asks && inDoubt && (asks.from === 0 || ownTail(asks.from))) viewWordsAsks.set(clause.index, asks.prompt);
+    }
+    // The pin and density words no form read (spec 5.2): code reads a form only as a whole part or its end, so one said
+    // anywhere else would be dropped. Inside quoted text, a code-read filter or a Local Value, a word is the text's or
+    // the name's, and after a text match's words it is the text to match. Said to stay or left out, with nothing after
+    // it but its noun ("the pins stay", "keep the pinned columns"), it asks for nothing, as a grouping word does.
+    const upTo = reading && own && runsOn === undefined ? (reading.from ?? 0) : clause.text.length;
+    const plain = unquoted(clause.text);
+    const left = viewWordsLeft(clause, allMentions, c.schema, upTo).filter((w) => {
+      // A word in a Host's name, on a grid that doesn't list the change its form would ask for, is the name's.
+      if (w.name !== undefined && (w.named === undefined || !lists(w.named))) return false;
+      if (plain.slice(w.start, w.end) !== clause.text.slice(w.start, w.end)) return false;
+      if (codeReadIn.some((r) => w.start < r.end && w.end > r.start) || TEXT_MATCH_BEFORE.test(plain.slice(0, w.start))) return false;
+      const end = w.end + (/^\s+(?:columns?|views?|rows|density|mode)\b/.exec(plain.slice(w.end))?.[0].length ?? 0);
+      const said = saidToStay(plain, w.start, end);
+      const stays = said === "kept" || (!/^un/.test(w.text) && (clause.keeps || said === "left out"));
+      return !(stays && nothingAfter(plain, end));
+    });
+    if (left.length > 0) viewWordsLeftOf.set(clause.index, left);
+  }
+  /** Where the words read at the end of a part start, if they do. */
+  const tailOf = (index: number) => viewWordsOf.get(index)?.from;
+  const input: NormalizedInput = {
+    ...c.input,
+    clauses: c.input.clauses.map((clause) => {
+      const from = tailOf(clause.index);
+      return from === undefined
+        ? clause
+        : { ...clause, text: clause.text.slice(0, from).trimEnd(), literals: clause.literals.filter((lit) => lit.at < from) };
+    }),
+  };
+  const mentions: readonly Mention[] = allMentions.filter((m) => m.start < (tailOf(m.clauseIndex) ?? Number.POSITIVE_INFINITY));
+  // What the provider proposed for a part read at its end is kept only where the rest of the part names it.
+  const resolution: ResolutionResult = {
+    clauses: c.resolution.clauses.map((r) => {
+      const from = tailOf(r.clauseIndex);
+      const clause = input.clauses.find((x) => x.index === r.clauseIndex);
+      const reading = viewWordsOf.get(r.clauseIndex);
+      return from === undefined || !clause || !reading
+        ? r
+        : beforeViewWords(
+            r,
+            clause,
+            mentions.filter((m) => m.clauseIndex === r.clauseIndex),
+            reading,
+            (e) => evidence.push(e),
+          );
+    }),
+  };
   const optionsFor = (kinds: readonly ColumnKind[] | null, capability: string) =>
     c.schema.columns
       .filter((col) => isExposed(col) && col.capabilities.includes(capability as never) && (!kinds || kinds.includes(col.kind)))
@@ -728,9 +844,10 @@ export const compile = (c: CompileInput): ViewPlan => {
 
   // Parts code read whole as view words (ADR 0028), with the operations each gave the plan.
   const readWhole = new Map<number, ViewOperation[]>();
+  // The same for parts whose end code read (`from`), with the operations those words gave the plan.
+  const readTail = new Map<number, ViewOperation[]>();
   // Parts that say "every row" of a view with no count and no filters: true only while the request adds no filter.
   const everyRowOfAll = new Set<number>();
-  const lists = (op: string) => (c.operations ?? MVP_OPERATIONS).includes(op);
   const canCount = lists("limit.set");
   // One count per plan: a later one replaces an earlier one, which is then left unused and asked about (ADR 0019).
   const setCount = (count: number | null, part: number): ViewOperation => {
@@ -741,6 +858,112 @@ export const compile = (c: CompileInput): ViewPlan => {
     countPart = part;
     return op;
   };
+  // The view as the plan has it so far: the columns a pin needs shown, the pins an unpin of every column names.
+  const viewSoFar = () => applyOperations(c.state, operations, { ...c.state, ...c.defaultState });
+  // Set when a pin or unpin code read changes nothing: every column it names is already where it asks.
+  let alreadyShown = false;
+  /**
+   * Puts the pins, unpins and densities a part's view words read into the plan (spec 4.4), or asks. A column the Host
+   * doesn't let pin is never pinned or unpinned: the part asks. A hidden column is shown before its pin, so the Preview
+   * says both. An unpin that names no column names every pinned column. As with a count, one density per plan: a later
+   * one replaces an earlier one, which is then asked about (ADR 0019).
+   */
+  const placeViewWords = (clause: Clause, read: readonly ViewOperation[]): ViewOperation[] | undefined => {
+    const key = `c${clause.index}`;
+    const now = viewSoFar();
+    // After a reset, the columns that show are the default view's, which a caller may not have given.
+    const resetUnknown = operations.some((op) => op.type === "view.reset") && !c.defaultState?.visibleColumnIds;
+    // Each unpin of every column names the columns pinned when it is said, the part's own earlier pins included. A column
+    // the User may not name (a restricted one, or one kept from the provider) is never named, so it would stay pinned.
+    // Hidden, it shows nothing pinned. Shown, or perhaps shown after a reset, the unpin wouldn't do what it says: ask,
+    // without naming it.
+    let running = now;
+    const everyColumn = new Set<ViewOperation>();
+    let keptPinned: { others: boolean } | undefined;
+    const filled = read.map((op) => {
+      const every = op.type === "columns.pin" && op.position === "none" && op.columnIds.length === 0;
+      const pinned = every ? [...running.pinnedColumnIds.start, ...running.pinnedColumnIds.end] : [];
+      const named = pinned.filter((id) => column(id));
+      if (pinned.some((id) => !column(id) && (resetUnknown || running.visibleColumnIds.includes(id)))) {
+        keptPinned ??= { others: named.length > 0 };
+      }
+      const out: ViewOperation = every ? { ...op, columnIds: named } : op;
+      if (every) everyColumn.add(out);
+      running = applyOperations(running, [out], running);
+      return out;
+    });
+    if (keptPinned) {
+      const others = keptPinned.others ? " To unpin the others, name them." : "";
+      clarifications.push({ id: `${key}.pin`, prompt: `GridCue can't unpin every column here.${others}`, required: true });
+      return undefined;
+    }
+    for (const op of filled) {
+      if (op.type !== "columns.pin") continue;
+      const refused = op.columnIds.find((id) => !column(id)?.capabilities.includes("pin"));
+      if (refused !== undefined) {
+        const label = c.schema.columns.find((col) => col.id === refused)?.label ?? refused;
+        const others = everyColumn.has(op) && op.columnIds.length > 1 ? " To unpin the others, name them." : "";
+        clarifications.push({
+          id: `${key}.pin`,
+          prompt: `GridCue can't ${op.position === "none" ? "unpin" : "pin"} ${label} here.${others}`,
+          required: true,
+        });
+        return undefined;
+      }
+    }
+    // A column this request hides and pins ("hide advisor and pin advisor") is asked about, never shown again.
+    const hiddenHere = filled.flatMap((op) =>
+      op.type === "columns.pin" && op.position !== "none"
+        ? op.columnIds.filter(
+            (id) => !now.visibleColumnIds.includes(id) && operations.some((o) => o.type === "columns.hide" && o.columnIds.includes(id)),
+          )
+        : [],
+    )[0];
+    if (hiddenHere !== undefined) {
+      const label = column(hiddenHere)?.label ?? hiddenHere;
+      clarifications.push({ id: `${key}.pin`, prompt: `GridCue can't hide ${label} and pin it too.`, required: true });
+      return undefined;
+    }
+    // After a reset, the pins are the default view's, which a caller may not have given either.
+    const pinsUnknown = operations.some((op) => op.type === "view.reset") && !c.defaultState?.pinnedColumnIds;
+    const placed: ViewOperation[] = [];
+    for (const said of filled) {
+      let op = said;
+      if (op.type === "columns.pin" && !pinsUnknown) {
+        // A pin or unpin names only the columns it changes, so its line never claims a change that doesn't happen: a
+        // column already pinned to that side stays where it is, and an unpin leaves a column that isn't pinned alone. A
+        // hidden column already pinned to that side is shown, and that is all. With nothing to change, there is no line.
+        const pins = viewSoFar().pinnedColumnIds;
+        const { position } = op;
+        const changes = op.columnIds.filter((id) =>
+          position === "none" ? pins.start.includes(id) || pins.end.includes(id) : !pins[position].includes(id),
+        );
+        const shows = position !== "none" && op.columnIds.some((id) => !viewSoFar().visibleColumnIds.includes(id));
+        if (changes.length === 0 && !shows) {
+          alreadyShown = true;
+          continue;
+        }
+        if (changes.length < op.columnIds.length) op = { ...op, columnIds: changes };
+      }
+      if (said.type === "columns.pin" && said.position !== "none") {
+        const hidden = said.columnIds.filter((id) => resetUnknown || !viewSoFar().visibleColumnIds.includes(id));
+        if (hidden.length > 0) {
+          const show: ViewOperation = { type: "columns.show", columnIds: hidden };
+          operations.push(show);
+          placed.push(show);
+        }
+      }
+      if (op.type === "columns.pin" && op.columnIds.length === 0) continue;
+      if (op.type === "density.set") {
+        const earlier = operations.findIndex((o) => o.type === "density.set");
+        if (earlier >= 0) operations.splice(earlier, 1);
+      }
+      operations.push(op);
+      placed.push(op);
+      note(`${key}.words`, op.type, 1, "deterministic");
+    }
+    return placed;
+  };
 
   // A Local Value is a name too: "Hollis Travel Group entries" asks for no grouping.
   const localNames = (clause: Clause) => local.filters.filter((r) => r.clauseIndex === clause.index).map((r) => asNamedValue(r, clause));
@@ -750,21 +973,74 @@ export const compile = (c: CompileInput): ViewPlan => {
   // (`unready`) never leaves the plan ready either: that is checked once the plan is built, below.
   const groupAsks = lists("group.set")
     ? []
-    : c.input.clauses.map((clause) => ({
+    : input.clauses.map((clause) => ({
         clause,
         asked: groupingAsked(clause, [...mentions.filter((m) => m.clauseIndex === clause.index), ...localNames(clause)], c.schema.columns),
       }));
   const grouping = groupAsks.find((g) => g.asked === "cant")?.clause;
   const unreadGrouping = groupAsks.find((g) => g.asked === "unready")?.clause;
-  if (unsupportedSegments.length === 0 && grouping) clarifications.push(cantQuestion(grouping.index, { type: "group.set" }));
+  // A pin, unpin or density, on a grid whose Host hasn't said its table draws it (operation set spec, 4.2), ends the
+  // request the same way, with the same shared question. One question for each kind, the first part's. That is a form
+  // code read, and also a form said where code reads none ("compact view of taxable accounts") or about a column in
+  // doubt ("pin restricted"): whatever the rest of the part means, the grid can't do what the form asks. A request with
+  // a part the provider refuses ("pin advisor and export the list") is refused instead, as on a grid that draws them;
+  // its pins and density are left out of the plan, which never applies.
+  const refusedAny = c.input.clauses.some((clause) => !clause.keeps && refusedPart(clause.index));
+  const unlisted: Array<{ index: number; op: UnlistedOperation }> = grouping ? [{ index: grouping.index, op: { type: "group.set" } }] : [];
+  const unlistedView = new Set<number>();
+  // The questions asked once every part is compiled, if the refusal didn't hold after all.
+  const unlistedIfNotRefused: typeof unlisted = [];
+  for (const type of ["columns.pin", "density.set"] as const) {
+    if (lists(type)) continue;
+    const asked = input.clauses.filter(
+      (clause) =>
+        viewWordsOf.get(clause.index)?.operations.some((op) => op.type === type) ||
+        (!refusedPart(clause.index) && viewWordsLeftOf.get(clause.index)?.some((w) => w.form === type)),
+    );
+    for (const clause of asked) unlistedView.add(clause.index);
+    const first = asked[0];
+    if (first) (refusedAny ? unlistedIfNotRefused : unlisted).push({ index: first.index, op: { type } });
+  }
+  unlisted.sort((a, b) => a.index - b.index);
+  if (unsupportedSegments.length === 0) for (const { index, op } of unlisted) clarifications.push(cantQuestion(index, op));
 
-  if (unsupportedSegments.length === 0 && !grouping) {
-    for (const clause of c.input.clauses) {
+  if (unsupportedSegments.length === 0 && unlisted.length === 0) {
+    // The words read at the end of a part go into the plan after the rest of that part: at the start of the next
+    // part, or once every part is compiled.
+    let pendingTail: { clause: Clause; reading: ViewWordsReading } | undefined;
+    const placeTail = () => {
+      if (!pendingTail) return;
+      const { clause, reading } = pendingTail;
+      pendingTail = undefined;
+      const placed = placeViewWords(clause, reading.operations);
+      if (placed) readTail.set(clause.index, placed);
+    };
+    for (const clause of input.clauses) {
+      placeTail();
       const key = `c${clause.index}`;
       // View words come first (spec 4.1). A part read whole uses the reader's operations, and the provider's families
       // for it are ignored. A part not read goes on exactly as before.
-      const viewWords = readViewWords(clause, mentions, c.schema);
-      const readCount = viewWords?.operations.flatMap((op) => (op.type === "limit.set" ? [op.count] : []))[0];
+      const viewWords = viewWordsOf.get(clause.index);
+      // A pin or density the grid can't do, beside a part the provider refuses, is left out (above).
+      const cant = unlistedView.has(clause.index);
+      if (viewWords?.from !== undefined) {
+        if (!cant) pendingTail = { clause, reading: viewWords };
+      } else if (viewWords?.operations.some((op) => op.type === "columns.pin" || op.type === "density.set")) {
+        const placed = cant ? undefined : placeViewWords(clause, viewWords.operations);
+        if (placed) readWhole.set(clause.index, placed);
+        continue;
+      }
+      // Words that would read as a pin or a density but for a name of the Host's ("compact view" where Compact is a size
+      // class, "pin restricted") may name the Host's value or the rows: ask (spec 5.2), before the provider reads them.
+      const viewWordsAsk = viewWordsAsks.get(clause.index);
+      if (viewWordsAsk !== undefined) {
+        if (cant) continue;
+        clarifications.push({ id: `${key}.viewWords`, prompt: viewWordsAsk, required: true });
+        continue;
+      }
+      const readCount = (viewWords?.from === undefined ? viewWords : undefined)?.operations.flatMap((op) =>
+        op.type === "limit.set" ? [op.count] : [],
+      )[0];
       if (typeof readCount === "number") {
         // "Show only the first 5 rows" on a grid that keeps no count: a question with no choices, and nothing applies.
         if (!canCount) {
@@ -811,7 +1087,7 @@ export const compile = (c: CompileInput): ViewPlan => {
         }
         continue;
       }
-      const proposed: ClauseResolution = c.resolution.clauses.find((r) => r.clauseIndex === clause.index) ?? {
+      const proposed: ClauseResolution = resolution.clauses.find((r) => r.clauseIndex === clause.index) ?? {
         clauseIndex: clause.index,
         families: [],
         columns: [],
@@ -932,7 +1208,7 @@ export const compile = (c: CompileInput): ViewPlan => {
       const readFilters = codeRead.filter(isCodeReadFilter);
       const inCodeRead = (at: number) => codeRead.some((r) => at >= r.start && at < r.end);
       if (readFilters.length > 0 && !refused) {
-        const next = c.input.clauses[clause.index + 1];
+        const next = input.clauses[clause.index + 1];
         const asks = readFilters.map((r) => codeReadQuestion(r, clause, column, mentions, next)).find((q) => q !== undefined);
         if (asks) {
           clarifications.push({ id: `${key}.form`, prompt: asks, required: true });
@@ -2148,6 +2424,8 @@ export const compile = (c: CompileInput): ViewPlan => {
         }
       }
     }
+    placeTail();
+    if (unsupportedSegments.length === 0) for (const { index, op } of unlistedIfNotRefused) clarifications.push(cantQuestion(index, op));
   }
 
   // View words are read in the order they are said. Parts whose words the rest of the request undoes are asked about
@@ -2167,12 +2445,22 @@ export const compile = (c: CompileInput): ViewPlan => {
     filters: v?.filters ?? null,
   });
   const viewAt = (at: number) => applyOperations(viewOf(c.state), operations.slice(0, at), viewOf(c.defaultState));
-  for (const [index, ops] of readWhole) {
+  for (const [index, ops] of [...readWhole, ...readTail]) {
     for (const op of ops) {
       const at = operations.indexOf(op);
       if (at < 0) continue;
       const later = operations.slice(at + 1);
       if (later.some((o) => o.type === "view.reset")) {
+        undone.add(index);
+        continue;
+      }
+      // A pin that a later part changes again ("pin advisor, unpin advisor") or whose column a later part hides would not
+      // show as said. An unpin a later pin follows ("unpin everything and pin advisor") is said as it shows.
+      if (
+        op.type === "columns.pin" &&
+        op.position !== "none" &&
+        later.some((o) => (o.type === "columns.pin" || o.type === "columns.hide") && o.columnIds.some((id) => op.columnIds.includes(id)))
+      ) {
         undone.add(index);
         continue;
       }
@@ -2188,7 +2476,7 @@ export const compile = (c: CompileInput): ViewPlan => {
 
   // A "No" never dead-ends (v1 grill, Q1): when the User declined something in a part and all that is left there
   // is a question with no choices, say plainly that nothing will change, with the request kept for editing.
-  for (const clause of c.input.clauses) {
+  for (const clause of input.clauses) {
     const key = `c${clause.index}`;
     const declined = Object.entries(answers).some(([k, v]) => k.startsWith(`${key}.`) && v === "none");
     const open = clarifications.filter((q) => q.id === key || q.id.startsWith(`${key}.`));
@@ -2208,18 +2496,18 @@ export const compile = (c: CompileInput): ViewPlan => {
   if (status === "ready") {
     const asked = new Set<number>();
     // A part read whole as view words used every word (ADR 0028), unless another part replaced what it set (a request
-    // holds one count), "every row" has no count to clear and sits beside a filter this request adds, or the rest of
-    // the request undoes it (above).
-    const others = { ...c.input, clauses: c.input.clauses.filter((clause) => !readWhole.has(clause.index)) };
+    // holds one count, one density), "every row" has no count to clear and sits beside a filter this request adds, or
+    // the rest of the request undoes it (above). Words read at the end of a part are asked about the same way, by
+    // those words; the rest of that part is checked like any other.
+    const others = { ...input, clauses: input.clauses.filter((clause) => !readWhole.has(clause.index)) };
     const addsFilter = operations.some((op) => op.type === "filter.add");
-    const leftOver = c.input.clauses
-      .filter(
-        (clause) =>
-          readWhole.get(clause.index)?.some((op) => !operations.includes(op)) ||
-          (addsFilter && everyRowOfAll.has(clause.index)) ||
-          undone.has(clause.index),
-      )
-      .map((clause) => ({ clauseIndex: clause.index, text: clause.text }));
+    const leftOver = c.input.clauses.flatMap((clause) => {
+      const read = readWhole.get(clause.index) ?? readTail.get(clause.index);
+      const from = tailOf(clause.index);
+      const unused =
+        read?.some((op) => !operations.includes(op)) || (addsFilter && everyRowOfAll.has(clause.index)) || undone.has(clause.index);
+      return unused ? [{ clauseIndex: clause.index, text: clause.text.slice(from ?? 0).replace(/^\s*(?:,\s*)?(?:and\s+)?/, "") }] : [];
+    });
     // A date with no column named counts as read by the filter on the column it was given (spec 4.4).
     const codeReadUsed =
       resolvedDates.size === 0
@@ -2261,6 +2549,28 @@ export const compile = (c: CompileInput): ViewPlan => {
     clarifications.push(cantQuestion(unreadGrouping.index, { type: "group.set" }));
     status = "needs_clarification";
   }
+  // A pin or density word no form read never leaves a ready plan either (spec 5.2): code reads a form only as a whole
+  // part or its end, so "compact view, top 10 by market value" would sort and count and drop the density. The part asks
+  // about those words. A form said there is asked about as a form, so the User can ask for it on its own. Words that
+  // would read as a form but for a name of the Host's ask what they ask at the whole part or its end.
+  const [leftIndex, leftWords] = [...viewWordsLeftOf][0] ?? [];
+  const leftWord = leftWords?.[0];
+  if (status === "ready" && leftIndex !== undefined && leftWord) {
+    clarifications.push(
+      leftWord.name !== undefined
+        ? { id: `c${leftIndex}.viewWords`, prompt: nameQuestion(leftWord.name, leftWord.text), required: true }
+        : leftWord.form && !lists(leftWord.form)
+          ? cantQuestion(leftIndex, { type: leftWord.form })
+          : {
+              id: `c${leftIndex}.viewWords.word`,
+              prompt: leftWord.form
+                ? `GridCue can't tell how “${leftWord.text}” fits with the rest of that part. Try asking for it on its own.`
+                : `I'm not sure what to do with “${leftWord.text}”. Try rephrasing that part.`,
+              required: true,
+            },
+    );
+    status = "needs_clarification";
+  }
   // Then the count rule (ADR 0027): a plan that would keep the view's count over different rows asks which the User
   // wants. Each answer adds the count's own line, so the Preview says it. Asked here, after compiling, so it holds for
   // every Intent Provider. Until it is answered, it can only turn a ready plan into a question.
@@ -2277,9 +2587,12 @@ export const compile = (c: CompileInput): ViewPlan => {
   }
   if (status === "needs_clarification" && clarifications.length === 0) {
     const changes = hintChanges(lists, "try");
+    // A pin or unpin of columns already where it asks ("unpin everything" with none pinned) is said so (spec 5.3).
     clarifications.push({
       id: "plan.empty",
-      prompt: `That request doesn't change the view.${changes ? ` Try ${changes}.` : ""}`,
+      prompt: alreadyShown
+        ? "The grid already shows this view."
+        : `That request doesn't change the view.${changes ? ` Try ${changes}.` : ""}`,
       required: true,
     });
   }
@@ -2294,6 +2607,41 @@ export const compile = (c: CompileInput): ViewPlan => {
     evidence,
     clarifications,
     unsupportedSegments,
+  };
+};
+
+/**
+ * What a provider proposed for a part whose end code read as view words, kept only where the rest of the part names it
+ * (spec 4.1). The provider saw the whole part, so it may have taken a column only the read words name: "sort by
+ * advisor and pin market value" sorted by both. A pick of a column that only the read words name is dropped, and so is
+ * a term the provider couldn't place that is written only there. `clause` is the rest of the part, and `own` its
+ * Mentions.
+ */
+const beforeViewWords = (
+  res: ClauseResolution,
+  clause: Clause,
+  own: readonly Mention[],
+  reading: ViewWordsReading,
+  record: (e: DecisionEvidence) => void,
+): ClauseResolution => {
+  const named = new Set(own.map((m) => m.columnId));
+  const onlyRead = new Set(
+    reading.operations.flatMap((op) => (op.type === "columns.pin" ? op.columnIds : [])).filter((id) => !named.has(id)),
+  );
+  const keep = (id: string) => !onlyRead.has(id);
+  const said = (term: string) => clause.text.includes(term.toLowerCase());
+  for (const p of res.columns.filter((x) => !keep(x.id))) {
+    record({ key: `dropped:c${clause.index}.viewWords`, selectedId: p.id, confidence: p.confidence, source: "deterministic" });
+  }
+  return {
+    ...res,
+    columns: res.columns.filter((p) => keep(p.id)),
+    values: res.values.filter((v) => keep(v.columnId)),
+    unmatchedTerms: res.unmatchedTerms.filter(said),
+    ...(res.roles ? { roles: res.roles.filter((r) => keep(r.columnId)) } : {}),
+    ...(res.outer ? { outer: res.outer.filter((o) => keep(o.outerId) && keep(o.innerId)) } : {}),
+    ...(res.readings ? { readings: res.readings.filter((r) => keep(r.columnId)) } : {}),
+    ...(res.literalColumns ? { literalColumns: res.literalColumns.filter((l) => keep(l.columnId)) } : {}),
   };
 };
 

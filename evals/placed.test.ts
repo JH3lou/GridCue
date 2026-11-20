@@ -59,6 +59,8 @@ const NEW_SETS = new Set([
   "cases-dates-natural-heldout.jsonl",
   "cases-dates-heldout-r2.jsonl",
   "cases-dates-heldout-r3.jsonl",
+  // Labelled after the code-read filters: two of its adversarial requests hold a date form ("yesterday").
+  "cases-view-words-heldout-r3.jsonl",
   "cases-review-fixes-heldout.jsonl",
   "cases-review-fixes-heldout-r2.jsonl",
 ]);

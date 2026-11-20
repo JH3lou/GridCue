@@ -792,9 +792,13 @@ const provider = (...clauses: Array<Partial<ClauseResolution>>) => ({
 const planFor = async (
   text: string,
   fake: ReturnType<typeof provider>,
-  { filters = ["flagged"], state }: { filters?: readonly string[]; state?: { filters: FilterGroup } } = {},
+  {
+    filters = ["flagged"],
+    state,
+    renders,
+  }: { filters?: readonly string[]; state?: { filters: FilterGroup }; renders?: Array<"pinning" | "density"> } = {},
 ) => {
-  const adapter = createRowsAdapter({ schema: wealth });
+  const adapter = createRowsAdapter({ schema: wealth, ...(renders ? { renders } : {}) });
   if (state) adapter.setState((view) => ({ ...view, ...state }));
   const normalized = normalize(text);
   const mentions = matchMentions(normalized.clauses, wealth.columns.filter(isExposed), { rowNoun: wealth.rowNoun });
@@ -913,7 +917,12 @@ describe("the compiler, beside a code-read filter", () => {
     const plan = await planFor("pin advisor for flagged trust accounts", fake);
     expect(plan.status).toBe("needs_clarification");
     expect(plan.operations).toEqual([]);
-    expect(plan.clarifications.map((q) => q.prompt)).toContain(notSure("“pin”"));
+    // This grid doesn't list `columns.pin`, so the pin's words end the request in the shared question (operation set
+    // spec, 5.3); on one that lists it, they are asked about as any unplaced word is.
+    expect(plan.clarifications.map((q) => q.prompt)).toEqual(["This grid can't pin columns."]);
+    const drawn = await planFor("pin advisor for flagged trust accounts", fake, { renders: ["pinning"] });
+    expect(drawn.status).toBe("needs_clarification");
+    expect(drawn.clarifications.map((q) => q.prompt)).toContain(notSure("“pin”"));
   });
 
   it("reads “add” with a column as its object when the plan shows that column", async () => {

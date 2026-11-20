@@ -1,7 +1,18 @@
 import { type ConfidencePolicy, DEFAULT_CONFIDENCE } from "./compile";
 import { calendarZone, isDay } from "./dates";
 import { formatAmount } from "./format";
-import type { ColumnDescriptor, FilterGroup, FilterPredicate, Scalar, ViewOperation, ViewPlan, ViewSchema, ViewState } from "./protocol";
+import {
+  type ColumnDescriptor,
+  emptyViewState,
+  type FilterGroup,
+  type FilterPredicate,
+  type Scalar,
+  type ViewOperation,
+  type ViewPlan,
+  type ViewSchema,
+  type ViewState,
+} from "./protocol";
+import { applyOperations } from "./reduce";
 
 const OPERATOR_TEXT: Record<FilterPredicate["operator"], string> = {
   eq: "to",
@@ -77,7 +88,7 @@ const onWholeDays = (p: FilterPredicate, c: ColumnDescriptor | undefined): boole
   return days.length > 0 && days.every((d) => typeof d === "string" && isDay(d));
 };
 
-const describe = (op: ViewOperation, schema: ViewSchema, current?: Pick<ViewState, "filters">): string => {
+const describe = (op: ViewOperation, schema: ViewSchema, current?: Pick<ViewState, "filters">, pinned?: readonly string[]): string => {
   const col = (id: string) => schema.columns.find((c) => c.id === id);
   const label = (id: string) => col(id)?.label ?? id;
   switch (op.type) {
@@ -124,10 +135,12 @@ const describe = (op: ViewOperation, schema: ViewSchema, current?: Pick<ViewStat
       return `Hide ${list(op.columnIds.map(label))}`;
     case "columns.order":
       return `Put ${list(op.columnIds.map(label))} first`;
-    case "columns.pin":
-      return op.position === "none"
-        ? `Unpin ${list(op.columnIds.map(label))}`
-        : `Pin ${list(op.columnIds.map(label))} to the ${op.position}`;
+    case "columns.pin": {
+      if (op.position !== "none") return `Pin ${list(op.columnIds.map(label))} to the ${op.position}`;
+      // An unpin that names every pinned column, or names none ("unpin everything" with nothing pinned), unpins them all.
+      const every = pinned !== undefined && op.columnIds.length === pinned.length && pinned.every((id) => op.columnIds.includes(id));
+      return every || op.columnIds.length === 0 ? "Unpin all columns" : `Unpin ${list(op.columnIds.map(label))}`;
+    }
     case "aggregation.set":
       return `Summarize ${list(op.aggregations.map((a) => `${label(a.columnId)} (${a.function})`))}`;
     case "density.set":
@@ -181,8 +194,11 @@ const DATE_WORDS_KEY = ".dateWords.";
 export const renderPreview = (
   plan: Pick<ViewPlan, "operations"> & Partial<Pick<ViewPlan, "evidence">>,
   schema: ViewSchema,
-  /** The view the plan applies to. With it, a line that clears filters names the ones it removes. */
-  current?: Pick<ViewState, "filters">,
+  /**
+   * The view the plan applies to. With it, a line that clears filters names the ones it removes, and an unpin that
+   * names every pinned column says "Unpin all columns".
+   */
+  current?: Pick<ViewState, "filters"> & Partial<Pick<ViewState, "pinnedColumnIds">>,
 ): Preview => {
   // A filter a House Term made names the term, as the Host declared it (spec 4.5): "Filter Market value above
   // $1,000,000 (Large)". The plan's `host` evidence keeps the label, by the filter's ID.
@@ -202,8 +218,16 @@ export const renderPreview = (
         : [];
     }),
   );
+  // The columns pinned when each operation applies, followed through the plan's own pins. After a reset they are the
+  // default view's, which the Preview isn't given.
+  let pins = current?.pinnedColumnIds;
   const lines = plan.operations.map((op) => {
-    const line = describe(op, schema, current);
+    const line = describe(op, schema, current, pins && [...pins.start, ...pins.end]);
+    if (op.type === "view.reset") pins = undefined;
+    else if (op.type === "columns.pin" && pins) {
+      const before = { ...emptyViewState([]), pinnedColumnIds: pins };
+      pins = applyOperations(before, [op], before).pinnedColumnIds;
+    }
     const term = op.type === "filter.add" ? terms.get(op.predicate.id) : undefined;
     if (term) return `${line} (${term})`;
     const words = op.type === "filter.add" ? dateWords.get(op.predicate.id) : undefined;
@@ -239,6 +263,10 @@ export interface ViewDiff {
   orderChanged: boolean;
   /** The count ("top 10") was set, changed or cleared. */
   countChanged: boolean;
+  /** A column was pinned, unpinned, or moved from one side to the other or within a side. */
+  pinsChanged: boolean;
+  /** The density changed. */
+  densityChanged: boolean;
 }
 
 export const diffViews = (before: ViewState, after: ViewState): ViewDiff => ({
@@ -249,6 +277,8 @@ export const diffViews = (before: ViewState, after: ViewState): ViewDiff => ({
   hidden: before.visibleColumnIds.filter((id) => !after.visibleColumnIds.includes(id)),
   orderChanged: JSON.stringify(before.columnOrder) !== JSON.stringify(after.columnOrder),
   countChanged: before.limit !== after.limit,
+  pinsChanged: JSON.stringify(before.pinnedColumnIds) !== JSON.stringify(after.pinnedColumnIds),
+  densityChanged: before.density !== after.density,
 });
 
 export interface AuditPolicy {

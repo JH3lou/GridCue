@@ -26,20 +26,20 @@ const step = (s: ViewState, op: ViewOperation, defaultState: ViewState): ViewSta
       const columnOrder = [...op.columnIds, ...s.columnOrder.filter((id) => !op.columnIds.includes(id))];
       return { ...s, columnOrder, visibleColumnIds: inOrder(s.visibleColumnIds, columnOrder) };
     }
-    case "columns.pin":
+    case "columns.pin": {
+      // A column is pinned once (operation set spec, 4.4): it leaves both lists before it joins one, so pinning it again
+      // keeps one entry, and pinning it to the other side moves it.
+      const ids = [...new Set(op.columnIds)];
+      const start = s.pinnedColumnIds.start.filter((id) => !ids.includes(id));
+      const end = s.pinnedColumnIds.end.filter((id) => !ids.includes(id));
       return {
         ...s,
         pinnedColumnIds: {
-          start:
-            op.position === "start"
-              ? [...s.pinnedColumnIds.start, ...op.columnIds]
-              : s.pinnedColumnIds.start.filter((id) => !op.columnIds.includes(id)),
-          end:
-            op.position === "end"
-              ? [...s.pinnedColumnIds.end, ...op.columnIds]
-              : s.pinnedColumnIds.end.filter((id) => !op.columnIds.includes(id)),
+          start: op.position === "start" ? [...start, ...ids] : start,
+          end: op.position === "end" ? [...end, ...ids] : end,
         },
       };
+    }
     case "aggregation.set":
       return { ...s, aggregations: op.aggregations };
     case "density.set":

@@ -83,7 +83,23 @@ What each piece does:
 
 - **`gridcueFilterFn`** evaluates GridCue's filter predicates inside TanStack's filtering. Set it as the default. A column with its own `filterFn` can wrap it with `withGridCueFilter(yourFilterFn)`, so both filters keep working on that column.
 - **`schemaFromTanStack(table, options)`** reads the table's leaf columns (IDs and string headers) and the first 50 rows, to infer kinds. It takes the same options as `defineSchema`, except `sampleRows`. Currency and percent can't be inferred, so declare them. If your rows load later, declare every kind, because the sample is read once, when the schema is built. See [Describe your domain](/docs/get-started/describe-your-domain) for aliases, enum values, `rowNoun`, `entity`, and `valueGroups`.
-- **`createTanStackAdapter({ schema, table })`** also takes `maxSorts` (default 3) and `maxGroups` (default 2). The view at the moment you create the adapter is what "reset the view" returns to.
+- **`createTanStackAdapter({ schema, table })`** also takes `maxSorts` (default 3), `maxGroups` (default 2) and `renders` (default none: [see below](#pinning-and-density)). The view at the moment you create the adapter is what "reset the view" returns to.
+
+### Pinning and density
+
+GridCue can pin columns and set the density, when your table draws them. The adapter lists those two operations only when you say so with `renders`, and the default is none: "pin account number" then asks "This grid can't pin columns." and changes nothing.
+
+Name only what your table draws. For pins, register `columnPinningFeature`, and keep the pinned columns in place in your markup (with `columnSizingFeature` registered too, TanStack's `column.getStart("start")` gives each one's offset). For density, set your row height from the View State's `density`, which the adapter holds, since TanStack has none.
+
+```tsx
+import { columnPinningFeature } from "@tanstack/react-table";
+
+const features = tableFeatures({ /* …the features above, */ columnPinningFeature });
+
+createTanStackAdapter({ schema, table, renders: ["pinning", "density"] });
+```
+
+`renders: ["pinning"]` throws `INPUT_CONFIG` when the table has no `setColumnPinning`, so a missing `columnPinningFeature` shows up when the adapter is created. GridCue can't see whether your markup draws a pin: a Host that names one it doesn't draw gets a Preview and "View updated." with nothing to see. See [Adapters](/docs/api/adapters#renders).
 
 Start with the Mock Provider if you have no server yet: `provider: createMockProvider()` from `gridcue/mock`. It runs in the browser and understands your column names and declared aliases.
 

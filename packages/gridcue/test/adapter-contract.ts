@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { GridAdapter } from "../src/core/adapter";
-import type { FilterPredicate, ViewOperation, ViewPlan } from "../src/core/protocol";
+import { type GridAdapter, MVP_OPERATIONS } from "../src/core/adapter";
+import type { FilterPredicate, VersionedViewState, ViewOperation, ViewPlan, ViewState } from "../src/core/protocol";
 import { validatePlan } from "../src/core/validate";
 
 export interface ContractHarness {
@@ -37,6 +37,78 @@ const planFor = (adapter: GridAdapter, operations: ViewOperation[]): ViewPlan =>
   unsupportedSegments: [],
 });
 
+/**
+ * What a Host's table draws beyond the rows, as an adapter's `renders` option names it, and the operation each name
+ * lets the adapter list (operation set spec, 4.2). An adapter lists each one only when its `renders` names it.
+ * "totals" is the operation set's PR 3 and "count" its PR 4: no adapter takes either yet.
+ */
+export const LISTED_BY_RENDERS = {
+  pinning: "columns.pin",
+  density: "density.set",
+  totals: "aggregation.set",
+} as const;
+export type RenderName = keyof typeof LISTED_BY_RENDERS;
+
+/** How the adapter under test was built, so the suite knows what it must list. */
+export interface ContractOptions {
+  /** The adapter's `renders` option. Absent: none. */
+  renders?: readonly RenderName[];
+  /** True when the adapter keeps a count with no option, as the Rows Adapter does (ADR 0018), and so lists `limit.set`. */
+  keepsCount?: boolean;
+}
+
+type Step = { operations: ViewOperation[]; holds(state: ViewState): void };
+
+/**
+ * The checks for each operation an adapter may list beyond the MVP ones. Each is a few plans applied in turn, with
+ * what the View State must hold after each. For every operation an adapter lists, the suite applies them, reads each
+ * back, restores an exact snapshot that holds the first, undoes to the view before, and counts one notification per
+ * write. A new operation gets an entry here, and the suite fails for an adapter that lists one with no entry.
+ */
+const OPERATION_CHECKS: Record<string, (h: ContractHarness) => Step[]> = {
+  "columns.pin": ({ numericColumn: a, otherColumn: b }) => [
+    {
+      operations: [
+        { type: "columns.pin", columnIds: [a], position: "start" },
+        { type: "columns.pin", columnIds: [b], position: "end" },
+      ],
+      holds: (s) => expect(s.pinnedColumnIds).toEqual({ start: [a], end: [b] }),
+    },
+    {
+      // A column is pinned once: pinning it to the other side moves it there.
+      operations: [{ type: "columns.pin", columnIds: [a], position: "end" }],
+      holds: (s) => expect(s.pinnedColumnIds).toEqual({ start: [], end: [b, a] }),
+    },
+    {
+      // A hidden column keeps its pin (operation set spec, 4.4).
+      operations: [{ type: "columns.hide", columnIds: [b] }],
+      holds: (s) => {
+        expect(s.pinnedColumnIds).toEqual({ start: [], end: [b, a] });
+        expect(s.visibleColumnIds).not.toContain(b);
+      },
+    },
+    {
+      operations: [{ type: "columns.pin", columnIds: [a, b], position: "none" }],
+      holds: (s) => expect(s.pinnedColumnIds).toEqual({ start: [], end: [] }),
+    },
+  ],
+  "density.set": () => [
+    { operations: [{ type: "density.set", density: "compact" }], holds: (s) => expect(s.density).toBe("compact") },
+    { operations: [{ type: "density.set", density: "spacious" }], holds: (s) => expect(s.density).toBe("spacious") },
+  ],
+  "limit.set": ({ numericColumn: a }) => [
+    {
+      operations: [
+        { type: "sort.set", sorts: [{ columnId: a, direction: "desc" }] },
+        { type: "limit.set", count: 2 },
+      ],
+      holds: (s) => expect(s.limit).toBe(2),
+    },
+    { operations: [{ type: "limit.set", count: 5 }], holds: (s) => expect(s.limit).toBe(5) },
+    { operations: [{ type: "limit.set", count: null }], holds: (s) => expect(s.limit).toBeUndefined() },
+  ],
+};
+
 const validated = (adapter: GridAdapter, operations: ViewOperation[]) => {
   const result = validatePlan(planFor(adapter, operations), {
     schema: adapter.getSchema(),
@@ -48,9 +120,90 @@ const validated = (adapter: GridAdapter, operations: ViewOperation[]) => {
   return result;
 };
 
-/** Every Grid Adapter must pass this suite. */
-export const runAdapterContract = (name: string, make: () => ContractHarness) => {
+/**
+ * Every Grid Adapter must pass this suite. Run it once for each way the adapter can be built: with no `renders`, and
+ * with each `renders` it takes, saying so in `options`.
+ */
+export const runAdapterContract = (name: string, make: () => ContractHarness, options: ContractOptions = {}) => {
+  const renders = options.renders ?? [];
+  const listed = [...(options.keepsCount ? ["limit.set"] : []), ...renders.map((r) => LISTED_BY_RENDERS[r])];
   describe(`${name}: adapter contract`, () => {
+    it("lists columns.pin, density.set and aggregation.set each only when its renders names it", () => {
+      const operations = make().adapter.getCapabilities().operations;
+      for (const [rendered, op] of Object.entries(LISTED_BY_RENDERS)) {
+        expect(operations.includes(op), `${op}, with renders ${JSON.stringify(renders)}`).toBe(renders.includes(rendered as RenderName));
+      }
+      expect(operations.includes("limit.set")).toBe(!!options.keepsCount);
+    });
+
+    it("lists the MVP operations, and beyond them only what the suite checks", () => {
+      const operations = make().adapter.getCapabilities().operations;
+      expect(operations.filter((op) => MVP_OPERATIONS.includes(op))).toEqual([...MVP_OPERATIONS]);
+      const beyond = operations.filter((op) => !MVP_OPERATIONS.includes(op));
+      expect([...beyond].sort()).toEqual([...listed].sort());
+      for (const op of beyond) expect(Object.keys(OPERATION_CHECKS), `checks for ${op}`).toContain(op);
+    });
+
+    it("refuses a plan holding an operation it doesn't list, before it reaches the grid", () => {
+      const h = make();
+      const unlisted: ViewOperation[] = [
+        { type: "columns.pin", columnIds: [h.numericColumn], position: "start" },
+        { type: "density.set", density: "compact" },
+        { type: "aggregation.set", aggregations: [{ columnId: h.numericColumn, function: "sum" }] },
+        { type: "limit.set", count: 2 },
+      ].filter((op) => !h.adapter.getCapabilities().operations.includes(op.type)) as ViewOperation[];
+      for (const op of unlisted) {
+        const result = validatePlan(planFor(h.adapter, [op]), {
+          schema: h.adapter.getSchema(),
+          capabilities: h.adapter.getCapabilities(),
+          current: h.adapter.getState(),
+          defaultState: h.adapter.getDefaultState(),
+        });
+        expect(result.ok, op.type).toBe(false);
+      }
+    });
+
+    for (const op of listed) {
+      it(`${op}: applies, reads back, restores an exact snapshot, undoes, and notifies once per write`, async () => {
+        const h = make();
+        const steps = OPERATION_CHECKS[op]?.(h);
+        if (!steps) throw new Error(`No checks for ${op}`);
+        const before = h.adapter.getState();
+        let calls = 0;
+        h.adapter.subscribe(() => calls++);
+        const held: VersionedViewState[] = [];
+        for (const step of steps) {
+          const seen = calls;
+          const result = await h.adapter.apply(validated(h.adapter, step.operations).plan);
+          expect(result.ok).toBe(true);
+          if (!result.ok) return;
+          expect(calls - seen, "notifications for one apply").toBe(1);
+          const now = h.adapter.getState();
+          expect(now.revision).toBe(result.state.revision);
+          expect(now.state).toEqual(result.state.state);
+          step.holds(now.state);
+          held.push(now);
+        }
+        const [first] = held;
+        if (!first || !steps[0]) throw new Error("no steps");
+
+        // Restore: a snapshot that holds the operation's first result is written back exactly.
+        let seen = calls;
+        const restored = await h.adapter.restore(first);
+        expect(restored.ok).toBe(true);
+        expect(calls - seen, "notifications for one restore").toBe(1);
+        expect(h.adapter.getState().state).toEqual(first.state);
+        steps[0].holds(h.adapter.getState().state);
+
+        // Undo: back to the view before the first apply.
+        seen = calls;
+        const undone = await h.adapter.restore(before);
+        expect(undone.ok).toBe(true);
+        expect(calls - seen, "notifications for one undo").toBe(1);
+        expect(h.adapter.getState().state).toEqual(before.state);
+      });
+    }
+
     it("applies a multi-operation plan and bumps the revision", async () => {
       const h = make();
       const before = h.adapter.getState();
@@ -160,13 +313,6 @@ export const runAdapterContract = (name: string, make: () => ContractHarness) =>
       await h.adapter.apply(plan);
       await h.adapter.restore(snapshot);
       expect(h.adapter.getState().state).toEqual(snapshot.state);
-    });
-
-    it("does not advertise unsupported operations", () => {
-      const h = make();
-      for (const op of ["columns.pin", "aggregation.set", "density.set"]) {
-        expect(h.adapter.getCapabilities().operations).not.toContain(op);
-      }
     });
 
     it("hands out capabilities the caller cannot use to corrupt the adapter", () => {
