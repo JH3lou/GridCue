@@ -57,6 +57,9 @@ const ALSO: Record<string, readonly string[]> = {
   W8: ["contains keeps é and e apart"],
 };
 
+/** Each of these runs every case, twice, on two or three schemas: seconds, and more when the whole suite runs at once. */
+const SLOW = 120_000;
+
 describe("what a right Data Query may choose for itself, and what it may not", () => {
   let dir = "";
   let paths = new Map<string, string>();
@@ -75,33 +78,41 @@ describe("what a right Data Query may choose for itself, and what it may not", (
   });
 
   for (const choice of RIGHT_CHOICES) {
-    it(`${choice.id}: ${choice.rule} (a right Data Query: every case passes, on every schema)`, async () => {
-      const query = await load(choice.id);
-      for (const [name, { schema, id }] of Object.entries(SCHEMAS)) {
-        const { cases, failures } = runQueryCheck(schema, id, query);
-        expect(cases, name).toBeGreaterThan(40);
-        expect(failures, name).toEqual([]);
-      }
-    });
+    it(
+      `${choice.id}: ${choice.rule} (a right Data Query: every case passes, on every schema)`,
+      async () => {
+        const query = await load(choice.id);
+        for (const [name, { schema, id }] of Object.entries(SCHEMAS)) {
+          const { cases, failures } = runQueryCheck(schema, id, query);
+          expect(cases, name).toBeGreaterThan(40);
+          expect(failures, name).toEqual([]);
+        }
+      },
+      SLOW,
+    );
   }
 
   for (const choice of WRONG_CHOICES) {
     const [rule, message] = CAUGHT[choice.id] as readonly [string, RegExp];
-    it(`${choice.id}: ${choice.rule} (a wrong Data Query: it fails “${rule}”, on both schemas)`, async () => {
-      const query = await load(choice.id);
-      for (const name of ["ledger", "wealth"] as const) {
-        const { schema, id } = SCHEMAS[name];
-        const { failures } = runQueryCheck(schema, id, query);
-        const named = (start: string): Failure[] => failures.filter((f) => f.name.startsWith(start));
-        expect(named(rule), name).not.toEqual([]);
-        expect(
-          named(rule).filter((f) => message.test(f.message)),
-          `${name}: ${named(rule)
-            .map((f) => f.message)
-            .join("\n")}`,
-        ).not.toEqual([]);
-        for (const also of ALSO[choice.id] ?? []) expect(named(also), `${name}: ${also}`).not.toEqual([]);
-      }
-    });
+    it(
+      `${choice.id}: ${choice.rule} (a wrong Data Query: it fails “${rule}”, on both schemas)`,
+      async () => {
+        const query = await load(choice.id);
+        for (const name of ["ledger", "wealth"] as const) {
+          const { schema, id } = SCHEMAS[name];
+          const { failures } = runQueryCheck(schema, id, query);
+          const named = (start: string): Failure[] => failures.filter((f) => f.name.startsWith(start));
+          expect(named(rule), name).not.toEqual([]);
+          expect(
+            named(rule).filter((f) => message.test(f.message)),
+            `${name}: ${named(rule)
+              .map((f) => f.message)
+              .join("\n")}`,
+          ).not.toEqual([]);
+          for (const also of ALSO[choice.id] ?? []) expect(named(also), `${name}: ${also}`).not.toEqual([]);
+        }
+      },
+      SLOW,
+    );
   }
 });

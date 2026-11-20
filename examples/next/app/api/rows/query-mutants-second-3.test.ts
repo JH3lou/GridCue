@@ -16,8 +16,9 @@ import { RIGHT, W224, WRONG } from "./query-mutants-second-3";
 /**
  * The second held-out check of the Query Check, round 3. Each Data Query is the example's (query.ts) with one choice
  * made another way (query-mutants-second-3.ts). The Query Check must fail each wrong one on a case whose name is about
- * the rule it breaks, and pass each right one on both schemas, with `limit.set` listed and without. What it still
- * misses is marked `it.fails`, with a probe that proves the Data Query wrong against applyView.
+ * the rule it breaks, and pass each right one on both schemas, with `limit.set` listed and without. Two of the list are
+ * held to what the rulings say today, each with a probe that shows what it does: W220, which a later ruling makes a
+ * right Data Query, and W224, which waits on the owner.
  */
 
 type SchemaName = "ledger" | "wealth";
@@ -76,14 +77,14 @@ const CAUGHT_WITHOUT_COUNTS: ReadonlySet<string> = new Set(["W206", "W207", "W20
 const CAUGHT_BY_PAGES = "W225";
 
 /**
- * Wrong Data Queries no case catches: each returns the example's ids on every case, on both schemas. W220 orders text
- * as a collation that skips spaces at first does (PostgreSQL's default libc collation in en_US.UTF-8, or ICU's
- * "shifted"). Telling it apart needs two texts that are the same letters but for a space, and a right Data Query on
- * such a database would fail the same case: ruling R4 checks text made of the letters A to Z, so where a space sorts
- * waits on the lead.
+ * Listed as wrong, and right by a later ruling. W220 orders text with its spaces taken out, as a collation that skips
+ * spaces at first does (PostgreSQL's default libc collation in en_US.UTF-8, or ICU's "shifted"). The more grids spec,
+ * 5.5, "Text order beyond the letters A to Z", makes it a right Data Query: where a space sorts against a letter is the
+ * Host's collation's own. So the Query Check must pass it, and no two texts whose order it checks differ first at a
+ * space.
  */
-const MISSED: Record<string, string> = {
-  W220: "no two texts of letters A to Z in the check's rows are put in another order by taking out their spaces",
+const RIGHT_BY_RULING: Record<string, string> = {
+  W220: "where a space sorts against a letter is the Host's collation's own",
 };
 
 const visible = ledgerSchema.columns.map((c) => c.id);
@@ -120,7 +121,10 @@ const categoryThenAmountDown = [
   { columnId: "amount", direction: "desc" as const },
 ];
 
-/** For each Data Query the check misses, rows and a View State on which it keeps rows, or an order, that applyView doesn't. */
+/**
+ * For each Data Query the check once missed, and for W220, rows and a View State on which it keeps rows, or an order,
+ * that applyView doesn't.
+ */
 const PROBES: Record<string, Probe> = {
   // Of the three rows that tie on three sorts, the count keeps the two the fourth (owner) puts first: Amy and Cy.
   W203: {
@@ -214,7 +218,8 @@ const PROBES: Record<string, Probe> = {
       limit: 2,
     },
   },
-  // A space sorts before a letter: "Al Fen", "Alder", "Alf".
+  // In applyView a space sorts before a letter: "Al Fen", "Alder", "Alf". With its spaces taken out, "Alder" comes
+  // first. Both orders are right (spec 5.5, "Text order beyond the letters A to Z").
   W220: {
     rows: () => ledgerRows([{ owner: "Al Fen" }, { owner: "Alder" }, { owner: "Alf" }]),
     state: { ...base, sorts: [{ columnId: "owner", direction: "asc" }] },
@@ -258,9 +263,9 @@ describe("the Query Check against the second held-out set, round 3", () => {
   });
   const load = async (id: string) => (await import(/* @vite-ignore */ paths.get(id) as string)) as DataQueryModule;
 
-  it("every wrong Data Query is listed once: caught, or missed with a probe", () => {
-    expect([...Object.keys(CAUGHT), CAUGHT_BY_PAGES, ...Object.keys(MISSED)].sort()).toEqual(WRONG.map((m) => m.id).sort());
-    for (const id of Object.keys(MISSED)) expect(PROBES, id).toHaveProperty(id);
+  it("every Data Query listed as wrong is listed once: caught, or right by a later ruling, with a probe", () => {
+    expect([...Object.keys(CAUGHT), CAUGHT_BY_PAGES, ...Object.keys(RIGHT_BY_RULING)].sort()).toEqual(WRONG.map((m) => m.id).sort());
+    for (const id of Object.keys(RIGHT_BY_RULING)) expect(PROBES, id).toHaveProperty(id);
   });
 
   it(
@@ -312,14 +317,19 @@ describe("the Query Check against the second held-out set, round 3", () => {
     SLOW,
   );
 
-  // Missed: no case holds a View State that tells these from the example's query.
-  for (const mutant of WRONG.filter((m) => m.id in MISSED)) {
-    it.fails(
-      `${mutant.id}: ${mutant.rule} (missed: ${MISSED[mutant.id]})`,
+  // W220 sorts text with its spaces taken out. Spec 5.5's "Text order beyond the letters A to Z" makes that right: where
+  // a space sorts against a letter is the Host's collation's own. So every case passes it, on both schemas.
+  for (const mutant of WRONG.filter((m) => m.id in RIGHT_BY_RULING)) {
+    it(
+      `${mutant.id}: text sorted with its spaces taken out passes every case, on both schemas, with limit.set listed and without (${RIGHT_BY_RULING[mutant.id]})`,
       async () => {
         const query = await load(mutant.id);
         for (const { schema, id } of Object.values(SCHEMAS)) {
-          expect(runCheck(schema, id, query, true).failures).not.toEqual([]);
+          for (const counts of [true, false]) {
+            const { cases, failures } = runCheck(schema, id, query, counts);
+            expect(cases).toBeGreaterThan(40);
+            expect(failures).toEqual([]);
+          }
         }
       },
       SLOW,
@@ -328,7 +338,12 @@ describe("the Query Check against the second held-out set, round 3", () => {
 
   for (const mutant of WRONG.filter((m) => m.id in PROBES)) {
     const probe = PROBES[mutant.id] as Probe;
-    it(`${mutant.id}: ${mutant.rule} (the Data Query is wrong: it keeps rows or an order applyView doesn't)`, async () => {
+    // A Data Query that a later ruling makes right is named for what it does, not for the list's withdrawn rule.
+    const name =
+      mutant.id in RIGHT_BY_RULING
+        ? `${mutant.id}: text sorted with its spaces taken out gives an order applyView doesn't, and ${RIGHT_BY_RULING[mutant.id]}`
+        : `${mutant.id}: ${mutant.rule} (the Data Query is wrong: it keeps rows or an order applyView doesn't)`;
+    it(name, async () => {
       const rows = probe.rows();
       const ordered = probe.ordered ?? false;
       const want = wanted(probe);
@@ -337,13 +352,20 @@ describe("the Query Check against the second held-out set, round 3", () => {
     });
   }
 
-  // W224 reads one row more on each page, never past the count. It loses no row, and compare treats a repeated id as
-  // one: whether that fails is ruling R5, still the owner's. So no case catches it.
-  it.fails(
-    "W224: a paged result is the whole result cut in pieces (no page ends a row late: waits on ruling R5)",
+  // W224 reads one row more on each page, never past the count. It loses no row, and `compare` counts a repeated id
+  // once. Whether `compare` fails on a repeated id is the owner's open decision (ruling R5), so this test holds what
+  // the check does today: it passes, and since no page reads past the count, with limit.set listed too.
+  it(
+    "W224: the check passes a Data Query that reads a row on two pages and loses none, when limit.set is not listed, and when it is",
     async () => {
       const query = await load(W224.id);
-      for (const { schema, id } of Object.values(SCHEMAS)) expect(runCheck(schema, id, query, true).failures).not.toEqual([]);
+      for (const { schema, id } of Object.values(SCHEMAS)) {
+        for (const counts of [false, true]) {
+          const { cases, failures } = runCheck(schema, id, query, counts);
+          expect(cases).toBeGreaterThan(40);
+          expect(failures).toEqual([]);
+        }
+      }
     },
     SLOW,
   );

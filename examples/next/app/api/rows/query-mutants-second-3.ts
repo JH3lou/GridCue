@@ -9,7 +9,8 @@
  * (more grids spec 5.5, `compare`) leave to the Host. `RIGHT` are right Data Queries: each makes a choice the rulings
  * leave to the Host, and the Query Check must pass every one. The ids are this held-out list's (W201 to W225, V201 to
  * V208). W224 reads a row twice across pages and loses none: whether that fails is ruling R5, still the owner's, so it
- * is apart from `WRONG`.
+ * is apart from `WRONG`. W220 stays in `WRONG` as the list wrote it, but a later ruling makes it a right Data Query
+ * (spec 5.5, "Text order beyond the letters A to Z"): the test holds the Query Check to passing it.
  */
 import type { Mutant } from "./query-mutants";
 
@@ -238,6 +239,7 @@ export const WRONG: readonly Mutant[] = [
       ],
     ],
   },
+  // Listed as wrong, and right by a later ruling: where a space sorts against a letter is the Host's collation's own.
   {
     id: "W220",
     rule: "text sorts by its letters, a space included (not with spaces taken out)",

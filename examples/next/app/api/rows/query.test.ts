@@ -37,7 +37,8 @@ const runQueryCheck = (schema: ViewSchema, id: string) => {
   return { cases: check.cases, failures };
 };
 
-describe("the example's Data Query passes the Query Check", () => {
+// Each test reads every case twice: seconds, and more when the whole suite runs at once.
+describe("the example's Data Query passes the Query Check", { timeout: 120_000 }, () => {
   it("on the wealth schema, every case keeps the rows applyView keeps", () => {
     const { cases, failures } = runQueryCheck(wealthSchema, "account_number");
     expect(cases.length).toBeGreaterThan(40);

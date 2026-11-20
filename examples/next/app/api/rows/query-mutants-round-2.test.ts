@@ -106,7 +106,8 @@ const idsFrom = (query: DataQueryModule, rows: Array<Record<string, unknown>>, s
   }
 };
 
-describe("the Query Check catches a Data Query that translates a rule wrong (held-out round 2)", () => {
+// Each test reads every case twice: seconds, and more when the whole suite runs at once.
+describe("the Query Check catches a Data Query that translates a rule wrong (held-out round 2)", { timeout: 120_000 }, () => {
   let dir = "";
   let paths = new Map<string, string>();
   beforeAll(() => {

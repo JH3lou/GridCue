@@ -16,8 +16,9 @@ import { RIGHT, WRONG } from "./query-mutants-second-2";
 /**
  * The second held-out check of the Query Check, round 2. Each Data Query is the example's (query.ts) with one choice
  * made another way (query-mutants-second-2.ts). The Query Check must fail each wrong one on a case whose name is about
- * the rule it breaks, and pass each right one on both schemas, with `limit.set` listed and without. What it still
- * misses is marked `it.fails`, with a probe that proves the Data Query wrong against applyView.
+ * the rule it breaks, and pass each right one on both schemas, with `limit.set` listed and without. Each one the check
+ * once missed has a probe that proves the Data Query wrong against applyView. W120 is caught only with `limit.set`
+ * listed: without it, it waits on the owner.
  */
 
 type SchemaName = "ledger" | "wealth";
@@ -74,9 +75,6 @@ const CAUGHT_WITHOUT_COUNTS: ReadonlySet<string> = new Set([
   "W122",
 ]);
 
-/** Wrong Data Queries no case catches: each returns the example's ids on every case, on both schemas. None now. */
-const MISSED: Record<string, string> = {};
-
 const visible = ledgerSchema.columns.map((c) => c.id);
 const base = emptyViewState(visible);
 /** Ledger rows from the Query Check's own rows, with their ids and the cells given. */
@@ -106,7 +104,7 @@ const D9 = () =>
   ]);
 const unitsOrAmount = group("root", "or", [predicate("f1", "units", "gte", 2), predicate("f2", "amount", "gt", 90)]);
 
-/** For each Data Query the check misses, rows and a View State on which it keeps rows, or an order, that applyView doesn't. */
+/** For each Data Query the check once missed, rows and a View State on which it keeps rows, or an order, that applyView doesn't. */
 const PROBES: Record<string, Probe> = {
   // Of the three rows that tie on category and units, the count keeps the two with the most amount.
   W101: {
@@ -227,9 +225,8 @@ describe("the Query Check against the second held-out set, round 2", () => {
   });
   const load = async (id: string) => (await import(/* @vite-ignore */ paths.get(id) as string)) as DataQueryModule;
 
-  it("every wrong Data Query is listed once: caught, or missed with a probe", () => {
-    expect([...Object.keys(CAUGHT), ...Object.keys(MISSED)].sort()).toEqual(WRONG.map((m) => m.id).sort());
-    for (const id of Object.keys(MISSED)) expect(PROBES, id).toHaveProperty(id);
+  it("every wrong Data Query is listed once, and caught", () => {
+    expect(Object.keys(CAUGHT).sort()).toEqual(WRONG.map((m) => m.id).sort());
   });
 
   it(
@@ -277,29 +274,37 @@ describe("the Query Check against the second held-out set, round 2", () => {
     );
   }
 
-  // W120 reads a row twice on each page after the first. With no count it loses no row, and compare treats a repeated
-  // id as one (ruling R5, still the owner's), so with limit.set left out no case catches it.
-  it.fails(
-    "W120: a paged result is the whole result cut in pieces (caught with limit.set left out: not yet)",
+  // W120 reads a row twice on each page after the first. With no count it loses no row, and `compare` counts a repeated
+  // id once. Whether `compare` fails on a repeated id is the owner's open decision (ruling R5), so this test holds what
+  // the check does today: with limit.set not listed it passes. With it listed, a count's last page comes up a row
+  // short, and the count cases catch it (CAUGHT, above).
+  it(
+    "W120: the check passes a Data Query that reads a row on two pages and loses none, when limit.set is not listed",
     async () => {
-      expect(runCheck(ledgerSchema, "entry_number", await load("W120"), false).failures).not.toEqual([]);
+      const query = await load("W120");
+      for (const { schema, id } of Object.values(SCHEMAS)) {
+        const { cases, failures } = runCheck(schema, id, query, false);
+        expect(cases).toBeGreaterThan(40);
+        expect(failures).toEqual([]);
+      }
     },
     SLOW,
   );
 
-  // Missed: no case holds a View State that tells these from the example's query.
-  for (const mutant of WRONG.filter((m) => m.id in MISSED)) {
-    it.fails(
-      `${mutant.id}: ${mutant.rule} (missed: ${MISSED[mutant.id]})`,
-      async () => {
-        const query = await load(mutant.id);
-        for (const { schema, id } of Object.values(SCHEMAS)) {
-          expect(runCheck(schema, id, query, true).failures).not.toEqual([]);
-        }
-      },
-      SLOW,
-    );
-  }
+  it("W120: reads a row twice where two pages meet, and loses none", async () => {
+    const query = await load("W120");
+    const rows = ledgerRows([1, 2, 3, 4, 5, 6, 7, 8].map((n) => ({ amount: 90 - n })));
+    const state: ViewState = { ...base, sorts: [{ columnId: "amount", direction: "desc" }] };
+    const db = query.openRowsDatabase(ledgerSchema, rows);
+    try {
+      const paged = [0, 3, 6].flatMap((offset) =>
+        query.readRows(db, ledgerSchema, state, { offset, size: 3 }).rows.map((row) => row.entry_number),
+      );
+      expect(paged).toEqual(["1", "2", "3", "3", "4", "5", "6", "7", "8"]);
+    } finally {
+      db.close();
+    }
+  });
 
   for (const mutant of WRONG.filter((m) => m.id in PROBES)) {
     const probe = PROBES[mutant.id] as Probe;
