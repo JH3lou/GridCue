@@ -60,10 +60,18 @@ export interface QueryCheckCase {
   /** The View State to run through the Data Query. */
   state: ViewState;
   /**
-   * Checks the ids the Data Query returned for `state`, in the order it returned them. The ids are checked as a set,
-   * and "4" and 4 are the same id. When the case sorts, the order is checked too. Three things are the Host's own,
-   * because a database has no load order and GridCue doesn't state where an empty cell sorts:
+   * Checks the ids the Data Query returned for `state`, in the order it returned them. The ids are checked as a set:
+   * "4" and 4 are the same id, and a repeated id counts once. When the case sorts, the order is checked too. Four
+   * things are the Host's own, because a database has no load order, GridCue doesn't state where an empty cell sorts,
+   * and collations differ:
    *
+   * - Text order beyond the letters A to Z. Text is checked to sort by its letters, ignoring case, only between texts
+   *   made of the letters A to Z, with single spaces between words, that their letters tell apart. Where a space, a
+   *   digit, a mark or an accented letter sorts against a letter is the Host's collation's own, so a Data Query that
+   *   sorts text with its spaces skipped passes. Two texts that differ only in letter case have no checked order
+   *   either. The same holds for an enum column's values, which are ordered by their IDs, as text. Two cells that are
+   *   the very same text tie under every collation, whatever characters they hold, so the next sorted column decides
+   *   between their rows: two rows that hold "Ålder Fen", or the enum ID "roth_ira", are ordered by the sort after it.
    * - Rows that tie on every sorted column may come in any order.
    * - A row with an empty sort cell is checked by its leading sorted columns that hold a value, up to its first empty
    *   one. Where it sits among the rows that share those values is the Host's. A row with no value in the first
@@ -72,11 +80,10 @@ export interface QueryCheckCase {
    *   must keep every row ahead of them, none behind them, every row the sorts put ahead of a row it keeps, and its
    *   number of rows in all. Only there are the ids not one fixed set.
    *
-   * On a text column only text made of the letters A to Z and single spaces is ordered, and never two texts that differ
-   * only in letter case: how a database orders other text is its own collation's. The same holds for an enum column's
-   * values, which are ordered by their IDs, as text. On a date-and-time column, a clock time with no offset beside
-   * instants has no checked place either. In the order, a row with such a cell is checked as a row with an empty cell
-   * there is: by the sorted columns before it.
+   * On a date-and-time column, a clock time with no offset beside instants has no checked place either. In the order, a
+   * row with a cell that has no checked place is checked as a row with an empty cell there is: by the sorted columns
+   * before it. Against a row that holds the very same text or enum ID there, it is checked by the sorted columns after
+   * it too.
    *
    * The message names the case, the missing ids and the extra ids, and is whole on its own: "not equal keeps empty
    * cells (Custodian is not Northgate): 2 rows missing, ids 4 and 7". A count that returns the wrong number of rows
@@ -89,12 +96,16 @@ export interface QueryCheckCase {
 export interface QueryCheck {
   /** Synthetic rows to load into a test database, keyed by column ID. Every value is made up from the schema. */
   rows: Array<Record<string, Scalar>>;
-  /** One View State for each edge of each column and operator, then each filter beside others, and the sorts. */
+  /**
+   * One View State for each edge of each column and operator, then each filter beside others, the sorts and the counts,
+   * and each rule about sorting and counting beside each kind of filter.
+   */
   cases: QueryCheckCase[];
 }
 
 type Row = Record<string, Scalar>;
 type Kind = ColumnDescriptor["kind"];
+type Way = SortSpec["direction"];
 
 /** Filters a sort or a count sits beside: the rows they keep, by position, in plain words, and the columns they hide. */
 interface Shape {
@@ -102,6 +113,23 @@ interface Shape {
   keeps: boolean[];
   words: string;
   hidden: string[];
+  /** The column it filters, when it is one filter. A rule takes a filter on a column it doesn't sort by first. */
+  columnId?: string;
+}
+
+/**
+ * A kind of filter a Data Query may build another way: one operator, one shape of group, a filter on a hidden column.
+ * Each rule about sorting and counting sits beside each (more grids spec, 5.5, "Pairs, and no more").
+ */
+interface Condition {
+  /** What a case's name calls it: "beside a filter", "beside an or group". */
+  phrase: string;
+  /** The filters of this kind. A rule takes the first that keeps the rows it needs. */
+  options: Shape[];
+  /** The columns the first sort may be on, where the condition is about its kind. Left out, any column a case sorts by first. */
+  leads?: ColumnDescriptor[];
+  /** Whether the filter must be on the column the case sorts by first. Left out, one on another column comes first. */
+  onLead?: boolean;
 }
 
 // --- The values that hit each edge (more grids spec, 4.1) -----------------------------------------------------
@@ -198,8 +226,10 @@ const isNumeric = (kind: Kind): kind is "number" | "currency" | "percent" => kin
 const isDated = (kind: Kind): boolean => kind === "date" || kind === "datetime";
 
 /**
- * The kinds every engine orders alike. Text and enum columns follow a collation, which differs by database, so none
- * leads a sort by two or more columns, and only text made of the letters A to Z has a checked place.
+ * The kinds every engine orders alike. Text and enum columns follow a collation, which differs by database, so only
+ * text made of the letters A to Z has a checked place. Where such a column is sorted first, a row whose cell there has
+ * no checked place may sit anywhere among the rows that hold other text there. The rows that hold the very same text
+ * there tie on it, so the next sorted column orders them.
  */
 const ORDERED: ReadonlySet<Kind> = new Set(["number", "currency", "percent", "date", "datetime", "boolean"]);
 
@@ -522,10 +552,23 @@ const byId = (a: string, b: string): number => {
 };
 
 /**
- * Text that every database orders alike once letter case is ignored: the letters A to Z, with one space between words.
- * Where other text goes (a space at the start, `%`, `_`, a letter outside A to Z) is the database's collation's.
+ * Text whose order may be checked once letter case is ignored: words of the letters A to Z, with one space between
+ * them. Where other text goes (a space at the start, `%`, `_`, a digit, a letter outside A to Z) is the database's
+ * collation's. So is where a space sorts against a letter: see `apartByLetters`.
  */
 const LETTERS = /^[A-Za-z]+(?: [A-Za-z]+)*$/;
+
+/**
+ * Whether two such texts are told apart by their letters alone: ignoring case, one starts the other, or the first
+ * character they differ at is a letter in both. Then every collation puts them in one order, whether it sorts a space
+ * before the letters, after them, or skips it. "Al Fen" and "Alder" differ first at a space, so their order is the
+ * Host's collation's own.
+ */
+const apartByLetters = (a: string, b: string): boolean => {
+  const [x, y] = [a.toLowerCase(), b.toLowerCase()];
+  const at = [...x].findIndex((letter, i) => letter !== y[i]);
+  return at < 0 || at >= y.length || (x[at] !== " " && y[at] !== " ");
+};
 
 // --- The Query Check ------------------------------------------------------------------------------------------
 
@@ -548,27 +591,47 @@ const LETTERS = /^[A-Za-z]+(?: [A-Za-z]+)*$/;
  *   for a row with no value in the second. A sort with no count, each number column sorted each way by its value, each
  *   text and enum column sorted each way, an enum and a text column each sorted second, each way; each column a case
  *   sorts by, sorted each way beside a filter and once with that column hidden; two sorts beside a filter, the second a
- *   number, date or yes/no column, an enum and text, each way; one sort and two beside each "or" group, each way; a
- *   sort on each column a case sorts by, with that column hidden, a second sort on a hidden column, and a sort with
- *   long runs of rows that tie, for a Host that reads each case in pages. With `limit.set` in `operations` there are
- *   count cases too: the first rows of the sorted, filtered rows; a count beside each "or" group; a row with no value
- *   in a later sorted column, for each column that holds empty cells; never a row with no value in the first; for each
+ *   number, date or yes/no column, an enum and text, each way; a sort on each column a case sorts by, with that column
+ *   hidden, a second sort on a hidden column, and a sort with long runs of rows that tie, for a Host that reads each
+ *   case in pages. With `limit.set` in `operations` there are count cases too: the first rows of the sorted, filtered
+ *   rows; a row with no value in a later sorted column, for each column that holds empty cells; never a row with no
+ *   value in the first; for each
  *   number, date and yes/no column, each way, a count that cuts inside a run of rows that tie, and one beside a filter;
  *   for each, a count with a second sort, each way, that cuts inside a run of rows that tie on the first, a count with
  *   three sorts, the third each way, that cuts inside a run of rows that tie on the first two, and a count with four,
  *   the fourth each way, that cuts inside a run of rows that tie on the first three; for each text and enum column, a
  *   count with it sorted second, each way, that cuts inside a run of rows that tie on the first, and a count sorted by
  *   it, each way; and for each number, date and yes/no column, a count sorted by it with it hidden, and a count whose
- *   second sort, and one whose third, is on a hidden column. The sort and count cases beside an "or" group sit beside
- *   each "or" group, and beside each shape of a filter on a hidden column with the sorted columns hidden too: one sort
- *   and two, each way, and with `limit.set` a count of the first rows, a count that cuts inside a run of rows that tie,
- *   and a count with two sorts, the second each way, that cuts inside a run of rows that tie on the first. Restricted
- *   columns and the id column are in none. A case never groups.
- * - A sort by two or more columns starts with a number, date or yes/no column. Only the order of text made of the
- *   letters A to Z is checked: a database orders other text by its own collation. An enum is ordered by its values'
- *   IDs, as text. Where a text or enum column decides which rows a count keeps, only its values with a checked place
- *   decide it. A count sorted by such a column, first or second, sits beside a filter that keeps only those values,
- *   where the column allows one.
+ *   second sort, and one whose third, is on a hidden column. Restricted columns and the id column are in none. A case
+ *   never groups.
+ * - **Pairs, and no more.** A Data Query often takes another path for one kind of view, so each rule about sorting and
+ *   counting also sits beside each kind of filter the check makes, with the first sort each way. The rules: one sort;
+ *   two sorts, the second each way too; and with `limit.set` the first rows of a count, a count that cuts inside a run
+ *   of rows that tie, a count with two sorts, the second each way, that cuts inside a run of rows that tie on the
+ *   first, and a count of every row, which never keeps a row with no value in the first sorted column. The kinds of
+ *   filter: one filter of each operator; one filter with a number, a date and a yes/no column sorted first; one filter
+ *   on the first sorted column; two filters joined with "and"; each "or" group; and each shape of a filter on a hidden
+ *   column, with the sorted columns hidden too. A rule takes one column, or two, for each kind of filter. Where the
+ *   schema has no column that can show a rule beside one, there is no such case: a schema of text columns alone has no
+ *   count of its first few rows beside an "equals" filter. A Data Query that is wrong under one such condition alone fails a case named for
+ *   the rule it breaks. One that is wrong only where three such things meet, such as a count beside an "equals" filter
+ *   on a hidden column, may pass.
+ * - **One column, and one number of sorts.** With no filter, each column a case sorts by first, text and enum columns
+ *   too, leads two sorts, each way, with the second each way. Each that can leads three sorts and four, the last each
+ *   way, with `limit.set` and without. With `limit.set`, a count of every row is sorted by each such column that holds
+ *   empty cells, each way, by two columns, three and four, and with a sorted column hidden; a count sorted first by each text and enum column cuts inside a run of rows that tie on it,
+ *   and, with a second sort each way, inside rows that tie on it; a count with two sorts, three and four cuts inside a
+ *   run of rows that tie on all of them; and a count that cuts inside tied rows is sorted by each number, date and
+ *   yes/no column with that column hidden. A Data Query that is wrong only for one column sorted first, or one number
+ *   of sorts up to four, fails.
+ * - Only the order of text made of the letters A to Z is checked, between texts their letters tell apart: where a
+ *   space, a digit, a mark or an accented letter sorts against a letter is the database's collation's own. An enum is
+ *   ordered by its values' IDs, as text. Where a text or enum column is sorted first, a row whose cell there has no
+ *   checked place may sit anywhere among the rows that hold other text there, as a row with no value there may. Rows
+ *   that hold the very same text or enum ID tie on it whatever its characters, as they do under every collation, so
+ *   the next sorted column decides between them, in a count too. Where such a column decides which rows a count
+ *   keeps, only its values with a checked place decide it. A count sorted by such a column, first or second, sits
+ *   beside a filter that keeps only those values, where the column allows one.
  * - A date-and-time column holds instants, written in UTC, when the schema's Calendar names a time zone, and clock times
  *   with no offset beside them. With none it holds only clock times with no offset, which are on their own date in
  *   every zone.
@@ -616,8 +679,9 @@ export const queryCheck = (schema: ViewSchema, options: QueryCheckOptions): Quer
   const position = new Map(rows.map((row, i) => [String(row[id]), i]));
   const cellsIn = (column: ColumnDescriptor) => cells.get(column.id) as Scalar[];
   /**
-   * For each text and enum column, the cells whose order is checked: letters only, and no other cell that differs only
-   * in case. An enum's cells are its values' IDs, which core orders as text.
+   * For each text and enum column, the cells whose order is checked: words of letters only, no other cell that differs
+   * only in case, and no other such cell it differs from first at a space. An enum's cells are its values' IDs, which
+   * core orders as text.
    */
   const orderable = new Map<string, ReadonlySet<Scalar>>(
     usable
@@ -625,7 +689,7 @@ export const queryCheck = (schema: ViewSchema, options: QueryCheckOptions): Quer
       .map((column) => {
         const texts = [...new Set(cellsIn(column))].filter((v): v is string => typeof v === "string" && LETTERS.test(v));
         const alone = texts.filter((t) => !texts.some((other) => other !== t && other.toLowerCase() === t.toLowerCase()));
-        return [column.id, new Set(alone)];
+        return [column.id, new Set(alone.filter((t) => alone.every((other) => apartByLetters(t, other))))];
       }),
   );
   /**
@@ -681,9 +745,11 @@ export const queryCheck = (schema: ViewSchema, options: QueryCheckOptions): Quer
   /**
    * Which of two rows a sort puts first, and the column that decides it: below zero for the first row, above for the
    * second. The rows are compared by their leading sort columns that hold a value with a checked place, up to the first
-   * one where either row has none. `undefined` when those columns don't tell them apart: the rows tie, or a cell with no
-   * checked place comes first. Where such rows go is the Host's own. With `clocks`, a clock time with no offset counts
-   * against a cell more than two days from it, which is enough to say which rows a count keeps.
+   * one where either row has none. Two cells of a text or enum column that are the very same text tie whatever
+   * characters they hold, as they do under every collation, so the next column decides. `undefined` when those columns
+   * don't tell the rows apart: the rows tie, or a cell with no checked place comes first. Where such rows go is the
+   * Host's own. With `clocks`, a clock time with no offset counts against a cell more than two days from it, which is
+   * enough to say which rows a count keeps.
    */
   const decides = (sorts: readonly SortSpec[], a: number, b: number, clocks = false): { by: number; columnId: string } | undefined => {
     for (const { columnId, direction } of sorts) {
@@ -694,6 +760,7 @@ export const queryCheck = (schema: ViewSchema, options: QueryCheckOptions): Quer
         if (by !== 0) return { by: by * turn, columnId };
         continue;
       }
+      if (orderable.has(columnId) && !isEmpty(x) && x === y) continue;
       const by = clocks ? farApart(columnId, x, y) : 0;
       return by === 0 ? undefined : { by: by * turn, columnId };
     }
@@ -701,6 +768,8 @@ export const queryCheck = (schema: ViewSchema, options: QueryCheckOptions): Quer
   };
 
   const cases: QueryCheckCase[] = [];
+  /** The names of the cases so far. A name states its rule and its whole view, so one name is one case. */
+  const names = new Set<string>();
   const add = (name: string, state: ViewState): number[] => {
     const kept = keptBy(state);
     const { sorts, limit } = state;
@@ -800,6 +869,7 @@ export const queryCheck = (schema: ViewSchema, options: QueryCheckOptions): Quer
       return problems.length === 0 ? { ok: true } : { ok: false, message: `${name}: ${problems.join("; ")}` };
     };
     cases.push({ name, state: structuredClone(state), compare });
+    names.add(name);
     return kept;
   };
 
@@ -864,14 +934,13 @@ export const queryCheck = (schema: ViewSchema, options: QueryCheckOptions): Quer
     const leftOut = new Set(rows.flatMap((row, i) => (other.keeps[i] ? [] : [valueKey(row[s.columnId] as Scalar)])));
     return rows.every((row, i) => !s.keeps[i] || leftOut.has(valueKey(row[s.columnId] as Scalar)));
   };
-  const caseNames = () => new Set(cases.map((c) => c.name));
   for (const s of singles) {
     if (s.size === 0) continue;
     const partners = byEvenness(singles.filter((other) => other.columnId !== s.columnId && leavesOutEachValue(other, s)));
     const other = partners.find((p) => sizeOf(both(p.keeps, s.keeps)) > 0) ?? partners[0];
     if (!other) continue;
     const name = `a filter joined with and keeps its own brackets (${other.words} and ${s.words})`;
-    if (caseNames().has(name)) continue;
+    if (names.has(name)) continue;
     add(name, { ...base, filters: group("and", [named(other, "f1"), named(s, "f2")]) });
   }
 
@@ -981,12 +1050,13 @@ export const queryCheck = (schema: ViewSchema, options: QueryCheckOptions): Quer
     const size = sizeOf(both(a.keeps, b.keeps));
     return size > 0 && size < Math.min(a.size, b.size);
   });
+  /** The two filters joined with "and" the case below holds, for a sort and a count beside them. */
+  const andGroups: Shape[] = [];
   if (and) {
     const [a, b] = and;
-    add(`filters on two columns must both hold (${a.words} and ${b.words})`, {
-      ...base,
-      filters: group("and", [named(a, "f1"), named(b, "f2")]),
-    });
+    const filters = group("and", [named(a, "f1"), named(b, "f2")]);
+    add(`filters on two columns must both hold (${a.words} and ${b.words})`, { ...base, filters });
+    andGroups.push({ filters, keeps: both(a.keeps, b.keeps), words: `${a.words} and ${b.words}`, hidden: [] });
   }
   const or = pairs.find(([a, b]) => {
     const size = sizeOf(either(a.keeps, b.keeps));
@@ -1164,46 +1234,6 @@ export const queryCheck = (schema: ViewSchema, options: QueryCheckOptions): Quer
       { ...base, visibleColumnIds: base.visibleColumnIds.filter((columnId) => columnId !== column.id), filters, sorts },
     );
   }
-  /**
-   * Every sort and count rule below that sits beside an or group sits beside each one the check holds, and beside each
-   * shape of a filter on a hidden column: alone, in an or group, in an or group inside an and, and in an and group
-   * inside an or. There every sorted column is hidden too. A Data Query may build its sorts or its count another way
-   * only where the filters hold an "or", or only where a column is hidden; beside these, each such way fails. Of the
-   * hidden shapes, one for each column, a rule takes the first that keeps the rows it needs.
-   */
-  const besides: Array<{ phrase: string; options: Shape[] }> = [
-    ...orGroups.map((shape) => ({ phrase: "beside an or group", options: [shape] })),
-    ...[...hiddenShapes.values()].map((options) => ({ phrase: "beside a filter on a hidden column", options })),
-  ];
-  /** A View State beside a shape, and its words: where it filters, and what it hides. */
-  const besideCase = (shape: Shape, sorts: SortSpec[], limit?: number): { state: ViewState; where: string } => {
-    const hide = shape.hidden.length === 0 ? [] : [...new Set([...shape.hidden, ...sorts.map((s) => s.columnId)])];
-    const hiding = hide.length === 0 ? "" : `, with ${listWords(hide.map(label))} hidden`;
-    return {
-      state: {
-        ...base,
-        visibleColumnIds: base.visibleColumnIds.filter((columnId) => !hide.includes(columnId)),
-        filters: shape.filters,
-        sorts,
-        ...(limit === undefined ? {} : { limit }),
-      },
-      where: `, where ${shape.words}${hiding}`,
-    };
-  };
-  // And beside each or group, each way: a Data Query that builds an "or" in another place may lose the sorts there.
-  const [sortedAlone] = [...sortable, ...collated];
-  if (sortedAlone) {
-    const told = toldBy(sortedAlone);
-    for (const { phrase, options } of besides) {
-      const shape = options.find((option) => told(option.keeps));
-      if (!shape) continue;
-      for (const direction of ["desc", "asc"] as const) {
-        const sorts: SortSpec[] = [{ columnId: sortedAlone.id, direction }];
-        const { state, where } = besideCase(shape, sorts);
-        add(`a sort ${phrase} still orders the rows (${sortWords(sorts, label)}${where})`, state);
-      }
-    }
-  }
   /** Whether two rows a filter keeps tie on the first column and hold different values in the second, each with a checked place. */
   const ordersTies = (lead: ColumnDescriptor, then: ColumnDescriptor) => (keeps: boolean[]) => {
     const kept = rows.flatMap((_, at) =>
@@ -1211,23 +1241,6 @@ export const queryCheck = (schema: ViewSchema, options: QueryCheckOptions): Quer
     );
     return kept.some((a) => kept.some((b) => cellAt(a, lead.id) === cellAt(b, lead.id) && cellAt(a, then.id) !== cellAt(b, then.id)));
   };
-  // Two sorts beside each or group, the second each way: it orders the rows the group keeps that tie on the first. A
-  // Data Query that keeps only the first sort where the filters hold an "or", or only the last, or turns the second
-  // round, fails. Both are number, date or yes/no columns.
-  if (first && second) {
-    for (const { phrase, options } of besides) {
-      const shape = options.find((option) => ordersTies(first, second)(option.keeps));
-      if (!shape) continue;
-      for (const direction of ["asc", "desc"] as const) {
-        const sorts: SortSpec[] = [
-          { columnId: first.id, direction: "desc" },
-          { columnId: second.id, direction },
-        ];
-        const { state, where } = besideCase(shape, sorts);
-        add(`two sorts ${phrase} order the rows by each in turn (${sortWords(sorts, label)}${where})`, state);
-      }
-    }
-  }
   // Two sorts beside a filter joined with "and", the second each way, for a second column of each sort: a number, date
   // or yes/no column, an enum, and text. A Data Query that keeps only the first sort when a filter is set fails.
   if (first) {
@@ -1577,12 +1590,12 @@ export const queryCheck = (schema: ViewSchema, options: QueryCheckOptions): Quer
   // where the filters are set (RANK or WITH TIES there) fails. The filter is on another column. The run of tied rows it
   // leaves has rows ahead of it and behind it where the column has one, else rows ahead of it.
   /**
-   * Where a count sorted by `column`, descending, beside `filters`, cuts inside a run of rows that tie on it: the middle
-   * of the first run with rows ahead of it, and with `inside` rows behind it too. The run's value has a checked place
-   * and is more than two days from every clock time with no offset among the rows.
+   * Where a count sorted by `column`, one way, beside `filters`, cuts inside a run of rows that tie on it: the middle of
+   * the first run with rows ahead of it, and with `inside` rows behind it too. The run's value has a checked place and
+   * is more than two days from every clock time with no offset among the rows.
    */
-  const tiedCut = (column: ColumnDescriptor, filters: FilterGroup | null, inside: boolean): number | undefined => {
-    const { inOrder, runs } = runsOf([{ columnId: column.id, direction: "desc" }], filters);
+  const tiedCut = (column: ColumnDescriptor, direction: Way, filters: FilterGroup | null, inside: boolean): number | undefined => {
+    const { inOrder, runs } = runsOf([{ columnId: column.id, direction }], filters);
     const clocks = inOrder.map((at) => cellAt(at, column.id)).filter((value) => isClock(column.id, value));
     const run = runs.find(
       (members) =>
@@ -1592,12 +1605,39 @@ export const queryCheck = (schema: ViewSchema, options: QueryCheckOptions): Quer
     );
     return run && inOrder.indexOf(run[0] as number) + Math.ceil(run.length / 2);
   };
+  /**
+   * Where a count sorted by `sorts` may cut inside a run of rows that tie on every one of them. Rows the sorts don't
+   * tell from the run (ruling R3) may come before it or after it: the run with the fewest such rows is taken, one with
+   * rows ahead of it first. With none there is one cut, at the run's middle. With some there are two, each at the run's
+   * middle: one with those rows put behind the run, and one with them put ahead of it.
+   */
+  const allTiedCuts = (sorts: readonly SortSpec[]): number[] => {
+    const { inOrder, runs } = runsOf(sorts, null);
+    let best: { ahead: number; loose: number; size: number } | undefined;
+    for (const members of runs) {
+      const head = members[0] as number;
+      const run = new Set(members);
+      let [ahead, loose] = [0, 0];
+      for (const at of inOrder) {
+        if (run.has(at)) continue;
+        const by = decides(sorts, at, head, true)?.by;
+        if (by === undefined) loose += 1;
+        else if (by < 0) ahead += 1;
+      }
+      if (!best || loose < best.loose || (loose === best.loose && best.ahead === 0 && ahead > 0)) {
+        best = { ahead, loose, size: members.length };
+      }
+    }
+    if (!best) return [];
+    const half = Math.ceil(best.size / 2);
+    return [...new Set([best.ahead + half, best.ahead + best.loose + half])];
+  };
   if (counts) {
     for (const column of sortable) {
       const sorts: SortSpec[] = [{ columnId: column.id, direction: "desc" }];
       const runFor = (filter: Single, inside: boolean) => {
         const filters = group("and", [filter.predicate]);
-        const limit = tiedCut(column, filters, inside);
+        const limit = tiedCut(column, "desc", filters, inside);
         return limit === undefined ? undefined : { filter, filters, limit };
       };
       const filters = splitters.filter((s) => s.columnId !== column.id && s.size < total);
@@ -1911,84 +1951,24 @@ export const queryCheck = (schema: ViewSchema, options: QueryCheckOptions): Quer
           .map((_, n) => n)
           .filter((n) => n >= 1 && cell(inOrder[n - 1] as number) !== cell(inOrder[n] as number))
           .sort((a, b) => Math.abs(a - middle) - Math.abs(b - middle));
-        const limit = cuts.find((n) => others.some((order) => valuesOf(order, n) !== valuesOf(inOrder, n))) ?? cuts[0];
+        const tells = (order: readonly number[], n: number) => valuesOf(order, n) !== valuesOf(inOrder, n);
+        const limit = cuts.find((n) => others.some((order) => tells(order, n))) ?? cuts[0];
         if (limit === undefined) continue;
+        // One more cut for each other order that keeps the right rows at the first one. Text ordered by its length and
+        // then its letters ("ORDER BY length(x), x") is such an order: shorter text first going up, longer going down.
+        const place = new Map(inOrder.map((at, n) => [at, n]));
+        const byLength = (a: number, b: number) =>
+          turn * (String(cell(a)).length - String(cell(b)).length) || (place.get(a) as number) - (place.get(b) as number);
+        const more = [...others, ...(column.kind === "string" ? [[...inOrder].sort(byLength)] : [])]
+          .filter((order) => !tells(order, limit))
+          .flatMap((order) => cuts.find((n) => tells(order, n)) ?? []);
         const rule =
           column.kind === "enum"
             ? "an enum keeps its first rows by its values' IDs"
             : "text keeps its first rows by its letters, ignoring case";
-        add(`a count sorted by ${rule} (the first ${limit} rows, ${sortWords(sorts, label)}${where})`, { ...base, filters, sorts, limit });
-      }
-    }
-  }
-  // A count beside each or group: a Data Query that builds an "or" in another place may lose the count there, and
-  // return every row the filters keep. The cut falls between two values of the sorted column.
-  // And beside each shape of a filter on a hidden column, with the sorted column hidden too.
-  if (counts && first) {
-    const sorts: SortSpec[] = [{ columnId: first.id, direction: "desc" }];
-    for (const { phrase, options } of besides) {
-      const found = options
-        .map((shape) => {
-          const inOrder = keptBy({ ...base, filters: shape.filters, sorts, limit: total });
-          const [limit] = cutsIn(first, inOrder, countsFor(inOrder));
-          return limit === undefined ? undefined : { shape, limit };
-        })
-        .find((option) => option !== undefined);
-      if (!found) continue;
-      const { state, where } = besideCase(found.shape, sorts, found.limit);
-      add(`a count ${phrase} still keeps only its first rows (the first ${found.limit} rows, ${sortWords(sorts, label)}${where})`, state);
-    }
-  }
-  // A count that cuts inside a run of tied rows beside each of them, as beside a filter joined with "and": a Data Query
-  // that keeps every tied row (RANK, WITH TIES), drops the tied run, or keeps another number of rows only where the
-  // filters hold an "or", or only where a column is hidden, fails. The first number, date or yes/no column with such a
-  // run, descending; a run with rows ahead of it and behind it first.
-  if (counts) {
-    for (const { phrase, options } of besides) {
-      let found: { column: ColumnDescriptor; shape: Shape; limit: number } | undefined;
-      for (const inside of [true, false]) {
-        for (const column of sortable) {
-          for (const shape of options) {
-            const limit = tiedCut(column, shape.filters, inside);
-            if (limit !== undefined) found ??= { column, shape, limit };
-          }
+        for (const n of new Set([limit, ...more])) {
+          add(`a count sorted by ${rule} (the first ${n} rows, ${sortWords(sorts, label)}${where})`, { ...base, filters, sorts, limit: n });
         }
-      }
-      if (!found) continue;
-      const sorts: SortSpec[] = [{ columnId: found.column.id, direction: "desc" }];
-      const { state, where } = besideCase(found.shape, sorts, found.limit);
-      add(
-        `a count that cuts inside tied rows ${phrase} keeps its number of rows (the first ${found.limit} rows, ${sortWords(sorts, label)}${where})`,
-        state,
-      );
-    }
-  }
-  // And a count with two sorts that cuts inside a run of rows that tie on the first, beside each of them: the second,
-  // each way, decides which of the run it keeps. A Data Query that cuts by the first sort alone there keeps the same rows
-  // both ways, and fails one of the pair. Both are number, date or yes/no columns; the second holds no clock time with no
-  // offset. Rows the first sort doesn't tell from the run are the Host's to place (ruling R3).
-  if (counts) {
-    for (const { phrase, options } of besides) {
-      let found: { prefix: SortSpec[]; then: ColumnDescriptor; shape: Shape; limit: number } | undefined;
-      for (const lead of sortable) {
-        const prefix: SortSpec[] = [{ columnId: lead.id, direction: "desc" }];
-        for (const then of sortable.filter((c) => c !== lead && !mixed.has(c.id))) {
-          for (const shape of options) {
-            if (found) break;
-            const limit = pairCut(prefix, then, shape.filters);
-            if (limit !== undefined) found = { prefix, then, shape, limit };
-          }
-        }
-      }
-      if (!found) continue;
-      const { prefix, then, shape, limit } = found;
-      for (const direction of ["asc", "desc"] as const) {
-        const sorts: SortSpec[] = [...prefix, { columnId: then.id, direction }];
-        const { state, where } = besideCase(shape, sorts, limit);
-        add(
-          `a count that cuts inside rows that tie on the first sorted column ${phrase} keeps the ones the next sorted column puts first (the first ${limit} rows, ${sortWords(sorts, label)}${where})`,
-          state,
-        );
       }
     }
   }
@@ -2020,6 +2000,432 @@ export const queryCheck = (schema: ViewSchema, options: QueryCheckOptions): Quer
         sorts,
         limit: total,
       });
+    }
+  }
+
+  // --- Pairs, and no more (more grids spec, 5.5) ---
+  // A Data Query often takes another path for one kind of view: a lookup for "equals", a subquery for a count, a second
+  // statement for an "or". So each rule about sorting and counting below sits beside each kind of filter the check
+  // makes, with the first sort each way: `rules` crossed with `conditions`. A Data Query that is wrong under one such
+  // condition alone fails a case named for the rule it breaks. One that is wrong only where more of them meet may pass.
+  // A rule takes one column, or two, for each condition: the first that can show it, with rows a wrong Data Query would
+  // keep or order another way whatever it does with ties and empty cells (rulings R1 to R3). Where no column can, there
+  // is no case.
+
+  /** The first sort each way. The second, where a rule has one, goes each way too. */
+  const WAYS: readonly Way[] = ["desc", "asc"];
+  const shapeOf = (s: Single): Shape => ({
+    filters: group("and", [s.predicate]),
+    keeps: s.keeps,
+    words: s.words,
+    hidden: [],
+    columnId: s.columnId,
+  });
+  /** Whether a filter keeps some rows and leaves some out. */
+  const partial = (s: Single) => s.size > 0 && s.size < total;
+  const conditions: Condition[] = [
+    // One filter, for each operator the check filters by. The filters that split the rows most evenly come first.
+    ...[...new Set(singles.map((s) => s.predicate.operator))].map((operator) => ({
+      phrase: "beside a filter",
+      options: byEvenness(singles.filter((s) => s.predicate.operator === operator && partial(s))).map(shapeOf),
+    })),
+    // One filter, with the first sort on each kind of column that can lead: a number, a date and a yes/no column. Text
+    // and enum columns lead where the cases above sort each of them beside a filter and count by each, and where the
+    // cases below sort and count by each column in turn.
+    ...[isNumeric, isDated, (kind: Kind) => kind === "boolean"].map((ofKind) => ({
+      phrase: "beside a filter",
+      options: splitters.filter(partial).map(shapeOf),
+      leads: sortable.filter((c) => ofKind(c.kind)),
+    })),
+    // One filter on the column the case sorts by first. A Data Query may read a column's filter and its sort in one
+    // place, and take another path where both are set. The other conditions take a filter on another column first.
+    {
+      phrase: "beside a filter on the first sorted column",
+      options: byEvenness(singles.filter((s) => partial(s) && s.predicate.operator !== "in" && s.predicate.value !== "")).map(shapeOf),
+      onLead: true,
+    },
+    // Each shape of group: two filters joined with "and", and each or group the check holds.
+    ...andGroups.map((shape) => ({ phrase: "beside two filters joined with and", options: [shape] })),
+    ...orGroups.map((shape) => ({ phrase: "beside an or group", options: [shape] })),
+    // Each shape of a filter on a hidden column: alone, in an or group, in an or group inside an and, and in an and
+    // group inside an or. There every sorted column is hidden too. Each shape has one filter for each column.
+    ...[...hiddenShapes.values()].map((options) => ({ phrase: "beside a filter on a hidden column", options })),
+  ];
+  /**
+   * A condition's filters for a rule that sorts by these columns: where it is one filter, one on another column first.
+   * Where the condition is a filter on the first sorted column, only the filters on that column.
+   */
+  const optionsFor = (condition: Condition, sorted: readonly ColumnDescriptor[]): Shape[] => {
+    if (condition.onLead) return condition.options.filter((shape) => shape.columnId === sorted[0]?.id);
+    const onSorted = (shape: Shape) => sorted.some((c) => c.id === shape.columnId);
+    return [...condition.options.filter((shape) => !onSorted(shape)), ...condition.options.filter(onSorted)];
+  };
+  /** A View State beside a shape, and its words: where it filters, and what it hides. */
+  const besideCase = (shape: Shape, sorts: SortSpec[], limit?: number): { state: ViewState; where: string } => {
+    const hide = shape.hidden.length === 0 ? [] : [...new Set([...shape.hidden, ...sorts.map((s) => s.columnId)])];
+    const hiding = hide.length === 0 ? "" : `, with ${listWords(hide.map(label))} hidden`;
+    return {
+      state: {
+        ...base,
+        visibleColumnIds: base.visibleColumnIds.filter((columnId) => !hide.includes(columnId)),
+        filters: shape.filters,
+        sorts,
+        ...(limit === undefined ? {} : { limit }),
+      },
+      where: `, where ${shape.words}${hiding}`,
+    };
+  };
+  /** Adds a case unless a case above is the same one: the same rule beside the same filters, sorts and count. */
+  const addOnce = (name: string, state: ViewState): void => {
+    if (!names.has(name)) add(name, state);
+  };
+
+  // One sort, each way. A Data Query that builds its sorts in another place there may lose them, or turn them round.
+  // The filters keep rows of two or more values the sort tells apart.
+  const oneSort = (condition: Condition): void => {
+    const { phrase, leads } = condition;
+    for (const lead of leads ?? [...sortable, ...collated]) {
+      const shape = optionsFor(condition, [lead]).find((option) => toldBy(lead)(option.keeps));
+      if (!shape) continue;
+      for (const direction of WAYS) {
+        const sorts: SortSpec[] = [{ columnId: lead.id, direction }];
+        const { state, where } = besideCase(shape, sorts);
+        addOnce(`a sort ${phrase} still orders the rows (${sortWords(sorts, label)}${where})`, state);
+      }
+      return;
+    }
+  };
+  // Two sorts, the first each way and the second each way: the second orders the rows the filters keep that tie on the
+  // first. A Data Query that keeps only the first sort there, or only the last, or turns the second round, fails. Both
+  // are number, date or yes/no columns.
+  const twoSorts = (condition: Condition): void => {
+    const { phrase, leads } = condition;
+    for (const lead of leads ?? sortable) {
+      for (const then of sortable) {
+        if (then === lead) continue;
+        const shape = optionsFor(condition, [lead, then]).find((option) => ordersTies(lead, then)(option.keeps));
+        if (!shape) continue;
+        for (const direction of WAYS) {
+          for (const next of ["asc", "desc"] as const) {
+            const sorts: SortSpec[] = [
+              { columnId: lead.id, direction },
+              { columnId: then.id, direction: next },
+            ];
+            const { state, where } = besideCase(shape, sorts);
+            addOnce(`two sorts ${phrase} order the rows by each in turn (${sortWords(sorts, label)}${where})`, state);
+          }
+        }
+        return;
+      }
+    }
+  };
+  // The first rows of a count, the sort each way. A Data Query that builds its count in another place there may lose
+  // it and return every row the filters keep, or keep a row too many or too few. The cut falls between two values of
+  // the sorted column.
+  const firstRows = (condition: Condition): void => {
+    const { phrase, leads } = condition;
+    for (const direction of WAYS) {
+      search: for (const lead of leads ?? sortable) {
+        const sorts: SortSpec[] = [{ columnId: lead.id, direction }];
+        for (const shape of optionsFor(condition, [lead])) {
+          const inOrder = keptBy({ ...base, filters: shape.filters, sorts, limit: total });
+          const [limit] = cutsIn(lead, inOrder, countsFor(inOrder));
+          if (limit === undefined) continue;
+          const { state, where } = besideCase(shape, sorts, limit);
+          addOnce(`a count ${phrase} still keeps only its first rows (the first ${limit} rows, ${sortWords(sorts, label)}${where})`, state);
+          break search;
+        }
+      }
+    }
+  };
+  // A count that cuts inside a run of tied rows, the sort each way. A Data Query that keeps every tied row there (RANK,
+  // WITH TIES), drops the tied run, or keeps another number of rows fails. A run with rows ahead of it and behind it
+  // first.
+  const tiedRows = (condition: Condition): void => {
+    const { phrase, leads } = condition;
+    for (const direction of WAYS) {
+      let found: { lead: ColumnDescriptor; shape: Shape; limit: number } | undefined;
+      for (const inside of [true, false]) {
+        for (const lead of leads ?? sortable) {
+          for (const shape of optionsFor(condition, [lead])) {
+            if (found) break;
+            const limit = tiedCut(lead, direction, shape.filters, inside);
+            if (limit !== undefined) found = { lead, shape, limit };
+          }
+        }
+      }
+      if (!found) continue;
+      const sorts: SortSpec[] = [{ columnId: found.lead.id, direction }];
+      const { state, where } = besideCase(found.shape, sorts, found.limit);
+      addOnce(
+        `a count that cuts inside tied rows ${phrase} keeps its number of rows (the first ${found.limit} rows, ${sortWords(sorts, label)}${where})`,
+        state,
+      );
+    }
+  };
+  // A count with two sorts that cuts inside a run of rows that tie on the first, the first each way: the second, each
+  // way at the same cut, decides which of the run it keeps. A Data Query that cuts by the first sort alone there keeps
+  // the same rows both ways, and fails one of the pair. Both are number, date or yes/no columns; the second holds no
+  // clock time with no offset. Rows the first sort doesn't tell from the run are the Host's to place (ruling R3).
+  const tiedOnFirst = (condition: Condition): void => {
+    const { phrase, leads } = condition;
+    for (const direction of WAYS) {
+      search: for (const lead of leads ?? sortable) {
+        const prefix: SortSpec[] = [{ columnId: lead.id, direction }];
+        for (const then of sortable.filter((c) => c !== lead && !mixed.has(c.id))) {
+          for (const shape of optionsFor(condition, [lead, then])) {
+            const limit = pairCut(prefix, then, shape.filters);
+            if (limit === undefined) continue;
+            for (const next of ["asc", "desc"] as const) {
+              const sorts: SortSpec[] = [...prefix, { columnId: then.id, direction: next }];
+              const { state, where } = besideCase(shape, sorts, limit);
+              addOnce(
+                `a count that cuts inside rows that tie on the first sorted column ${phrase} keeps the ones the next sorted column puts first (the first ${limit} rows, ${sortWords(sorts, label)}${where})`,
+                state,
+              );
+            }
+            break search;
+          }
+        }
+      }
+    }
+  };
+  /** Every column a case sorts by first: number, date and yes/no columns, then text and enum columns. */
+  const leaders = [...sortable, ...collated];
+  // A count never keeps a row with no value in the first sorted column, the sort each way. It asks for as many rows as
+  // there are, and the filters keep a row with no value there beside rows with one. A Data Query that leaves out its
+  // guard there, with the rows that have no value sorted last, passes every count of a few rows: only a count of every
+  // row reaches them.
+  const noEmptyFirst = (condition: Condition): void => {
+    const { phrase, leads } = condition;
+    for (const direction of WAYS) {
+      search: for (const lead of leads ?? leaders) {
+        const sorts: SortSpec[] = [{ columnId: lead.id, direction }];
+        for (const shape of optionsFor(condition, [lead])) {
+          const kept = cellsIn(lead).filter((_, at) => shape.keeps[at]);
+          if (!kept.some(isEmpty) || kept.every(isEmpty)) continue;
+          const { state, where } = besideCase(shape, sorts, total);
+          addOnce(
+            `a count ${phrase} never keeps a row with no value in the first sorted column (the first ${total} rows, ${sortWords(sorts, label)}${where})`,
+            state,
+          );
+          break search;
+        }
+      }
+    }
+  };
+  // The count rules appear only when `operations` lists `limit.set`.
+  const rules = [oneSort, twoSorts, ...(counts ? [firstRows, tiedRows, tiedOnFirst, noEmptyFirst] : [])];
+  for (const rule of rules) {
+    for (const condition of conditions) rule(condition);
+  }
+
+  // --- One column, and one number of sorts (more grids spec, 5.5) ---
+  // A Data Query may also take another path for one column sorted first, for one kind of column, or for one number of
+  // sorts: a key added after a text column, an index used for a date, an "ORDER BY" built for two columns. So the rules
+  // about sorting and counting are shown once more for each column a case sorts by first, text and enum columns too,
+  // and for each number of sorts up to four. Where text or an enum is sorted first, only its values with a checked
+  // place are held to their order: a row with another value there may sit anywhere (rulings R3 and R4), and a count
+  // sits beside a filter that keeps only those values.
+  const steady = (column: ColumnDescriptor) => !mixed.has(column.id);
+  const everyRow = rows.map(() => true);
+
+  // Two sorts led by each such column, the first each way and the second each way: the second orders the rows that tie
+  // on the first. A Data Query that loses its later sorts, or turns them round, only when one column leads fails. The
+  // second is a number, date or yes/no column where one can order the ties.
+  for (const lead of leaders) {
+    const then = [...sortable.filter(steady), ...sortable.filter((c) => !steady(c)), ...collated].find(
+      (c) => c !== lead && ordersTies(lead, c)(everyRow),
+    );
+    if (!then) continue;
+    for (const direction of WAYS) {
+      for (const next of ["asc", "desc"] as const) {
+        const sorts: SortSpec[] = [
+          { columnId: lead.id, direction },
+          { columnId: then.id, direction: next },
+        ];
+        addOnce(`two sorts order the rows by each in turn, whichever column is sorted first (${sortWords(sorts, label)})`, {
+          ...base,
+          sorts,
+        });
+      }
+    }
+  }
+
+  /** How many values with a checked place a column holds. The columns with the fewest tie most often. */
+  const distinctIn = (column: ColumnDescriptor) => new Set(cellsIn(column).filter((cell) => placed(column.id, cell))).size;
+  const fewestFirst = (columns: readonly ColumnDescriptor[]) => [...columns].sort((a, b) => distinctIn(a) - distinctIn(b));
+  /** Of some runs of rows, the runs of two or more that tie on `column` too, with a checked place in it. */
+  const splitBy = (runs: readonly number[][], column: ColumnDescriptor): number[][] =>
+    runs.flatMap((members) => {
+      const byValue = new Map<Scalar, number[]>();
+      for (const at of members) {
+        const cell = cellAt(at, column.id);
+        if (placed(column.id, cell)) byValue.set(cell, [...(byValue.get(cell) ?? []), at]);
+      }
+      return [...byValue.values()].filter((run) => run.length >= 2);
+    });
+  /** Whether one of the runs holds two values of `column`, each with a checked place: a sort by it orders that run. */
+  const orders = (runs: readonly number[][], column: ColumnDescriptor): boolean =>
+    runs.some((members) => new Set(members.map((at) => cellAt(at, column.id)).filter((cell) => placed(column.id, cell))).size >= 2);
+  const allRows = rows.map((_, at) => at);
+
+  // Three sorts, and four, with no count: the last, each way, orders the rows that tie on the ones before it. A default
+  // Query Adapter lists no `limit.set`, so these are the only cases its Host sees with more than two sorts. A Data
+  // Query that keeps its first two sorts, or its first three, gives both of a pair one order, and fails one of them. One
+  // pair for each column that leads such rows.
+  for (const [size, word] of [
+    [3, "three"],
+    [4, "four"],
+  ] as const) {
+    const later = fewestFirst(leaders);
+    for (const lead of leaders) {
+      const pick = (chosen: ColumnDescriptor[], runs: number[][]): ColumnDescriptor[] | undefined => {
+        if (runs.length === 0) return undefined;
+        const rest = later.filter((c) => !chosen.includes(c));
+        if (chosen.length === size - 1) {
+          const last = rest.find((c) => orders(runs, c));
+          return last && [...chosen, last];
+        }
+        for (const next of rest) {
+          const found = pick([...chosen, next], splitBy(runs, next));
+          if (found) return found;
+        }
+        return undefined;
+      };
+      const columns = pick([lead], splitBy([allRows], lead));
+      if (!columns) continue;
+      for (const direction of ["asc", "desc"] as const) {
+        const sorts: SortSpec[] = columns.map((c, i) => ({ columnId: c.id, direction: i === columns.length - 1 ? direction : "desc" }));
+        addOnce(`${word} sorts order the rows by each in turn (${sortWords(sorts, label)})`, { ...base, sorts });
+      }
+    }
+  }
+
+  if (counts) {
+    // A count never keeps a row with no value in the first sorted column, for each column a case sorts by first that
+    // holds empty cells, each way. With the first sort going down, a Data Query that sorts such rows last and has no
+    // guard passes every count of a few rows.
+    for (const column of leaders) {
+      if (!cellsIn(column).some(isEmpty)) continue;
+      for (const direction of WAYS) {
+        const sorts: SortSpec[] = [{ columnId: column.id, direction }];
+        addOnce(
+          `a count never keeps a row with no value in the first sorted column (the first ${total} rows, ${sortWords(sorts, label)})`,
+          {
+            ...base,
+            sorts,
+            limit: total,
+          },
+        );
+      }
+    }
+
+    // The same with two sorts, three and four: a guard written for one number of sorts leaves the rows in for another.
+    // The first sorted column is the first that holds empty cells, and the ones after it go down as it does. And once
+    // with the sorted column hidden, and once with the second of two hidden: hiding a column never lets such a row in.
+    const holedLead = leaders.find((c) => cellsIn(c).some(isEmpty));
+    if (holedLead) {
+      const after = fewestFirst(leaders).filter((c) => c !== holedLead);
+      const never = (size: number, hide?: ColumnDescriptor): void => {
+        if (after.length < size - 1) return;
+        const sorts: SortSpec[] = [holedLead, ...after.slice(0, size - 1)].map((c) => ({ columnId: c.id, direction: "desc" }));
+        const hiding = hide ? `, with ${hide.label} hidden` : "";
+        addOnce(
+          `a count never keeps a row with no value in the first sorted column (the first ${total} rows, ${sortWords(sorts, label)}${hiding})`,
+          { ...base, visibleColumnIds: base.visibleColumnIds.filter((columnId) => columnId !== hide?.id), sorts, limit: total },
+        );
+      };
+      for (const size of [2, 3, 4]) never(size);
+      never(1, holedLead);
+      never(2, after[0]);
+    }
+
+    // A count that cuts inside tied rows, with the sorted column hidden: hiding a column never changes how many rows a
+    // count keeps. For each number, date and yes/no column.
+    for (const column of sortable) {
+      const sorts: SortSpec[] = [{ columnId: column.id, direction: "desc" }];
+      const limit = tiedCut(column, "desc", null, true) ?? tiedCut(column, "desc", null, false);
+      if (limit === undefined) continue;
+      addOnce(
+        `a count that cuts inside tied rows keeps its number of rows with the sorted column hidden (the first ${limit} rows, ${sortWords(sorts, label)}, with ${column.label} hidden)`,
+        { ...base, visibleColumnIds: base.visibleColumnIds.filter((columnId) => columnId !== column.id), sorts, limit },
+      );
+    }
+
+    // A count sorted first by a text or enum column that cuts inside a run of rows that tie on it, each way, and one
+    // with a second sort, each way, that cuts inside rows that tie on it. Beside a filter that keeps only the values
+    // whose order is checked, where the column allows one; with none, only a column whose every value is such a value.
+    // A Data Query that counts another way where text or an enum leads (RANK, a cut by one of its sorts alone) fails.
+    for (const lead of collated) {
+      const only = onlyOrdered(lead);
+      const filters = only ? group("and", [only]) : null;
+      const where = only ? `, where ${filterWords(only, lead, zone)}` : "";
+      const kind = lead.kind === "enum" ? "an enum" : "text";
+      const { inOrder } = runsOf([{ columnId: lead.id, direction: "desc" }], filters);
+      if (inOrder.length < 2 || !inOrder.every((at) => placed(lead.id, cellAt(at, lead.id)))) continue;
+      for (const direction of WAYS) {
+        const sorts: SortSpec[] = [{ columnId: lead.id, direction }];
+        const limit = tiedCut(lead, direction, filters, true) ?? tiedCut(lead, direction, filters, false);
+        if (limit === undefined) continue;
+        addOnce(
+          `a count that cuts inside rows that tie on ${kind} keeps its number of rows (the first ${limit} rows, ${sortWords(sorts, label)}${where})`,
+          { ...base, filters, sorts, limit },
+        );
+      }
+      const prefix: SortSpec[] = [{ columnId: lead.id, direction: "desc" }];
+      for (const then of sortable.filter(steady)) {
+        const limit = pairCut(prefix, then, filters);
+        if (limit === undefined) continue;
+        for (const direction of ["asc", "desc"] as const) {
+          const sorts: SortSpec[] = [...prefix, { columnId: then.id, direction }];
+          addOnce(
+            `a count that cuts inside rows that tie on ${kind} sorted first keeps the ones the next sorted column puts first (the first ${limit} rows, ${sortWords(sorts, label)}${where})`,
+            { ...base, filters, sorts, limit },
+          );
+        }
+        break;
+      }
+    }
+
+    // A count with two sorts, three and four that cuts inside a run of rows that tie on every one of them, the first
+    // each way: it keeps its number of rows, as a count with one sort does. A Data Query that counts with RANK, or
+    // drops the tied run, only for one number of sorts fails. Rows with no value in a later sorted column that share
+    // the run's leading values are the Host's to place (ruling R3): the run with the fewest such rows is taken, and
+    // where it has some there are two cuts, one inside the run with those rows put ahead of it and one with them put
+    // behind. The later sorts all go down, so a Data Query puts every such row on one side. Number, date and yes/no
+    // columns first, and no date-and-time column that holds clock times with no offset.
+    const few = [...fewestFirst(sortable.filter(steady)), ...fewestFirst(collated)];
+    for (const [size, all] of [
+      [2, "both"],
+      [3, "all three"],
+      [4, "all four"],
+    ] as const) {
+      for (const direction of WAYS) {
+        const pick = (chosen: ColumnDescriptor[], runs: number[][]): { sorts: SortSpec[]; limits: number[] } | undefined => {
+          if (runs.length === 0) return undefined;
+          if (chosen.length === size) {
+            const sorts: SortSpec[] = chosen.map((c, i) => ({ columnId: c.id, direction: i === 0 ? direction : "desc" }));
+            const limits = allTiedCuts(sorts);
+            return limits.length === 0 ? undefined : { sorts, limits };
+          }
+          // A number, date or yes/no column leads: every row it keeps has a checked place there.
+          for (const next of chosen.length === 0 ? few.filter((c) => ORDERED.has(c.kind)) : few) {
+            if (chosen.includes(next)) continue;
+            const found = pick([...chosen, next], splitBy(runs, next));
+            if (found) return found;
+          }
+          return undefined;
+        };
+        const found = pick([], [allRows]);
+        for (const limit of found?.limits ?? []) {
+          const sorts = found?.sorts as SortSpec[];
+          addOnce(
+            `a count that cuts inside rows that tie on ${all} sorted columns keeps its number of rows (the first ${limit} rows, ${sortWords(sorts, label)})`,
+            { ...base, sorts, limit },
+          );
+        }
+      }
     }
   }
 
