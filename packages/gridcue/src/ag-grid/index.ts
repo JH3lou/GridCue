@@ -340,7 +340,12 @@ export const createAgGridAdapter = (options: AgGridAdapterOptions): GridAdapter 
     return current();
   };
   const defaultState = structuredClone(held);
-  for (const event of EVENTS) api.addEventListener(event, () => sync());
+  /** True while `write` runs: an event the grid fires inside it would report half a write. `write` reads the grid after. */
+  let writing = false;
+  for (const event of EVENTS)
+    api.addEventListener(event, () => {
+      if (!writing) sync();
+    });
 
   /** The column state that holds `next`'s order, hidden columns and sorts, leaving every other column state as it is. */
   const columnStateFor = (next: ViewState, before: readonly AgColumnStateLike[]): AgColumnStateLike[] => {
@@ -402,29 +407,54 @@ export const createAgGridAdapter = (options: AgGridAdapterOptions): GridAdapter 
       groupBy: [...held.groupBy],
     };
 
-    owned = { tree: expected.filters, models: new Map([...ours].map(([id, model]) => [id, canonical(model)])) };
-    api.setFilterModel(filterModel);
-    api.applyColumnState({ state: columnState, applyOrder: true, defaultState: { sort: null } });
-    // AG Grid reads both back in the same tick, and drops or cuts a model it can't hold (spike, Q2f).
-    const filtersHeld = canonical(api.getFilterModel() ?? {}) === canonical(filterModel);
-    const now = read();
-    if (filtersHeld && canonical(now) === canonical({ ...expected, groupBy: now.groupBy })) {
+    /** Puts the grid back as it was, so nothing changed, and says whether it is. */
+    const putBack = (): boolean => {
+      owned = before.owned;
+      try {
+        api.setFilterModel(before.filters);
+        api.applyColumnState({
+          state: before.columns.map((c) => ({
+            colId: c.colId,
+            hide: c.hide ?? false,
+            sort: c.sort ?? null,
+            sortIndex: c.sortIndex ?? null,
+          })),
+          applyOrder: true,
+          defaultState: { sort: null },
+        });
+        return JSON.stringify(read()) === fingerprint;
+      } catch {
+        return false;
+      }
+    };
+    const notPutBack = (why: string) => {
       sync();
-      return { ok: true, state: current() };
+      return new GridCueError("ADAPTER_FAILED", `${why}, and the grid couldn't be put back as it was.`);
+    };
+
+    writing = true;
+    try {
+      owned = { tree: expected.filters, models: new Map([...ours].map(([id, model]) => [id, canonical(model)])) };
+      try {
+        api.setFilterModel(filterModel);
+        api.applyColumnState({ state: columnState, applyOrder: true, defaultState: { sort: null } });
+      } catch (error) {
+        // Such as a Host's comparator that throws: the error is the Host's, once the grid is as it was.
+        if (!putBack()) throw notPutBack("AG Grid failed in the change");
+        throw error;
+      }
+      // AG Grid reads both back in the same tick, and drops or cuts a model it can't hold (spike, Q2f).
+      const filtersHeld = canonical(api.getFilterModel() ?? {}) === canonical(filterModel);
+      const now = read();
+      if (filtersHeld && canonical(now) === canonical({ ...expected, groupBy: now.groupBy })) {
+        sync();
+        return { ok: true, state: current() };
+      }
+      if (!putBack()) throw notPutBack("AG Grid didn't hold the change");
+      return { ok: false, code: "ADAPTER_FAILED", message: "AG Grid didn't hold the change, so nothing was changed." };
+    } finally {
+      writing = false;
     }
-    // Not held: put the grid back as it was, so nothing changed.
-    owned = before.owned;
-    api.setFilterModel(before.filters);
-    api.applyColumnState({
-      state: before.columns.map((c) => ({ colId: c.colId, hide: c.hide ?? false, sort: c.sort ?? null, sortIndex: c.sortIndex ?? null })),
-      applyOrder: true,
-      defaultState: { sort: null },
-    });
-    if (JSON.stringify(read()) !== fingerprint) {
-      sync();
-      throw new GridCueError("ADAPTER_FAILED", "AG Grid didn't hold the change, and the grid couldn't be put back as it was.");
-    }
-    return { ok: false, code: "ADAPTER_FAILED", message: "AG Grid didn't hold the change, so nothing was changed." };
   };
 
   return {
@@ -471,12 +501,16 @@ export const createAgGridAdapter = (options: AgGridAdapterOptions): GridAdapter 
 
 // --- schemaFromAgGrid --------------------------------------------------------------------------------------------------
 
-/** The kind a column's `cellDataType` names, when it names one. */
+/**
+ * The kind a column's `cellDataType` names, when it names one. AG Grid's `date` is any `Date` object, a time of day
+ * included (it infers `date` for every one), so the sample rows say whether it is a date or a date and time.
+ */
 const KIND_OF_DATA_TYPE: Readonly<Record<string, ColumnKind>> = {
   text: "string",
   number: "number",
   boolean: "boolean",
   dateString: "date",
+  dateTime: "datetime",
   dateTimeString: "datetime",
 };
 
@@ -527,6 +561,10 @@ export const schemaFromAgGrid = (columnDefs: ReadonlyArray<AgColDefLike | AgColG
   // Read once for each column's kind and default capabilities, then take away what the column definition rules out.
   const { houseTerms: _later, ...rest } = options;
   const read = defineSchema(columns, { ...rest, sampleRows });
+  // `Date` objects whose sample cells read as no date and time, or that no sample row holds, are dates.
+  defs.forEach((def, i) => {
+    if (def.cellDataType === "date" && read.columns[i]?.kind !== "datetime") columns[i] = { ...columns[i], id: idOf(def), kind: "date" };
+  });
   const overrides = Object.fromEntries(
     defs.map((def, i) => {
       const own = options.columns?.[idOf(def)] ?? {};

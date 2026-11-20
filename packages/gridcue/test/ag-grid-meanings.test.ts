@@ -6,7 +6,7 @@ import { wealthColumns, wealthSchemaOptions } from "../../../fixtures/wealth/src
 import { createAgGridAdapter, gridcueColumnDefs } from "../src/ag-grid";
 import { columnSettings, type GridcueFilterParams } from "../src/ag-grid/meanings";
 import { matchesFilter, matchesPredicate } from "../src/core/evaluate";
-import type { ColumnDescriptor, FilterPredicate, Scalar, ViewSchema } from "../src/core/protocol";
+import type { ColumnDescriptor, FilterGroup, FilterPredicate, Scalar, ViewSchema } from "../src/core/protocol";
 import { defineSchema } from "../src/core/schema";
 import { columnDefsFor, latest, MAJORS, type Major, type RowModel, shown } from "./ag-grid-grids";
 import { edgeRows, gridFor, predicatesOf, runRowCheck, viewWith } from "./ag-grid-row-check";
@@ -289,6 +289,59 @@ describe("the row check's decisions: where AG Grid's own option keeps other rows
 
 // --- The row check: the Query Check's cases through AG Grid ------------------------------------------------------------
 
+/** The filters AG Grid's model has no shape for, by class. */
+const UNWRITABLE = {
+  across: "an OR across columns",
+  emptyText: "text that contains, or starts with, empty text",
+  listBeside: "a list beside another filter on its column",
+  orBeside: "an OR on one column beside another filter on it",
+} as const;
+
+/**
+ * Why AG Grid's filter model can't hold a filter tree, read from the tree's shape alone: the model is one entry per
+ * column, joined with AND, and each entry is one condition or conditions joined with one AND or one OR (a list is an OR
+ * of equals). No option keeps every row, which text that contains or starts with empty text means. None: it holds it.
+ */
+const whyUnwritable = (filters: FilterGroup | null): string[] => {
+  const why = new Set<string>();
+  const leaves = (node: FilterGroup | FilterPredicate): FilterPredicate[] =>
+    node.type === "predicate" ? [node] : node.children.flatMap(leaves);
+  const entries: Array<{ columnId: string; join: "one" | "list" | "or" }> = [];
+  const andLevel = (node: FilterGroup | FilterPredicate) => {
+    if (node.type === "predicate") entries.push({ columnId: node.columnId, join: node.operator === "in" ? "list" : "one" });
+    else if (node.combinator === "and" || node.children.length === 1) node.children.forEach(andLevel);
+    else {
+      const columns = new Set(leaves(node).map((p) => p.columnId));
+      if (columns.size > 1) why.add(UNWRITABLE.across);
+      else entries.push({ columnId: [...columns][0] as string, join: "or" });
+    }
+  };
+  if (filters) {
+    andLevel(filters);
+    for (const p of leaves(filters))
+      if ((p.operator === "contains" || p.operator === "startsWith") && p.value === "") why.add(UNWRITABLE.emptyText);
+  }
+  for (const columnId of new Set(entries.map((e) => e.columnId))) {
+    const on = entries.filter((e) => e.columnId === columnId);
+    if (on.length < 2) continue;
+    if (on.some((e) => e.join === "list")) why.add(UNWRITABLE.listBeside);
+    else if (on.some((e) => e.join === "or")) why.add(UNWRITABLE.orBeside);
+  }
+  return [...why];
+};
+
+/**
+ * The Query Check's cases the adapter refuses, by class, the same on every major and row model: of 551 wealth cases and
+ * 594 ledger cases. A change here is a supported case now refused, or the reverse, or new Query Check cases.
+ */
+const REFUSED: Record<"wealth" | "ledger", Record<string, number>> = {
+  wealth: { [UNWRITABLE.across]: 63, [UNWRITABLE.emptyText]: 8, [UNWRITABLE.listBeside]: 3 },
+  ledger: { [UNWRITABLE.across]: 66, [UNWRITABLE.emptyText]: 8, [UNWRITABLE.listBeside]: 3 },
+};
+
+/** Held cases whose filter the reader leaves as the Host's, by "case name: columns". None: it reads every one. */
+const NOT_READ: string[] = [];
+
 describe("the row check: AG Grid keeps the rows GridCue means", () => {
   const run = (major: Major, rowModel: RowModel, name: string, schema: ViewSchema, id: string) =>
     it(
@@ -297,10 +350,15 @@ describe("the row check: AG Grid keeps the rows GridCue means", () => {
         const result = await runRowCheck(major, rowModel, schema, id);
         expect(result.differ).toEqual([]);
         expect(result.misread).toEqual([]);
-        // What the grid can't hold is refused before anything is written, and only that.
-        expect(Object.keys(result.refused)).toEqual(["ADAPTER_UNSUPPORTED_FILTER"]);
-        expect(result.held).toBeGreaterThan(result.cases / 2);
-        expect(result.held + (result.refused.ADAPTER_UNSUPPORTED_FILTER ?? 0)).toBe(result.cases);
+        // What the grid can't hold is refused before anything is written, and only that: the refused cases are exactly
+        // the ones whose filters AG Grid's model has no shape for, case by case.
+        const unwritable = result.checked.filter((c) => whyUnwritable(c.filters).length > 0);
+        expect(result.refused.sort()).toEqual(unwritable.map((c) => `${c.name}: ADAPTER_UNSUPPORTED_FILTER`).sort());
+        const counts: Record<string, number> = {};
+        for (const c of unwritable) for (const why of whyUnwritable(c.filters)) counts[why] = (counts[why] ?? 0) + 1;
+        expect(counts).toEqual(REFUSED[name.startsWith("ledger") ? "ledger" : "wealth"]);
+        // The reader reads every filter GridCue writes: none is left as the Host's.
+        expect(result.notRead).toEqual(NOT_READ);
         // Client-Side, AG Grid sorts; its comparator is gridcueColumnDefs'. Infinite, the Host's Data Query sorts.
         if (rowModel === "infinite") expect(result.orderDiffers).toBe(0);
       },

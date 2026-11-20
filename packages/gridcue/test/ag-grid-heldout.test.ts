@@ -544,11 +544,18 @@ const bare = (p: FilterPredicate | FilterGroup): Bare => {
   if (p.type !== "predicate") throw new Error("a group inside a group");
   return { columnId: p.columnId, operator: p.operator, ...(p.value === undefined ? {} : { value: p.value }) };
 };
-/** The adapter's filters in a label's shape: none is no predicates. */
+/**
+ * The adapter's filters in a label's shape: none is no predicates. A label's predicates are ANDed and its group is an
+ * OR, so a reading joined another way has no label's shape and fails the run.
+ */
 const asLabel = (filters: FilterGroup | null): Label => {
   const children = filters?.children ?? [];
   const [only] = children;
-  if (children.length === 1 && only?.type === "group") return { group: { combinator: "or", children: only.children.map(bare) } };
+  if (children.length === 1 && only?.type === "group") {
+    if (only.combinator !== "or") throw new Error(`a group joined with ${only.combinator}, where a label's group is an OR`);
+    return { group: { combinator: "or", children: only.children.map(bare) } };
+  }
+  if (children.length > 1 && filters?.combinator !== "and") throw new Error(`filters joined with ${filters?.combinator}, not AND`);
   return { predicates: children.map(bare) };
 };
 const leaves = (group: FilterGroup | null): FilterPredicate[] =>

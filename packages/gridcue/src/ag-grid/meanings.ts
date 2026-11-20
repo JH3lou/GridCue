@@ -340,14 +340,30 @@ interface ColumnDefLike {
   filter?: unknown;
   filterParams?: unknown;
   comparator?: unknown;
+  cellDataType?: unknown;
 }
+
+/**
+ * The `cellDataType` AG Grid infers from cells of each kind, where one type fits every cell of it. A date's cells may be
+ * text or `Date` objects, so it has none. Named up front, a Client-Side grid made before its rows doesn't wait for them:
+ * AG Grid 34 and 35 hold back every filter model until they arrive when a column's type is still to infer.
+ */
+const DATA_TYPE_OF: Partial<Record<ColumnDescriptor["kind"], string>> = {
+  string: "text",
+  enum: "text",
+  boolean: "boolean",
+  number: "number",
+  currency: "number",
+  percent: "number",
+};
 
 /**
  * The Host's column definitions with GridCue's settings on each column of the schema (more grids spec, 5.6):
  * `columnDefs={gridcueColumnDefs(schema, columnDefs)}`. Column groups are kept. A column GridCue may filter gets AG
  * Grid's own filter for its `cellDataType`, unless it names one, and filter settings that set that filter to GridCue's
- * meanings and list only the options GridCue reads on that column. Every schema column gets GridCue's sort comparator.
- * A setting the column already has is kept: its own `filter`, `comparator` and `filterParams` keys win, and
+ * meanings and list only the options GridCue reads on that column. Every schema column gets GridCue's sort comparator,
+ * and a column with no `cellDataType` gets the one AG Grid infers from its kind's cells (`DATA_TYPE_OF`; none for a date).
+ * A setting the column already has is kept: its own `cellDataType`, `filter`, `comparator` and `filterParams` keys win, and
  * `createAgGridAdapter` then names any that GridCue's filters can't work with. Columns outside the schema are unchanged.
  *
  * Build it from the schema the adapter gets, once, as it builds new settings each time.
@@ -363,8 +379,10 @@ export const gridcueColumnDefs = <D extends object>(schema: ViewSchema, columnDe
     if (!column) return def;
     const settings = settingsOf(column);
     const ownParams = typeof own.filterParams === "object" && own.filterParams !== null ? own.filterParams : {};
+    const dataType = own.cellDataType === undefined ? DATA_TYPE_OF[column.kind] : undefined;
     return {
       ...def,
+      ...(dataType ? { cellDataType: dataType } : {}),
       comparator: own.comparator ?? settings.comparator,
       ...(settings.filterParams ? { filter: own.filter ?? settings.filter, filterParams: { ...settings.filterParams, ...ownParams } } : {}),
     };

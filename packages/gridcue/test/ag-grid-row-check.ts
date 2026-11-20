@@ -15,18 +15,20 @@ type Row = Record<string, Scalar>;
 export interface RowCheckResult {
   /** Every case the Query Check makes for the schema and the adapter's operations. */
   cases: number;
+  /** Each case's name and filters, and the code it was refused with, if it was. */
+  checked: Array<{ name: string; filters: FilterGroup | null; refused?: string }>;
   /** The cases the grid held: the adapter wrote the case's View State and the grid read it back. */
   held: number;
-  /** The cases the adapter refused before writing anything, by error code. */
-  refused: Record<string, number>;
+  /** The cases the adapter refused before writing anything, as "case name: error code". */
+  refused: string[];
   /** The Query Check's message for each held case whose rows, or checked order, are wrong. The bar is none. */
   differ: string[];
   /** Held cases that sort, whose rows are right but not in `applyView`'s exact order: where empty and tied cells sit. */
   orderDiffers: number;
   /** Held cases whose filter model, read back with no memory of what was written, keeps other rows. The bar is none. */
   misread: string[];
-  /** Held cases with a filter the reader leaves as the Host's, such as an enum equal to empty text. */
-  notRead: number;
+  /** Held cases with a filter the reader leaves as the Host's, such as an enum equal to empty text, as "case name: columns". */
+  notRead: string[];
 }
 
 /** The rows an Infinite grid has drawn, once every one of them has loaded. */
@@ -83,11 +85,21 @@ export const runRowCheck = async (major: Major, rowModel: RowModel, schema: View
   const check = queryCheck(schema, { id, operations: probe.adapter.getCapabilities().operations });
   probe.api.destroy();
   const { api, adapter } = gridFor(major, rowModel, schema, check.rows);
-  const result: RowCheckResult = { cases: check.cases.length, held: 0, refused: {}, differ: [], orderDiffers: 0, misread: [], notRead: 0 };
+  const result: RowCheckResult = {
+    cases: check.cases.length,
+    checked: [],
+    held: 0,
+    refused: [],
+    differ: [],
+    orderDiffers: 0,
+    misread: [],
+    notRead: [],
+  };
   for (const c of check.cases) {
     const written = await adapter.restore({ revision: adapter.getState().revision, state: c.state });
+    result.checked.push({ name: c.name, filters: c.state.filters, ...(written.ok ? {} : { refused: written.code }) });
     if (!written.ok) {
-      result.refused[written.code] = (result.refused[written.code] ?? 0) + 1;
+      result.refused.push(`${c.name}: ${written.code}`);
       continue;
     }
     result.held++;
@@ -102,7 +114,7 @@ export const runRowCheck = async (major: Major, rowModel: RowModel, schema: View
     // The reader, with no memory of what GridCue wrote: the View State it reads must keep the rows the grid shows.
     const model = api.getFilterModel();
     const reread = readFilterModel(model, schema);
-    if (reread.unread.length > 0) result.notRead++;
+    if (reread.unread.length > 0) result.notRead.push(`${c.name}: ${reread.unread.join(", ")}`);
     else {
       const kept = check.rows.filter((row) => matchesFilter(row, reread.filters, schema)).map((row) => row[id]);
       if (!sameSet(kept, ids)) result.misread.push(`${c.name}: read as ${JSON.stringify(reread.filters)}`);

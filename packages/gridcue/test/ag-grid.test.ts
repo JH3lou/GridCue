@@ -21,6 +21,7 @@ import type {
   ViewPlan,
   ViewSchema,
 } from "../src/core/protocol";
+import { applyView } from "../src/core/rows-adapter";
 import { defineSchema } from "../src/core/schema";
 import { validatePlan } from "../src/core/validate";
 import { createMockProvider } from "../src/mock";
@@ -407,14 +408,18 @@ describe("AG Grid adapter: checks at creation", () => {
     }
   });
 
-  it("refuses a number column that gets AG Grid's text filter, as on the Infinite Row Model with no cellDataType", () => {
-    const defs = columnDefs.map(({ cellDataType: _type, ...d }) => d);
-    const schema = schemaFromAgGrid(defs as never, { sampleRows: rows });
-    const { api } = makeGrid(latest, "infinite", rows, defs);
+  it("refuses a date column that gets AG Grid's text filter, as on the Infinite Row Model with no cellDataType", () => {
+    // gridcueColumnDefs names a number column's cellDataType, and none for a date: its cells may be text or Date objects.
+    const dated = rows.map((r, i) => ({ ...r, day: `2026-01-0${i + 1}` }));
+    const defs = [...columnDefs.map(({ cellDataType: _type, ...d }) => d), { field: "day", headerName: "Day" }];
+    const schema = schemaFromAgGrid(defs as never, { sampleRows: dated });
+    expect(schema.columns.find((c) => c.id === "day")?.kind).toBe("date");
+    const { api } = makeGrid(latest, "infinite", dated, defs);
     const error = configError(() => createAgGridAdapter({ schema, api }));
     expect(error?.code).toBe("INPUT_CONFIG");
-    expect(error?.message).toContain("“value”");
+    expect(error?.message).toContain("“day”");
     expect(error?.message).toContain("cellDataType");
+    expect(error?.message).not.toContain("“value”");
   });
 
   // A setting that makes AG Grid filter on another value than the column's cell, or match it another way, keeps other
@@ -598,6 +603,133 @@ describe("AG Grid adapter: a filter AG Grid can't hold fails before anything is 
     }
     expect(written(api)).toBe(grid);
     expect(adapter.getState()).toEqual(before);
+  });
+});
+
+// --- A write the grid answers at once, or throws in ----------------------------------------------------------------------
+
+describe("AG Grid adapter: one apply, however the grid answers", () => {
+  it("tells subscribers once, of the whole change, when the grid fires its events inside the write", async () => {
+    // AG Grid fires them a tick later (spike, Q1); a grid that fires them at once must not show half a write.
+    const { api, schema } = makeGrid(latest, "clientSide", rows, columnDefs);
+    const heard: Array<(event: unknown) => void> = [];
+    const eager: AgGridApiLike = {
+      ...callsOf(api),
+      addEventListener: (type, listener) => {
+        heard.push(listener);
+        api.addEventListener(type, listener);
+      },
+      setFilterModel: (model) => {
+        api.setFilterModel(model);
+        for (const listener of heard) listener({ type: "filterChanged" });
+      },
+    };
+    const adapter = createAgGridAdapter({ schema, api: eager });
+    const told: VersionedViewState[] = [];
+    adapter.subscribe((s) => told.push(s));
+    const result = await adapter.apply(
+      validated(adapter, [filter("value", "gt", 6), { type: "sort.set", sorts: [{ columnId: "value", direction: "asc" }] }]),
+    );
+    expect(result.ok).toBe(true);
+    expect(told).toHaveLength(1);
+    expect(told[0]?.state.sorts).toEqual([{ columnId: "value", direction: "asc" }]);
+    expect(told[0]?.state.filters?.children).toHaveLength(1);
+  });
+
+  it("puts the grid back and rethrows when a write throws, as when a Host's comparator throws", async () => {
+    const { api, schema } = makeGrid(latest, "clientSide", rows, columnDefs);
+    const thrown = new Error("the Host's comparator threw");
+    let throws = 1;
+    const throwing: AgGridApiLike = {
+      ...callsOf(api),
+      applyColumnState: (params) => {
+        if (throws-- > 0) throw thrown;
+        return api.applyColumnState(params);
+      },
+    };
+    const adapter = createAgGridAdapter({ schema, api: throwing });
+    const before = adapter.getState();
+    const grid = written(api);
+    const plan = validated(adapter, [filter("value", "gt", 6), { type: "sort.set", sorts: [{ columnId: "value", direction: "asc" }] }]);
+    await expect(adapter.apply(plan)).rejects.toBe(thrown);
+    expect(written(api)).toBe(grid);
+    expect(adapter.getState()).toEqual(before);
+    // The filter GridCue didn't write isn't read as its own: the next apply starts from the grid as it was.
+    const again = await adapter.apply(validated(adapter, [filter("value", "lt", 15)]));
+    expect(again.ok).toBe(true);
+    expect(again.ok && again.state.state.filters?.children).toEqual([expect.objectContaining({ columnId: "value", operator: "lt" })]);
+  });
+
+  it("fails with ADAPTER_FAILED when a write throws and the grid can't be put back as it was", async () => {
+    const { api, schema } = makeGrid(latest, "clientSide", rows, columnDefs);
+    let calls = 0;
+    const stuck: AgGridApiLike = {
+      ...callsOf(api),
+      // The write lands, then throws; putting back throws too.
+      applyColumnState: (params) => {
+        calls++;
+        if (calls === 1) {
+          api.applyColumnState(params);
+          throw new Error("the Host's comparator threw");
+        }
+        throw new Error("again");
+      },
+    };
+    const adapter = createAgGridAdapter({ schema, api: stuck });
+    const plan = validated(adapter, [{ type: "sort.set", sorts: [{ columnId: "value", direction: "asc" }] }]);
+    const error = await adapter.apply(plan).then(
+      () => undefined,
+      (e: unknown) => e,
+    );
+    expect(isGridCueError(error) && error.code).toBe("ADAPTER_FAILED");
+  });
+});
+
+// --- A Client-Side grid made before its rows ---------------------------------------------------------------------------
+
+describe("AG Grid adapter: a Client-Side grid made before its rows arrive", () => {
+  // AG Grid 34 and 35 infer a column's cellDataType from the first rows, and hold back every filter model the grid is
+  // given until rows arrive (the whole grid waits). gridcueColumnDefs names the type AG Grid would infer from the cells
+  // of the column's kind, so nothing waits.
+  const kinds = defineSchema([{ id: "id" }, { id: "name" }, { id: "team" }, { id: "n" }, { id: "ok" }], {
+    columns: { id: { kind: "number" }, team: { kind: "enum" }, n: { kind: "number" }, ok: { kind: "boolean" } },
+  });
+  const later = [
+    { id: 1, name: "Ann", team: "a", n: 5, ok: true },
+    { id: 2, name: "Bo", team: "b", n: 20, ok: false },
+    { id: 3, name: "Cy", team: "a", n: 12, ok: true },
+  ];
+  const untyped = kinds.columns.map((c) => ({ field: c.id }));
+  for (const major of MAJORS) {
+    for (const start of [{ rowData: [] }, {}]) {
+      it(`AG Grid ${major.version}, rowData ${start.rowData ? "[]" : "not set"}: applies a filter and sort, which hold once the rows arrive`, async () => {
+        const api = major.createGrid({ columnDefs: gridcueColumnDefs(kinds, untyped), ...start }) as TestApi & {
+          setGridOption(key: string, value: unknown): void;
+        };
+        const adapter = createAgGridAdapter({ schema: kinds, api });
+        const result = await adapter.apply(
+          validated(adapter, [
+            filter("name", "neq", "Bo"),
+            filter("n", "gt", 4),
+            filter("ok", "eq", true),
+            filter("team", "eq", "a"),
+            { type: "sort.set", sorts: [{ columnId: "n", direction: "desc" }] },
+          ]),
+        );
+        expect(result.ok).toBe(true);
+        api.setGridOption("rowData", later);
+        await tick();
+        expect(shown(api, "id")).toEqual([3, 1]);
+      });
+    }
+  }
+
+  it("keeps a cellDataType the Host names, and names none for a date, whose cells may be text or Date objects", () => {
+    const defs = gridcueColumnDefs(
+      defineSchema([{ id: "n" }, { id: "day" }], { columns: { n: { kind: "number" }, day: { kind: "date" } } }),
+      [{ field: "n", cellDataType: false }, { field: "day" }],
+    ) as Array<Record<string, unknown>>;
+    expect(defs.map((d) => d.cellDataType)).toEqual([false, undefined]);
   });
 });
 
@@ -830,4 +962,61 @@ describe("schemaFromAgGrid", () => {
     expect(by.rank?.capabilities).not.toContain("sort");
     expect(by.account?.capabilities).toContain("sort");
   });
+
+  it("reads AG Grid's date and dateTime as date and date-and-time, with no sample rows, and the Host's kind first", () => {
+    const defs = [
+      { field: "opened", cellDataType: "date" },
+      { field: "stamp", cellDataType: "dateTime" },
+      { field: "other", cellDataType: "date" },
+    ];
+    const schema = schemaFromAgGrid(defs, { columns: { other: { kind: "datetime" } } });
+    expect(schema.columns.map((c) => [c.id, c.kind])).toEqual([
+      ["opened", "date"],
+      ["stamp", "datetime"],
+      ["other", "datetime"],
+    ]);
+  });
+
+  for (const major of MAJORS) {
+    it(`AG Grid ${major.version}: a filter on cells that hold Date objects keeps the rows applyView keeps`, async () => {
+      const data = [
+        { id: 1, opened: new Date(2026, 0, 9, 23, 30), stamp: new Date(2026, 0, 10, 8, 0) },
+        { id: 2, opened: new Date(2026, 0, 10), stamp: new Date(2026, 0, 10, 15, 0) },
+        { id: 3, opened: new Date(2026, 0, 10, 18, 0), stamp: new Date(2026, 0, 11, 0, 0) },
+        { id: 4, opened: new Date(2026, 0, 12), stamp: null },
+        { id: 5, opened: null, stamp: new Date(2026, 1, 1) },
+      ];
+      const defs = [
+        { field: "id", cellDataType: "number" },
+        { field: "opened", cellDataType: "date" },
+        { field: "stamp", cellDataType: "dateTime" },
+      ];
+      const schema = schemaFromAgGrid(defs);
+      const api = major.createGrid({ columnDefs: gridcueColumnDefs(schema, defs), rowData: data });
+      const adapter = createAgGridAdapter({ schema, api });
+      const cases: Array<[string, FilterPredicate["operator"], FilterPredicate["value"]?]> = [
+        ["opened", "eq", "2026-01-10"],
+        ["opened", "gt", "2026-01-10"],
+        ["opened", "lte", "2026-01-10"],
+        ["opened", "between", { min: "2026-01-09", max: "2026-01-10" }],
+        ["opened", "isEmpty"],
+        ["stamp", "gte", "2026-01-10"],
+        ["stamp", "lt", "2026-01-11"],
+        ["stamp", "isNotEmpty"],
+      ];
+      for (const [columnId, operator, value] of cases) {
+        const predicate: FilterPredicate = { id: "f", type: "predicate", columnId, operator, ...(value === undefined ? {} : { value }) };
+        const state = {
+          ...adapter.getDefaultState(),
+          filters: { id: "root", type: "group" as const, combinator: "and" as const, children: [predicate] },
+        };
+        const result = await adapter.restore({ revision: adapter.getState().revision, state });
+        expect(result.ok, `${columnId} ${operator}`).toBe(true);
+        const want = data.filter((row) => applyView([row], state, schema).rows.length === 1).map((r) => r.id);
+        // Each filter keeps some rows and drops others, so the grid's rows say which it kept.
+        expect(want.length > 0 && want.length < data.length, `${columnId} ${operator}`).toBe(true);
+        expect(shown(api, "id"), `${columnId} ${operator}`).toEqual(want);
+      }
+    });
+  }
 });
