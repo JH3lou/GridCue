@@ -8,10 +8,12 @@ import {
   mockOptionsFor,
   onGridWithoutGrouping,
   onGridWithoutRenders,
+  passesWithoutRenders,
   REVIEW_R2_FOR_THE_OWNER,
   runCase,
   runWithoutGrouping,
   runWithoutRenders,
+  type Verdict,
 } from "./run";
 
 const provider = createMockProvider(wealthMockOptions);
@@ -690,6 +692,169 @@ describe("pinning and density, held-out set, round 3, on a grid that doesn't dra
   }
 });
 
+// Totals (operation set spec, 5.2 and 5.4; ADR 0028 and 0030), labelled before the code for a grid that draws totals:
+// the totals forms, totals beside other changes, adding to and replacing a view's totals, 10 adversarial requests
+// (text and percent columns, "per", "how much", "mean", "avg", "hide the totals", "total" inside a Host's label), 15
+// "X households first" requests with a `defaultMeasure` and without, and Host names that hold a totals word. Each case
+// says `renders`, so it runs on a Rows Adapter built with `renders: ["totals"]`. Before the code (2026-11-14) no case
+// was ready with a total; after it, with the Mock Provider: 30 exact, 30 asked as labelled, no wrong view. "Most" and
+// "least concentrated households first" offer the third choice, "Rank households by average Concentration": the
+// adjective is the column's name with "-ion" written "-ed" (spec 5.4's row). Before the review's fixes they kept two.
+describe("totals, with the Mock Provider", () => {
+  const ledgerProvider = createMockProvider(mockOptionsFor({ schema: "ledger" }));
+  for (const c of loadCases(new URL("./cases-totals.jsonl", import.meta.url))) {
+    it(`cases-totals.jsonl: ${c.id}`, async () => {
+      const result = await runCase(c, c.schema === "ledger" ? ledgerProvider : provider);
+      expect(result.verdict, JSON.stringify(result.plan, null, 1)).toMatch(/^(exact|safe_abstention|rejected)$/);
+    });
+  }
+});
+
+// The same cases on a grid without `renders` (operation set spec, 5.4; order plan, D3), derived as for pins: a case
+// whose expected plan holds a total ends not applied, asking only "This grid can't show totals.", with no choices, and
+// nothing else in the request applies, the grouping of "total X by Y" included; a ranked-group question loses its
+// third choice; every other case keeps its verdict.
+describe("totals on a grid that doesn't draw them, with the Mock Provider", () => {
+  const ledgerProvider = createMockProvider(mockOptionsFor({ schema: "ledger" }));
+  for (const c of loadCases(new URL("./cases-totals.jsonl", import.meta.url))) {
+    if (!onGridWithoutRenders(c)) continue;
+    it(`cases-totals.jsonl: ${c.id}`, async () => {
+      const result = await runWithoutRenders(c, c.schema === "ledger" ? ledgerProvider : provider);
+      expect(result?.pass, JSON.stringify({ before: result?.before.verdict, after: result?.after.plan }, null, 1)).toBe(true);
+    });
+  }
+});
+
+// Totals, held out, round 1 (operation set plan, Task 3.5): three sets labelled blind for a grid that draws totals, run
+// once with the Mock Provider after the code (2026-11-14). Each case says `renders`, so it runs on a Rows Adapter built
+// with `renders: ["totals"]`.
+// - The totals set, written from spec 5.4 (90, 23 on the ledger, with adversarial cases): 41 exact, 47 asked as
+//   labelled, 2 asked where a ready plan or a question is right ("please total market value by advisor", "remove the
+//   total"), no wrong view. Every adversarial case asked or was refused.
+// - The ranked-group set (19, 5 on the ledger): 2 exact, 11 asked as labelled, 6 asked with other choices, no wrong
+//   view. "Most" and "least concentrated households first" and the same two for advisors asked with two choices where
+//   the label has the third ("Rank households by average Concentration"), as the two in `cases-totals.jsonl` did;
+//   "households, largest first" and "advisors, biggest first" asked which column to sort by. After the review's fixes:
+//   2 exact, 15 asked as labelled, 2 asked with other choices (those last two, as on the code before this PR).
+// - The natural set, by a labeller who saw only the product definition and the schemas (50, 15 on the ledger): 3 exact,
+//   21 asked as labelled, 25 asked where the label is a ready plan, 1 wrong view by the verdict: "total market value and
+//   average concentration" gave two `aggregation.set` operations, the first with Market value alone and the second with
+//   both, where the label has one with both. The view it applies and its Preview are the label's. After the fix (a plan
+//   keeps one `aggregation.set`, with every total): 4 exact, 20 asked as labelled, 1 refused, 25 asked where the label
+//   is a ready plan, no wrong view. Its ask rate is 25 of the 29 requests labelled ready, above half, which goes to the
+//   owner as evidence against ADR 0028.
+// On the code before this PR, 5 of these requests were ready. 2 were exact and still are (ledger sorts, "owners with the
+// highest rate first"). 3 were wrong views: "group by advisor and total gain" and "group by custodian, average
+// concentration" grouped by the measure too, and are now exact; "top 10 accounts by market value with their total"
+// dropped "with their total", and now asks.
+describe("totals, held-out sets, with the Mock Provider", () => {
+  const ledgerProvider = createMockProvider(mockOptionsFor({ schema: "ledger" }));
+  for (const file of ["cases-totals-heldout.jsonl", "cases-totals-ranked-heldout.jsonl", "cases-totals-natural-heldout.jsonl"]) {
+    for (const c of loadCases(new URL(`./${file}`, import.meta.url))) {
+      it(`${file}: ${c.id}`, async () => {
+        const result = await runCase(c, c.schema === "ledger" ? ledgerProvider : provider);
+        expect(result.verdict, JSON.stringify(result.plan, null, 1)).not.toBe("unsafe");
+      });
+    }
+  }
+});
+
+// The same cases on a grid without `renders`, derived as for `cases-totals.jsonl`. Run once (2026-11-14): every case of
+// the totals set passed. 13 did not pass the derived check, and each applied nothing on either grid: 9 natural requests
+// labelled with a total that GridCue asks about with `renders` too, with the same question on both grids ("add up",
+// "mean", "roll up", and the ledger's "total" and "sum", which are aliases of Amount, so no form reads them and they
+// read as before), and the 4 ranked requests that asked with two choices on both grids. After the review's fixes those
+// 4 offer the third choice with `renders` and pass, so 9 don't. A case that asks with `renders` where its label says
+// otherwise passes here when it is not ready either.
+describe("totals, held-out sets, on a grid that doesn't draw them, with the Mock Provider", () => {
+  const ledgerProvider = createMockProvider(mockOptionsFor({ schema: "ledger" }));
+  for (const file of ["cases-totals-heldout.jsonl", "cases-totals-ranked-heldout.jsonl", "cases-totals-natural-heldout.jsonl"]) {
+    for (const c of loadCases(new URL(`./${file}`, import.meta.url))) {
+      if (!onGridWithoutRenders(c)) continue;
+      it(`${file}: ${c.id}`, async () => {
+        const result = await runWithoutRenders(c, c.schema === "ledger" ? ledgerProvider : provider);
+        const pass = !!result && passesWithoutRenders(file, result);
+        expect(pass, JSON.stringify({ before: result?.before.verdict, after: result?.after.plan }, null, 1)).toBe(true);
+      });
+    }
+  }
+});
+
+// Totals, held out, round 2 (operation set plan, Task 3.5): 41 requests labelled blind for a grid that draws totals, 3
+// on the ledger: two totals forms in one request, by "and" or a comma, with and without "by Y" at the end or in the
+// middle; a view that already has a total, or a grouping; the same column twice; replacing a total; clearing the
+// totals; and requests that must ask ("per", a percent or text column, two groupings, words left over, "show totals
+// for", a count). Run once with the Mock Provider (2026-11-14), with `renders`: 21 exact, 18 asked as labelled, 2 asked
+// where the label was a ready plan, no wrong view. The 2 are label errors, corrected here: "total amount and average
+// rate" and "average rate and total units by category" on the ledger, where "total" is an alias of Amount, so the
+// Total form doesn't read (spec 5.2, "a form word that is also a declared label or alias is a Mention first"), as the
+// round 1 labels for "total amount" and "total units" say. On the code before this PR, no request here was ready.
+// Without `renders`, all 41 passed: the 24 whose plan holds a total, or whose words do, ask "This grid can't show
+// totals."; "how many accounts per advisor" asks the same question on both grids.
+describe("totals, held-out set, round 2, with the Mock Provider", () => {
+  const ledgerProvider = createMockProvider(mockOptionsFor({ schema: "ledger" }));
+  for (const c of loadCases(new URL("./cases-totals-heldout-r2.jsonl", import.meta.url))) {
+    it(`cases-totals-heldout-r2.jsonl: ${c.id}`, async () => {
+      const result = await runCase(c, c.schema === "ledger" ? ledgerProvider : provider);
+      expect(result.verdict, JSON.stringify(result.plan, null, 1)).not.toBe("unsafe");
+    });
+  }
+});
+
+describe("totals, held-out set, round 2, on a grid that doesn't draw them, with the Mock Provider", () => {
+  const ledgerProvider = createMockProvider(mockOptionsFor({ schema: "ledger" }));
+  for (const c of loadCases(new URL("./cases-totals-heldout-r2.jsonl", import.meta.url))) {
+    if (!onGridWithoutRenders(c)) continue;
+    it(`cases-totals-heldout-r2.jsonl: ${c.id}`, async () => {
+      const result = await runWithoutRenders(c, c.schema === "ledger" ? ledgerProvider : provider);
+      expect(result?.pass, JSON.stringify({ before: result?.before.verdict, after: result?.after.plan }, null, 1)).toBe(true);
+    });
+  }
+});
+
+// Totals, held out, round 3: 203 requests labelled blind after the review's fixes, for a grid that draws totals, 55 on
+// the ledger: a total said right after a list or another change, plain controls, 55 adversarial requests, views that
+// start with totals or a grouping, the ledger's "total" and "sum" (its own aliases of Amount), ranked groups, and
+// requests that say a total and its opposite. Run once with the Mock Provider (2026-11-15). 6 were judged wrong views:
+// - 1 was real and came from this work: "group by advisor, total market value by custodian" held both groupings, showed
+//   both lines and applied the second. It now asks;
+// - 4 were the labels: "ungroup and average concentration", labelled "must ask" only for want of the shape of an
+//   ungroup; "total market value by advisor" on a view already grouped by Advisor, and on one that already shows that
+//   total, where the plan holds only the change; and "entries with total amount over 2000" on the ledger, where "total"
+//   is Amount's alias and the request filters, as on the code before this work;
+// - 1 is older than totals and holds no totals word: "advisors with the most gain first" sorts the accounts by gain and
+//   drops "advisors". It left the set, and the order plan lists its class (12 A).
+// The 202 kept: 58 exact, 128 asked, 2 refused, 14 asked where the label is a ready plan, no wrong view. 10 of the 14
+// are on the ledger, where "total" and "sum" are the Host's names first, so "total units" and "remove the totals" ask.
+// On the code before this work 39 of these requests were ready, most with the total dropped or read as one more column
+// to sort by, hide or group by.
+describe("totals, held-out set, round 3, with the Mock Provider", () => {
+  const ledgerProvider = createMockProvider(mockOptionsFor({ schema: "ledger" }));
+  for (const c of loadCases(new URL("./cases-totals-heldout-r3.jsonl", import.meta.url))) {
+    it(`cases-totals-heldout-r3.jsonl: ${c.id}`, async () => {
+      const result = await runCase(c, c.schema === "ledger" ? ledgerProvider : provider);
+      expect(result.verdict, JSON.stringify(result.plan, null, 1)).not.toBe("unsafe");
+    });
+  }
+});
+
+// The same cases on a grid without `renders`. A case passes the derived check, or applies nothing there. Seven ledger
+// requests are ready there, each with the plan the code before this work gave (`TOTALS_R3_AS_BEFORE` in `run.ts`): on a
+// grid that draws no totals, "total" and "sum" can only be the Host's names for Amount, and a Host that never set
+// `renders` sees no change. Two of the seven drop a column named right after another ("sort by value descending and
+// total units"), an older wrong view the order plan lists (12 A).
+describe("totals, held-out set, round 3, on a grid that doesn't draw them, with the Mock Provider", () => {
+  const ledgerProvider = createMockProvider(mockOptionsFor({ schema: "ledger" }));
+  for (const c of loadCases(new URL("./cases-totals-heldout-r3.jsonl", import.meta.url))) {
+    if (!onGridWithoutRenders(c)) continue;
+    it(`cases-totals-heldout-r3.jsonl: ${c.id}`, async () => {
+      const result = await runWithoutRenders(c, c.schema === "ledger" ? ledgerProvider : provider);
+      const pass = !!result && passesWithoutRenders("cases-totals-heldout-r3.jsonl", result);
+      expect(pass, JSON.stringify({ before: result?.before.verdict, after: result?.after.plan }, null, 1)).toBe(true);
+    });
+  }
+});
+
 // The review fixes' held-out set, labelled blind before the fixes for the stack's review findings, and first run after
 // them (2026-11-19), once, with the Mock Provider: 76 exact, 36 asked as labelled, 21 safe misses, no wrong view, of
 // 133. A safe miss is reported by `pnpm eval`; a wrong view fails.
@@ -716,6 +881,19 @@ describe("review fixes, second held-out set, with the Mock Provider", () => {
         expect(result.verdict, "take this case off REVIEW_R2_FOR_THE_OWNER").toBe("unsafe");
         return;
       }
+      expect(result.verdict, JSON.stringify(result.plan, null, 1)).not.toBe("unsafe");
+    });
+  }
+});
+
+// The held-out set for two totals under two groupings, labelled blind before the fixes for pull request 37's second
+// review, and first run after them (2026-11-19), once, with the Mock Provider: 14 exact, 16 asked as labelled, 1 safe
+// miss, no wrong view, of 31. A safe miss is reported by `pnpm eval`; a wrong view fails.
+describe("review fixes, held-out set for two totals under two groupings, with the Mock Provider", () => {
+  const ledgerProvider = createMockProvider(mockOptionsFor({ schema: "ledger" }));
+  for (const c of loadCases(new URL("./cases-review-fixes-totals-heldout.jsonl", import.meta.url))) {
+    it(`cases-review-fixes-totals-heldout.jsonl: ${c.id}`, async () => {
+      const result = await runCase(c, c.schema === "ledger" ? ledgerProvider : provider);
       expect(result.verdict, JSON.stringify(result.plan, null, 1)).not.toBe("unsafe");
     });
   }
@@ -813,5 +991,21 @@ describe("the verdict", () => {
     expect(onGridWithoutRenders(both)?.prompts).toEqual(["This grid can't pin columns.", "This grid can't change its density."]);
     expect(onGridWithoutRenders(other)).toEqual({ case: otherWithout, prompts: [] });
     expect(onGridWithoutRenders({ ...otherWithout })).toBeUndefined();
+  });
+
+  it("judges a case run without renders by one rule for its set, here and in `--grid=no-renders`", () => {
+    const sorts = [{ type: "sort.set", sorts: [{ columnId: "amount", direction: "desc" }] }];
+    const ready = { status: "ready", plan: { operations: sorts } };
+    const asked = { status: "needs_clarification", plan: { operations: [] } };
+    const run = (id: string, before: Verdict, after: typeof ready) => ({ id, pass: false, before: { verdict: before }, after });
+    const r3 = "cases-totals-heldout-r3.jsonl";
+    expect(passesWithoutRenders(r3, run("tt3-e-20", "safe_abstention", ready))).toBe(true);
+    expect(passesWithoutRenders(r3, run("tt3-e-20", "safe_abstention", asked))).toBe(false);
+    expect(passesWithoutRenders(r3, run("tt3-b-17", "mismatch", asked))).toBe(true);
+    expect(passesWithoutRenders(r3, run("tt3-b-17", "mismatch", ready))).toBe(false);
+    expect(passesWithoutRenders("cases-totals-natural-heldout.jsonl", run("n", "mismatch", asked))).toBe(true);
+    expect(passesWithoutRenders("cases-totals-natural-heldout.jsonl", run("n", "safe_abstention", asked))).toBe(false);
+    expect(passesWithoutRenders("cases-totals.jsonl", run("n", "mismatch", asked))).toBe(false);
+    expect(passesWithoutRenders("cases-totals.jsonl", { ...run("n", "mismatch", asked), pass: true })).toBe(true);
   });
 });

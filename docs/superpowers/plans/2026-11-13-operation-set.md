@@ -148,47 +148,48 @@ Spec 4.1 to 4.5 (pin and density rows), 5.2, 5.3, 9. ADR 0028, and ADR 0029's pi
 Spec 4.3 to 4.5 (totals rows), 5.2, 5.4, 9. ADR 0030, and ADR 0029's totals half.
 
 ### Task 3.1: The TanStack totals spike (Opus)
-- [ ] Outside the repo: a TanStack 9.2.4 table with `gridcueAggregationFn` on `defaultColumn` that reads totals from adapter state. It must give per-group sums and averages, a grand total through `column.getAggregationValue()`, and redraw when only the totals change.
-- [ ] Report to the lead. If it fails, `"totals"` stays off the TanStack adapter in this PR, the Site demo shows totals only after a fix, and the owner hears it before Task 3.4.
+- [x] Outside the repo: a TanStack 9.2.4 table with `gridcueAggregationFn` on `defaultColumn` that reads totals from adapter state. It must give per-group sums and averages, a grand total through `column.getAggregationValue()`, and redraw when only the totals change.
+- [x] Report to the lead. If it fails, `"totals"` stays off the TanStack adapter in this PR, the Site demo shows totals only after a fix, and the owner hears it before Task 3.4.
 
 ### Task 3.2: Label the totals cases (Sonnet, two separate agents)
 **Files:** new `evals/cases-totals.jsonl`; held-out sets outside the repo.
-- [ ] Dev: 40 totals requests with 10 adversarial (text and percent columns, "per", "how much", "total" inside a label), and 15 "X households first" requests with and without `defaultMeasure`. Cases check a question's choices, not only its prompt.
-- [ ] Held-out: 40 of the same mix and 15 ranked-group requests, from spec 5.4 alone.
-- [ ] The totals sets also run on the ledger fixture from named filters' PR 2. This PR adds no schema.
-- [ ] The natural set: 30 requests for totals, written by a second labeller who sees only the product doc and the schema, never the word list.
+- [x] Dev: 40 totals requests with 10 adversarial (text and percent columns, "per", "how much", "total" inside a label), and 15 "X households first" requests with and without `defaultMeasure`. Cases check a question's choices, not only its prompt.
+- [x] Held-out: 40 of the same mix and 15 ranked-group requests, from spec 5.4 alone.
+- [x] The totals sets also run on the ledger fixture from named filters' PR 2. This PR adds no schema.
+- [x] The natural set: 30 requests for totals, written by a second labeller who sees only the product doc and the schema, never the word list.
 
 ### Task 3.3: Totals, validation, group order (Fable for the rules, Opus for the code)
 **Files:** `core/view-words.ts`, `core/compile.ts`, `core/validate.ts`, `core/errors.ts`, `core/preview.ts`, `core/schema.ts`, `core/rows-adapter.ts`, tests.
-- [ ] Fable first writes the tests for the semantics: what a total counts, empty values, the kind rule, adding to existing totals, one total for each column ("total market value" then "average market value" replaces the total, and a group with 60 and 60 against a group with 100 ranks by the one that is left), "total X by Y", the three-choice question, and the group order in both rows of spec 5.4's table.
-- [ ] Opus builds against them: the forms; `PLAN_AGGREGATION_KIND` and the duplicate check; Preview lines and the audit's columns; `defineSchema` adds `"aggregate"`; `ViewResult.totals` and `groups[].totals`; the Rows Adapter's group order; the third choice in the "as a whole" question (`compile.ts:365-372`).
-- [ ] The Preview-line pin test from named filters' PR 2 is updated for the totals wording, and the PR lists each line that changed.
-- [ ] Bars: 0 wrong views on the dev set and every existing set; the nine chassis prompts unchanged; the payload test unchanged.
+- [x] Fable first writes the tests for the semantics: what a total counts, empty values, the kind rule, adding to existing totals, one total for each column ("total market value" then "average market value" replaces the total, and a group with 60 and 60 against a group with 100 ranks by the one that is left), "total X by Y", the three-choice question, and the group order in both rows of spec 5.4's table.
+- [x] Opus builds against them: the forms; `PLAN_AGGREGATION_KIND` and the duplicate check; Preview lines and the audit's columns; `defineSchema` adds `"aggregate"`; `ViewResult.totals` and `groups[].totals`; the Rows Adapter's group order; the third choice in the "as a whole" question (`compile.ts:365-372`).
+- [x] The Preview-line pin test from named filters' PR 2 is updated for the totals wording, and the PR lists each line that changed.
+- [x] Bars: 0 wrong views on the dev set and every existing set; the nine chassis prompts unchanged; the payload test unchanged.
 
 ### Task 3.4: TanStack totals and the rendered-rows test (Opus)
 **Files:** `tanstack/index.ts`, `test/rendered-rows.ts` (started by named filters' PR 5), `test/tanstack.test.ts`, `test/rows-adapter.test.ts`, the contract suite. Needs 3.1 and 3.3.
-- [ ] `gridcueAggregationFn`; totals held by the adapter and read back; `INPUT_CONFIG` when `"totals"` is named and the function isn't registered, if the adapter can see it.
-- [ ] The seeded view generator, for any schema, placed where the package's tests and `evals/` can both import it. This PR owns it (order plan); `proposeView`, the command bar and the four bets reuse it.
-- [ ] The rendered-rows test, grown from the file named filters' PR 5 started: 500 seeded grouped views on each of two row sets with ties and empty values. Bar: 100% equal rows, order, group order and totals. Where a row with no value in a sorted column sits is out of scope (spec section 3): the test checks both adapters keep those rows, and reports how many views differ only there.
+- [x] `gridcueAggregationFn`; totals held by the adapter and read back; `INPUT_CONFIG` when `"totals"` is named and the function isn't registered, if the adapter can see it.
+- [x] The seeded view generator, for any schema, placed where the package's tests and `evals/` can both import it. This PR owns it (order plan); `proposeView`, the command bar and the four bets reuse it.
+- [x] The rendered-rows test, grown from the file named filters' PR 5 started: 500 seeded grouped views on each of two row sets with ties and empty values. Bar: 100% equal rows, order, group order and totals. Where a row with no value in a sorted column sits is out of scope (spec section 3): the test checks both adapters keep those rows, and reports how many views differ only there.
 
 ### Task 3.5: Held-out run (lead)
-- [ ] One run of the held-out sets. Bar: 0 wrong views. Report exact counts.
-- [ ] The natural set: 0 wrong views, and its ask rate. Above half goes to the owner as evidence against ADR 0028. A wrong view from a word nothing reads, in a part this work doesn't cover, still fails the bar: the class is narrowed to a question, with a fresh held-out set, and no reading is added (order plan, D4).
-- [ ] The rendered-rows test once more, on 500 views for each row set from seeds the lead draws after the build. Bar: 100% equal.
-- [ ] The sets join the repo as regression sets.
+- [x] One run of the held-out sets. Bar: 0 wrong views. Report exact counts.
+- [x] The natural set: 0 wrong views, and its ask rate. Above half goes to the owner as evidence against ADR 0028. A wrong view from a word nothing reads, in a part this work doesn't cover, still fails the bar: the class is narrowed to a question, with a fresh held-out set, and no reading is added (order plan, D4).
+- [x] A third blind held-out round after the review's fixes (order plan, section 11): 203 cases; one wrong view from this work, now a question; four labels corrected; one request set aside; no wrong view in the 202 kept. It joined the repo as `evals/cases-totals-heldout-r3.jsonl`.
+- [x] The rendered-rows test once more, on 500 views for each row set from seeds the lead draws after the build. Bar: 100% equal. Seeds 918273001 to 918273500: wealth 416 the same and 84 that differ only in where a row with no value sits; ledger 443 and 57; none different.
+- [x] The sets join the repo as regression sets.
 
 ### Task 3.6: Grids, examples, Site, skill (Sonnet)
 **Files:** as Task 2.6. Needs 2.1 and 3.4.
 - [ ] Group rows and the footer draw totals with spec section 9's values, in the Site demo and both examples, with `renders: ["totals"]` (TanStack only if Task 3.1 passed).
 - [ ] Real-browser check, light and dark. Before and after screenshots, including a grouped view whose group order changed in the Next.js example.
-- [ ] Site: `concepts/views`, `concepts/requests`, `api/adapters`, `api/schema`, `api/protocol`, `guides/vite-tanstack`, `get-started/describe-your-domain` (`defaultMeasure` now also ranks groups), and `safety` (its "does not compute answers or aggregate" sentence).
-- [ ] `skills/gridcue`: totals and `gridcueAggregationFn`. `pnpm check:skills`.
-- [ ] `docs/internals/product.md`, `intent-protocol.md`, and the four bets spec for totals: line 56, and 5.3's `unsaid` list and sentence order. The four bets plan's tasks 2.4, 3.2 and 4.2 gain totals (order plan, section 6). Changelog, with the group order change called out (Haiku).
+- [x] Site: `concepts/views`, `concepts/requests`, `api/adapters`, `api/schema`, `api/protocol`, `guides/vite-tanstack`, `get-started/describe-your-domain` (`defaultMeasure` now also ranks groups), and `safety` (its "does not compute answers or aggregate" sentence).
+- [x] `skills/gridcue`: totals and `gridcueAggregationFn`. `pnpm check:skills`.
+- [x] `docs/internals/product.md`, `intent-protocol.md`, and the four bets spec for totals: line 56, and 5.3's `unsaid` list and sentence order. The four bets plan's tasks 2.4, 3.2 and 4.2 gain totals (order plan, section 6). Changelog, with the group order change called out (Haiku).
 
 ### Task 3.7: Live run, review (Opus), gate
 - [ ] The owner's command: one live run with Jev on every set. 0 wrong views, no drop in exact results.
-- [ ] The reviewer hunts for a total on a column it doesn't fit, and a view where the adapters differ.
-- [ ] `pnpm lint`, `pnpm check`.
+- [x] The reviewer hunts for a total on a column it doesn't fit, and a view where the adapters differ.
+- [x] `pnpm lint`, `pnpm check`.
 
 ## PR 4: Counts on TanStack Table (`feat/tanstack-counts`)
 

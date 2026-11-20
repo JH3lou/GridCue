@@ -18,14 +18,13 @@ interface ViewState {
   groupBy: string[]; // outermost first
   pinnedColumnIds: { start: string[]; end: string[] }; // Pinned Columns, each side in pin order
   density: "compact" | "comfortable" | "spacious";
-  // Reserved in the protocol, not proposed yet:
-  aggregations: AggregationSpec[];
+  aggregations: AggregationSpec[]; // Totals: { columnId, function: "sum" | "avg" }, one for each column
 }
 ```
 
 A **Grid Adapter** translates between this shape and one grid library. `createTanStackAdapter` reads and writes TanStack Table's filter, sort, grouping, visibility, order and, when the Host says its table draws them, column pinning state. `createRowsAdapter` holds the View State itself, and `applyView(rows, state, schema)` produces the rows to render.
 
-The view includes **pinned columns** and **density**. GridCue writes them to the View State, and your table draws them: your own markup keeps a Pinned Column in place while the rest scroll, and sets the row height. An adapter lists the two operations only when you say, with its [`renders` option](/docs/api/adapters#renders), that your table does. A pin or a density change the grid doesn't draw would preview, apply and change nothing the User can see, so GridCue asks instead. With the Rows Adapter, `applyView` returns `pinned` and `density` beside `columns` for you to draw. A left-to-right grid reads the start as the left edge.
+The view includes **pinned columns**, **density** and **totals**. GridCue writes them to the View State, and your table draws them: your own markup keeps a Pinned Column in place while the rest scroll, sets the row height, and shows the totals. An adapter lists the three operations only when you say, with its [`renders` option](/docs/api/adapters#renders), that your table does. A pin, a density change or a total the grid doesn't draw would preview, apply and change nothing the User can see, so GridCue asks instead. With the Rows Adapter, `applyView` returns `pinned` and `density` beside `columns`, and `totals`, for you to draw. A left-to-right grid reads the start as the left edge.
 
 Your own controls keep working. A header click or a column menu changes the same View State, and the adapter reports it.
 
@@ -44,12 +43,26 @@ One atomic kind of view change. GridCue proposes these:
 | `columns.order` | Put Advisor and Market value first |
 | `columns.pin` | Pin Account number to the start, Pin Market value to the end, Unpin Advisor, or Unpin all columns |
 | `density.set` | Use compact density |
+| `aggregation.set` | Show the total of Market value, Show the average of Concentration, or Remove the totals |
 | `limit.set` | Show only the first 10 rows, or Show every row |
 | `view.reset` | Reset the view |
 
 Clearing sorting or grouping is a `sort.set` or `group.set` with an empty list. A count is a `limit.set`: it keeps the first rows of the sorted view, and a row with no value in the first sorted column never fills it, so "top 10" on a column where only 7 rows have a value shows 7. Clearing the count is a `limit.set` with `null`. A count belongs to the view, so changing the sort or the filters of a counted view asks before it plans anything (see [Requests](/docs/concepts/requests)).
 
-A column is pinned once. Pinning one that is pinned to the other side moves it, and pinning a hidden column adds "Show" for it first, so the Preview says both. A hidden column keeps its pin, and shows pinned again when it is shown. "Unpin all columns" is the line when an unpin names every pinned column. A request names only the columns it changes, so a column already pinned to that side stays where it is, and a request that would change nothing says "The grid already shows this view." Aggregation is declared in the protocol for later; GridCue does not propose it today.
+A column is pinned once. Pinning one that is pinned to the other side moves it, and pinning a hidden column adds "Show" for it first, so the Preview says both. A hidden column keeps its pin, and shows pinned again when it is shown. "Unpin all columns" is the line when an unpin names every pinned column. A request names only the columns it changes, so a column already pinned to that side stays where it is, and a request that would change nothing says "The grid already shows this view."
+
+## Totals
+
+A **Total** is a sum or an average of one column: the sum of Market value, the average of Concentration. With a grouping, the grid shows each group's total. With none, it shows one total for the whole view.
+
+- **A total counts the rows the view shows**, after its filters and its count. A row with no value in the column is skipped, and an average is the sum over the rows that have one. A group or a view with no values has an empty total, never 0.
+- **A sum is exact in decimal.** The values are added as they are written, so cents never drift: 0.1 + 0.2 is 0.3, and the total doesn't depend on the order of the rows. An average is that exact sum divided once by the count, so three cells of 0.117 average 0.117. The Rows Adapter and the TanStack Table adapter use the same arithmetic, so a total over the same rows is the same number to the last digit. Their groups can still differ: see [where the adapters differ](/docs/api/adapters#where-the-two-adapters-differ).
+- **A column the view groups by takes no total.** A group row shows its own value there. "Total gain" on a view grouped by Unrealized gain asks.
+- **The column's kind picks the function.** A number or currency column takes a sum or an average, and a percent column takes an average only. No other kind takes a total. GridCue says which fits: "Concentration can't be totalled. Show its average instead?"
+- **A column holds one total at a time.** "Average market value" on a view that shows the total of Market value replaces that total, and the Preview says so: "Show the average of Market value instead of its total". A new total on another column is added, and no total goes unless a request removes it.
+- **A sort on a column with a total ranks the groups by it.** "Sort by market value, descending" on a grouped view that totals Market value puts the group with the largest total first. See [one group order](/docs/api/adapters#one-group-order-in-both-adapters).
+
+Min, max and a count of rows are in the protocol, but no request produces them and neither shipped adapter applies them.
 
 ## View Plan
 

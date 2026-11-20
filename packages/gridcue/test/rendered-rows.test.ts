@@ -320,8 +320,8 @@ const pinned: RenderedCase[] = [
 
 runRenderedRows("Pinned columns and density", pinned);
 
-// The columns, pins and density both adapters draw for 400 seeded random views, half of them grouped. The rows of a
-// grouped view are the operation set's PR 3, so only these three are compared here. On a grouped view TanStack Table
+// The columns, pins and density both adapters draw for 400 seeded random views, half of them grouped. The rows, groups
+// and totals of grouped views are compared in rendered-rows-groups.test.ts. On a grouped view TanStack Table
 // puts the grouped columns first among the unpinned ones (`groupedFirst`); the views where that moves a column are
 // counted, so the difference is seen, not hidden.
 describe("Pinned columns and density, seeded random views: what both adapters draw", () => {

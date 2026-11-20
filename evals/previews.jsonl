@@ -1636,6 +1636,162 @@
 {"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-e-24","lines":["Pin Category to the start"],"notes":[]}
 {"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-f-12","lines":["Unpin all columns","Pin Advisor to the start"],"notes":[]}
 {"file":"cases-view-words-heldout-r3.jsonl","id":"vw3-f-13","lines":["Pin Household to the start"],"notes":[]}
+{"file":"cases-totals.jsonl","id":"tt-total-market-value","lines":["Show the total of Market value"],"notes":[]}
+{"file":"cases-totals.jsonl","id":"tt-sum-of-market-value","lines":["Show the total of Market value"],"notes":[]}
+{"file":"cases-totals.jsonl","id":"tt-show-total-of-gain","lines":["Show the total of Unrealized gain"],"notes":[]}
+{"file":"cases-totals.jsonl","id":"tt-show-total-alias-assets","lines":["Show the total of Market value"],"notes":[]}
+{"file":"cases-totals.jsonl","id":"tt-total-alias-value","lines":["Show the total of Market value"],"notes":[]}
+{"file":"cases-totals.jsonl","id":"tt-average-concentration","lines":["Show the average of Concentration"],"notes":[]}
+{"file":"cases-totals.jsonl","id":"tt-total-by-advisor","lines":["Group by Advisor","Show the total of Market value"],"notes":[]}
+{"file":"cases-totals.jsonl","id":"tt-sum-by-custodian","lines":["Group by Custodian","Show the total of Market value"],"notes":[]}
+{"file":"cases-totals.jsonl","id":"tt-average-concentration-by-custodian","lines":["Group by Custodian","Show the average of Concentration"],"notes":[]}
+{"file":"cases-totals.jsonl","id":"tt-total-gain-by-registration","lines":["Group by Registration type","Show the total of Unrealized gain"],"notes":[]}
+{"file":"cases-totals.jsonl","id":"tt-average-market-value-by-advisor","lines":["Group by Advisor","Show the average of Market value"],"notes":[]}
+{"file":"cases-totals.jsonl","id":"tt-total-by-replaces-grouping","lines":["Group by Custodian","Show the total of Market value"],"notes":[]}
+{"file":"cases-totals.jsonl","id":"tt-total-keeps-grouping","lines":["Show the total of Market value"],"notes":[]}
+{"file":"cases-totals.jsonl","id":"tt-also-total-gain","lines":["Show the total of Unrealized gain"],"notes":[]}
+{"file":"cases-totals.jsonl","id":"tt-average-concentration-added","lines":["Show the average of Concentration"],"notes":[]}
+{"file":"cases-totals.jsonl","id":"tt-average-replaces-total","lines":["Show the average of Market value instead of its total"],"notes":[]}
+{"file":"cases-totals.jsonl","id":"tt-remove-the-totals","lines":["Remove the totals"],"notes":[]}
+{"file":"cases-totals.jsonl","id":"tt-no-totals","lines":["Remove the totals"],"notes":[]}
+{"file":"cases-totals.jsonl","id":"tt-group-and-show-total","lines":["Group by Advisor","Show the total of Market value"],"notes":[]}
+{"file":"cases-totals.jsonl","id":"tt-hide-and-total","lines":["Hide Custodian","Show the total of Market value"],"notes":[]}
+{"file":"cases-totals.jsonl","id":"tt-ledger-average-units","lines":["Show the average of Units"],"notes":[]}
+{"file":"cases-totals.jsonl","id":"tt-ledger-average-rate","lines":["Show the average of Rate"],"notes":[]}
+{"file":"cases-totals.jsonl","id":"tt-ledger-average-rate-by-category","lines":["Group by Category","Show the average of Rate"],"notes":[]}
+{"file":"cases-totals.jsonl","id":"tt-ledger-average-replaces-total","lines":["Show the average of Amount instead of its total"],"notes":[]}
+{"file":"cases-totals.jsonl","id":"tt-adv-ledger-total-is-a-label","lines":["Sort by Amount, descending"],"notes":[]}
+{"file":"cases-totals.jsonl","id":"tt-names-average-total-return","lines":["Show the average of Total return"],"notes":[]}
+{"file":"cases-totals.jsonl","id":"tt-names-total-sum-insured","lines":["Show the total of Sum insured"],"notes":[]}
+{"file":"cases-totals.jsonl","id":"tt-names-sort-total-return","lines":["Sort by Total return, descending"],"notes":[]}
+{"file":"cases-totals.jsonl","id":"tt-names-hide-average-cost","lines":["Hide Average cost"],"notes":[]}
+{"file":"cases-totals.jsonl","id":"tt-names-total-return-above","lines":["Filter Total return above 5%"],"notes":[]}
+{"file":"cases-totals-heldout.jsonl","id":"h1-t-total-mv","lines":["Show the total of Market value"],"notes":[]}
+{"file":"cases-totals-heldout.jsonl","id":"h1-t-sum-of-mv","lines":["Show the total of Market value"],"notes":[]}
+{"file":"cases-totals-heldout.jsonl","id":"h1-t-show-the-total-of-mv","lines":["Show the total of Market value"],"notes":[]}
+{"file":"cases-totals-heldout.jsonl","id":"h1-t-show-total-mv","lines":["Show the total of Market value"],"notes":[]}
+{"file":"cases-totals-heldout.jsonl","id":"h1-t-total-aum","lines":["Show the total of Market value"],"notes":[]}
+{"file":"cases-totals-heldout.jsonl","id":"h1-t-total-assets","lines":["Show the total of Market value"],"notes":[]}
+{"file":"cases-totals-heldout.jsonl","id":"h1-t-sum-of-balance","lines":["Show the total of Market value"],"notes":[]}
+{"file":"cases-totals-heldout.jsonl","id":"h1-t-total-unrealized-gain","lines":["Show the total of Unrealized gain"],"notes":[]}
+{"file":"cases-totals-heldout.jsonl","id":"h1-t-total-gains","lines":["Show the total of Unrealized gain"],"notes":[]}
+{"file":"cases-totals-heldout.jsonl","id":"h1-t-average-concentration","lines":["Show the average of Concentration"],"notes":[]}
+{"file":"cases-totals-heldout.jsonl","id":"h1-t-show-the-average-of-concentration","lines":["Show the average of Concentration"],"notes":[]}
+{"file":"cases-totals-heldout.jsonl","id":"h1-t-average-largest-position","lines":["Show the average of Concentration"],"notes":[]}
+{"file":"cases-totals-heldout.jsonl","id":"h1-t-average-mv","lines":["Show the average of Market value"],"notes":[]}
+{"file":"cases-totals-heldout.jsonl","id":"h1-t-average-gain","lines":["Show the average of Unrealized gain"],"notes":[]}
+{"file":"cases-totals-heldout.jsonl","id":"h1-t-total-mv-by-advisor","lines":["Group by Advisor","Show the total of Market value"],"notes":[]}
+{"file":"cases-totals-heldout.jsonl","id":"h1-t-sum-of-mv-by-advisor","lines":["Group by Advisor","Show the total of Market value"],"notes":[]}
+{"file":"cases-totals-heldout.jsonl","id":"h1-t-average-concentration-by-custodian","lines":["Group by Custodian","Show the average of Concentration"],"notes":[]}
+{"file":"cases-totals-heldout.jsonl","id":"h1-t-total-aum-by-custodian","lines":["Group by Custodian","Show the total of Market value"],"notes":[]}
+{"file":"cases-totals-heldout.jsonl","id":"h1-t-total-gain-by-registration","lines":["Group by Registration type","Show the total of Unrealized gain"],"notes":[]}
+{"file":"cases-totals-heldout.jsonl","id":"h1-t-average-mv-by-household","lines":["Group by Household","Show the average of Market value"],"notes":[]}
+{"file":"cases-totals-heldout.jsonl","id":"h1-t-average-concentration-by-registration","lines":["Group by Registration type","Show the average of Concentration"],"notes":[]}
+{"file":"cases-totals-heldout.jsonl","id":"h1-t-group-and-show-total","lines":["Group by Advisor","Show the total of Market value"],"notes":[]}
+{"file":"cases-totals-heldout.jsonl","id":"h1-t-group-comma-average","lines":["Group by Custodian","Show the average of Concentration"],"notes":[]}
+{"file":"cases-totals-heldout.jsonl","id":"h1-t-group-and-total-gain","lines":["Group by Advisor","Show the total of Unrealized gain"],"notes":[]}
+{"file":"cases-totals-heldout.jsonl","id":"h1-t-also-total-gain","lines":["Show the total of Unrealized gain"],"notes":[]}
+{"file":"cases-totals-heldout.jsonl","id":"h1-t-also-total-mv-after-average","lines":["Show the total of Market value"],"notes":[]}
+{"file":"cases-totals-heldout.jsonl","id":"h1-t-also-average-concentration","lines":["Show the average of Concentration"],"notes":[]}
+{"file":"cases-totals-heldout.jsonl","id":"h1-t-average-replaces-total","lines":["Show the average of Market value instead of its total"],"notes":[]}
+{"file":"cases-totals-heldout.jsonl","id":"h1-t-average-replaces-one-of-two","lines":["Show the average of Unrealized gain instead of its total"],"notes":[]}
+{"file":"cases-totals-heldout.jsonl","id":"h1-t-remove-the-totals","lines":["Remove the totals"],"notes":[]}
+{"file":"cases-totals-heldout.jsonl","id":"h1-t-clear-the-totals","lines":["Remove the totals"],"notes":[]}
+{"file":"cases-totals-heldout.jsonl","id":"h1-t-no-totals","lines":["Remove the totals"],"notes":[]}
+{"file":"cases-totals-heldout.jsonl","id":"h1-t-total-keeps-grouping","lines":["Show the total of Market value"],"notes":[]}
+{"file":"cases-totals-heldout.jsonl","id":"h1-t-total-by-replaces-grouping-keeps-totals","lines":["Group by Advisor","Show the total of Unrealized gain"],"notes":[]}
+{"file":"cases-totals-heldout.jsonl","id":"h1-t-total-with-count-and-sort","lines":["Show the total of Market value"],"notes":[]}
+{"file":"cases-totals-heldout.jsonl","id":"h1-t-total-on-sorted-view","lines":["Show the total of Unrealized gain"],"notes":[]}
+{"file":"cases-totals-heldout.jsonl","id":"h1-l-average-rate-by-category","lines":["Group by Category","Show the average of Rate"],"notes":[]}
+{"file":"cases-totals-heldout.jsonl","id":"h1-l-average-interest-rate","lines":["Show the average of Rate"],"notes":[]}
+{"file":"cases-totals-heldout.jsonl","id":"h1-l-average-margin-by-owner","lines":["Group by Owner","Show the average of Rate"],"notes":[]}
+{"file":"cases-totals-heldout.jsonl","id":"h1-l-average-units-by-owner","lines":["Group by Owner","Show the average of Units"],"notes":[]}
+{"file":"cases-totals-heldout.jsonl","id":"h1-l-average-replaces-total","lines":["Show the average of Amount instead of its total"],"notes":[]}
+{"file":"cases-totals-natural-heldout.jsonl","id":"nat-gain-by-advisor","lines":["Group by Advisor","Show the total of Unrealized gain"],"notes":[]}
+{"file":"cases-totals-natural-heldout.jsonl","id":"nat-two-totals","lines":["Show the total of Market value","Show the average of Concentration"],"notes":[]}
+{"file":"cases-totals-natural-heldout.jsonl","id":"nat-hide-custodian-total","lines":["Hide Custodian","Show the total of Market value"],"notes":[]}
+{"file":"cases-totals-natural-heldout.jsonl","id":"nat-trust-total-gain","lines":["Filter Registration type to Trust","Show the total of Unrealized gain"],"notes":[]}
+{"file":"cases-totals-ranked-heldout.jsonl","id":"h1-rl-highest-rate-owners","lines":["Sort by Rate, descending"],"notes":[]}
+{"file":"cases-totals-ranked-heldout.jsonl","id":"h1-rl-most-units-counterparties","lines":["Sort by Units, descending"],"notes":[]}
+{"file":"cases-totals-heldout-r2.jsonl","id":"h2-two-new-total-avg","lines":["Show the total of Market value and the average of Concentration"],"notes":[]}
+{"file":"cases-totals-heldout-r2.jsonl","id":"h2-two-new-avg-total","lines":["Show the average of Concentration and the total of Unrealized gain"],"notes":[]}
+{"file":"cases-totals-heldout-r2.jsonl","id":"h2-two-new-comma","lines":["Show the total of Unrealized gain and the average of Concentration"],"notes":[]}
+{"file":"cases-totals-heldout-r2.jsonl","id":"h2-two-new-sum-of","lines":["Show the total of Market value and the average of Concentration"],"notes":[]}
+{"file":"cases-totals-heldout-r2.jsonl","id":"h2-two-new-show-forms","lines":["Show the total of Market value and the average of Concentration"],"notes":[]}
+{"file":"cases-totals-heldout-r2.jsonl","id":"h2-two-new-two-sums","lines":["Show the total of Market value and the total of Unrealized gain"],"notes":[]}
+{"file":"cases-totals-heldout-r2.jsonl","id":"h2-two-new-two-avgs","lines":["Show the average of Market value and the average of Concentration"],"notes":[]}
+{"file":"cases-totals-heldout-r2.jsonl","id":"h2-two-new-by-last","lines":["Group by Custodian","Show the average of Concentration and the total of Market value"],"notes":[]}
+{"file":"cases-totals-heldout-r2.jsonl","id":"h2-two-new-by-both-sums","lines":["Group by Advisor","Show the total of Market value and the total of Unrealized gain"],"notes":[]}
+{"file":"cases-totals-heldout-r2.jsonl","id":"h2-two-new-by-first","lines":["Group by Advisor","Show the total of Market value and the average of Concentration"],"notes":[]}
+{"file":"cases-totals-heldout-r2.jsonl","id":"h2-state-keeps-then-two-new","lines":["Show the average of Concentration and the total of Unrealized gain"],"notes":[]}
+{"file":"cases-totals-heldout-r2.jsonl","id":"h2-state-two-new-by","lines":["Group by Custodian","Show the total of Unrealized gain and the average of Concentration"],"notes":[]}
+{"file":"cases-totals-heldout-r2.jsonl","id":"h2-state-grouped-two-new","lines":["Show the total of Unrealized gain and the average of Concentration"],"notes":[]}
+{"file":"cases-totals-heldout-r2.jsonl","id":"h2-replace-total-with-avg","lines":["Show the average of Market value instead of its total"],"notes":[]}
+{"file":"cases-totals-heldout-r2.jsonl","id":"h2-replace-and-add","lines":["Show the average of Market value instead of its total and the total of Unrealized gain"],"notes":[]}
+{"file":"cases-totals-heldout-r2.jsonl","id":"h2-total-by","lines":["Group by Advisor","Show the total of Market value"],"notes":[]}
+{"file":"cases-totals-heldout-r2.jsonl","id":"h2-avg-by","lines":["Group by Custodian","Show the average of Concentration"],"notes":[]}
+{"file":"cases-totals-heldout-r2.jsonl","id":"h2-single-total","lines":["Show the total of Market value"],"notes":[]}
+{"file":"cases-totals-heldout-r2.jsonl","id":"h2-remove-totals","lines":["Remove the totals"],"notes":[]}
+{"file":"cases-totals-heldout-r2.jsonl","id":"h2-clear-totals","lines":["Remove the totals"],"notes":[]}
+{"file":"cases-totals-heldout-r2.jsonl","id":"h2-no-totals","lines":["Remove the totals"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-a-04","lines":["Group by Advisor","Show the total of Market value"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-a-05","lines":["Filter Registration type to Taxable","Show the total of Market value"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-a-09","lines":["Show the total of Market value","Sort by Market value, descending"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-a-10","lines":["Show the average of Concentration","Hide Custodian"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-a-17","lines":["Filter Custodian to Northgate","Show the total of Market value"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-a-19","lines":["Show the total of Market value","Sort by Unrealized gain, descending"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-a-20","lines":["Show the total of Market value","Hide Custodian"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-a-24","lines":["Clear grouping","Show the average of Concentration"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-a-31","lines":["Show the average of Market value instead of its total"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-b-01","lines":["Show the total of Market value"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-b-02","lines":["Show the total of Market value"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-b-03","lines":["Show the total of Unrealized gain"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-b-04","lines":["Show the total of Market value"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-b-05","lines":["Show the average of Concentration"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-b-06","lines":["Show the average of Market value"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-b-07","lines":["Show the average of Concentration"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-b-08","lines":["Show the average of Unrealized gain"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-b-09","lines":["Show the total of Market value"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-b-10","lines":["Group by Advisor","Show the total of Market value"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-b-11","lines":["Group by Custodian","Show the average of Concentration"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-b-12","lines":["Group by Custodian","Show the total of Market value"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-b-13","lines":["Group by Registration type","Show the total of Unrealized gain"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-b-14","lines":["Filter Custodian to Northgate","Show the total of Market value"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-b-16","lines":["Group by Advisor","Show the total of Market value"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-b-19","lines":["Show the average of Units"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-b-20","lines":["Show the average of Rate"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-b-21","lines":["Show the average of Amount"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-b-23","lines":["Group by Category","Show the average of Rate"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-b-27","lines":["Group by Category","Show the average of Rate"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-b-28","lines":["Remove the totals"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-b-29","lines":["Remove the totals"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-b-30","lines":["Remove the totals"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-d-01","lines":["Show the total of Unrealized gain"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-d-02","lines":["Show the average of Market value instead of its total"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-d-03","lines":["Remove the totals"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-d-04","lines":["Show the total of Market value"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-d-05","lines":["Group by Custodian","Show the total of Market value"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-d-06","lines":["Show the total of Market value"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-d-09","lines":["Show the total of Market value and the average of Concentration"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-d-11","lines":["Show the total of Unrealized gain and the average of Concentration"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-d-12","lines":["Show the average of Unrealized gain instead of its total"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-d-13","lines":["Group by Custodian","Show the total of Market value"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-d-14","lines":["Show the average of Market value instead of its total"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-d-15","lines":["Group by Advisor"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-d-16","lines":["Show the average of Concentration"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-d-17","lines":["Show the total of Market value instead of its average"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-d-18","lines":["Remove the totals"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-d-19","lines":["Show the average of Units"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-e-01","lines":["Sort by Amount, descending"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-e-02","lines":["Sort by Amount, descending"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-e-03","lines":["Hide Amount"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-e-04","lines":["Hide Amount"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-e-05","lines":["Filter Amount above $5,000"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-e-06","lines":["Filter Amount above $10,000"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-e-14","lines":["Sort by Amount, descending"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-e-18","lines":["Hide Amount"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-e-25","lines":["Filter Amount above $2,000"],"notes":[]}
+{"file":"cases-totals-heldout-r3.jsonl","id":"tt3-e-26","lines":["Sort by Amount, ascending","Hide Units"],"notes":[]}
 {"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-hide-extra-word-10","lines":["Filter Unrealized gain at or above $0"],"notes":["Rows with no Unrealized gain are hidden too"]}
 {"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-hide-extra-word-11","lines":["Filter Amount at or above $100"],"notes":["Rows with no Amount are hidden too"]}
 {"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-hide-extra-word-12","lines":["Filter Concentration at or below 30%"],"notes":["Rows with no Concentration are hidden too"]}
@@ -1672,3 +1828,17 @@
 {"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-controls-near-08","lines":["Filter Category to Travel"],"notes":[]}
 {"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-controls-near-09","lines":["Sort by Amount, descending","Show only the first 5 rows"],"notes":[]}
 {"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-controls-near-10","lines":["Group by Owner","Sort by Amount, ascending"],"notes":[]}
+{"file":"cases-review-fixes-totals-heldout.jsonl","id":"rft-same-grouping-01","lines":["Group by Advisor","Show the total of Market value and the total of Unrealized gain"],"notes":[]}
+{"file":"cases-review-fixes-totals-heldout.jsonl","id":"rft-same-grouping-03","lines":["Show the total of Market value and the average of Concentration"],"notes":[]}
+{"file":"cases-review-fixes-totals-heldout.jsonl","id":"rft-same-grouping-04","lines":["Show the total of Unrealized gain"],"notes":[]}
+{"file":"cases-review-fixes-totals-heldout.jsonl","id":"rft-same-grouping-05","lines":["Group by Registration type","Show the total of Market value and the average of Concentration"],"notes":[]}
+{"file":"cases-review-fixes-totals-heldout.jsonl","id":"rft-same-grouping-06","lines":["Group by Owner","Show the average of Amount and the average of Rate"],"notes":[]}
+{"file":"cases-review-fixes-totals-heldout.jsonl","id":"rft-same-grouping-07","lines":["Show the average of Amount and the average of Rate"],"notes":[]}
+{"file":"cases-review-fixes-totals-heldout.jsonl","id":"rft-grouping-then-total-02","lines":["Group by Advisor","Show the total of Market value"],"notes":[]}
+{"file":"cases-review-fixes-totals-heldout.jsonl","id":"rft-grouping-then-total-04","lines":["Group by Registration type","Show the total of Unrealized gain"],"notes":[]}
+{"file":"cases-review-fixes-totals-heldout.jsonl","id":"rft-grouping-then-total-06","lines":["Group by Category","Show the average of Rate"],"notes":[]}
+{"file":"cases-review-fixes-totals-heldout.jsonl","id":"rft-control-01","lines":["Show the total of Market value"],"notes":[]}
+{"file":"cases-review-fixes-totals-heldout.jsonl","id":"rft-control-02","lines":["Group by Custodian","Show the total of Market value"],"notes":[]}
+{"file":"cases-review-fixes-totals-heldout.jsonl","id":"rft-control-03","lines":["Group by Advisor","Show the average of Concentration"],"notes":[]}
+{"file":"cases-review-fixes-totals-heldout.jsonl","id":"rft-control-04","lines":["Show the average of Concentration"],"notes":[]}
+{"file":"cases-review-fixes-totals-heldout.jsonl","id":"rft-control-06","lines":["Group by Owner","Show the average of Rate"],"notes":[]}

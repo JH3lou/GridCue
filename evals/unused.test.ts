@@ -10,7 +10,7 @@ import { normalize, withoutNamedSizes } from "../packages/gridcue/src/core/norma
 import { isExposed } from "../packages/gridcue/src/core/schema";
 import { unusedReadings } from "../packages/gridcue/src/core/unused";
 import { EVAL_CALENDAR, evalNow } from "./clock";
-import { type EvalCase, fixtureSchemaFor, loadCases, localValuesFor } from "./run";
+import { caseSchemaFor, type EvalCase, fixtureSchemaFor, loadCases, localValuesFor } from "./run";
 
 /**
  * ADR 0019: the check that a ready plan uses everything GridCue read must never block a correct plan. Every labelled
@@ -40,6 +40,7 @@ const FILES = [
   "cases-names.jsonl",
   "cases-dates.jsonl",
   "cases-view-words.jsonl",
+  "cases-totals.jsonl",
 ];
 
 /**
@@ -79,7 +80,7 @@ describe("a ready plan uses everything it read, on every labelled ready plan", (
   for (const file of FILES) {
     for (const c of loadCases(new URL(`./${file}`, import.meta.url)).filter((x) => x.expect.status === "ready")) {
       it(`${file}: ${c.id}`, () => {
-        const schema = fixtureSchemaFor(c);
+        const schema = caseSchemaFor(c);
         expect(blocked(c.utterance, (c.expect.operations ?? []) as ViewOperation[], schema, c.values ? c : undefined, c.clock)).toEqual([]);
       });
     }

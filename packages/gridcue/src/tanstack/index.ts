@@ -1,4 +1,5 @@
 import {
+  type AggregationSpec,
   type ApplyResult,
   type ColumnDescriptor,
   defineSchema,
@@ -12,6 +13,8 @@ import {
   matchesPredicate,
   resultingState,
   type SchemaOptions,
+  type TotalFunction,
+  totalOf,
   type VersionedViewState,
   type ViewSchema,
   type ViewState,
@@ -30,6 +33,16 @@ type TanStackState = {
 };
 
 /**
+ * A leaf column as GridCue reads it: its id and definition. `aggregationFn`, `getAggregationValue` and
+ * `getAggregationFns` are there when the table registers `rowAggregationFeature`, which `renders: ["totals"]` needs.
+ */
+export interface TanStackLeafColumnLike {
+  id: string;
+  columnDef: { header?: unknown; aggregationFn?: unknown; getAggregationValue?: unknown };
+  getAggregationFns?: unknown;
+}
+
+/**
  * The parts of a TanStack Table v9 instance GridCue uses. Any table from `useTable`
  * or `constructTable` with the filtering, sorting, grouping, visibility, and ordering features fits.
  * `setColumnPinning` is there when the table registers `columnPinningFeature`, which `renders: ["pinning"]` needs.
@@ -43,7 +56,7 @@ export interface TanStackTableLike {
   setColumnVisibility(visibility: Record<string, boolean>): void;
   setColumnOrder(order: string[]): void;
   setColumnPinning?(pinning: ColumnPinning): void;
-  getAllLeafColumns(): Array<{ id: string; columnDef: { header?: unknown } }>;
+  getAllLeafColumns(): TanStackLeafColumnLike[];
   getCoreRowModel(): { rows: Array<{ getValue(columnId: string): unknown }>; flatRows?: Array<{ getValue(columnId: string): unknown }> };
 }
 
@@ -140,6 +153,72 @@ export const withGridCueFilter =
       ? gridcueFilterFn(row, columnId, value) && (value.host === undefined || fallback(row, columnId, value.host, addMeta))
       : fallback(row, columnId, value, addMeta);
 
+/**
+ * The totals each adapter holds, by the table's store: `useTable` hands the Host a new table object on every render,
+ * and TanStack passes its own core table to an aggregation function, but both share the store. Only a sum and an
+ * average are applied (ADR 0030); a total with any other function gives nothing, as `applyView` gives `null`.
+ */
+const totalsByStore = new WeakMap<object, ReadonlyMap<string, TotalFunction>>();
+
+/** A row's cell as TanStack gives it. */
+type CellReader = { getValue(columnId: string): unknown };
+
+/**
+ * Register once with `defaultColumn: { aggregationFn: gridcueAggregationFn, getAggregationValue: gridcueAggregationValue }`
+ * so a group row shows the Totals GridCue applied, as `applyView` gives them to the last digit (`totalOf`). It reads the
+ * adapter's totals and gives a sum, an average, or nothing for each column. A group's total is taken over its own rows,
+ * at every level, never over its sub-groups' totals. Nothing is `undefined`, so a group with no value sits where
+ * TanStack's `sortUndefined` puts it, as `applyView` puts a `null` total. A column the view groups by gives nothing in a
+ * group row, so a sort on it never orders the groups of another level by a total, as in `applyView`. Needs
+ * `rowAggregationFeature`.
+ */
+export const gridcueAggregationFn = {
+  aggregate(context: {
+    table: { store: object };
+    columnId: string;
+    rows: ReadonlyArray<unknown>;
+    getValue: (row: never) => unknown;
+  }): number | undefined {
+    const fn = totalsByStore.get(context.table.store)?.get(context.columnId);
+    if (!fn) return undefined;
+    const grouping = (context.table.store as { state?: { grouping?: readonly string[] } }).state?.grouping;
+    if (grouping?.includes(context.columnId)) return undefined;
+    return (
+      totalOf(
+        context.rows.map((row) => context.getValue(row as never)),
+        fn,
+      ) ?? undefined
+    );
+  },
+};
+
+/**
+ * Register beside `gridcueAggregationFn` so `column.getAggregationValue()` is the column's Total over every row the
+ * table shows after its filters, for a footer when the view isn't grouped. TanStack's own default keeps that value
+ * until the rows or the column's definition change, so it would still show the Total before GridCue's last change.
+ */
+export const gridcueAggregationValue = (context: {
+  column: { id: string };
+  rows?: ReadonlyArray<CellReader>;
+  table: {
+    store: object;
+    getPreGroupedRowModel?: () => { rows: ReadonlyArray<CellReader> };
+    getCoreRowModel(): { rows: ReadonlyArray<CellReader> };
+  };
+}): { value: number | undefined } => {
+  const fn = totalsByStore.get(context.table.store)?.get(context.column.id);
+  if (!fn) return { value: undefined };
+  const { table } = context;
+  const rows = context.rows ?? (table.getPreGroupedRowModel ? table.getPreGroupedRowModel() : table.getCoreRowModel()).rows;
+  return {
+    value:
+      totalOf(
+        rows.map((row) => row.getValue(context.column.id)),
+        fn,
+      ) ?? undefined,
+  };
+};
+
 /** Builds a GridCue schema from a table's existing columns and a sample of its rows. */
 export const schemaFromTanStack = (table: TanStackTableLike, options: Omit<SchemaOptions, "sampleRows"> = {}): ViewSchema => {
   const columns = table.getAllLeafColumns();
@@ -162,30 +241,68 @@ export interface TanStackAdapterOptions {
    * What the Host's markup draws beyond TanStack's rows and columns (operation set spec, 4.2; ADR 0029). `"pinning"`
    * when it keeps pinned columns in place (`column.getStart("start")` and the start, center and end column lists), which
    * needs `columnPinningFeature` registered. `"density"` when it sets its row height from the View State's `density`,
-   * which the adapter holds, since TanStack has none. The adapter lists `columns.pin` and `density.set` only for what
-   * this names. The default is none, and a request for either then asks "This grid can't …" and changes nothing. Name
-   * only what the table draws: GridCue can't check it. Any other name throws `INPUT_CONFIG`.
+   * which the adapter holds, since TanStack has none. `"totals"` when it draws each group row's total cells and, with
+   * no grouping, a footer from `column.getAggregationValue()`, which needs `rowAggregationFeature` with
+   * `gridcueAggregationFn` and `gridcueAggregationValue` on `defaultColumn`; the adapter holds the totals. The adapter
+   * lists `columns.pin`, `density.set` and `aggregation.set` only for what this names. The default is none, and a
+   * request for any of them then asks "This grid can't …" and changes nothing. Name only what the table draws: GridCue
+   * can't check it. Any other name throws `INPUT_CONFIG`.
    */
-  renders?: ReadonlyArray<"pinning" | "density">;
+  renders?: ReadonlyArray<"pinning" | "density" | "totals">;
 }
 
 /**
- * Reads `renders` against the table (operation set spec, 4.2). Every name the adapter doesn't take throws, "totals" and
- * "count" included, which it can't list yet: an adapter that took a name and listed nothing would read as support.
+ * Why a table can't show the Totals GridCue holds, or `undefined` when it can (operation set spec, 4.2). Every column
+ * the schema lets GridCue total must be a column of the table and take its totals from GridCue's two functions, so no
+ * group row or footer shows a total GridCue didn't apply, or misses one it did. The adapter sees the definitions the columns have when it is made;
+ * a column the Host adds or redefines later is not checked.
  */
-const readRenders = (renders: unknown, table: TanStackTableLike): { pinning: boolean; density: boolean } => {
-  if (renders === undefined) return { pinning: false, density: false };
+const totalsIssue = (schema: ViewSchema, table: TanStackTableLike): string | undefined => {
+  const totalled = new Set(
+    schema.columns.filter((c) => c.sensitivity !== "restricted" && c.capabilities.includes("aggregate")).map((c) => c.id),
+  );
+  const leaves = new Set(table.getAllLeafColumns().map((c) => c.id));
+  const absent = [...totalled].find((id) => !leaves.has(id));
+  if (absent !== undefined) {
+    return `the schema lets GridCue total “${absent}”, which is not a column of this table. Add the column, or take “aggregate” off it`;
+  }
+  for (const column of table.getAllLeafColumns()) {
+    if (!totalled.has(column.id)) continue;
+    if (typeof column.getAggregationFns !== "function") return "the table has no rowAggregationFeature. Register it";
+    if (column.columnDef.aggregationFn !== gridcueAggregationFn) {
+      return `the column “${column.id}” doesn't use gridcueAggregationFn. Register it as aggregationFn on defaultColumn, and leave it out of the column's own definition`;
+    }
+    if (column.columnDef.getAggregationValue !== gridcueAggregationValue) {
+      return `the column “${column.id}” doesn't use gridcueAggregationValue. Register it as getAggregationValue on defaultColumn, and leave it out of the column's own definition`;
+    }
+  }
+  return undefined;
+};
+
+/**
+ * Reads `renders` against the table (operation set spec, 4.2). Every name the adapter doesn't take throws, "count"
+ * included, which it can't list yet: an adapter that took a name and listed nothing would read as support.
+ */
+const readRenders = (
+  renders: unknown,
+  table: TanStackTableLike,
+  schema: ViewSchema,
+): { pinning: boolean; density: boolean; totals: boolean } => {
+  if (renders === undefined) return { pinning: false, density: false, totals: false };
   if (!Array.isArray(renders)) throw new GridCueError("INPUT_CONFIG", "renders must be a list, such as [“pinning”, “density”].");
   for (const name of renders) {
-    if (name === "pinning" || name === "density") continue;
-    if (name === "totals" || name === "count") {
-      throw new GridCueError("INPUT_CONFIG", `renders names “${name}”, which the TanStack Table adapter can't list yet. Leave it out.`);
+    if (name === "pinning" || name === "density" || name === "totals") continue;
+    if (name === "count") {
+      throw new GridCueError("INPUT_CONFIG", "renders names “count”, which the TanStack Table adapter can't list yet. Leave it out.");
     }
     throw new GridCueError(
       "INPUT_CONFIG",
-      `renders names “${String(name)}”, which the TanStack Table adapter doesn't take. It takes “pinning” and “density”.`,
+      `renders names “${String(name)}”, which the TanStack Table adapter doesn't take. It takes “pinning”, “density” and “totals”.`,
     );
   }
+  const totals = renders.includes("totals");
+  const issue = totals ? totalsIssue(schema, table) : undefined;
+  if (issue) throw new GridCueError("INPUT_CONFIG", `renders names “totals”, but ${issue}.`);
   const pinning = renders.includes("pinning");
   if (pinning && typeof table.setColumnPinning !== "function") {
     throw new GridCueError(
@@ -202,8 +319,16 @@ const readRenders = (renders: unknown, table: TanStackTableLike): { pinning: boo
       "renders names “pinning”, but the table holds its column pins as “left” and “right”, as TanStack Table v8 did. Keep them as “start” and “end”.",
     );
   }
-  return { pinning, density: renders.includes("density") };
+  return { pinning, density: renders.includes("density"), totals };
 };
+
+/** The totals a table applies, by column: a sum or an average. */
+const appliedTotals = (aggregations: readonly AggregationSpec[]): ReadonlyMap<string, TotalFunction> =>
+  new Map(
+    aggregations.flatMap(
+      (a): Array<[string, TotalFunction]> => (a.function === "sum" || a.function === "avg" ? [[a.columnId, a.function]] : []),
+    ),
+  );
 
 /**
  * How long an apply or restore waits for a table whose state the Host controls to render what GridCue wrote.
@@ -213,13 +338,15 @@ const HOLD_WAIT_MS = 1_000;
 
 /** A Grid Adapter over a TanStack Table v9 instance. The Host keeps owning the table and its state. */
 export const createTanStackAdapter = ({ schema, table, maxSorts = 3, maxGroups = 2, renders }: TanStackAdapterOptions): GridAdapter => {
-  const draws = readRenders(renders, table);
+  const draws = readRenders(renders, table, schema);
   let n = 0;
   // TanStack has no density, so the adapter holds it and reads it back with the rest of the View State: undo and
-  // restore keep it. It changes only when the table draws it.
-  let density: ViewState["density"] = emptyViewState([]).density;
+  // restore keep it. It changes only when the table draws it. Totals are held the same way: TanStack keeps a total in
+  // the Host's column definitions, and `gridcueAggregationFn` reads these.
+  type Held = { density: ViewState["density"]; totals: AggregationSpec[] };
+  let own: Held = { density: emptyViewState([]).density, totals: [] };
   const leafIds = () => table.getAllLeafColumns().map((c) => c.id);
-  const read = (s: TanStackState = table.store.state, held: ViewState["density"] = density): ViewState => {
+  const read = (s: TanStackState = table.store.state, kept: Held = own): ViewState => {
     const leaves = leafIds();
     const order = s.columnOrder?.length ? [...s.columnOrder, ...leaves.filter((id) => !s.columnOrder?.includes(id))] : leaves;
     const predicates = (s.columnFilters ?? []).flatMap((f) => (isGridCueValue(f.value) ? f.value.predicates : []));
@@ -233,7 +360,9 @@ export const createTanStackAdapter = ({ schema, table, maxSorts = 3, maxGroups =
       filters: predicates.length ? { id: "root", type: "group", combinator: "and", children: predicates } : null,
       sorts: (s.sorting ?? []).map((x) => ({ columnId: x.id, direction: x.desc ? "desc" : "asc" })),
       groupBy: [...(s.grouping ?? [])],
-      density: held,
+      // Like pins, a total on an id that is no column of the table is skipped.
+      aggregations: kept.totals.filter((a) => leaves.includes(a.columnId)).map((a) => ({ ...a })),
+      density: kept.density,
     };
   };
   const defaultState = read();
@@ -277,23 +406,24 @@ export const createTanStackAdapter = ({ schema, table, maxSorts = 3, maxGroups =
    *
    * It resolves with the Revision read at the moment the table first holds `expected`, not after the await: a change
    * made between that moment and the caller resuming is newer than the write, so undo must find it and refuse.
+   * `drawn`, when given, must also hold: what the View State can't show, such as a group row's total.
    */
-  const untilHeld = (expected: string): Promise<VersionedViewState> => {
+  const untilHeld = (expected: string, drawn: () => boolean = () => true): Promise<VersionedViewState> => {
     sync();
-    if (lastFingerprint === expected) return Promise.resolve(current());
+    if (lastFingerprint === expected && drawn()) return Promise.resolve(current());
     return new Promise((resolve, reject) => {
       const done = () => {
         clearTimeout(timer);
         waiters.delete(check);
       };
       const check = () => {
-        if (lastFingerprint !== expected) return;
+        if (lastFingerprint !== expected || !drawn()) return;
         done();
         resolve(current());
       };
       const timer = setTimeout(() => {
         sync();
-        if (lastFingerprint === expected) return check();
+        if (lastFingerprint === expected && drawn()) return check();
         done();
         reject(new GridCueError("ADAPTER_FAILED", `The table didn't hold the change within ${HOLD_WAIT_MS} ms.`));
       }, HOLD_WAIT_MS);
@@ -351,24 +481,51 @@ export const createTanStackAdapter = ({ schema, table, maxSorts = 3, maxGroups =
     const columnPinning: ColumnPinning | undefined = draws.pinning
       ? { start: [...next.pinnedColumnIds.start], end: [...next.pinnedColumnIds.end] }
       : undefined;
-    const nextDensity = draws.density ? next.density : density;
+    const nextHeld: Held = {
+      density: draws.density ? next.density : own.density,
+      totals: draws.totals ? next.aggregations.map((a) => ({ ...a })) : own.totals,
+    };
+    // TanStack keeps each group row's totals until it groups the rows again, and drops a write equal to what it holds.
+    // So when the totals change, the grouping is written empty and then again, in the same batch: the rows are grouped
+    // anew and each total read from `gridcueAggregationFn`. With no grouping, the column order is, so a table drawn
+    // from the store draws again and reads its footer.
+    const totalsChanged = JSON.stringify(nextHeld.totals) !== JSON.stringify(own.totals);
+    // TanStack groups again only for a grouping array it hasn't seen. A Host that hands it back the array it had, as a
+    // shallow-equal memo does, leaves each group row with its old totals, so the write isn't held until the array is new.
+    const regroups = totalsChanged && slices.grouping.length > 0;
+    const groupingBefore = table.store.state.grouping;
+    const regrouped = () => !regroups || table.store.state.grouping !== groupingBefore;
+    const heldBefore = own;
     // The View State the table reads as once it holds every slice written here, in the form `read` gives.
-    const expected = JSON.stringify(read({ ...table.store.state, ...slices, ...(columnPinning ? { columnPinning } : {}) }, nextDensity));
+    const expected = JSON.stringify(read({ ...table.store.state, ...slices, ...(columnPinning ? { columnPinning } : {}) }, nextHeld));
     writing++;
     try {
-      // Held before the table's slices, so the notification their write sends carries it, and a write that changes only
-      // the density still counts as one change.
-      density = nextDensity;
+      // Held before the table's slices, so the notification their write sends carries them, and a write that changes
+      // only the density or the totals still counts as one change.
+      own = nextHeld;
+      totalsByStore.set(table.store, appliedTotals(nextHeld.totals));
       table._reactivity.batch(() => {
         table.setColumnFilters(slices.columnFilters);
         table.setSorting(slices.sorting);
+        if (totalsChanged && slices.grouping.length > 0) table.setGrouping([]);
         table.setGrouping(slices.grouping);
+        if (totalsChanged && slices.grouping.length === 0) table.setColumnOrder([]);
         table.setColumnOrder(slices.columnOrder);
         table.setColumnVisibility(slices.columnVisibility);
         if (columnPinning) table.setColumnPinning?.(columnPinning);
       });
       // Done only when the table holds it, with the Revision that change produced (ADR 0031).
-      return { ok: true, state: await untilHeld(expected) };
+      try {
+        return { ok: true, state: await untilHeld(expected, regrouped) };
+      } catch (error) {
+        // A table that never grouped again still draws the totals it had, so the adapter holds those again.
+        if (!regrouped()) {
+          own = heldBefore;
+          totalsByStore.set(table.store, appliedTotals(heldBefore.totals));
+          sync();
+        }
+        throw error;
+      }
     } finally {
       writing--;
       if (writing === 0 && held) {
@@ -381,7 +538,12 @@ export const createTanStackAdapter = ({ schema, table, maxSorts = 3, maxGroups =
   return {
     getSchema: () => schema,
     getCapabilities: () => ({
-      operations: [...MVP_OPERATIONS, ...(draws.pinning ? ["columns.pin"] : []), ...(draws.density ? ["density.set"] : [])],
+      operations: [
+        ...MVP_OPERATIONS,
+        ...(draws.pinning ? ["columns.pin"] : []),
+        ...(draws.density ? ["density.set"] : []),
+        ...(draws.totals ? ["aggregation.set"] : []),
+      ],
       maxSorts,
       maxGroups,
       supportsAtomicApply: true,

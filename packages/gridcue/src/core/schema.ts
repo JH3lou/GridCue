@@ -21,10 +21,13 @@ import { formWordIn } from "./view-words";
 
 /**
  * The view operations GridCue can perform on a column by default. Every column that isn't restricted may be pinned
- * (ADR 0029): a pin still reaches the grid only when its adapter lists `columns.pin`. A Host's `capabilities` for a
- * column replace this list.
+ * (ADR 0029): a pin still reaches the grid only when its adapter lists `columns.pin`. Number, currency and percent
+ * columns may also be totalled (`"aggregate"`, ADR 0029), and a total still reaches the grid only when its adapter
+ * lists `aggregation.set`. A Host's `capabilities` for a column replace these defaults.
  */
 export const DEFAULT_CAPABILITIES: ColumnCapability[] = ["filter", "sort", "group", "show", "hide", "reorder", "pin"];
+/** The column kinds that hold an amount, which may be totalled by default (operation set spec, 4.3). */
+const TOTALLED_KINDS: ReadonlySet<string> = new Set(["number", "currency", "percent"]);
 
 // They live in `core/columns.ts`, which imports nothing else from core, so the readers this module checks a House
 // Term with can use them with no import cycle. The root entry still exports them from here.
@@ -315,7 +318,9 @@ export const defineSchema = (columns: readonly ColumnInput[], options: SchemaOpt
         kind,
         ...(override.description ? { description: override.description } : {}),
         ...(override.aliases ? { aliases: override.aliases } : {}),
-        capabilities: isRestricted ? [] : (override.capabilities ?? DEFAULT_CAPABILITIES),
+        capabilities: isRestricted
+          ? []
+          : (override.capabilities ?? (TOTALLED_KINDS.has(kind) ? [...DEFAULT_CAPABILITIES, "aggregate"] : DEFAULT_CAPABILITIES)),
         ...(override.allowedOperators ? { allowedOperators: override.allowedOperators } : {}),
         sensitivity: isRestricted ? "restricted" : "internal",
         exposeToProvider: !isRestricted,
