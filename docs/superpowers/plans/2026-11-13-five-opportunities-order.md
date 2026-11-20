@@ -631,6 +631,8 @@ Not changed now. Each is an edge: it ends in a question, a refusal or an error u
 | G6 | `schemaFromAgGrid`'s `sampleRows` is typed `Record<string, unknown>[]`, so rows typed by an interface need a spread | A type to widen in its own change |
 | G6 | The examples register `AllCommunityModule`, so the Vite bundle is 1.7 MB (512 kB gzip) | Registering only the modules used is the Host's choice; the guide can say so |
 | G6 | At 390px a filtered column can sit off-screen to the right, so its funnel icon isn't seen | Nine columns can't fit; the grid scrolls |
+| G6 | No Next.js page has the developer panel the package spec asks of each example (plan, confidence, validation, View State before and after). Only `examples/vite` has one. CodeRabbit raised it on the AG Grid page | Older than G6: the home and `/paged` pages lack it too. One change for every Next.js page |
+| G6 | Package tests that import a fixture or the example's Data Query resolve `gridcue` through `dist`, so `pnpm --filter gridcue test` on a fresh checkout needs a build first. `pnpm check` builds first | Older than G6 (`query-check.test.ts` does the same). An alias to source in the Vitest config would fix every suite at once |
 
 Safe misses the two held-out sets show, each a request a careful reader finds clear and GridCue asks about: "clear the filters but don't clear the sort" (the review's fix made the negated verb ask, where it cleared both), two bounds on one named column ("gain over $10k and under $20k"), "show only the advisor column for taxable accounts, largest balance first", "remove the trust filter", "remove advisor from the grouping", "hide cleared entries", and "top 10 accounts by market value for taxable accounts".
 
