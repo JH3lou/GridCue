@@ -67,8 +67,20 @@ _Avoid_: Rejected intent, error
 ## Views
 
 **View State**:
-The complete arrangement of a grid at a moment: filters, sorts, grouping, and which columns show in what order.
+The complete arrangement of a grid at a moment: filters, sorts, grouping, totals, count, which columns show in what order, which are pinned, and density.
 _Avoid_: Grid state, table config, layout
+
+**Count**:
+How many rows a grid shows from the top of the sorted view, as in "top 10".
+_Avoid_: Limit, page size, top-N
+
+**Total**:
+A sum or an average of one column, shown for each group, or once for the whole view when it isn't grouped.
+_Avoid_: Aggregation, summary, subtotal
+
+**Pinned Column**:
+A column kept in view at the start or the end of the grid while the rest scrolls.
+_Avoid_: Frozen column, locked column, sticky column
 
 **Revision**:
 An identifier for one specific View State, used to detect that the view changed underneath a pending plan.
