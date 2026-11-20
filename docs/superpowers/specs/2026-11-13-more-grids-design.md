@@ -243,16 +243,18 @@ const schema = schemaFromAgGrid(columnDefs, { sampleRows: rowData, columns: { /*
 
 **What it lists.** `MVP_OPERATIONS` without `group.set`. It reads and writes filters, sorts (several columns, through `sortIndex`), hidden columns, and order, through `setFilterModel`, `getFilterModel`, `applyColumnState` and `getColumnState`. Pins, totals, density and counts are not listed, though the operation set adds them first (order plan). A request for one ends as it does on any grid that doesn't list it. The adapter writes back whatever pins the grid has, so undo never moves them.
 
-**Row models.** Client-Side, where AG Grid filters and sorts the rows. Infinite, where AG Grid calls the Host's datasource on every filter or sort change and the datasource builds its query from the View State, as in 5.5.
+**Row models.** Client-Side, where AG Grid filters and sorts the rows. Infinite, where AG Grid calls the Host's datasource on every filter or sort change and the datasource builds its query from the View State, as in 5.5. AG Grid calls it again by itself after a write that changes the filter model or the sorts, with no purge; not after a write that changes neither, or one that only hides, moves or pins columns. Its `filterModel` is `{}` and its `sortModel` `[]` when empty.
 
 **Filters: AG Grid's own, set to GridCue's meanings.** `gridcueColDef(schema)` returns a default column definition:
 
-- Text, number, and date columns use AG Grid's text, number, and date filters. Each offers only the options GridCue can read.
+- Text, number, and date columns use AG Grid's text, number, and date filters. Each offers only the options GridCue can read, and lists in `filterOptions` every option GridCue writes: AG Grid silently drops a filter model whose option is not listed, and then shows every row. Its date filter lists no "on or before" or "on or after" by default.
 - Number and date filters set `inRangeInclusive: true` and `includeBlanksInNotEqual: true`.
-- Date filters compare whole days in the schema calendar's time zone (named filters 5.5), with a custom comparator or option where AG Grid's own date filter can't.
-- The text filter sets `caseSensitive: true` and a `textMatcher` that applies GridCue's meaning for the column's kind, so enum IDs match exactly and text ignores case.
+- Date filters compare whole days in the schema calendar's time zone (named filters 5.5) through a comparator. AG Grid's own date filter compares instants, so it is never used without one.
+- The text filter sets `caseSensitive: true` and a `textMatcher` that applies GridCue's meaning for the column's kind, so enum IDs match exactly and text ignores case. AG Grid takes the matcher's answer as final, for "not equal" and "not contains" too, and passes it an empty operand. It never passes a `null` or missing cell: it keeps those for the two negated options and drops them for the rest. A custom option's predicate sees every cell.
 - "Is empty" and "Is not empty" are AG Grid custom filter options carrying GridCue's own predicate, because AG Grid's "blank" also matches whitespace-only text.
-- Each column holds as many conditions as it has declared values (at least 2), so any `in` GridCue validates fits.
+- Each column holds as many conditions as it has declared values (at least 2), so any `in` GridCue validates fits. A smaller `maxNumConditions` would cut the conditions silently.
+- Text and enum columns also carry a sort `comparator` with GridCue's order (4.1): AG Grid's own text sort puts every capital letter before every small one. AG Grid sorts empty cells lowest, which 4.1 leaves open.
+- On AG Grid 34 and 35 an empty string in a number or date column is a value, 0, not a blank: it passes "less than" and "not equal". On 36 it is blank. The row check on each tested major decides whether those options become custom options.
 - **Which options use AG Grid's settings and which use a custom option with GridCue's predicate is settled by the row check in section 10, not by this spec.** The list above is the starting point.
 
 **Reading back.** A filter the User sets in AG Grid's menu is read into the View State: each AND condition is a predicate, an OR of conditions on one column is a nested OR group, and equals-OR-equals on one column is `in`. So the Preview, "clear the filters", undo, and later the View Sentence see it. A filter GridCue can't read stays the Host's: it is left out of the View State, kept on every write, and a GridCue filter on that column fails at Apply with `ADAPTER_UNSUPPORTED_FILTER` rather than replace it. On the Infinite Row Model the Host's Data Query must still carry that filter, beside the View State's (5.5, step 2).
@@ -264,11 +266,11 @@ const schema = schemaFromAgGrid(columnDefs, { sampleRows: rowData, columns: { /*
 
 `schemaFromAgGrid` gives a column whose filter is `false` or a custom component no `filter` capability, so GridCue never offers it.
 
-**Writes.** One apply sets the filter model and the column state, then waits until the grid reads back what was written (4.2), then notifies once. A filter that AG Grid can't hold (an OR across columns, an `in` with another filter on the same column) fails with `ADAPTER_UNSUPPORTED_FILTER` before anything is written. Revisions read `ag-grid:n`. The default state is the grid's view when the adapter was created.
+**Writes.** One apply sets the filter model and the column state, then waits until the grid reads back what was written (4.2), then notifies once. The column state gives every sorted column its `sortIndex` and clears the rest (`defaultState: { sort: null }`); without that, earlier sorts stay. AG Grid reads both back in the same tick and fires its events later, so the wait is a comparison of what was written with what reads back, not a wait for an event. A model it can't hold reads back as `{}`, and the write fails. A filter that AG Grid can't hold (an OR across columns, an `in` with another filter on the same column) fails with `ADAPTER_UNSUPPORTED_FILTER` before anything is written. Revisions read `ag-grid:n`. The default state is the grid's view when the adapter was created.
 
 **Enterprise.** Not tested, and the docs say so. A grouping the User set on an Enterprise grid is read into the View State and written back unchanged, so undo keeps it; GridCue never changes it. A grouping request ends as in 5.3.
 
-**Types and dependency.** The entry imports nothing from AG Grid. It types the calls it uses as `AgGridApiLike`. No peer dependency. The docs and the skill name the majors CI tests: 36, and the oldest that passes the API check in plan task 6.1 (34 is the target).
+**Types and dependency.** The entry imports nothing from AG Grid. It types the calls it uses as `AgGridApiLike`. No peer dependency. The docs and the skill name the majors CI tests: 34, 35 and 36. 34 is the oldest with every call the adapter uses (plan task 6.1). 33 lacks `setState`, keeps two conditions per column by default and drops an empty operand, so it is not claimed. The tests run AG Grid in jsdom under Vitest, and each destroys its grid and waits a tick before it ends. jsdom draws no layout, so the menu and header clicks are checked in the examples in a browser.
 
 | Request, AG Grid Community, Client-Side Row Model | Today | After |
 | --- | --- | --- |

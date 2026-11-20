@@ -204,11 +204,11 @@ Spec 4.1 and 5.5. Needs PR 4.
 Spec 5.6. ADR 0033. Needs PRs 1, 3, 5.
 
 ### Task 6.1: Spike (Sonnet), in scratch, before any adapter code
-- [ ] Does AG Grid 36 run in jsdom under Vitest? If not, which browser runner, and what it adds.
-- [ ] Run the defaults the grill only read: blank handling in not-equal and comparisons, `inRangeInclusive`, whether blank cells reach `textMatcher`, multi-column sort in Community, and whether `setFilterModel` then `getFilterModel` reads back in the same tick.
-- [ ] Do AG Grid 34 and 35 have every `GridApi` call the adapter will use? Report the oldest that does.
-- [ ] Does an Infinite Row Model datasource get called again after `setFilterModel` and `applyColumnState`?
-- [ ] The lead reports the results to the owner. If any changes spec 5.6, the spec is updated before 6.3.
+- [x] Does AG Grid 36 run in jsdom under Vitest? If not, which browser runner, and what it adds.
+- [x] Run the defaults the grill only read: blank handling in not-equal and comparisons, `inRangeInclusive`, whether blank cells reach `textMatcher`, multi-column sort in Community, and whether `setFilterModel` then `getFilterModel` reads back in the same tick.
+- [x] Do AG Grid 34 and 35 have every `GridApi` call the adapter will use? Report the oldest that does.
+- [x] Does an Infinite Row Model datasource get called again after `setFilterModel` and `applyColumnState`?
+- [x] The lead reports the results to the owner. If any changes spec 5.6, the spec is updated before 6.3.
 
 ### Task 6.2: Label (Sonnet)
 - [ ] At least 30 menu filter models a User can set in AG Grid's text, number and date filters, written from AG Grid's docs and spec 5.6 alone, each with the View State it should read as, or "unreadable". Outside the repo.
