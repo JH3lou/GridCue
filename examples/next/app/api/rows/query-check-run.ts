@@ -19,7 +19,8 @@ export interface Failure {
 
 /**
  * Runs every case of the Query Check through `query`, on the check's synthetic rows in an in-memory database. It reads
- * each case twice: in one page, and in pages of 7, so a count cut after paging fails too. Returns what failed.
+ * each case twice: in one page, and in pages of 7, so a count cut after paging fails too. A case the query throws on
+ * fails. Returns what failed.
  */
 export const runQueryCheck = (schema: ViewSchema, id: string, query: DataQueryModule): { cases: number; failures: Failure[] } => {
   // A Query Adapter with countBeforePaging lists limit.set, so the check has its count cases.
@@ -28,9 +29,19 @@ export const runQueryCheck = (schema: ViewSchema, id: string, query: DataQueryMo
   const db = query.openRowsDatabase(schema, check.rows);
   const failures: Failure[] = [];
   const fail = (name: string, message: string) => failures.push({ name, message });
+  /** Each case's read, whole. A Data Query that throws on a View State the grid could hold fails that case. */
+  const readWhole = (c: (typeof check.cases)[number]) => {
+    try {
+      return query.readRows(db, schema, c.state, { offset: 0, size: check.rows.length });
+    } catch (error) {
+      fail(c.name, `${c.name}: the Data Query threw “${error instanceof Error ? error.message : String(error)}”`);
+      return undefined;
+    }
+  };
   try {
     for (const c of check.cases) {
-      const whole = query.readRows(db, schema, c.state, { offset: 0, size: check.rows.length });
+      const whole = readWhole(c);
+      if (!whole) continue;
       const result = c.compare(whole.rows.map((row) => row[id] as string | number));
       if (!result.ok) fail(c.name, result.message);
       if (whole.total !== whole.rows.length) fail(c.name, `${c.name}: total is ${whole.total}, ${whole.rows.length} rows came back`);

@@ -363,6 +363,21 @@ const orderSql = (schema: ViewSchema, sorts: readonly SortSpec[]): string => {
   return [...keys, "rowid"].join(", ");
 };
 
+/**
+ * Refuses a column sorted twice. A second sort on a column says nothing its first sort didn't, and a View State sets no
+ * limit on how many sorts it holds: SQLite refuses an ORDER BY of thousands of terms. Sorted once each, the sorts are
+ * never more than the schema's columns. It runs before any SQL is built.
+ */
+const checkSortedOnce = (sorts: readonly SortSpec[]): void => {
+  const seen = new Set<unknown>();
+  for (const sort of sorts) {
+    const columnId: unknown = sort?.columnId;
+    // The ID is not put in the message: it came from the request.
+    if (seen.has(columnId)) throw new DataQueryError("A view sorts by each column once.");
+    seen.add(columnId);
+  }
+};
+
 /** A count never keeps a row with no value in the first sorted column. */
 const hasValueSql = (schema: ViewSchema, sorts: readonly SortSpec[]): string | undefined => {
   const first = sorts[0];
@@ -388,6 +403,7 @@ export const buildRowsQuery = (schema: ViewSchema, state: ViewState, page: Page)
   const limit = state.limit;
   if (limit !== undefined && !isWhole(limit, 1, Number.MAX_SAFE_INTEGER)) throw new DataQueryError("A count is a whole number from 1.");
   const sorts = Array.isArray(state.sorts) ? state.sorts : [];
+  checkSortedOnce(sorts);
 
   const params: SQLInputValue[] = [];
   if (state.filters) checkFilterSize(state.filters);

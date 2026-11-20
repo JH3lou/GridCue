@@ -132,6 +132,8 @@ export const MUTANTS_ROUND_2: readonly Mutant[] = [
     edits: [[ORDER_CALL, "const order = orderSql(schema, sorts.filter((s) => state.visibleColumnIds.includes(s.columnId)));"]],
   },
   {
+    // No wrong translation after all: ruling R2 (more grids spec 5.5) leaves the order of rows that tie to the Host, so
+    // the Query Check passes this one. The rule below is the labeller's, from before the ruling.
     id: "M19",
     rule: "rows that tie keep the order they were loaded in",
     edits: [[ORDER, 'return [...keys, "rowid DESC"].join(", ");']],

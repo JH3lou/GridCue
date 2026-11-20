@@ -145,6 +145,9 @@ export const MUTANTS_ROUND_3: readonly Mutant[] = [
     ],
   },
   // --- ties in a count ---
+  // M15 and M16 are no wrong translations after all: ruling R2 (more grids spec 5.5) leaves the order of rows that tie,
+  // and which of them a count keeps for its last places, to the Host. The Query Check passes both. Their rules below
+  // are the labeller's, from before the ruling. M17 keeps more rows than the count asks for, and is wrong.
   {
     id: "M15",
     rule: "rows that tie keep the order they were loaded in (sorted going up)",

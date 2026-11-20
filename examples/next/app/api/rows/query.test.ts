@@ -239,6 +239,37 @@ describe("the route", () => {
     });
   }
 
+  // A View State sets no limit on how many sorts it holds either, and SQLite refuses an ORDER BY of thousands of terms.
+  // A column sorted twice says nothing its first sort didn't, so the query refuses it, which also bounds the sorts at
+  // one for each column.
+  const sortedBy = (columnIds: string[]): ViewState => ({
+    ...base(),
+    sorts: columnIds.map((columnId, n) => ({ columnId, direction: n % 2 ? "asc" : "desc" })),
+  });
+  for (const [what, state] of [
+    ["5,000 sorts on one column", sortedBy(Array.from({ length: 5000 }, () => "market_value"))],
+    ["5,000 sorts over two columns", sortedBy(Array.from({ length: 5000 }, (_, n) => (n % 2 ? "market_value" : "household")))],
+    ["a column sorted twice", sortedBy(["market_value", "household", "market_value"])],
+    ["5,000 sorts on columns the schema doesn't hold", sortedBy(Array.from({ length: 5000 }, (_, n) => `Name ${n}`))],
+  ] as Array<[string, ViewState]>) {
+    it(`answers 400 for ${what}`, async () => {
+      const response = await post({ state, page: { offset: 0, size: 5 } });
+      expect(response.status).toBe(400);
+      const body = (await response.json()) as { error: string };
+      expect(body.error).not.toContain("Name ");
+      expect(body.error).not.toContain("market_value");
+    });
+  }
+
+  it("a column sorted twice is the Data Query's own error, and every column sorted once still reads", async () => {
+    expect(() => buildRowsQuery(wealthSchema, sortedBy(["market_value", "market_value"]), page)).toThrow(DataQueryError);
+    expect(() => buildRowsQuery(wealthSchema, sortedBy(["market_value", "market_value"]), page)).toThrow(/once/);
+    const sortable = wealthSchema.columns.filter((c) => c.sensitivity !== "restricted" && c.capabilities.includes("sort")).map((c) => c.id);
+    expect(sortable.length).toBeGreaterThan(5);
+    const response = await post({ state: sortedBy(sortable), page: { offset: 0, size: 5 } });
+    expect(response.status).toBe(200);
+  });
+
   it("still reads filters a View State GridCue builds holds: a few groups deep, and a list of a hundred values", async () => {
     const ok = await post({ state: { ...base(), filters: nested(4) }, page: { offset: 0, size: 5 } });
     expect(ok.status).toBe(200);

@@ -111,7 +111,7 @@ const CAUGHT: Record<string, readonly [SchemaName, string]> = {
   M87: ["ledger", "a count keeps the first rows of the sorted, filtered rows"],
   M88: ["ledger", "a count keeps the first rows of the sorted, filtered rows"],
   M89: ["ledger", "a count never keeps a row with no value in the first sorted column"],
-  M91: ["ledger", "a count never keeps a row with no value in the first sorted column (the first 68 rows, sorted by Owner"],
+  M91: ["ledger", "a count never keeps a row with no value in the first sorted column (the first 76 rows, sorted by Owner"],
   M92: ["ledger", "a count never keeps a row with no value in the first sorted column"],
   M93: ["ledger", "a sort with no count keeps the rows with no value"],
   // A page from the wrong offset loses rows in every case. No case is about paging: the run pages, the check doesn't.
@@ -121,12 +121,6 @@ const CAUGHT: Record<string, readonly [SchemaName, string]> = {
   // No case is about ids: every case that keeps some rows but not all fails.
   M98: ["ledger", "equal ignores case on text"],
 };
-
-/**
- * Mutants no case catches yet. Each is a wrong translation: on rows the check doesn't hold, it keeps rows applyView
- * doesn't. They are marked to fail until the Query Check catches them. Round 1's are all caught.
- */
-const NOT_CAUGHT = new Set<string>();
 
 describe("the Query Check catches a Data Query that translates a rule wrong", () => {
   let dir = "";
@@ -140,9 +134,8 @@ describe("the Query Check catches a Data Query that translates a rule wrong", ()
   });
   const load = async (id: string) => (await import(/* @vite-ignore */ paths.get(id) as string)) as DataQueryModule;
 
-  it("every mutant is listed once, as caught or not caught", () => {
-    const listed = [...Object.keys(CAUGHT), ...NOT_CAUGHT];
-    expect(listed.sort()).toEqual(MUTANTS.map((m) => m.id).sort());
+  it("every mutant is listed once, as caught", () => {
+    expect(Object.keys(CAUGHT).sort()).toEqual(MUTANTS.map((m) => m.id).sort());
   });
 
   for (const mutant of MUTANTS.filter((m) => m.id in CAUGHT)) {
@@ -151,14 +144,6 @@ describe("the Query Check catches a Data Query that translates a rule wrong", ()
       const { schema, id } = SCHEMAS[schemaName];
       const { failures } = runQueryCheck(schema, id, await load(mutant.id));
       expect(failures.map((f) => f.name).filter((name) => name.startsWith(rule))).not.toEqual([]);
-    });
-  }
-
-  for (const mutant of MUTANTS.filter((m) => NOT_CAUGHT.has(m.id))) {
-    it.fails(`${mutant.id}: ${mutant.rule} (no case catches it yet)`, async () => {
-      const query = await load(mutant.id);
-      const failures = [SCHEMAS.ledger, SCHEMAS.wealth].flatMap(({ schema, id }) => runQueryCheck(schema, id, query).failures);
-      expect(failures).not.toEqual([]);
     });
   }
 });

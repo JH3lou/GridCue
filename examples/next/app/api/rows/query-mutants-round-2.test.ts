@@ -15,6 +15,9 @@ import { MUTANTS_ROUND_2 } from "./query-mutants-round-2";
 /**
  * Held-out mutants, round 2. Each is the example's Data Query with one rule translated wrong (query-mutants-round-2.ts).
  * The Query Check must fail at least one case for each, and the case's name must be about the rule the mutant breaks.
+ *
+ * One of them, M19, is no wrong translation after all. It only breaks ties another way, and ruling R2 (more grids spec
+ * 5.5, `compare`) leaves that to the Host: the Query Check must pass it.
  */
 
 type SchemaName = "ledger" | "wealth";
@@ -59,7 +62,8 @@ type Probe = { rows: () => Array<Record<string, unknown>>; state: ViewState };
 
 /**
  * For the mutants the held-out run found no case for, a View State and rows on which the mutant keeps rows (or an
- * order) applyView doesn't: proof that each is wrong, whether or not a case catches it now.
+ * order) applyView doesn't. For M6, M10 and M18 that is proof each is wrong, whether or not a case catches it now. For
+ * M19 it shows only that it breaks ties another way.
  */
 const PROBES: Record<string, Probe> = {
   // "in" with empty text beside other values. The check's lists held empty text only on its own.
@@ -77,8 +81,8 @@ const PROBES: Record<string, Probe> = {
     rows: () => ledgerRows([{ units: 1 }, { units: 9 }, { units: 5 }]),
     state: { ...base, visibleColumnIds: visible.filter((id) => id !== "units"), sorts: [{ columnId: "units", direction: "desc" }] },
   },
-  // A count that cuts among rows that tie. The check's counts cut between two different values, and compare leaves the
-  // order of rows that tie to the Host.
+  // A count that cuts among rows that tie: the query keeps the tied rows loaded last, and applyView the ones loaded
+  // first. Both keep the row ahead of the tie and two rows in all.
   M19: {
     rows: () => ledgerRows([{ units: 5 }, { units: 9 }, { units: 9 }, { units: 9 }, { units: 1 }]),
     state: { ...base, sorts: [{ columnId: "units", direction: "desc" }], limit: 2 },
@@ -86,10 +90,11 @@ const PROBES: Record<string, Probe> = {
 };
 
 /**
- * Mutants no case catches yet. They are marked to fail until the Query Check catches them. M19 waits on the lead's
- * ruling: whether a Data Query must break ties in the order the rows were loaded, or may break them its own way.
+ * Right Data Queries under ruling R2: a count that cuts inside a run of tied rows may keep any of the tied rows for its
+ * last places, and rows that tie may come in any order. M19 breaks ties in the reverse of the order the rows were
+ * loaded in. A database has no load order, so that is the Host's own choice, and the Query Check must pass it.
  */
-const NOT_CAUGHT: ReadonlySet<string> = new Set(["M19"]);
+const RIGHT_BY_R2: ReadonlySet<string> = new Set(["M19"]);
 
 /** The ids a Data Query returns for `state` on `rows`, in order. */
 const idsFrom = (query: DataQueryModule, rows: Array<Record<string, unknown>>, state: ViewState): unknown[] => {
@@ -113,10 +118,10 @@ describe("the Query Check catches a Data Query that translates a rule wrong (hel
   });
   const load = async (id: string) => (await import(/* @vite-ignore */ paths.get(id) as string)) as DataQueryModule;
 
-  it("every mutant is listed once, as caught or not caught", () => {
-    const listed = [...Object.keys(CAUGHT), ...NOT_CAUGHT];
+  it("every mutant is listed once, as caught or as right under ruling R2", () => {
+    const listed = [...Object.keys(CAUGHT), ...RIGHT_BY_R2];
     expect(listed.sort()).toEqual(MUTANTS_ROUND_2.map((m) => m.id).sort());
-    for (const id of NOT_CAUGHT) expect(PROBES, id).toHaveProperty(id);
+    for (const id of RIGHT_BY_R2) expect(PROBES, id).toHaveProperty(id);
   });
 
   for (const mutant of MUTANTS_ROUND_2.filter((m) => m.id in CAUGHT)) {
@@ -130,7 +135,10 @@ describe("the Query Check catches a Data Query that translates a rule wrong (hel
 
   for (const mutant of MUTANTS_ROUND_2.filter((m) => m.id in PROBES)) {
     const probe = PROBES[mutant.id] as Probe;
-    it(`${mutant.id}: ${mutant.rule} (the mutant is wrong: it keeps rows or an order applyView doesn't)`, async () => {
+    const what = RIGHT_BY_R2.has(mutant.id)
+      ? "it keeps other tied rows than applyView does, which ruling R2 leaves to the Host"
+      : "the mutant is wrong: it keeps rows or an order applyView doesn't";
+    it(`${mutant.id}: ${mutant.rule} (${what})`, async () => {
       const rows = probe.rows();
       const want = applyView(rows, probe.state, ledgerSchema).rows.map((row) => row.entry_number);
       expect(idsFrom(example, rows, probe.state)).toEqual(want);
@@ -138,11 +146,15 @@ describe("the Query Check catches a Data Query that translates a rule wrong (hel
     });
   }
 
-  for (const mutant of MUTANTS_ROUND_2.filter((m) => NOT_CAUGHT.has(m.id))) {
-    it.fails(`${mutant.id}: ${mutant.rule} (no case catches it yet)`, async () => {
+  // Ruling R2 makes these right Data Queries. They break ties another way than applyView, and nothing else.
+  for (const mutant of MUTANTS_ROUND_2.filter((m) => RIGHT_BY_R2.has(m.id))) {
+    it(`${mutant.id}: ${mutant.rule} (a right Data Query under ruling R2: every case passes, on both schemas)`, async () => {
       const query = await load(mutant.id);
-      const failures = [SCHEMAS.ledger, SCHEMAS.wealth].flatMap(({ schema, id }) => runQueryCheck(schema, id, query).failures);
-      expect(failures).not.toEqual([]);
+      for (const { schema, id } of [SCHEMAS.ledger, SCHEMAS.wealth]) {
+        const { cases, failures } = runQueryCheck(schema, id, query);
+        expect(cases).toBeGreaterThan(40);
+        expect(failures).toEqual([]);
+      }
     });
   }
 });
