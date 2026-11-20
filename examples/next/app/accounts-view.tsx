@@ -99,7 +99,7 @@ export function AccountsView({ now }: { now: string }) {
     <main>
       <h1>Accounts</h1>
       <nav aria-label="Examples">
-        <Link href="/paged">Rows from a server, paged</Link>
+        <Link href="/paged">Rows from a server, paged</Link> · <Link href="/ag-grid">In AG Grid</Link>
       </nav>
       <GridCueBar controller={cue} />
       <p>{view.rows.length} rows</p>
