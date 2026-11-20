@@ -21,6 +21,9 @@ import * as root from "../src/index";
 import { type QueryCheck, type QueryCheckCase, type QueryCheckOptions, queryCheck } from "../src/testing";
 import { seededRandom } from "./view-generator";
 
+// Many cases here build whole Query Checks, which take a few seconds under a loaded CI runner beside the AG Grid suites.
+vi.setConfig({ testTimeout: 30_000 });
+
 // The Query Check (more grids spec, 4.1 and 5.5; ADR 0032): synthetic rows and View States, built from a View Schema,
 // that a Host runs through its own Data Query. These tests hold it to the table in 4.1, and then turn it on itself: a
 // Data Query that keeps what `applyView` keeps passes every case, and each wrong translation below fails the case that
