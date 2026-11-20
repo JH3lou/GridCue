@@ -95,6 +95,37 @@ GridCue declining to propose any change, because the request is too ambiguous or
 
 If the User answers "No" to a Clarification and nothing is left, GridCue says "Okay, nothing will change," and keeps the request for editing. An Abstention is never reported as a success.
 
+## A grid that can't group
+
+A Grid Adapter lists the operations it supports in `getCapabilities().operations`. When `group.set` isn't in that list, the grid can't group rows. A part of a request that asks to group or ungroup then ends in one Clarification with no choices, since no answer makes the grid able to:
+
+| Request, on a grid without `group.set` | Clarification |
+| --- | --- |
+| "Group by advisor" | "This grid can't group rows." |
+| "Ungroup" | "This grid can't group rows." |
+| "Group by advisor and sort by market value" | "This grid can't group rows." |
+| "Accounts over $1M grouped by custodian" | "This grid can't group rows." |
+| "Sort by market value, groups by advisor" | "This grid can't group rows." |
+| "Show the Northgate group" | "This grid can't group rows." |
+
+Nothing in the request applies, the other parts included. The User asked for every change, and showing only some would be a different view. Ask again without the grouping to get the rest.
+
+Any word built on "group" counts, as a verb or a noun: "grouping", "groups", "regroup", "groupwise". "The Northgate group" and "groups of taxable accounts" may mean a grouping or only those rows, and GridCue can't tell which, so it asks. Ask for "Northgate accounts" to get the filter. "By" right after the word always asks: "keep the sort and the grouping by advisor".
+
+Some of these words GridCue can't read at all: "regroup" or "groupwise" with no "by" next, the text after "contains", "named" or "like", or a grouping said to stay with more after it. Such a request keeps the question it would ask anyway: "regroup my thoughts" and "households containing group" ask what to change. It never ends in a ready Preview, though. Where the rest of the request would be ready, it asks "This grid can't group rows." instead: "sort by gain, regroup on advisor", "sort by gain, by advisor groupwise", "sort by gain, then advisor like groups", "sort by gain, the grouping stays on advisor".
+
+These don't count, and the request reads as on any grid:
+
+- A grouping said to stay or not wanted, with nothing after it in its part but punctuation or a joining word such as "and": "clear the sort, the grouping stays", "clear the filters but keep groups", "sort by gain without grouping". Anything more after it asks, even another thing to keep: "clear the sort, leave the grouping and the filter alone".
+
+  Only these words count. Right before the grouping word, with only "the", "my" and the like between: "keep", "leave", "don't touch", "don't change", "no change to", "retain", "preserve", "maintain", "without changing", "without touching", "not", "no", "without", "w/o", "except", "excluding", "apart from", "other than", and "all", "everything" or "anything but". Or right after it: "stays", "remains", "as is", "alone", "unchanged", "untouched", "intact". Other wording asks, such as "ignore the grouping" or "forget the grouping", which may mean removing it. Leaving out an ungrouping asks too: "sort by gain, not ungrouped" asks for groups.
+- "Group" inside a name the Host declared, such as a value "Group Annuity" or a column "Group name", or inside quoted text: `households containing "group"` filters.
+- A column's own label beside one of its values, where a column is called "Group": "the alpha group", "group = beta".
+
+A request with no word built on "group" ("filter taxable accounts", "sort by gain") is read as on any other grid.
+
+The hint in "I'm not sure what to change" names only what the grid offers. On a grid with `group.set`, "What's the weather?" gets "Try asking to filter, sort, group, or show or hide columns." On a grid without it, the same request gets "Try asking to filter, sort, or show or hide columns." The hint after a request that changes nothing ("Try filtering, sorting, grouping, or showing or hiding columns.") is cut the same way. A grid that lists none of those operations gets no "Try" sentence.
+
 ## Unsupported Segment
 
 A part of an Utterance that asks for something outside the view-only boundary. GridCue recognises four kinds: editing data, workflow actions (trading, emailing, approving), navigation, and export. A request that names a restricted column is refused the same way.
