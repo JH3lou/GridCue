@@ -1221,9 +1221,13 @@ describe("the verdict", () => {
     const first10 = (query: QueryCaseResult["query"]) => passesOnQueryAdapter("cases.jsonl", result("a count alone", [limit], query));
     expect(first10(ran("needs_clarification", [], [], ["This grid can't show only the first 10 rows."]))).toBe(true);
     expect(first10(ran("needs_clarification", [], [], ["First 10 by which column?"]))).toBe(false);
-    expect(passesOnQueryAdapter("cases.jsonl", result("clears a count", [{ type: "limit.set", count: null }], ran("ready", [])))).toBe(
-      false,
-    );
+    const clears = (query: QueryCaseResult["query"]) =>
+      passesOnQueryAdapter("cases.jsonl", result("clears a count", [{ type: "limit.set", count: null }], query));
+    expect(clears(ran("ready", []))).toBe(false);
+    expect(clears(ran("needs_clarification", [], [], ["?"]))).toBe(true);
+    // A run that ended in an error (the provider threw or timed out) read nothing, so it never passes as "not ready".
+    expect(top10(ran("error", []))).toBe(false);
+    expect(clears(ran("error", []))).toBe(false);
     const other = (query: QueryCaseResult["query"], rows: QueryCaseResult["rows"]) =>
       passesOnQueryAdapter("cases.jsonl", result("other", [sort], query, rows));
     expect(other(ran("ready", [sort]), ran("ready", [sort]))).toBe(true);
