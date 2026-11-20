@@ -80,42 +80,75 @@ One View State for each edge of each column and operator the column allows, then
 Then the sorts:
 
 - two columns at once, each direction on each;
+- two columns led by each column a case sorts by, text and enum columns too, the first each way and the second each way;
+- three columns, and four, for each column that leads rows that tie on all but the last, the last each way;
 - two columns where some rows have no value in the second;
 - each number column on its own, each way, by its value and not as text;
 - each text and enum column on its own, each way, and one of each as the second of two sorts, each way;
 - each column a case sorts by, beside a filter, each way, and once with its column hidden;
 - two sorts beside a filter, the second a number, date or yes/no column, an enum and text, each way;
-- one sort and two beside each "or" group, each way, with no count, and the same beside each shape of a filter on a hidden column, with the sorted columns hidden too;
 - a sort on a hidden column, and a second sort on a hidden column;
 - a sort with long runs of rows that tie, for reading in pages.
 
-A sort by two or more columns starts with a number, date or yes/no column.
+No case sorts by more than four columns. The sorts by three and four are there without `limit.set` too. Where a text or enum column is sorted first, a row whose cell there has no checked place may sit anywhere among the rows that hold other text there, as a row with no value there may. Rows that hold the very same text there tie on it, so the next sorted column orders them.
 
 With `limit.set` in `operations` there are count cases too:
 
-- a count keeps the first rows of the sorted, filtered rows, and a count beside each "or" group does too;
-- it never keeps a row with no value in the first sorted column;
+- a count keeps the first rows of the sorted, filtered rows;
+- it never keeps a row with no value in the first sorted column: a count of every row, for each column a case sorts by first that holds empty cells, each way, with two sorts, three and four, and with a sorted column hidden;
 - it keeps a row with no value in a later sorted column where its first one puts it before the cut, for each column that holds empty cells, text and enum columns among them;
 - for each number, date and yes/no column, each way, a count that cuts inside a run of rows that tie, and one beside a filter;
 - for each number, date and yes/no column, a count with a second sort that cuts inside a run of rows that tie on the first, so the second decides which of them it keeps. The second is sorted each way at the same cut;
 - for each, a count with three sorts that cuts inside a run of rows that tie on the first two, so the third decides, and one with four sorts, where the fourth decides. The last is sorted each way at the same cut;
-- for each text and enum column, a count with it sorted second that cuts inside a run of rows that tie on the first, each way, and a count sorted by it, each way. Both sit beside a filter that keeps only the values whose order is checked;
-- for each number, date and yes/no column, a count sorted by it with its column hidden, and one count with a second sort, and one with a third, on a hidden column, each way;
-- beside each "or" group, and beside each shape of a filter on a hidden column with the sorted columns hidden too, a count of the first rows, a count that cuts inside a run of rows that tie, and a count with two sorts that cuts inside a run of rows that tie on the first, the second each way.
+- for each text and enum column, a count with it sorted second that cuts inside a run of rows that tie on the first, each way, and a count sorted by it, each way, with one more cut where text ordered by its length first would keep other rows. Both sit beside a filter that keeps only the values whose order is checked;
+- for each text and enum column, a count sorted by it that cuts inside a run of rows that tie on it, each way, and one with a second sort, each way, that cuts inside rows that tie on it. Both sit beside the same filter;
+- a count with two sorts, with three and with four that cuts inside a run of rows that tie on all of them, the first each way;
+- for each number, date and yes/no column, a count sorted by it with its column hidden, one that cuts inside tied rows with its column hidden, and one count with a second sort, and one with a third, on a hidden column, each way.
 
 Each case is a `QueryCheckCase`. Its `name` is the rule, then the view in plain words, such as "not equal keeps empty cells, and ignores case on text (Custodian is not “åLDER fen”)". Its `state` is a View State to run through your query. No case groups, and restricted columns and the id column are in none. The rows each case keeps come from `applyView`, so the check holds whatever meaning core holds when it runs.
+
+### Pairs, and no more
+
+A Data Query often takes another path for one kind of view: a lookup for "equals", a subquery for a count, a second statement for an "or". So each rule about sorting and counting also sits beside each kind of filter the check makes, with the first sort each way.
+
+The rules:
+
+- one sort;
+- two sorts, the second each way too;
+- with `limit.set`, the first rows of a count;
+- with `limit.set`, a count that cuts inside a run of rows that tie;
+- with `limit.set`, a count with two sorts that cuts inside a run of rows that tie on the first, the second each way at the same cut;
+- with `limit.set`, a count of every row, which never keeps a row with no value in the first sorted column.
+
+The kinds of filter:
+
+- one filter of each operator: equals, not equal, in a list, each comparison, a range, contains, starts with, is empty and is not empty;
+- one filter with the first sort on a number, on a date and on a yes/no column;
+- one filter on the first sorted column;
+- two filters joined with "and";
+- each "or" group: of two filters, of three, and inside an "and";
+- each shape of a filter on a hidden column: alone, inside an "or" group, inside an "or" group inside an "and", and inside an "and" group inside an "or". There the sorted columns are hidden too.
+
+A query that is wrong under one such condition alone fails a case named for the rule it breaks. A query that sorts the other way only when an "equals" filter is set fails "a sort beside a filter still orders the rows". One that counts with `RANK` only beside an "or" group with the sort going up fails "a count that cuts inside tied rows beside an or group keeps its number of rows".
+
+A rule takes one column, or two, for each kind of filter: the first that can show it. Where your schema has no column that can, there is no such case. A schema of text columns alone has no count of its first few rows beside an "equals" filter, since such a count is sorted first by a number, date or yes/no column, or by text beside a filter that keeps only the values whose order is checked.
+
+A query may also take another path for one column sorted first, or for one number of sorts: a key added after a text column, an `ORDER BY` built for two columns. So, with no filter, the cases above sort by two columns led by each column in turn, sort by three and by four, count every row by each column that holds empty cells, and count inside tied rows with one sort, two, three and four, and with text or an enum sorted first. A query that keeps only its first two sorts fails "three sorts order the rows by each in turn", with `limit.set` and without. One that drops its later sorts only when a text column leads fails "two sorts order the rows by each in turn, whichever column is sorted first".
+
+The check promises these pairs, and no more. A query that is wrong only where three such things meet can pass, as "What it doesn't test" says below.
 
 ### compare
 
 `compare(ids)` takes the ids your Data Query returned for `state`, in the order it returned them.
 
 - **The ids are checked as a set.** "4" and 4 are the same id. A repeated id counts once.
-- **When the case sorts, the order is checked too.** Of text, only text made of the letters A to Z, with single spaces between words, is ordered, since a database orders other text by its own collation. An enum is ordered by its values' IDs, as text, the same way: not by its labels, and not in the order its values are declared, as a database's own enum type sorts.
+- **When the case sorts, the order is checked too.** An enum is ordered by its values' IDs, as text: not by its labels, and not in the order its values are declared, as a database's own enum type sorts.
 - **It returns a plain message** naming the case, the missing ids and the extra ids.
 - **Anything but a list of ids throws `INPUT_CONFIG`.**
 
-Three things are yours, because a database has no load order and GridCue doesn't state where an empty cell sorts:
+Four things are yours, because a database has no load order, GridCue doesn't state where an empty cell sorts, and collations differ:
 
+- **Text order beyond the letters A to Z.** Text is checked to sort by its letters, ignoring case, only between texts made of the letters A to Z, with single spaces between words, that their letters tell apart. Where a space, a digit, a mark or an accented letter sorts against a letter is your collation's own. Some collations skip spaces at first, so a query that sorts "Alder" before "Al Fen" passes, and so does one that sorts it after. Two texts that differ only in letter case have no checked order either. The same holds for an enum's IDs. Two cells that are the very same text tie under every collation, whatever characters they hold, so the next sorted column decides between their rows: two rows that both hold "Ålder Fen", or the enum ID `roth_ira`, must come in the order the sort after it gives them, and so must the rows a count keeps among them.
 - **Rows that tie on every sorted column may come in any order.**
 - **A row with an empty sort cell is checked by its leading sorted columns that hold a value,** up to its first empty one. Where it sits among the rows that share those values is yours, so `NULLS FIRST` and `NULLS LAST` both pass. It must still come after every row those columns put ahead of it, and before every row they put behind it. A row with no value in the first sorted column may sit anywhere.
 - **A count that cuts inside a run of tied rows may keep any of the tied rows for its last places.** It must keep every row ahead of them, none behind them, and its number of rows in all. Every row the sorts put ahead of a row it keeps must be kept too. This is the one case where the ids aren't compared as one fixed set. A query that keeps every tied row (`RANK`, `WITH TIES`), drops the tied run, keeps fewer or more rows than the count asks for, or, where a later sort decides which tied rows it keeps, cuts by the first sort alone, fails.
@@ -147,7 +180,10 @@ When every row that came back holds a value in every sorted column, the message 
 - A count over a page, or ties broken another way on each page: run each case in pages too, as the [guide](/docs/guides/rows-on-a-server#run-it-in-a-test) shows, so a count cut after paging fails, and so does a page that loses a row. The case "a paged read is the whole result cut in pieces" has long runs of rows that tie for this. A page that repeats a row and loses none still passes, since a repeated id counts once.
 - Where empty cells sort among the rows that share their leading sort values, and anywhere at all when the first sorted column is the empty one.
 - The order of rows that tie, and which tied rows a count keeps. Break ties by a unique column yourself, so two pages never repeat or skip a row.
-- The order of text with characters outside A to Z, and of two texts that differ only in letter case.
+- A query that is wrong only where three such things meet. The check promises pairs: each rule about sorting and counting beside each kind of filter, with the first sort each way. It promises no case for a rule beside two kinds of filter at once, such as a count beside an "equals" filter on a hidden column, or for a sort on a hidden column beside each operator, beside a filter on that column, or as the third or fourth sort with no count. A query that takes another path only there can pass.
+- One column sorted first, or one number of sorts, beside each kind of filter. Each column leads two sorts, and three and four sorts are there, with no filter. A query that loses its third sort only beside an "or" group, or its second only where text is sorted first beside a "contains" filter, can pass. So can one that is wrong only for three or more sorts with text or an enum sorted first in a count.
+- Five or more sorts. A case sorts by four columns at most.
+- Text order beyond the letters A to Z, spaces included: where a space, a digit, a mark or an accented letter sorts against a letter, and the order of two texts that differ only in letter case. Rows that hold the very same such text are still ordered by the sorts after it.
 - The order of a clock time with no offset beside instants on a date-and-time column, since a query may order it by the instant it names or as text.
 - A repeated id. `compare` reads it as one id, so a page that repeats a row passes when no row is missing.
 - Grouping and totals. A total over rows on a server is a Data Query of its own.
