@@ -1,0 +1,93 @@
+---
+title: AG Grid
+description: Add GridCue to an AG Grid Community grid on the Client-Side or the Infinite Row Model, with gridcueColumnDefs and createAgGridAdapter.
+---
+
+GridCue's AG Grid adapter changes the view of a grid you already have. It writes filters into AG Grid's own column filters, and sorts, hidden columns and order through the column state. It never changes a cell and never fetches a row.
+
+The finished versions are `examples/ag-grid` (Vite) and the `/ag-grid` page of `examples/next`.
+
+## What it covers
+
+- **AG Grid Community only.** The adapter is tested with **AG Grid Community 34, 35 and 36**. Version 33 is not claimed. Enterprise modules, such as grouping, pivoting and the Set Filter, are not tested.
+- **Two row models.** The Client-Side Row Model, where AG Grid filters and sorts your rows, and the Infinite Row Model, where your datasource fetches them.
+- **One import, no peer dependency.** `gridcue/ag-grid` imports nothing from AG Grid. It reads the `api` you give it, and checks at creation that the api has every call it uses.
+
+## 1. Install
+
+```bash
+npm i gridcue ag-grid-community
+```
+
+Register AG Grid's modules as you already do, for example `ModuleRegistry.registerModules([AllCommunityModule])`.
+
+## 2. Read a schema from the grid
+
+```tsx
+import { schemaFromAgGrid } from "gridcue/ag-grid";
+
+const schema = schemaFromAgGrid(columnDefs, {
+  sampleRows: rows,
+  // What a column definition can't say: aliases, enum values, a restricted column.
+  columns: { tax_id: { sensitivity: "restricted" } },
+});
+```
+
+A column's ID is its `colId`, else its `field`. A column with neither is left out. A column's kind is what you name in `columns`, else its `cellDataType`, else what the sample rows hold. A column with `filter: false`, a filter that is not AG Grid's own text, number or date filter, or a `valueGetter` or `filterValueGetter` gets no `filter` capability, so GridCue never offers it. AG Grid would filter another value than the row's cell, which GridCue's filters mean. A column with `sortable: false` gets no `sort`. Your rows stay in your app: only the schema goes to GridCue.
+
+## 3. Give the grid `gridcueColumnDefs`
+
+```tsx
+import { createGridCue } from "gridcue";
+import { createAgGridAdapter, gridcueColumnDefs } from "gridcue/ag-grid";
+
+// Once, beside the schema: it builds new settings each time.
+const gridColumnDefs = gridcueColumnDefs(schema, columnDefs);
+
+<AgGridReact
+  rowData={rows}
+  columnDefs={gridColumnDefs}
+  onGridReady={(e) => setCue(createGridCue({ schema, adapter: createAgGridAdapter({ schema, api: e.api }), provider }))}
+/>;
+```
+
+`gridcueColumnDefs(schema, columnDefs)` returns your column definitions, column groups included, with GridCue's settings on each column of the schema. Your own `defaultColDef` stays yours. The settings are per column because each column's filter offers only the options GridCue reads on that column, and AG Grid 34 and 35 give every column one default `filterParams`. They set AG Grid's filters to GridCue's meanings, so "is not Taxable" keeps rows with no value, "between" includes both ends, and dates compare whole days. On each column the schema lets GridCue filter, they set:
+
+- **`filter: true`**, unless the column names AG Grid's own filter, which gives it AG Grid's text, number or date filter by its `cellDataType`. Set `cellDataType` on number and date columns, as the Infinite Row Model needs too.
+- **`filterOptions`** with the options of the operators the column allows, and no others: text gets equals, not equal, contains, starts with, is empty and is not empty; an enum gets equals, not equal, is empty and is not empty; yes/no gets equals; numbers and dates get the comparisons, "between", is empty and is not empty, and numbers also not equal. A filter set in the menu is always one GridCue reads.
+- **The rest of `filterParams`**: `includeBlanksInNotEqual: true`, `includeBlanksInEquals: false`, `caseSensitive: true`, a `textMatcher` that applies each column kind's meaning (text ignores case; an enum takes a value's ID, or its label in any case, such as "Northgate"), a `textFormatter` that leaves text as it is, a date `comparator` that compares whole days in the schema Calendar's time zone, and a `maxNumConditions` that is never below 64.
+- **Custom filter options** with GridCue's own rule for "less than", "greater than", "between", "is empty" and "is not empty". AG Grid's own "blank" also matches whitespace-only text, and on 34 and 35 an empty string in a number or date column counts as 0.
+
+Every schema column also gets **a sort `comparator`** that puts text in GridCue's order, unless it has one. AG Grid's own text sort puts every capital letter first. Columns outside the schema are left as they are.
+
+A column's own settings are kept, and win: its own `filterParams` may add settings, but a key that replaces one of these is refused. `createAgGridAdapter` checks each column the schema lets GridCue filter, and throws `INPUT_CONFIG` naming the column and the setting when it doesn't carry these, or has a `valueGetter` or `filterValueGetter`. Build `gridcueColumnDefs` from the same schema you give the adapter.
+
+## 4. What GridCue does to the grid
+
+One apply writes the filter model and the column state, reads both back, and is done only when the grid holds what was written. A write the grid drops or cuts short is put back and fails with `ADAPTER_FAILED`, with nothing changed. A filter AG Grid can't hold fails with `ADAPTER_UNSUPPORTED_FILTER` before anything is written: an OR across two columns, a list of values beside another filter on its column, AND and OR on one column, a time of day on a date, or more conditions on a column than `gridcueColumnDefs` allows.
+
+- **Menu filters are in the View State.** A filter the User sets in AG Grid's own filter menu is read into the View State, so the Preview, "clear the filters" and undo see it. The menu offers only options GridCue reads. What a User types can still name nothing GridCue can mean: text that is no value or label of an enum, such as "North", or empty text. That filter stays the grid's own, as below.
+- **What GridCue doesn't change stays yours.** A filter GridCue can't read, such as a custom filter component, is left out of the View State and kept on every write, "clear the filters" included. A GridCue filter on that column fails with `ADAPTER_UNSUPPORTED_FILTER` rather than replace it. The sorts of columns outside the schema stay too.
+- **Undo and restore** put back the filters, sorts, hidden columns and order. `restore` refuses a view that holds a count, totals, pins, a density, or a grouping other than the grid's, with `ADAPTER_NOT_APPLICABLE`: the grid can't hold it. A count of `null` is no count.
+
+## 5. The Infinite Row Model
+
+On the Infinite Row Model your datasource fetches the rows, so the Data Query is yours. AG Grid calls the datasource's `getRows` again after a write that changes the filter model or the sorts, with no purge or refresh. It doesn't call it again after a write that changes neither, such as hiding or moving a column.
+
+Build the Data Query from the View State, as in [Rows on a server](/docs/guides/rows-on-a-server): read `adapter.getState().state` and subscribe to it, not the request's `filterModel`, which can't carry GridCue's meanings. The one use of `filterModel` is for a filter GridCue can't read, which is yours: your Data Query is the View State's filters and your own, joined with "and". Run the [Query Check](/docs/api/testing) against your Data Query.
+
+## What isn't supported
+
+| Not supported | What happens |
+| --- | --- |
+| **Grouping** | AG Grid Community can't group, so the adapter lists no `group.set`. A request to group asks nothing to apply and says the grid can't. An Enterprise grouping is read into the View State and never written |
+| **Pins** | The adapter lists no `columns.pin`. The grid's own pins stay as they are, and undo never moves them |
+| **Totals** | No `aggregation.set` |
+| **Counts** | No `limit.set`, so "top 10" sorts and says the count was not applied |
+| **Density** | No `density.set` |
+| **AG Grid Enterprise** | Not tested |
+| **AG Grid 33 and older** | Not claimed |
+
+## When the adapter refuses
+
+`createAgGridAdapter` throws `INPUT_CONFIG` at creation, naming what is wrong, when the api lacks a call, the grid is destroyed, a schema column isn't a column of the grid, or a column the schema lets GridCue filter doesn't carry `gridcueColumnDefs`' settings or has a `valueGetter` or `filterValueGetter`. See [Adapters](/docs/api/adapters#createagridadapter).
