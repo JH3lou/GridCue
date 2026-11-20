@@ -177,6 +177,69 @@ const theCase = (check: QueryCheck, name: RegExp): QueryCheckCase => {
   return found[0] as QueryCheckCase;
 };
 
+/** The rule a count names when its cut falls inside rows that tie (ruling R2). */
+const TIED =
+  /^a count that cuts inside tied rows keeps its number of rows: every row ahead of the tie, none behind it, and any of the tied \(/;
+/** The rule a sort names for a row with a value in the first sorted column and none in a later one (ruling R3). */
+const LATER_EMPTY = /^a row with no value in a later sorted column keeps its place by the columns before it \(/;
+/** The rule a count with two sorts names when its cut falls inside rows that tie on the first (ruling R2). */
+const NEXT_DECIDES =
+  /^a count that cuts inside rows that tie on the first sorted column keeps the ones the next sorted column puts first \(/;
+/** The rule a count names when a later sorted column, of any kind, holds an empty cell ahead of its cut (ruling R3). */
+const EMPTY_LATER_IN_COUNT = /^a count keeps a row with an empty cell in a later sorted column \(/;
+/** The rule a sort with many ties names, for a Host that reads each case in pages too (ruling R1). */
+const PAGED = /^a paged read is the whole result cut in pieces: rows that tie keep one order from page to page \(/;
+/** The rule a count with three sorts names when its cut falls inside rows that tie on the first two (ruling R2). */
+const THIRD_DECIDES = /^a count that cuts inside rows that tie on the first two sorted columns keeps the ones the third puts first \(/;
+/** The rule two sorts beside an or group name. */
+const TWO_SORTS_BESIDE_OR = /^two sorts beside an or group order the rows by each in turn \(/;
+/** The rule a count beside an or group names. */
+const COUNT_BESIDE_OR = /^a count beside an or group still keeps only its first rows \(/;
+/** The rule a filter on a hidden column names inside an or group inside an and. */
+const HIDDEN_IN_NESTED_OR = /^a filter on a hidden column still holds in an or group inside an and \(/;
+/** The rules a count sorted by a hidden column names: alone, and second. */
+const COUNT_HIDDEN_SORT = /^a count still sorts by a hidden column \(/;
+const COUNT_HIDDEN_SECOND = /^a count still sorts by a hidden second column \(/;
+const COUNT_HIDDEN_THIRD = /^a count still sorts by a hidden third column \(/;
+/** The rules a sort beside a filter joined with "and" names: one sort, one on a hidden column, and two. */
+const SORT_BESIDE_FILTER = /^a sort beside a filter still orders the rows \(/;
+const HIDDEN_SORT_BESIDE_FILTER = /^a sort on a hidden column beside a filter still orders the rows \(/;
+const TWO_SORTS_BESIDE_FILTER = /^two sorts beside a filter order the rows by each in turn \(/;
+/** The rule an or group of three filters names. */
+const OR_OF_THREE = /^an or group of three filters keeps a row that any of them keeps \(/;
+/** The rule a filter on a hidden column names inside an and group inside an or. */
+const HIDDEN_IN_NESTED_AND = /^a filter on a hidden column still holds in an and group inside an or \(/;
+/** The rule a count names when text or an enum, sorted second, decides which of the rows that tie on the first it keeps. */
+const COLLATED_NEXT_DECIDES =
+  /^a count that cuts inside rows that tie on the first sorted column keeps the ones (text|an enum) sorted next puts first \(/;
+/** The rules a count sorted first by text or an enum names. */
+const COUNT_BY_COLLATED =
+  /^a count sorted by (text keeps its first rows by its letters, ignoring case|an enum keeps its first rows by its values' IDs) \(/;
+/** The rule a count that cuts inside tied rows beside a filter names. */
+const TIED_BESIDE_FILTER = /^a count that cuts inside tied rows beside a filter keeps its number of rows \(/;
+/** The rule a count with four sorts names when its cut falls inside rows that tie on the first three. */
+const FOURTH_DECIDES = /^a count that cuts inside rows that tie on the first three sorted columns keeps the ones the fourth puts first \(/;
+/** The rules a count that cuts inside tied rows names beside an or group: one sort, and two. */
+const TIED_BESIDE_OR = /^a count that cuts inside tied rows beside an or group keeps its number of rows \(/;
+const NEXT_BESIDE_OR =
+  /^a count that cuts inside rows that tie on the first sorted column beside an or group keeps the ones the next sorted column puts first \(/;
+/** The rules each sort and count names beside a filter on a hidden column, with the sorted columns hidden too. */
+const SORT_BESIDE_HIDDEN = /^a sort beside a filter on a hidden column still orders the rows \(/;
+const TWO_SORTS_BESIDE_HIDDEN = /^two sorts beside a filter on a hidden column order the rows by each in turn \(/;
+const COUNT_BESIDE_HIDDEN = /^a count beside a filter on a hidden column still keeps only its first rows \(/;
+const TIED_BESIDE_HIDDEN = /^a count that cuts inside tied rows beside a filter on a hidden column keeps its number of rows \(/;
+const NEXT_BESIDE_HIDDEN =
+  /^a count that cuts inside rows that tie on the first sorted column beside a filter on a hidden column keeps the ones the next sorted column puts first \(/;
+/** The kinds every database orders alike: the count cases and the two-column sorts lead with one of these. */
+const ORDERED_KINDS: ReadonlyArray<ColumnDescriptor["kind"]> = ["number", "currency", "percent", "date", "datetime", "boolean"];
+
+/** The shape of an or group a case's filters hold: two filters, three, or an or group inside an and. */
+const orShape = (c: QueryCheckCase): string => {
+  const root = c.state.filters;
+  if (root?.combinator === "or") return root.children.length >= 3 ? "or of three" : "or";
+  return "or inside and";
+};
+
 const isEmptyCell = (v: unknown) => v === null || v === undefined || v === "";
 const cellsOf = (check: QueryCheck, columnId: string): Scalar[] => check.rows.map((row) => row[columnId] as Scalar);
 /** The cells a case keeps in one column, read from `applyView`. */
@@ -377,6 +440,76 @@ describe("the rows are synthetic, and hit each edge in the table", () => {
     }
   });
 
+  it("and a second pair that differs only by an accent outside å, ä and ö, with a case that asks for each", () => {
+    // A Swedish or Finnish collation keeps å, ä and ö as letters of their own and reads é as e. The first pair, with
+    // Å, passes such a collation, so the rows hold a pair it reads as one.
+    const fold = (t: string) => t.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "");
+    const nordic = (t: string) => [...t.toLowerCase()].map((letter) => ("åäö".includes(letter) ? letter : fold(letter))).join("");
+    for (const [s, columnId] of [
+      [SUBJECTS[0], "household"],
+      [SUBJECTS[1], "counterparty"],
+    ] as Array<[Subject, string]>) {
+      const check = checkOf(s);
+      const texts = [...new Set(cellsOf(check, columnId).filter((v): v is string => typeof v === "string"))];
+      const pairs = texts.flatMap((a) => texts.filter((b) => a < b && a.toLowerCase() !== b.toLowerCase() && nordic(a) === nordic(b)));
+      expect(pairs, columnId).toHaveLength(1);
+      const accented = texts.find((t) => t.toLowerCase() !== fold(t) && nordic(t) === fold(t)) as string;
+      expect(accented, columnId).toBeDefined();
+      const label = s.schema.columns.find((c) => c.id === columnId)?.label as string;
+      for (const rule of [/^equal keeps é and e apart \(/, /^contains keeps é and e apart \(/, /^starts with keeps é and e apart \(/]) {
+        const c = singles(check, columnId).find((one) => rule.test(one.name)) as QueryCheckCase;
+        expect(c, `${label} ${rule}`).toBeDefined();
+        // Only the text with the accent is kept, never its plain twin.
+        expect(new Set(keptCells(check, s.schema, c, columnId)), c.name).toEqual(new Set([accented]));
+        // What it asks for holds the accent, in a letter case no row holds.
+        const asked = String(predicatesOf(c.state.filters)[0]?.value);
+        expect(asked.toLowerCase(), c.name).toContain("é");
+        expect(nordic(accented), c.name).toContain(nordic(asked));
+      }
+    }
+  });
+
+  it("every text operator has a case for each accent: é and e apart, and Å and A apart", () => {
+    const fold = (t: string) => t.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "");
+    const nordic = (t: string) => [...t.toLowerCase()].map((letter) => ("åäö".includes(letter) ? letter : fold(letter))).join("");
+    for (const [s, columnId] of [
+      [SUBJECTS[0], "household"],
+      [SUBJECTS[0], "advisor_name"],
+      [SUBJECTS[1], "owner"],
+      [SUBJECTS[1], "counterparty"],
+    ] as Array<[Subject, string]>) {
+      const check = checkOf(s);
+      const texts = [...new Set(cellsOf(check, columnId).filter((v): v is string => typeof v === "string"))];
+      const kept = (rule: RegExp) => {
+        const c = singles(check, columnId).find((one) => rule.test(one.name)) as QueryCheckCase;
+        expect(c, `${columnId} ${rule}`).toBeDefined();
+        return { c, cells: new Set(keptCells(check, s.schema, c, columnId)) };
+      };
+      // Each keeps one text of a pair a collation that folds the accent reads as one, and not the other.
+      const sides: Array<[RegExp, string, string]> = [
+        // é: a Swedish or Finnish collation folds it.
+        [/^not equal keeps é and e apart \(/, "Hazel Tor", "Hazél Tor"],
+        [/^in a list keeps é and e apart \(/, "Hazél Tor", "Hazel Tor"],
+        [/^starts with keeps é and e apart \(/, "Hazél Tor", "Hazel Tor"],
+        // Å: a collation that ignores every accent folds it.
+        [/^not equal ignores case but not accents \(/, "Ålder Fen", "Alder Fen"],
+        [/^in a list ignores case but not accents \(/, "Alder Fen", "Ålder Fen"],
+        [/^contains ignores case but not accents \(/, "Alder Fen", "Ålder Fen"],
+        [/^starts with ignores case but not accents \(/, "Alder Fen", "Ålder Fen"],
+      ];
+      for (const [rule, keeps, leavesOut] of sides) {
+        const { c, cells } = kept(rule);
+        expect(texts, c.name).toContain(keeps);
+        expect(texts, c.name).toContain(leavesOut);
+        expect(cells.has(keeps), c.name).toBe(true);
+        expect(cells.has(leavesOut), c.name).toBe(false);
+        // A collation that folds the accent reads the two as one.
+        const folding = rule.source.includes("é") ? nordic : fold;
+        expect(folding(keeps), c.name).toBe(folding(leavesOut));
+      }
+    }
+  });
+
   it("a yes/no column holds yes, no and null", () => {
     expect(new Set(cellsOf(checkOf(SUBJECTS[1] as Subject), "cleared"))).toEqual(new Set([true, false, null]));
   });
@@ -501,6 +634,7 @@ const TEXT_RULES: Partial<Record<FilterOperator, RegExp[]>> = {
   eq: [
     /^equal ignores case on text, and leaves out empty cells \(/,
     /^equal ignores case but not accents \(/,
+    /^equal keeps é and e apart \(/,
     /^equal reads _ as plain text \(/,
     /^equal to empty text keeps exactly the empty cells \(/,
     /^equal keeps the spaces in what it asks for \(/,
@@ -508,17 +642,23 @@ const TEXT_RULES: Partial<Record<FilterOperator, RegExp[]>> = {
   ],
   neq: [
     /^not equal keeps empty cells, and ignores case on text \(/,
+    /^not equal ignores case but not accents \(/,
+    /^not equal keeps é and e apart \(/,
     /^not equal to empty text leaves out exactly the empty cells \(/,
     /^not equal keeps the spaces in what it asks for \(/,
   ],
   in: [
     /^in a list ignores case on text, and leaves out empty cells \(/,
+    /^in a list ignores case but not accents \(/,
+    /^in a list keeps é and e apart \(/,
     /^in a list of empty text keeps exactly the empty cells \(/,
     /^in a list keeps the spaces in what it asks for \(/,
     /^in a list with empty text among other values keeps the empty cells too \(/,
   ],
   contains: [
     /^contains ignores case, and leaves out empty cells \(/,
+    /^contains ignores case but not accents \(/,
+    /^contains keeps é and e apart \(/,
     /^contains reads % as plain text \(/,
     /^contains reads _ as plain text \(/,
     /^contains reads \\, ! and \[ as plain text \(/,
@@ -528,6 +668,8 @@ const TEXT_RULES: Partial<Record<FilterOperator, RegExp[]>> = {
   ],
   startsWith: [
     /^starts with ignores case, looks only at the start, and leaves out empty cells \(/,
+    /^starts with ignores case but not accents \(/,
+    /^starts with keeps é and e apart \(/,
     /^starts with reads % as plain text \(/,
     /^starts with reads _ as plain text \(/,
     /^starts with reads \\, ! and \[ as plain text \(/,
@@ -852,6 +994,68 @@ describe("every edge in the table produces a case, for every column and every op
             hidden.map((col) => col.id),
             c.name,
           ).toEqual(c.state.sorts.map((sort) => sort.columnId));
+        } else if (/^a second sort on a hidden column still orders the rows \(/.test(c.name)) {
+          expect(
+            hidden.map((col) => col.id),
+            c.name,
+          ).toEqual([c.state.sorts[1]?.columnId]);
+        } else if (/^a filter on a hidden column still holds in an or group \(/.test(c.name)) {
+          // The second filter of the or group, the one the name says is hidden.
+          expect(
+            hidden.map((col) => col.id),
+            c.name,
+          ).toEqual([predicatesOf(c.state.filters)[1]?.columnId]);
+        } else if (HIDDEN_IN_NESTED_OR.test(c.name)) {
+          // The second filter of the inner or group: the root's filters come in order, the inner group's first.
+          expect(
+            hidden.map((col) => col.id),
+            c.name,
+          ).toEqual([predicatesOf(c.state.filters)[1]?.columnId]);
+        } else if (COUNT_HIDDEN_SORT.test(c.name)) {
+          expect(
+            hidden.map((col) => col.id),
+            c.name,
+          ).toEqual([c.state.sorts[0]?.columnId]);
+        } else if (COUNT_HIDDEN_SECOND.test(c.name)) {
+          expect(
+            hidden.map((col) => col.id),
+            c.name,
+          ).toEqual([c.state.sorts[1]?.columnId]);
+        } else if (COUNT_HIDDEN_THIRD.test(c.name)) {
+          expect(
+            hidden.map((col) => col.id),
+            c.name,
+          ).toEqual([c.state.sorts[2]?.columnId]);
+        } else if (HIDDEN_SORT_BESIDE_FILTER.test(c.name)) {
+          expect(
+            hidden.map((col) => col.id),
+            c.name,
+          ).toEqual([c.state.sorts[0]?.columnId]);
+        } else if (HIDDEN_IN_NESTED_AND.test(c.name)) {
+          // The first filter of the inner and group, which comes first in the root or group.
+          expect(
+            hidden.map((col) => col.id),
+            c.name,
+          ).toEqual([predicatesOf(c.state.filters)[0]?.columnId]);
+        } else if (/ beside a filter on a hidden column /.test(c.name)) {
+          // Every sorted column, and one filtered column besides.
+          const sorted = c.state.sorts.map((sort) => sort.columnId);
+          const rest = hidden.map((col) => col.id).filter((id) => !sorted.includes(id));
+          for (const id of sorted)
+            expect(
+              hidden.map((col) => col.id),
+              c.name,
+            ).toContain(id);
+          expect(rest.length, c.name).toBeLessThanOrEqual(1);
+          expect(
+            predicatesOf(c.state.filters).some((p) => !c.state.visibleColumnIds.includes(p.columnId)),
+            c.name,
+          ).toBe(true);
+          for (const id of rest)
+            expect(
+              predicatesOf(c.state.filters).map((p) => p.columnId),
+              c.name,
+            ).toContain(id);
         } else expect(hidden, c.name).toEqual([]);
       }
     }
@@ -866,7 +1070,8 @@ describe("every edge in the table produces a case, for every column and every op
     );
     const check = queryCheck(schema, { id: "key", operations: WITH_COUNT });
     expect(singles(check, "name").every((c) => predicatesOf(c.state.filters)[0]?.operator === "contains")).toBe(true);
-    expect(singles(check, "name").length).toBe(7);
+    // Every "contains" rule in the table, the accent cases among them.
+    expect(singles(check, "name").length).toBe(9);
     expect(check.cases.some((c) => predicatesOf(c.state.filters).some((p) => p.columnId === "note"))).toBe(false);
     expect(check.cases.some((c) => c.state.sorts.some((sort) => sort.columnId === "rank" || sort.columnId === "note"))).toBe(false);
     expect(failuresOf(check, applyViewQuery(check, schema, "key"))).toEqual([]);
@@ -916,9 +1121,28 @@ describe("a count case appears only when operations lists limit.set", () => {
       const check = queryCheck(s.schema, { id: s.id, operations: adapter.getCapabilities().operations });
       const cases = counted(check);
       expect([...new Set(cases.map((c) => c.name.replace(/ \(.*$/, "")))].sort(), s.name).toEqual([
+        "a count beside a filter on a hidden column still keeps only its first rows",
+        "a count beside an or group still keeps only its first rows",
+        "a count keeps a row with an empty cell in a later sorted column",
         "a count keeps a row with no value in a later sorted column",
         "a count keeps the first rows of the sorted, filtered rows",
         "a count never keeps a row with no value in the first sorted column",
+        "a count sorted by an enum keeps its first rows by its values' IDs",
+        "a count sorted by text keeps its first rows by its letters, ignoring case",
+        "a count still sorts by a hidden column",
+        "a count still sorts by a hidden second column",
+        "a count still sorts by a hidden third column",
+        "a count that cuts inside rows that tie on the first sorted column beside a filter on a hidden column keeps the ones the next sorted column puts first",
+        "a count that cuts inside rows that tie on the first sorted column beside an or group keeps the ones the next sorted column puts first",
+        "a count that cuts inside rows that tie on the first sorted column keeps the ones an enum sorted next puts first",
+        "a count that cuts inside rows that tie on the first sorted column keeps the ones text sorted next puts first",
+        "a count that cuts inside rows that tie on the first sorted column keeps the ones the next sorted column puts first",
+        "a count that cuts inside rows that tie on the first three sorted columns keeps the ones the fourth puts first",
+        "a count that cuts inside rows that tie on the first two sorted columns keeps the ones the third puts first",
+        "a count that cuts inside tied rows beside a filter keeps its number of rows",
+        "a count that cuts inside tied rows beside a filter on a hidden column keeps its number of rows",
+        "a count that cuts inside tied rows beside an or group keeps its number of rows",
+        "a count that cuts inside tied rows keeps its number of rows: every row ahead of the tie, none behind it, and any of the tied",
       ]);
       for (const c of cases) expect(c.state.sorts.length, c.name).toBeGreaterThan(0);
       // One that never keeps a row with no value for a number, date or yes/no column, and one for each text column,
@@ -1002,6 +1226,1129 @@ describe("a count case appears only when operations lists limit.set", () => {
   });
 });
 
+// Ruling R2 (spec 5.5, `compare`): a count that cuts inside a run of tied rows may keep any of the tied rows for its
+// last places. It must keep every row ahead of the tied value, none behind it, and exactly N rows in all.
+describe("a count that cuts inside tied rows keeps any of them, every row ahead, none behind, and its number in all", () => {
+  const tied = (check: QueryCheck) => check.cases.filter((c) => TIED.test(c.name));
+  /** A tied case's rows by where they stand: ahead of the tied value, tied at the cut, and behind it. */
+  const partsOf = (check: QueryCheck, s: Subject, c: QueryCheckCase) => {
+    const sortId = c.state.sorts[0]?.columnId as string;
+    const n = c.state.limit as number;
+    // Every row a count may keep, in order: a count of all the rows leaves out only those with no value.
+    const all = applyView(check.rows, { ...c.state, limit: check.rows.length }, s.schema).rows;
+    const value = all[n - 1]?.[sortId];
+    const idOf = (row: Row) => row[s.id] as string | number;
+    return {
+      n,
+      sortId,
+      all,
+      ahead: all.filter((row, i) => i < n && row[sortId] !== value).map(idOf),
+      run: all.filter((row) => row[sortId] === value).map(idOf),
+      behind: all.filter((row, i) => i >= n && row[sortId] !== value).map(idOf),
+    };
+  };
+
+  it("there is none without limit.set, and with it one for each number, date and yes/no column, each way", () => {
+    for (const s of SUBJECTS) {
+      expect(tied(full(queryCheck(s.schema, { id: s.id }))), s.name).toEqual([]);
+      const check = checkOf(s);
+      const columns = s.schema.columns.filter(
+        (c) => ORDERED_KINDS.includes(c.kind) && c.id !== s.id && c.sensitivity !== "restricted" && c.capabilities.includes("sort"),
+      );
+      expect(columns.length, s.name).toBeGreaterThan(1);
+      expect(
+        tied(check)
+          .map((c) => `${c.state.sorts[0]?.columnId} ${c.state.sorts[0]?.direction}`)
+          .sort(),
+        s.name,
+      ).toEqual(columns.flatMap((c) => [`${c.id} asc`, `${c.id} desc`]).sort());
+      for (const c of tied(check)) {
+        expect(c.state.sorts, c.name).toHaveLength(1);
+        expect(c.state.filters, c.name).toBeNull();
+        expect(c.name).toMatch(/\(the first \d+ rows, sorted by .+, (ascending|descending)\)$/);
+      }
+    }
+  });
+
+  it("the cut falls inside a run of rows that tie on the sorted column: some of the run is kept, and some is not", () => {
+    for (const s of SUBJECTS) {
+      const check = checkOf(s);
+      let withAhead = 0;
+      let withBehind = 0;
+      for (const c of tied(check)) {
+        const { n, sortId, all, ahead, run, behind } = partsOf(check, s, c);
+        expect(all.length, c.name).toBeGreaterThan(n);
+        expect(all[n - 1]?.[sortId], c.name).toBe(all[n]?.[sortId]);
+        expect(isEmptyCell(all[n - 1]?.[sortId]), c.name).toBe(false);
+        expect(ahead.length, c.name).toBeLessThan(n);
+        expect(ahead.length + run.length, c.name).toBeGreaterThan(n);
+        expect(ahead.length + run.length + behind.length, c.name).toBe(all.length);
+        withAhead += ahead.length > 0 ? 1 : 0;
+        withBehind += behind.length > 0 ? 1 : 0;
+      }
+      // Most cases have rows on both sides of the run. A yes/no column has two values, so one side is empty there.
+      expect(withAhead, s.name).toBeGreaterThan(tied(check).length / 2);
+      expect(withBehind, s.name).toBeGreaterThan(tied(check).length / 2);
+    }
+  });
+
+  it("compare accepts any of the tied rows for the last places, in any order among themselves", () => {
+    for (const s of SUBJECTS) {
+      const check = checkOf(s);
+      for (const c of tied(check)) {
+        const { n, ahead, run } = partsOf(check, s, c);
+        const places = n - ahead.length;
+        // applyView's own choice: the tied rows that were loaded first.
+        expect(c.compare(applyViewQuery(check, s.schema, s.id)(c.state)), c.name).toEqual({ ok: true });
+        expect(c.compare([...ahead, ...run.slice(0, places)]), c.name).toEqual({ ok: true });
+        // The tied rows loaded last, the ones with the smallest ids, and the ones with the largest.
+        expect(c.compare([...ahead, ...run.slice(-places)]), c.name).toEqual({ ok: true });
+        const byId = [...run].sort((a, b) => Number(a) - Number(b));
+        expect(c.compare([...ahead, ...byId.slice(0, places)]), c.name).toEqual({ ok: true });
+        expect(c.compare([...ahead, ...byId.slice(-places).reverse()]), c.name).toEqual({ ok: true });
+      }
+    }
+  });
+
+  it("more rows than the count asks for fail, and the message says how many came back and how many were asked for", () => {
+    for (const s of SUBJECTS) {
+      const check = checkOf(s);
+      for (const c of tied(check)) {
+        const { n, ahead, run } = partsOf(check, s, c);
+        // Every tied row, as RANK or WITH TIES keeps them.
+        expect(c.compare([...ahead, ...run]), c.name).toEqual({
+          ok: false,
+          message: `${c.name}: ${ahead.length + run.length} rows came back, and the count asks for ${n}`,
+        });
+        // One tied row too many.
+        expect(c.compare([...ahead, ...run.slice(0, n - ahead.length + 1)]), c.name).toEqual({
+          ok: false,
+          message: `${c.name}: ${n + 1} rows came back, and the count asks for ${n}`,
+        });
+      }
+    }
+  });
+
+  it("fewer rows than the count asks for fail the same way", () => {
+    for (const s of SUBJECTS) {
+      const check = checkOf(s);
+      for (const c of tied(check)) {
+        const { n, ahead, run } = partsOf(check, s, c);
+        // The tied run dropped.
+        expect(c.compare(ahead), c.name).toEqual({
+          ok: false,
+          message: `${c.name}: ${ahead.length} ${ahead.length === 1 ? "row" : "rows"} came back, and the count asks for ${n}`,
+        });
+        // One tied row too few.
+        const short = [...ahead, ...run.slice(0, n - ahead.length - 1)];
+        expect(c.compare(short), c.name).toEqual({
+          ok: false,
+          message: `${c.name}: ${n - 1} ${n - 1 === 1 ? "row" : "rows"} came back, and the count asks for ${n}`,
+        });
+      }
+    }
+  });
+
+  it("a row from behind the tied value fails as an extra row, and a row ahead of it left out as a missing one", () => {
+    for (const s of SUBJECTS) {
+      const check = checkOf(s);
+      let checked = 0;
+      for (const c of tied(check)) {
+        const { n, ahead, run, behind } = partsOf(check, s, c);
+        const places = n - ahead.length;
+        const [late] = behind;
+        if (late !== undefined) {
+          // The right number of rows, with a row from behind the tie in a tied row's place.
+          expect(c.compare([...ahead, ...run.slice(0, places - 1), late]), c.name).toEqual({
+            ok: false,
+            message: `${c.name}: 1 row extra, id ${late}`,
+          });
+          checked += 1;
+        }
+        const [early, ...others] = ahead;
+        if (early !== undefined) {
+          // The right number of rows, with one more tied row in place of a row ahead of the tie.
+          expect(c.compare([...others, ...run.slice(0, places + 1)]), c.name).toEqual({
+            ok: false,
+            message: `${c.name}: 1 row missing, id ${early}`,
+          });
+          checked += 1;
+        }
+        // A row with no value in the sorted column is never kept, whatever else comes back.
+        const empty = check.rows.find((row) => isEmptyCell(row[c.state.sorts[0]?.columnId as string]));
+        if (empty) {
+          const result = c.compare([...ahead, ...run.slice(0, places - 1), empty[s.id] as string | number]);
+          expect(result, c.name).toEqual({ ok: false, message: `${c.name}: 1 row extra, id ${empty[s.id]}` });
+        }
+      }
+      expect(checked, s.name).toBeGreaterThan(tied(check).length);
+    }
+  });
+
+  it("the rows a count keeps are still checked for their order", () => {
+    for (const s of SUBJECTS) {
+      const check = checkOf(s);
+      let checked = 0;
+      for (const c of tied(check)) {
+        const { n, ahead, run } = partsOf(check, s, c);
+        if (ahead.length === 0) continue;
+        // The tied rows first, then the rows that belong ahead of them.
+        const result = c.compare([...run.slice(0, n - ahead.length), ...ahead]);
+        expect(result.ok === false && result.message, c.name).toMatch(/: wrong order: id \S+ came where id \S+ belongs$/);
+        checked += 1;
+      }
+      expect(checked, s.name).toBeGreaterThan(0);
+    }
+  });
+});
+
+// Ruling R3 (spec 5.5, `compare`): a row with an empty sort cell is checked by its leading sort columns that hold
+// values, up to its first empty one. Where it sits among the rows that share those leading values is the Host's own.
+describe("a row with no value in a later sorted column keeps its place by the columns before it", () => {
+  const laterEmpty = (check: QueryCheck) => check.cases.filter((c) => LATER_EMPTY.test(c.name));
+  /** A case's rows in applyView's order, each with its id and its two sort cells. */
+  const sortedRows = (check: QueryCheck, s: Subject, c: QueryCheckCase) => {
+    const [lead, then] = c.state.sorts.map((sort) => sort.columnId) as [string, string];
+    return applyView(check.rows, c.state, s.schema).rows.map((row) => ({
+      id: row[s.id] as string | number,
+      lead: row[lead] as Scalar,
+      // No value in the first sorted column: the row may sit anywhere.
+      free: isEmptyCell(row[lead]),
+      // A value in the first sorted column and none in the second: the row this rule is about.
+      holed: !isEmptyCell(row[lead]) && isEmptyCell(row[then]),
+    }));
+  };
+  const labelOf = (s: Subject, columnId: string) => s.schema.columns.find((col) => col.id === columnId)?.label as string;
+
+  it("there are two cases with no count, both columns sorted the same way, on two number, date or yes/no columns", () => {
+    for (const s of SUBJECTS) {
+      for (const check of [full(queryCheck(s.schema, { id: s.id })), checkOf(s)]) {
+        const cases = laterEmpty(check);
+        expect(cases.map((c) => c.state.sorts.map((sort) => sort.direction).join(" ")).sort(), s.name).toEqual(["asc asc", "desc desc"]);
+        for (const c of cases) {
+          expect(c.state.limit, c.name).toBeUndefined();
+          expect(c.state.filters, c.name).toBeNull();
+          const kinds = c.state.sorts.map((sort) => s.schema.columns.find((col) => col.id === sort.columnId)?.kind);
+          for (const kind of kinds) expect(ORDERED_KINDS, c.name).toContain(kind);
+          const rows = sortedRows(check, s, c);
+          // Such rows sit in more than one run of the first column's values, so moving them all to one end shows.
+          expect(new Set(rows.filter((row) => row.holed).map((row) => String(row.lead))).size, c.name).toBeGreaterThan(1);
+        }
+      }
+    }
+  });
+
+  it("such a row may sit first or last among the rows that share its first value, and a row with no first value anywhere", () => {
+    for (const s of SUBJECTS) {
+      const check = checkOf(s);
+      for (const c of laterEmpty(check)) {
+        const rows = sortedRows(check, s, c);
+        const placed = rows.filter((row) => !row.free);
+        const free = rows.filter((row) => row.free).map((row) => row.id);
+        expect(free.length, c.name).toBeGreaterThan(0);
+        // The runs of the first column's values, in order.
+        const runs: (typeof rows)[] = [];
+        for (const row of placed) {
+          const last = runs.at(-1);
+          if (last && last[0]?.lead === row.lead) last.push(row);
+          else runs.push([row]);
+        }
+        const ids = (list: typeof rows) => list.map((row) => row.id);
+        const holedFirst = runs.flatMap((run) => ids([...run.filter((row) => row.holed), ...run.filter((row) => !row.holed)]));
+        const holedLast = runs.flatMap((run) => ids([...run.filter((row) => !row.holed), ...run.filter((row) => row.holed)]));
+        expect(c.compare([...holedFirst, ...free]), c.name).toEqual({ ok: true });
+        expect(c.compare([...free, ...holedLast]), c.name).toEqual({ ok: true });
+        const half = Math.floor(holedLast.length / 2);
+        expect(c.compare([...holedLast.slice(0, half), ...free.reverse(), ...holedLast.slice(half)]), c.name).toEqual({ ok: true });
+      }
+    }
+  });
+
+  it("moved past rows with another first value it fails, and the message names both rows and the column that decides", () => {
+    for (const s of SUBJECTS) {
+      const check = checkOf(s);
+      for (const c of laterEmpty(check)) {
+        const rows = sortedRows(check, s, c);
+        const lead = labelOf(s, c.state.sorts[0]?.columnId as string);
+        const holed = rows.filter((row) => row.holed).map((row) => row.id);
+        const rest = rows.filter((row) => !row.holed).map((row) => row.id);
+        // "ORDER BY (a IS NULL OR b IS NULL), a, b", and the same with such rows first.
+        for (const moved of [
+          [...rest, ...holed],
+          [...holed, ...rest],
+        ]) {
+          const result = c.compare(moved);
+          expect(result.ok, c.name).toBe(false);
+          expect(result.ok === false && result.message, c.name).toMatch(
+            new RegExp(`^.+: wrong order: id \\S+ came before id \\S+, which belongs ahead of it by ${lead}$`),
+          );
+          expect(result.ok === false && result.message.startsWith(`${c.name}: `), c.name).toBe(true);
+        }
+        // One such row, moved to the far end of the rows that hold a value.
+        const first = rows.find((row) => row.holed) as (typeof rows)[number];
+        const others = rows.filter((row) => row !== first);
+        const lastPlaced = others.findLast((row) => !row.free) as (typeof rows)[number];
+        expect(lastPlaced.lead, c.name).not.toBe(first.lead);
+        const single = c.compare([...others.map((row) => row.id), first.id]);
+        expect(single, c.name).toEqual({
+          ok: false,
+          message: `${c.name}: wrong order: id ${others.find((row) => !row.free && row.lead !== first.lead && rows.indexOf(row) > rows.indexOf(first))?.id} came before id ${first.id}, which belongs ahead of it by ${lead}`,
+        });
+      }
+    }
+  });
+
+  it("the cases that sorted two columns before hold such a row to its place too", () => {
+    for (const s of SUBJECTS) {
+      const check = checkOf(s);
+      const cases = check.cases.filter((c) => /^sorts by each column in turn, in its direction \(/.test(c.name));
+      expect(cases, s.name).toHaveLength(2);
+      for (const c of cases) {
+        const rows = sortedRows(check, s, c);
+        const holed = rows.filter((row) => row.holed).map((row) => row.id);
+        expect(holed.length, c.name).toBeGreaterThan(0);
+        const result = c.compare([...rows.filter((row) => !row.holed).map((row) => row.id), ...holed]);
+        expect(result.ok === false && result.message, c.name).toMatch(
+          /: wrong order: id \S+ came before id \S+, which belongs ahead of it by /,
+        );
+      }
+    }
+  });
+});
+
+// The second held-out check of the Query Check found five wrong translations no case told from a right one. Each class
+// has its cases here, for every column of its kind.
+describe("a count with two sorts that cuts inside rows that tie on the first keeps the ones the next column puts first", () => {
+  const nextDecides = (check: QueryCheck) => check.cases.filter((c) => NEXT_DECIDES.test(c.name));
+  /** The rows a count may keep, in core's order, and the run of rows that tie with the last kept on the first column. */
+  const partsOf = (check: QueryCheck, s: Subject, c: QueryCheckCase) => {
+    const [lead, then] = c.state.sorts.map((sort) => sort.columnId) as [string, string];
+    const n = c.state.limit as number;
+    const all = applyView(check.rows, { ...c.state, limit: check.rows.length }, s.schema).rows;
+    const value = all[n - 1]?.[lead];
+    const idOf = (row: Row) => row[s.id] as string | number;
+    return {
+      n,
+      then,
+      ahead: all.filter((row, i) => i < n && row[lead] !== value).map(idOf),
+      run: all.filter((row) => row[lead] === value),
+      idOf,
+    };
+  };
+
+  it("none without limit.set; with it, for each number, date and yes/no column, a pair with the next column each way", () => {
+    for (const s of SUBJECTS) {
+      expect(nextDecides(full(queryCheck(s.schema, { id: s.id }))), s.name).toEqual([]);
+      const check = checkOf(s);
+      const kindOf = (columnId: string) => s.schema.columns.find((col) => col.id === columnId)?.kind;
+      const leads = s.schema.columns.filter(
+        (c) => ORDERED_KINDS.includes(c.kind) && c.id !== s.id && c.sensitivity !== "restricted" && c.capabilities.includes("sort"),
+      );
+      const cases = nextDecides(check);
+      expect([...new Set(cases.map((c) => c.state.sorts[0]?.columnId))].sort(), s.name).toEqual(leads.map((c) => c.id).sort());
+      for (const lead of leads) {
+        const pair = cases.filter((c) => c.state.sorts[0]?.columnId === lead.id);
+        expect(pair.map((c) => c.state.sorts[1]?.direction).sort(), lead.id).toEqual(["asc", "desc"]);
+        // The same cut and the same next column, each way.
+        expect(new Set(pair.map((c) => `${c.state.sorts[1]?.columnId} ${c.state.limit}`)).size, lead.id).toBe(1);
+      }
+      for (const c of cases) {
+        expect(c.state.sorts, c.name).toHaveLength(2);
+        expect(c.state.filters, c.name).toBeNull();
+        for (const sort of c.state.sorts) expect(ORDERED_KINDS, c.name).toContain(kindOf(sort.columnId));
+        const { n, ahead, run } = partsOf(check, s, c);
+        // The cut falls inside the run: some of it is kept, and some is not.
+        expect(ahead.length, c.name).toBeLessThan(n);
+        expect(ahead.length + run.length, c.name).toBeGreaterThan(n);
+        expect(c.compare(applyViewQuery(check, s.schema, s.id)(c.state)), c.name).toEqual({ ok: true });
+      }
+    }
+  });
+
+  it("the run's rows taken by the first column alone fail, whichever order a Data Query gives the rows that tie on it", () => {
+    for (const s of SUBJECTS) {
+      const check = checkOf(s);
+      const cases = nextDecides(check);
+      expect(cases.length, s.name).toBeGreaterThan(0);
+      for (const c of cases) {
+        const { n, ahead, run, idOf } = partsOf(check, s, c);
+        const places = n - ahead.length;
+        // Whichever run rows are taken in the order they were loaded, by id, or in reverse, one case of the pair fails.
+        for (const taken of [run, [...run].reverse(), [...run].sort((a, b) => Number(a[s.id]) - Number(b[s.id]))]) {
+          const pair = cases.filter((other) => other.state.sorts[0]?.columnId === c.state.sorts[0]?.columnId);
+          const failed = pair.filter((other) => {
+            const parts = partsOf(check, s, other);
+            const ids = [...parts.ahead, ...taken.slice(0, parts.n - parts.ahead.length).map(idOf)];
+            return !other.compare(ids).ok;
+          });
+          expect(failed.length, `${c.name}, ${places} places`).toBeGreaterThan(0);
+        }
+      }
+    }
+  });
+
+  it("a row the next column puts ahead of a kept row may not be left out, even with the right number of rows", () => {
+    for (const s of SUBJECTS) {
+      const check = checkOf(s);
+      let checked = 0;
+      for (const c of nextDecides(check)) {
+        const { n, then, ahead, run, idOf } = partsOf(check, s, c);
+        const right = applyView(check.rows, c.state, s.schema).rows.map(idOf);
+        // The first run row with a value in the next column, left out for the first one core leaves out.
+        const kept = new Set(right);
+        const first = run.find((row) => !isEmptyCell(row[then]) && kept.has(idOf(row)));
+        const spare = run.find((row) => !kept.has(idOf(row)) && !isEmptyCell(row[then]) && row[then] !== first?.[then]);
+        if (!first || !spare) continue;
+        const swapped = [...ahead, ...right.slice(ahead.length).filter((id) => id !== idOf(first)), idOf(spare)];
+        expect(swapped, c.name).toHaveLength(n);
+        const result = c.compare(swapped);
+        expect(result.ok === false && result.message, c.name).toMatch(
+          /: 1 row missing, id \S+; 1 row extra, id \S+$|: 1 row missing, id \S+$/,
+        );
+        checked += 1;
+      }
+      expect(checked, s.name).toBeGreaterThan(0);
+    }
+  });
+
+  it("a count cut by the first sort alone fails, whichever way it breaks ties and sorts empty cells", () => {
+    for (const s of SUBJECTS) {
+      const check = full(checkOf(s));
+      for (const ties of ["reverse load order", "load order", "id ascending", "id descending"] as const) {
+        for (const empties of ["lowest", "highest", "first", "last"] as const) {
+          const failed = failuresOf(
+            check,
+            handQuery(check, s.schema, s.id, "the count is cut by the first sort alone", false, { ties, empties }),
+          );
+          expect(
+            failed.filter((message) => NEXT_DECIDES.test(message)).length,
+            `${s.name}, ties by ${ties}, empty cells ${empties}`,
+          ).toBeGreaterThan(0);
+        }
+      }
+    }
+  });
+});
+
+describe("a count keeps a row with an empty cell in each later sorted column, text and enum columns too", () => {
+  it("one for each column that a case sorts second and that holds empty cells, with such rows ahead of the cut", () => {
+    for (const s of SUBJECTS) {
+      for (const check of [full(queryCheck(s.schema, { id: s.id })), checkOf(s)]) {
+        const counts = check.cases.some((c) => c.state.limit !== undefined);
+        const cases = check.cases.filter((c) => EMPTY_LATER_IN_COUNT.test(c.name));
+        if (!counts) {
+          expect(cases, s.name).toEqual([]);
+          continue;
+        }
+        const kindOf = (columnId: string) => s.schema.columns.find((col) => col.id === columnId)?.kind;
+        const textual = (columnId: string) => kindOf(columnId) === "string" || kindOf(columnId) === "enum";
+        // Every text and enum column the schema can sort, each of which holds empty cells.
+        const collatedColumns = s.schema.columns
+          .filter((col) => textual(col.id) && col.id !== s.id && col.sensitivity !== "restricted" && col.capabilities.includes("sort"))
+          .map((col) => col.id);
+        const seconds = cases.map((c) => c.state.sorts[1]?.columnId as string);
+        for (const id of collatedColumns) expect(seconds, `${s.name} ${id}`).toContain(id);
+        for (const c of cases) {
+          const [lead, then] = c.state.sorts.map((sort) => sort.columnId) as [string, string];
+          expect(ORDERED_KINDS, c.name).toContain(kindOf(lead));
+          expect(c.state.filters, c.name).toBeNull();
+          const kept = applyView(check.rows, c.state, s.schema).rows;
+          expect(kept.length, c.name).toBe(c.state.limit);
+          const empties = kept.filter((row) => isEmptyCell(row[then]));
+          expect(empties.length, c.name).toBeGreaterThan(0);
+          // On a text or enum column, a row with empty text is ahead of the cut too.
+          if (textual(then))
+            expect(
+              empties.some((row) => row[then] === ""),
+              c.name,
+            ).toBe(true);
+          // The cut falls between two values of the first column, and a row with a value in the second is behind it.
+          const { limit: _cut, ...uncut } = c.state;
+          const all = applyView(check.rows, { ...uncut, limit: check.rows.length }, s.schema).rows;
+          expect(all[kept.length]?.[lead], c.name).not.toBe(kept.at(-1)?.[lead]);
+          expect(
+            all.slice(kept.length).some((row) => !isEmptyCell(row[then])),
+            c.name,
+          ).toBe(true);
+          // Those rows left out, and rows from behind the cut in their place, fail.
+          const others = all.filter((row) => !isEmptyCell(row[then])).slice(0, kept.length);
+          expect(c.compare(others.map((row) => row[s.id] as string | number)).ok, c.name).toBe(false);
+        }
+      }
+    }
+  });
+});
+
+describe("sorts and hidden columns beside an or group", () => {
+  for (const s of SUBJECTS) {
+    it(`${s.name}: a sort beside an or group, an or group of three filters, and an or group inside an and, each way`, () => {
+      for (const check of [full(queryCheck(s.schema, { id: s.id })), checkOf(s)]) {
+        const cases = check.cases.filter((c) => /^a sort beside an or group still orders the rows \(/.test(c.name));
+        expect(cases.length, s.name).toBe(6);
+        expect(cases.map((c) => `${orShape(c)} ${c.state.sorts[0]?.direction}`).sort(), s.name).toEqual([
+          "or asc",
+          "or desc",
+          "or inside and asc",
+          "or inside and desc",
+          "or of three asc",
+          "or of three desc",
+        ]);
+        for (const c of cases) {
+          expect(c.state.sorts, c.name).toHaveLength(1);
+          expect(c.state.limit, c.name).toBeUndefined();
+          expect(c.compare(applyViewQuery(check, s.schema, s.id)(c.state)), c.name).toEqual({ ok: true });
+          // The filters kept and the sort lost: the right rows, in the order they were loaded.
+          const unsorted = applyView(check.rows, { ...c.state, sorts: [] }, s.schema).rows.map((row) => row[s.id] as string | number);
+          const result = c.compare(unsorted);
+          expect(result.ok === false && result.message, c.name).toMatch(/: wrong order: id \S+ came where id \S+ belongs$/);
+        }
+      }
+    });
+
+    it(`${s.name}: a filter on each column, with that column hidden, inside an or group`, () => {
+      const check = full(checkOf(s));
+      const cases = check.cases.filter((c) => /^a filter on a hidden column still holds in an or group \(/.test(c.name));
+      const filterable = s.schema.columns.filter(
+        (c) => c.sensitivity !== "restricted" && c.id !== s.id && c.capabilities.includes("filter"),
+      );
+      const hiddenOf = (c: QueryCheckCase) => predicatesOf(c.state.filters).find((p) => !c.state.visibleColumnIds.includes(p.columnId));
+      expect(cases.map((c) => hiddenOf(c)?.columnId).sort(), s.name).toEqual(filterable.map((c) => c.id).sort());
+      for (const c of cases) {
+        expect(c.state.filters?.combinator, c.name).toBe("or");
+        const hidden = hiddenOf(c) as FilterPredicate;
+        // With the hidden column's filter dropped, the or group keeps fewer rows, or every row.
+        const rest = {
+          ...(c.state.filters as FilterGroup),
+          children: (c.state.filters as FilterGroup).children.filter((x) => x !== hidden),
+        };
+        const dropped = applyView(check.rows, { ...c.state, filters: rest }, s.schema).rows.map((row) => row[s.id] as string | number);
+        expect(c.compare(dropped).ok, c.name).toBe(false);
+        expect(applyView(check.rows, c.state, s.schema).rows.length, c.name).toBeLessThan(check.rows.length);
+      }
+    });
+  }
+});
+
+// The third held-out check of the Query Check found six wrong translations no case told from a right one. Each class
+// has its cases here, for every column of its kind.
+describe("three sorts in a count, sorts and counts beside an or group, hidden columns, and text of other lengths", () => {
+  /** The cases whose names match `rule`. */
+  const named = (check: QueryCheck, rule: RegExp) => check.cases.filter((c) => rule.test(c.name));
+  const kindIn = (s: Subject) => (columnId: string) => s.schema.columns.find((col) => col.id === columnId)?.kind;
+  const sortableOf = (s: Subject) =>
+    s.schema.columns.filter(
+      (c) => ORDERED_KINDS.includes(c.kind) && c.id !== s.id && c.sensitivity !== "restricted" && c.capabilities.includes("sort"),
+    );
+  const idsOf = (s: Subject, rows: Row[]) => rows.map((row) => row[s.id] as string | number);
+
+  it("a count with three sorts cuts inside rows that tie on the first two, and the third, each way, decides", () => {
+    for (const s of SUBJECTS) {
+      expect(named(full(queryCheck(s.schema, { id: s.id })), THIRD_DECIDES), s.name).toEqual([]);
+      const check = checkOf(s);
+      const kindOf = kindIn(s);
+      const cases = named(check, THIRD_DECIDES);
+      // Each number, date and yes/no column leads one pair.
+      const leads = new Set(cases.map((c) => c.state.sorts[0]?.columnId));
+      expect([...leads].sort(), s.name).toEqual(
+        sortableOf(s)
+          .map((c) => c.id)
+          .sort(),
+      );
+      for (const lead of leads) {
+        const pair = cases.filter((c) => c.state.sorts[0]?.columnId === lead);
+        expect(pair.map((c) => c.state.sorts[2]?.direction).sort(), String(lead)).toEqual(["asc", "desc"]);
+        expect(new Set(pair.map((c) => `${c.state.sorts[1]?.columnId} ${c.state.sorts[2]?.columnId} ${c.state.limit}`)).size).toBe(1);
+      }
+      for (const c of cases) {
+        expect(c.state.sorts, c.name).toHaveLength(3);
+        expect(new Set(c.state.sorts.map((sort) => sort.columnId)).size, c.name).toBe(3);
+        expect(c.state.filters, c.name).toBeNull();
+        for (const sort of c.state.sorts) expect(ORDERED_KINDS, c.name).toContain(kindOf(sort.columnId));
+        expect(c.compare(applyViewQuery(check, s.schema, s.id)(c.state)), c.name).toEqual({ ok: true });
+        // The cut falls inside a run of rows that tie on the first two columns: some of it is kept, and some is not.
+        const [a, b] = c.state.sorts.map((sort) => sort.columnId) as [string, string];
+        const n = c.state.limit as number;
+        const all = applyView(check.rows, { ...c.state, limit: check.rows.length }, s.schema).rows;
+        const last = all[n - 1] as Row;
+        const tied = (row: Row) => row[a] === last[a] && row[b] === last[b];
+        expect(all.slice(0, n).filter((row) => !tied(row)).length, c.name).toBeLessThan(n);
+        expect(all.slice(n).some(tied), c.name).toBe(true);
+      }
+    }
+  });
+
+  it("a count cut by its first two sorts alone fails, whichever way it breaks ties and sorts empty cells", () => {
+    for (const s of SUBJECTS) {
+      const check = full(checkOf(s));
+      for (const ties of ["reverse load order", "load order", "id ascending", "id descending"] as const) {
+        for (const empties of ["lowest", "highest", "first", "last"] as const) {
+          const failed = failuresOf(
+            check,
+            handQuery(check, s.schema, s.id, "the count is cut by its first two sorts alone", false, { ties, empties }),
+          );
+          expect(failed.length, `${s.name}, ties by ${ties}, empty cells ${empties}`).toBeGreaterThan(0);
+          // With four sorts, or the third hidden, it cuts by fewer than all of them too.
+          expect(
+            failed.filter((message) => ![THIRD_DECIDES, FOURTH_DECIDES, COUNT_HIDDEN_THIRD].some((rule) => rule.test(message))),
+            `${s.name}, ties by ${ties}, empty cells ${empties}`,
+          ).toEqual([]);
+        }
+      }
+    }
+  });
+
+  it("two sorts beside each or group order the rows by each in turn, with limit.set listed and without", () => {
+    for (const s of SUBJECTS) {
+      for (const check of [full(queryCheck(s.schema, { id: s.id })), checkOf(s)]) {
+        const kindOf = kindIn(s);
+        const cases = named(check, TWO_SORTS_BESIDE_OR);
+        // Beside each shape of or group, the second sort each way.
+        expect(cases.map((c) => `${orShape(c)} ${c.state.sorts[1]?.direction}`).sort(), s.name).toEqual([
+          "or asc",
+          "or desc",
+          "or inside and asc",
+          "or inside and desc",
+          "or of three asc",
+          "or of three desc",
+        ]);
+        for (const c of cases) {
+          expect(c.state.sorts, c.name).toHaveLength(2);
+          for (const sort of c.state.sorts) expect(ORDERED_KINDS, c.name).toContain(kindOf(sort.columnId));
+          expect(c.state.limit, c.name).toBeUndefined();
+          expect(c.compare(applyViewQuery(check, s.schema, s.id)(c.state)), c.name).toEqual({ ok: true });
+          // The filters kept, and only the first sort.
+          const byFirst = applyView(check.rows, { ...c.state, sorts: c.state.sorts.slice(0, 1) }, s.schema).rows;
+          const result = c.compare(idsOf(s, byFirst));
+          expect(result.ok === false && result.message, c.name).toMatch(/: wrong order: id \S+ came where id \S+ belongs$/);
+        }
+      }
+    }
+  });
+
+  it("a count beside each or group keeps only its first rows, and only with limit.set", () => {
+    for (const s of SUBJECTS) {
+      expect(named(full(queryCheck(s.schema, { id: s.id })), COUNT_BESIDE_OR), s.name).toEqual([]);
+      const check = checkOf(s);
+      const cases = named(check, COUNT_BESIDE_OR);
+      expect(cases.map(orShape).sort(), s.name).toEqual(["or", "or inside and", "or of three"]);
+      for (const c of cases) {
+        expect(c.state.sorts, c.name).toHaveLength(1);
+        expect(ORDERED_KINDS, c.name).toContain(kindIn(s)(c.state.sorts[0]?.columnId as string));
+        expect(c.compare(applyViewQuery(check, s.schema, s.id)(c.state)), c.name).toEqual({ ok: true });
+        // The count dropped: every row the filters keep, sorted.
+        const uncut = applyView(check.rows, { ...c.state, limit: undefined }, s.schema).rows;
+        expect(uncut.length, c.name).toBeGreaterThan(c.state.limit as number);
+        const result = c.compare(idsOf(s, uncut));
+        expect(result.ok === false && result.message, c.name).toMatch(/: \d+ rows? extra, ids? /);
+      }
+    }
+  });
+
+  it("a filter on each column, with that column hidden, inside an or group inside an and", () => {
+    for (const s of SUBJECTS) {
+      const check = full(checkOf(s));
+      const cases = named(check, HIDDEN_IN_NESTED_OR);
+      const filterable = s.schema.columns.filter(
+        (c) => c.sensitivity !== "restricted" && c.id !== s.id && c.capabilities.includes("filter"),
+      );
+      const hiddenOf = (c: QueryCheckCase) => predicatesOf(c.state.filters).find((p) => !c.state.visibleColumnIds.includes(p.columnId));
+      expect(cases.map((c) => hiddenOf(c)?.columnId).sort(), s.name).toEqual(filterable.map((c) => c.id).sort());
+      for (const c of cases) {
+        const root = c.state.filters as FilterGroup;
+        expect(root.combinator, c.name).toBe("and");
+        const inner = root.children.find((child): child is FilterGroup => child.type === "group") as FilterGroup;
+        expect(inner.combinator, c.name).toBe("or");
+        const hidden = hiddenOf(c) as FilterPredicate;
+        expect(inner.children, c.name).toContain(hidden);
+        expect(c.compare(applyViewQuery(check, s.schema, s.id)(c.state)), c.name).toEqual({ ok: true });
+        // With the hidden column's filter dropped from the inner or group, other rows come back.
+        const dropped = {
+          ...root,
+          children: root.children.map((child) =>
+            child === inner ? { ...inner, children: inner.children.filter((x) => x !== hidden) } : child,
+          ),
+        };
+        const ids = idsOf(s, applyView(check.rows, { ...c.state, filters: dropped }, s.schema).rows);
+        expect(c.compare(ids).ok, c.name).toBe(false);
+      }
+    }
+  });
+
+  it("a count still sorts by a hidden column: each number, date and yes/no column alone, and a hidden second sort each way", () => {
+    for (const s of SUBJECTS) {
+      expect(named(full(queryCheck(s.schema, { id: s.id })), COUNT_HIDDEN_SORT), s.name).toEqual([]);
+      expect(named(full(queryCheck(s.schema, { id: s.id })), COUNT_HIDDEN_SECOND), s.name).toEqual([]);
+      const check = checkOf(s);
+      const alone = named(check, COUNT_HIDDEN_SORT);
+      expect(alone.map((c) => c.state.sorts[0]?.columnId).sort(), s.name).toEqual(
+        sortableOf(s)
+          .map((c) => c.id)
+          .sort(),
+      );
+      for (const c of alone) {
+        const [sort] = c.state.sorts as [ViewState["sorts"][number]];
+        expect(c.state.sorts, c.name).toHaveLength(1);
+        expect(c.state.visibleColumnIds, c.name).not.toContain(sort.columnId);
+        expect(c.state.limit, c.name).toBeGreaterThan(0);
+        expect(c.compare(applyViewQuery(check, s.schema, s.id)(c.state)), c.name).toEqual({ ok: true });
+        // The hidden sort dropped: the first rows with a value, in the order they were loaded.
+        const loaded = check.rows.filter((row) => !isEmptyCell(row[sort.columnId])).slice(0, c.state.limit);
+        expect(c.compare(idsOf(s, loaded)).ok, c.name).toBe(false);
+      }
+      const second = named(check, COUNT_HIDDEN_SECOND);
+      expect(second.map((c) => c.state.sorts[1]?.direction).sort(), s.name).toEqual(["asc", "desc"]);
+      for (const c of second) {
+        const [lead, then] = c.state.sorts.map((sort) => sort.columnId) as [string, string];
+        expect(c.state.sorts, c.name).toHaveLength(2);
+        expect(c.state.visibleColumnIds, c.name).toContain(lead);
+        expect(c.state.visibleColumnIds, c.name).not.toContain(then);
+        expect(c.compare(applyViewQuery(check, s.schema, s.id)(c.state)), c.name).toEqual({ ok: true });
+      }
+      // The hidden second sort dropped: cut by the first sort alone. Whichever way ties fall, one of the pair fails.
+      for (const ties of ["reverse load order", "load order", "id ascending", "id descending"] as const) {
+        const query = handQuery(check, s.schema, s.id, "the count drops a sort on a hidden column", false, { ties });
+        expect(second.filter((c) => !c.compare(query(c.state)).ok).length, `${s.name}, ${ties}`).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it("a text column holds text of the letters A to Z of different lengths, so text sorted by its length first fails", () => {
+    for (const s of SUBJECTS) {
+      const check = full(checkOf(s));
+      const textColumns = s.schema.columns.filter((c) => c.kind === "string" && c.id !== s.id && c.sensitivity !== "restricted");
+      for (const column of textColumns) {
+        const letters = [...new Set(cellsOf(check, column.id))].filter(
+          (v): v is string => typeof v === "string" && /^[A-Za-z]+(?: [A-Za-z]+)*$/.test(v),
+        );
+        const byLetters = [...letters].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+        // Ordered by length first, either way, with the letters either way after it: never the letters' order, either way.
+        for (const length of [1, -1]) {
+          for (const then of [1, -1]) {
+            const byLength = [...letters].sort((a, b) => length * (a.length - b.length) || then * a.localeCompare(b));
+            expect(byLength, column.id).not.toEqual(byLetters);
+            expect(byLength, column.id).not.toEqual([...byLetters].reverse());
+          }
+        }
+      }
+      const cases = named(check, /^text sorts by its letters, ignoring case \(/);
+      expect(cases.length, s.name).toBe(2 * textColumns.length);
+      const failed = failuresOf(check, handQuery(check, s.schema, s.id, "text sorts by its length first"));
+      for (const c of cases) {
+        expect(
+          failed.filter((message) => message.startsWith(`${c.name}: wrong order`)),
+          c.name,
+        ).toHaveLength(1);
+      }
+    }
+  });
+});
+
+// The review of the Query Check's second round found wrong translations no case told from a right one: sorts beside a
+// filter joined with "and", a second sort's direction, counts that cut inside tied rows beside a filter or with text or
+// an enum, four sorts, and groups of three or nested the other way. Each class has its cases here.
+describe("sorts and counts beside a filter, text and enums in a count, four sorts, and more or groups", () => {
+  const named = (check: QueryCheck, rule: RegExp) => check.cases.filter((c) => rule.test(c.name));
+  const kindIn = (s: Subject) => (columnId: string) => s.schema.columns.find((col) => col.id === columnId)?.kind;
+  const usable = (s: Subject) => s.schema.columns.filter((c) => c.id !== s.id && c.sensitivity !== "restricted");
+  const sortableOf = (s: Subject) => usable(s).filter((c) => ORDERED_KINDS.includes(c.kind) && c.capabilities.includes("sort"));
+  const collatedOf = (s: Subject) => usable(s).filter((c) => (c.kind === "string" || c.kind === "enum") && c.capabilities.includes("sort"));
+  const idsOf = (s: Subject, rows: Row[]) => rows.map((row) => row[s.id] as string | number);
+  const TIES = ["reverse load order", "load order", "id ascending", "id descending"] as const;
+
+  it("an or group of three filters, each keeping a row the other two don't, with a sort and a count beside it", () => {
+    for (const s of SUBJECTS) {
+      const check = full(checkOf(s));
+      const c = theCase(check, OR_OF_THREE);
+      const root = c.state.filters as FilterGroup;
+      expect(root.combinator, c.name).toBe("or");
+      expect(
+        root.children.map((child) => child.type),
+        c.name,
+      ).toEqual(["predicate", "predicate", "predicate"]);
+      const kept = idsOf(s, applyView(check.rows, c.state, s.schema).rows);
+      expect(kept.length, c.name).toBeLessThan(check.rows.length);
+      for (const left of root.children) {
+        const rest = { ...root, children: root.children.filter((child) => child !== left) };
+        expect(c.compare(idsOf(s, applyView(check.rows, { ...c.state, filters: rest }, s.schema).rows)).ok, c.name).toBe(false);
+      }
+      for (const rule of [/^a sort beside an or group still orders the rows \(/, TWO_SORTS_BESIDE_OR, COUNT_BESIDE_OR]) {
+        expect(named(check, rule).filter((other) => orShape(other) === "or of three").length, String(rule)).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it("a filter on each column, with that column hidden, inside an and group inside an or", () => {
+    for (const s of SUBJECTS) {
+      const check = full(checkOf(s));
+      const cases = named(check, HIDDEN_IN_NESTED_AND);
+      const hiddenOf = (c: QueryCheckCase) => predicatesOf(c.state.filters).find((p) => !c.state.visibleColumnIds.includes(p.columnId));
+      expect(cases.map((c) => hiddenOf(c)?.columnId).sort(), s.name).toEqual(
+        usable(s)
+          .filter((c) => c.capabilities.includes("filter"))
+          .map((c) => c.id)
+          .sort(),
+      );
+      for (const c of cases) {
+        const root = c.state.filters as FilterGroup;
+        expect(root.combinator, c.name).toBe("or");
+        const inner = root.children.find((child): child is FilterGroup => child.type === "group") as FilterGroup;
+        expect(inner.combinator, c.name).toBe("and");
+        const hidden = hiddenOf(c) as FilterPredicate;
+        expect(inner.children, c.name).toContain(hidden);
+        expect(c.compare(applyViewQuery(check, s.schema, s.id)(c.state)), c.name).toEqual({ ok: true });
+        const dropped = {
+          ...root,
+          children: root.children.map((child) =>
+            child === inner ? { ...inner, children: inner.children.filter((x) => x !== hidden) } : child,
+          ),
+        };
+        expect(c.compare(idsOf(s, applyView(check.rows, { ...c.state, filters: dropped }, s.schema).rows)).ok, c.name).toBe(false);
+      }
+    }
+  });
+
+  it("a count that cuts inside tied rows beside a filter, for each number, date and yes/no column, and only with limit.set", () => {
+    for (const s of SUBJECTS) {
+      expect(named(full(queryCheck(s.schema, { id: s.id })), TIED_BESIDE_FILTER), s.name).toEqual([]);
+      const check = checkOf(s);
+      const cases = named(check, TIED_BESIDE_FILTER);
+      expect(cases.map((c) => c.state.sorts[0]?.columnId).sort(), s.name).toEqual(
+        sortableOf(s)
+          .map((c) => c.id)
+          .sort(),
+      );
+      for (const c of cases) {
+        expect(c.state.filters?.combinator, c.name).toBe("and");
+        expect(c.state.sorts, c.name).toHaveLength(1);
+        expect(c.compare(applyViewQuery(check, s.schema, s.id)(c.state)), c.name).toEqual({ ok: true });
+        // The cut falls inside a run of rows that tie: the last row kept and the first left out hold the same value.
+        const columnId = c.state.sorts[0]?.columnId as string;
+        const n = c.state.limit as number;
+        const all = applyView(check.rows, { ...c.state, limit: check.rows.length }, s.schema).rows;
+        expect(all[n - 1]?.[columnId], c.name).toBe(all[n]?.[columnId]);
+        // Every tied row kept, as RANK keeps them: too many rows.
+        const ranked = all.filter((row, i) => i < n || row[columnId] === all[n - 1]?.[columnId]);
+        const result = c.compare(idsOf(s, ranked));
+        expect(result.ok === false && result.message, c.name).toMatch(/: \d+ rows came back, and the count asks for \d+$/);
+      }
+    }
+  });
+
+  it("a count with text or an enum sorted second, cut inside rows that tie on the first: a pair for each such column", () => {
+    for (const s of SUBJECTS) {
+      expect(named(full(queryCheck(s.schema, { id: s.id })), COLLATED_NEXT_DECIDES), s.name).toEqual([]);
+      const check = checkOf(s);
+      const kindOf = kindIn(s);
+      const cases = named(check, COLLATED_NEXT_DECIDES);
+      const thens = [...new Set(cases.map((c) => c.state.sorts[1]?.columnId))].sort();
+      expect(thens, s.name).toEqual(
+        collatedOf(s)
+          .map((c) => c.id)
+          .sort(),
+      );
+      for (const then of thens) {
+        const pair = cases.filter((c) => c.state.sorts[1]?.columnId === then);
+        expect(pair.map((c) => c.state.sorts[1]?.direction).sort(), String(then)).toEqual(["asc", "desc"]);
+        expect(new Set(pair.map((c) => `${c.state.sorts[0]?.columnId} ${c.state.limit} ${JSON.stringify(c.state.filters)}`)).size).toBe(1);
+        // Cut by the first sort alone, the run's rows are the same both ways: one of the pair fails, however ties fall.
+        for (const ties of TIES) {
+          const query = handQuery(
+            check,
+            s.schema,
+            s.id,
+            "the count is cut by the first sort alone when text or an enum is sorted next",
+            false,
+            {
+              ties,
+            },
+          );
+          expect(pair.filter((c) => !c.compare(query(c.state)).ok).length, `${s.name} ${then} ${ties}`).toBeGreaterThan(0);
+        }
+      }
+      for (const c of cases) {
+        expect(ORDERED_KINDS, c.name).toContain(kindOf(c.state.sorts[0]?.columnId as string));
+        expect(["string", "enum"], c.name).toContain(kindOf(c.state.sorts[1]?.columnId as string));
+        // Beside a filter that keeps only values whose order is checked.
+        const [only] = predicatesOf(c.state.filters);
+        expect(only?.operator, c.name).toBe("in");
+        expect(only?.columnId, c.name).toBe(c.state.sorts[1]?.columnId);
+        for (const value of (only?.value ?? []) as string[]) expect(value, c.name).toMatch(/^[A-Za-z]+(?: [A-Za-z]+)*$/);
+        expect(c.compare(applyViewQuery(check, s.schema, s.id)(c.state)), c.name).toEqual({ ok: true });
+      }
+    }
+  });
+
+  it("a count sorted by text or an enum, each way, fails when cut from the far end or by character code", () => {
+    for (const s of SUBJECTS) {
+      expect(named(full(queryCheck(s.schema, { id: s.id })), COUNT_BY_COLLATED), s.name).toEqual([]);
+      const check = checkOf(s);
+      const cases = named(check, COUNT_BY_COLLATED);
+      expect(cases.map((c) => `${c.state.sorts[0]?.columnId} ${c.state.sorts[0]?.direction}`).sort(), s.name).toEqual(
+        collatedOf(s)
+          .flatMap((c) => [`${c.id} asc`, `${c.id} desc`])
+          .sort(),
+      );
+      for (const c of cases) expect(c.compare(applyViewQuery(check, s.schema, s.id)(c.state)), c.name).toEqual({ ok: true });
+      const ends = handQuery(check, s.schema, s.id, "a count sorted by text or an enum first takes its rows from the end");
+      expect(
+        cases.filter((c) => c.compare(ends(c.state)).ok).map((c) => c.name),
+        s.name,
+      ).toEqual([]);
+      // By character code: every text column, at least one way.
+      const byCode = handQuery(check, s.schema, s.id, "a count cuts text by character code");
+      for (const column of collatedOf(s).filter((c) => c.kind === "string")) {
+        const mine = cases.filter((c) => c.state.sorts[0]?.columnId === column.id);
+        expect(mine.filter((c) => !c.compare(byCode(c.state)).ok).length, column.id).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it("a count with four sorts cut inside rows that tie on the first three, and a count whose third sort is hidden", () => {
+    for (const s of SUBJECTS) {
+      expect(named(full(queryCheck(s.schema, { id: s.id })), FOURTH_DECIDES), s.name).toEqual([]);
+      expect(named(full(queryCheck(s.schema, { id: s.id })), COUNT_HIDDEN_THIRD), s.name).toEqual([]);
+      const check = checkOf(s);
+      const kindOf = kindIn(s);
+      const cases = named(check, FOURTH_DECIDES);
+      expect(cases.length, s.name).toBeGreaterThan(0);
+      const leads = [...new Set(cases.map((c) => c.state.sorts[0]?.columnId))];
+      for (const lead of leads) {
+        const pair = cases.filter((c) => c.state.sorts[0]?.columnId === lead);
+        expect(pair.map((c) => c.state.sorts[3]?.direction).sort(), String(lead)).toEqual(["asc", "desc"]);
+        expect(new Set(pair.map((c) => `${c.state.sorts.slice(0, 3).map((sort) => sort.columnId)} ${c.state.limit}`)).size).toBe(1);
+      }
+      for (const c of cases) {
+        expect(new Set(c.state.sorts.map((sort) => sort.columnId)).size, c.name).toBe(4);
+        expect(ORDERED_KINDS, c.name).toContain(kindOf(c.state.sorts[0]?.columnId as string));
+        expect(c.compare(applyViewQuery(check, s.schema, s.id)(c.state)), c.name).toEqual({ ok: true });
+      }
+      // Cut by the first three alone: one of each pair fails, however ties fall and empty cells sort.
+      for (const ties of TIES) {
+        const query = handQuery(check, s.schema, s.id, "the count is cut by its first three sorts alone", false, { ties });
+        for (const lead of leads) {
+          const pair = cases.filter((c) => c.state.sorts[0]?.columnId === lead);
+          expect(pair.filter((c) => !c.compare(query(c.state)).ok).length, `${s.name} ${lead} ${ties}`).toBeGreaterThan(0);
+        }
+      }
+      const hidden = named(check, COUNT_HIDDEN_THIRD);
+      expect(hidden.map((c) => c.state.sorts[2]?.direction).sort(), s.name).toEqual(["asc", "desc"]);
+      for (const c of hidden) {
+        expect(c.state.visibleColumnIds, c.name).not.toContain(c.state.sorts[2]?.columnId);
+        expect(c.compare(applyViewQuery(check, s.schema, s.id)(c.state)), c.name).toEqual({ ok: true });
+      }
+      for (const ties of TIES) {
+        const query = handQuery(check, s.schema, s.id, "the count drops a hidden last sort of three", false, { ties });
+        expect(hidden.filter((c) => !c.compare(query(c.state)).ok).length, `${s.name}, ${ties}`).toBeGreaterThan(0);
+      }
+    }
+  });
+});
+
+// The re-check of the Query Check's second round found wrong translations that build the count or the sorts another way
+// only beside an or group, or only where a column is hidden: a count that keeps every tied row, cuts by the first sort
+// alone, or drops a later sort there. The class is closed by one rule: each sort and count rule runs beside each or
+// group, and beside each shape of a filter on a hidden column, with the sorted columns hidden too.
+describe("every sort and count rule beside each or group, and beside each shape of a filter on a hidden column", () => {
+  const named = (check: QueryCheck, rule: RegExp) => check.cases.filter((c) => rule.test(c.name));
+  const idsOf = (s: Subject, rows: Row[]) => rows.map((row) => row[s.id] as string | number);
+  const TIES = ["reverse load order", "load order", "id ascending", "id descending"] as const;
+  /** The shape of a case's filters that holds a filter on a hidden column. */
+  const hiddenShape = (c: QueryCheckCase): string => {
+    const root = c.state.filters as FilterGroup;
+    const inner = root.children.find((child): child is FilterGroup => child.type === "group");
+    if (inner) return `${inner.combinator} inside ${root.combinator}`;
+    return root.combinator === "or" ? "or" : "alone";
+  };
+  const HIDDEN_SHAPES = ["alone", "and inside or", "or", "or inside and"];
+  /** Every sorted column is hidden, and so is one filtered column. */
+  const hidesAll = (c: QueryCheckCase) => {
+    for (const sort of c.state.sorts) expect(c.state.visibleColumnIds, c.name).not.toContain(sort.columnId);
+    expect(
+      predicatesOf(c.state.filters).some((p) => !c.state.visibleColumnIds.includes(p.columnId)),
+      c.name,
+    ).toBe(true);
+  };
+
+  it("a count that cuts inside tied rows, beside each or group and each shape of a filter on a hidden column", () => {
+    for (const s of SUBJECTS) {
+      const without = full(queryCheck(s.schema, { id: s.id }));
+      expect(named(without, TIED_BESIDE_OR), s.name).toEqual([]);
+      expect(named(without, TIED_BESIDE_HIDDEN), s.name).toEqual([]);
+      const check = checkOf(s);
+      const beside = named(check, TIED_BESIDE_OR);
+      expect(beside.map(orShape).sort(), s.name).toEqual(["or", "or inside and", "or of three"]);
+      const hidden = named(check, TIED_BESIDE_HIDDEN);
+      expect(hidden.map(hiddenShape).sort(), s.name).toEqual(HIDDEN_SHAPES);
+      for (const c of hidden) hidesAll(c);
+      for (const c of [...beside, ...hidden]) {
+        expect(c.state.sorts, c.name).toHaveLength(1);
+        expect(ORDERED_KINDS, c.name).toContain(s.schema.columns.find((col) => col.id === c.state.sorts[0]?.columnId)?.kind);
+        expect(c.compare(applyViewQuery(check, s.schema, s.id)(c.state)), c.name).toEqual({ ok: true });
+        // The cut falls inside a run of rows that tie: the last row kept and the first left out hold the same value.
+        const columnId = c.state.sorts[0]?.columnId as string;
+        const n = c.state.limit as number;
+        const all = applyView(check.rows, { ...c.state, limit: check.rows.length }, s.schema).rows;
+        expect(all[n - 1]?.[columnId], c.name).toBe(all[n]?.[columnId]);
+        // Every tied row kept, as RANK keeps them: too many rows. The tied run dropped: too few.
+        const ranked = all.filter((row, i) => i < n || row[columnId] === all[n - 1]?.[columnId]);
+        expect(c.compare(idsOf(s, ranked)), c.name).toMatchObject({ ok: false, message: expect.stringMatching(/came back/) });
+        const dropped = all.slice(0, n).filter((row) => row[columnId] !== all[n - 1]?.[columnId]);
+        expect(c.compare(idsOf(s, dropped)).ok, c.name).toBe(false);
+      }
+    }
+  });
+
+  it("a count with two sorts cut inside rows that tie on the first, beside each or group and each hidden shape, each way", () => {
+    for (const s of SUBJECTS) {
+      const without = full(queryCheck(s.schema, { id: s.id }));
+      expect(named(without, NEXT_BESIDE_OR), s.name).toEqual([]);
+      expect(named(without, NEXT_BESIDE_HIDDEN), s.name).toEqual([]);
+      const check = checkOf(s);
+      const beside = named(check, NEXT_BESIDE_OR);
+      expect(beside.map((c) => `${orShape(c)} ${c.state.sorts[1]?.direction}`).sort(), s.name).toEqual([
+        "or asc",
+        "or desc",
+        "or inside and asc",
+        "or inside and desc",
+        "or of three asc",
+        "or of three desc",
+      ]);
+      const hidden = named(check, NEXT_BESIDE_HIDDEN);
+      expect(hidden.map((c) => `${hiddenShape(c)} ${c.state.sorts[1]?.direction}`).sort(), s.name).toEqual(
+        HIDDEN_SHAPES.flatMap((shape) => [`${shape} asc`, `${shape} desc`]),
+      );
+      for (const c of hidden) hidesAll(c);
+      for (const c of [...beside, ...hidden]) {
+        expect(c.state.sorts, c.name).toHaveLength(2);
+        expect(c.compare(applyViewQuery(check, s.schema, s.id)(c.state)), c.name).toEqual({ ok: true });
+      }
+      // Each pair shares its filters, first sort and cut. Cut by the first sort alone, one of the pair fails, however
+      // ties fall.
+      const pairs = [...beside, ...hidden].reduce((byKey, c) => {
+        const key = `${JSON.stringify(c.state.filters)} ${c.state.sorts[0]?.columnId} ${c.state.sorts[1]?.columnId} ${c.state.limit}`;
+        byKey.set(key, [...(byKey.get(key) ?? []), c]);
+        return byKey;
+      }, new Map<string, QueryCheckCase[]>());
+      expect(
+        [...pairs.values()].map((pair) => pair.length),
+        s.name,
+      ).toEqual([...pairs.values()].map(() => 2));
+      for (const ties of TIES) {
+        const query = handQuery(check, s.schema, s.id, "the count is cut by the first sort alone", false, { ties });
+        for (const pair of pairs.values()) {
+          expect(pair.filter((c) => !c.compare(query(c.state)).ok).length, `${s.name} ${pair[0]?.name} ${ties}`).toBeGreaterThan(0);
+        }
+      }
+    }
+  });
+
+  it("a sort, two sorts and a count beside each shape of a filter on a hidden column, with the sorted columns hidden", () => {
+    for (const s of SUBJECTS) {
+      for (const check of [full(queryCheck(s.schema, { id: s.id })), checkOf(s)]) {
+        const counted = check.cases.some((c) => c.state.limit !== undefined);
+        const one = named(check, SORT_BESIDE_HIDDEN);
+        expect(one.map((c) => `${hiddenShape(c)} ${c.state.sorts[0]?.direction}`).sort(), s.name).toEqual(
+          HIDDEN_SHAPES.flatMap((shape) => [`${shape} asc`, `${shape} desc`]),
+        );
+        const two = named(check, TWO_SORTS_BESIDE_HIDDEN);
+        expect(two.map((c) => `${hiddenShape(c)} ${c.state.sorts[1]?.direction}`).sort(), s.name).toEqual(
+          HIDDEN_SHAPES.flatMap((shape) => [`${shape} asc`, `${shape} desc`]),
+        );
+        const count = named(check, COUNT_BESIDE_HIDDEN);
+        expect(count.map(hiddenShape).sort(), s.name).toEqual(counted ? HIDDEN_SHAPES : []);
+        for (const c of [...one, ...two, ...count]) {
+          hidesAll(c);
+          expect(c.compare(applyViewQuery(check, s.schema, s.id)(c.state)), c.name).toEqual({ ok: true });
+        }
+        for (const c of one) {
+          expect(c.state.limit, c.name).toBeUndefined();
+          // The sort lost: the right rows, in the order they were loaded.
+          const unsorted = applyView(check.rows, { ...c.state, sorts: [] }, s.schema).rows;
+          expect(c.compare(idsOf(s, unsorted)), c.name).toMatchObject({ ok: false, message: expect.stringMatching(/wrong order/) });
+        }
+        for (const c of two) {
+          expect(c.state.limit, c.name).toBeUndefined();
+          // Only the first sort kept.
+          const byFirst = applyView(check.rows, { ...c.state, sorts: c.state.sorts.slice(0, 1) }, s.schema).rows;
+          expect(c.compare(idsOf(s, byFirst)), c.name).toMatchObject({ ok: false, message: expect.stringMatching(/wrong order/) });
+        }
+        for (const c of count) {
+          // The count dropped: every row the filters keep, sorted.
+          const uncut = applyView(check.rows, { ...c.state, limit: undefined }, s.schema).rows;
+          expect(c.compare(idsOf(s, uncut)).ok, c.name).toBe(false);
+        }
+      }
+    }
+  });
+
+  it("a right Data Query still passes every case, however it breaks ties and sorts empty cells", () => {
+    for (const s of SUBJECTS) {
+      const check = full(checkOf(s));
+      for (const ties of TIES) {
+        for (const empties of ["lowest", "highest", "first", "last"] as const) {
+          const query = handQuery(check, s.schema, s.id, undefined, false, { ties, empties });
+          const besides = check.cases.filter((c) =>
+            [
+              TIED_BESIDE_OR,
+              NEXT_BESIDE_OR,
+              SORT_BESIDE_HIDDEN,
+              TWO_SORTS_BESIDE_HIDDEN,
+              COUNT_BESIDE_HIDDEN,
+              TIED_BESIDE_HIDDEN,
+              NEXT_BESIDE_HIDDEN,
+            ].some((rule) => rule.test(c.name)),
+          );
+          expect(besides.length, s.name).toBeGreaterThan(0);
+          expect(
+            besides.filter((c) => !c.compare(query(c.state)).ok).map((c) => c.name),
+            `${s.name}, ${ties}, ${empties}`,
+          ).toEqual([]);
+        }
+      }
+    }
+  });
+});
+
+describe("numbers sort as numbers, and a paged read is the whole result cut in pieces", () => {
+  for (const s of SUBJECTS) {
+    it(`${s.name}: each number column sorted each way, and a number sorted as text fails`, () => {
+      const check = full(checkOf(s));
+      const cases = check.cases.filter((c) => /^numbers sort by their value, not as text \(/.test(c.name));
+      const numeric = s.schema.columns.filter(
+        (c) => NUMERIC_KINDS.has(c.kind) && c.id !== s.id && c.sensitivity !== "restricted" && c.capabilities.includes("sort"),
+      );
+      expect(cases.map((c) => `${c.state.sorts[0]?.columnId} ${c.state.sorts[0]?.direction}`).sort(), s.name).toEqual(
+        numeric.flatMap((c) => [`${c.id} asc`, `${c.id} desc`]).sort(),
+      );
+      for (const c of cases) {
+        expect(c.state.sorts, c.name).toHaveLength(1);
+        expect(c.state.filters, c.name).toBeNull();
+        expect(c.state.limit, c.name).toBeUndefined();
+      }
+    });
+
+    it(`${s.name}: one sort with long runs of rows that tie, for a Host that reads each case in pages`, () => {
+      const check = full(checkOf(s));
+      const c = theCase(check, PAGED);
+      expect(c.state.sorts, c.name).toHaveLength(1);
+      expect(c.state.filters, c.name).toBeNull();
+      expect(c.state.limit, c.name).toBeUndefined();
+      // A run of tied rows longer than a page of 7, so a page that breaks ties its own way repeats or loses rows.
+      const sortId = c.state.sorts[0]?.columnId as string;
+      const cells = applyView(check.rows, c.state, s.schema).rows.map((row) => row[sortId]);
+      const longest = cells.reduce<{ best: number; now: number }>(
+        (acc, cell, i) => {
+          const now = i > 0 && cells[i - 1] === cell ? acc.now + 1 : 1;
+          return { best: Math.max(acc.best, now), now };
+        },
+        { best: 0, now: 0 },
+      ).best;
+      expect(longest, c.name).toBeGreaterThan(14);
+      expect(c.compare(applyViewQuery(check, s.schema, s.id)(c.state)), c.name).toEqual({ ok: true });
+    });
+  }
+});
+
 describe("a few cases filter two columns and sort two columns", () => {
   for (const s of SUBJECTS) {
     it(`${s.name}: two filters joined with and, an or group, and an or group inside an and`, () => {
@@ -1041,13 +2388,13 @@ describe("a few cases filter two columns and sort two columns", () => {
     });
   }
 
-  it("the cases that sort two columns or cut a count sort numbers, dates and yes/no; a text column is sorted on its own", () => {
+  it("a text or enum column never leads a sort by two columns, and a count sorted first by one keeps only values whose order is checked", () => {
     const ordered = ["number", "currency", "percent", "date", "datetime", "boolean"];
     for (const s of SUBJECTS) {
       const check = full(checkOf(s));
       const kindOf = (columnId: string) => s.schema.columns.find((column) => column.id === columnId)?.kind;
       for (const c of check.cases.filter((c) =>
-        /^(sorts by each column in turn|a count keeps the first rows|a count keeps a row with no value in a later|a sort with no count)/.test(
+        /^(sorts by each column in turn|a count keeps the first rows|a count keeps a row with no value in a later|a sort with no count|a count that cuts inside tied rows|a row with no value in a later sorted column|a second sort on a hidden column|a count that cuts inside rows that tie on the first (sorted column keeps the ones the next|two)|numbers sort by their value|a paged read|two sorts beside an or group|a count beside an or group|a count still sorts by a hidden)/.test(
           c.name,
         ),
       )) {
@@ -1061,8 +2408,9 @@ describe("a few cases filter two columns and sort two columns", () => {
         expect(kindOf(c.state.sorts[0]?.columnId as string), c.name).toBe("string");
         expect(c.state.filters, c.name).toBeNull();
       }
-      // An enum column is sorted on its own too, by its values' IDs, each way. It is sorted only in its own cases, with
-      // its column hidden, and in the count about rows with no value.
+      // An enum column is sorted on its own too, by its values' IDs, each way. It is sorted alone in its own cases, with
+      // its column hidden, beside filters, and in the counts sorted by it. Others sort it after a number, date or yes/no
+      // column, and it never leads a sort by two columns.
       const enumSorts = check.cases.filter((c) => /^an enum sorts by its values' IDs, ignoring case \(/.test(c.name));
       const sortableEnums = s.schema.columns.filter(
         (col) => col.kind === "enum" && col.capabilities.includes("sort") && col.sensitivity !== "restricted",
@@ -1075,14 +2423,166 @@ describe("a few cases filter two columns and sort two columns", () => {
         expect(c.state.sorts, c.name).toHaveLength(1);
         expect(c.state.filters, c.name).toBeNull();
       }
-      for (const c of check.cases.filter((c) => c.state.sorts.some((sort) => kindOf(sort.columnId) === "enum"))) {
+      const collated = (c: QueryCheckCase) =>
+        c.state.sorts.some((sort) => kindOf(sort.columnId) === "enum" || kindOf(sort.columnId) === "string");
+      for (const c of check.cases.filter(collated)) {
+        if (c.state.sorts.length === 1) {
+          expect(c.name).toMatch(
+            /^(an enum sorts by its values' IDs, ignoring case|text sorts by its letters, ignoring case|a sort on a hidden column still orders the rows|a count never keeps a row with no value in the first sorted column|a sort beside an or group still orders the rows|a sort beside a filter still orders the rows|a sort on a hidden column beside a filter still orders the rows|a count sorted by text keeps its first rows by its letters, ignoring case|a count sorted by an enum keeps its first rows by its values' IDs) \(/,
+          );
+          // A count sorted by text or an enum keeps only rows whose cells have a checked place, and cuts between two
+          // of their values.
+          if (COUNT_BY_COLLATED.test(c.name)) {
+            const columnId = c.state.sorts[0]?.columnId as string;
+            const all = applyView(check.rows, { ...c.state, limit: check.rows.length }, s.schema).rows.map((row) => row[columnId]);
+            for (const cell of all) expect(String(cell), c.name).toMatch(/^[A-Za-z]+(?: [A-Za-z]+)*$/);
+            const n = c.state.limit as number;
+            expect(all[n - 1], c.name).not.toBe(all[n]);
+            expect(n, c.name).toBeLessThan(all.length);
+          }
+          continue;
+        }
         expect(c.name).toMatch(
-          /^(an enum sorts by its values' IDs, ignoring case|a sort on a hidden column still orders the rows|a count never keeps a row with no value in the first sorted column) \(/,
+          /^(a second sort on an enum orders the rows that tie on the first, by its values' IDs|a second sort on text orders the rows that tie on the first, by its letters|a count keeps a row with an empty cell in a later sorted column|two sorts beside a filter order the rows by each in turn|a count that cuts inside rows that tie on the first sorted column keeps the ones (text|an enum) sorted next puts first|a count that cuts inside rows that tie on the first three sorted columns keeps the ones the fourth puts first) \(/,
         );
-        expect(c.state.sorts, c.name).toHaveLength(1);
+        expect(ordered, c.name).toContain(kindOf(c.state.sorts[0]?.columnId as string));
+        if (!FOURTH_DECIDES.test(c.name)) expect(c.state.sorts, c.name).toHaveLength(2);
+        // A count that sorts text or an enum second cuts between two values of the first column, or inside a run of
+        // rows that tie on the columns before it (checked in their own tests).
+        if (!EMPTY_LATER_IN_COUNT.test(c.name) && !COLLATED_NEXT_DECIDES.test(c.name) && !FOURTH_DECIDES.test(c.name)) {
+          expect(c.state.limit, c.name).toBeUndefined();
+        }
       }
     }
   });
+
+  for (const s of SUBJECTS) {
+    it(`${s.name}: a sort by two columns whose second is an enum, and one whose second is text, the second each way`, () => {
+      const check = full(checkOf(s));
+      const kindOf = (columnId: string) => s.schema.columns.find((column) => column.id === columnId)?.kind;
+      const cellOf = (id: string | number, columnId: string) => check.rows.find((row) => String(row[s.id]) === String(id))?.[columnId];
+      const pairs = [
+        [/^a second sort on an enum orders the rows that tie on the first, by its values' IDs \(/, "enum"],
+        [/^a second sort on text orders the rows that tie on the first, by its letters \(/, "string"],
+      ] as const;
+      for (const [rule, kind] of pairs) {
+        const pair = check.cases.filter((c) => rule.test(c.name));
+        expect(pair.map((c) => c.state.sorts[1]?.direction).sort(), String(rule)).toEqual(["asc", "desc"]);
+        expect(
+          new Set(pair.map((c) => `${c.state.sorts[0]?.columnId} ${c.state.sorts[0]?.direction} ${c.state.sorts[1]?.columnId}`)).size,
+        ).toBe(1);
+        // The second sort turned round fails one of the pair: the order of the rows that tie on the first.
+        const turned = handQuery(
+          check,
+          s.schema,
+          s.id,
+          kind === "enum" ? "a second sort on an enum always goes up" : "a second sort on text always goes down",
+        );
+        expect(pair.filter((c) => !c.compare(turned(c.state)).ok).length, String(rule)).toBe(1);
+      }
+      for (const c of check.cases.filter((c) => pairs.some(([rule]) => rule.test(c.name)))) {
+        const kind = pairs.find(([rule]) => rule.test(c.name))?.[1];
+        const [lead, then] = c.state.sorts as [ViewState["sorts"][number], ViewState["sorts"][number]];
+        expect(c.state.sorts, c.name).toHaveLength(2);
+        expect(ORDERED_KINDS, c.name).toContain(kindOf(lead.columnId));
+        expect(kindOf(then.columnId), c.name).toBe(kind);
+        expect(c.state.filters, c.name).toBeNull();
+        const ids = applyViewQuery(check, s.schema, s.id)(c.state);
+        expect(c.compare(ids), c.name).toEqual({ ok: true });
+        // Sorted by the first column alone, the rows that tie on it in the order they were loaded: the second sort lost.
+        const { rows } = applyView(check.rows, { ...c.state, sorts: [lead] }, s.schema);
+        const lost = c.compare(rows.map((row) => row[s.id] as string | number));
+        expect(lost.ok === false && lost.message, c.name).toMatch(/: wrong order: id \S+ came where id \S+ belongs$/);
+        // Text of other characters has no checked place in the second column either: among the rows that share a first
+        // value, such rows may come in any order.
+        const odd = (id: string | number) => !/^[A-Za-z]+(?: [A-Za-z]+)*$/.test(String(cellOf(id, then.columnId) ?? ""));
+        const sameLead = (a: string | number, b: string | number) => cellOf(a, lead.columnId) === cellOf(b, lead.columnId);
+        const moved = [...ids];
+        const at = moved.findIndex((id, i) => i > 0 && odd(id) && sameLead(id, moved[i - 1] as string | number));
+        expect(at, c.name).toBeGreaterThan(0);
+        [moved[at - 1], moved[at]] = [moved[at] as string | number, moved[at - 1] as string | number];
+        expect(c.compare(moved), c.name).toEqual({ ok: true });
+      }
+    });
+
+    it(`${s.name}: a second sort on a hidden column, and sorts beside a filter with no count`, () => {
+      const kindOf = (columnId: string) => s.schema.columns.find((column) => column.id === columnId)?.kind;
+      for (const check of [full(queryCheck(s.schema, { id: s.id })), checkOf(s)]) {
+        const hidden = theCase(check, /^a second sort on a hidden column still orders the rows \(/);
+        expect(hidden.state.sorts, hidden.name).toHaveLength(2);
+        const [lead, then] = hidden.state.sorts.map((sort) => sort.columnId) as [string, string];
+        expect(hidden.state.visibleColumnIds, hidden.name).toContain(lead);
+        expect(hidden.state.visibleColumnIds, hidden.name).not.toContain(then);
+        expect(hidden.state.limit, hidden.name).toBeUndefined();
+        expect(hidden.name).toMatch(/, with .+ hidden\)$/);
+        expect(hidden.compare(applyViewQuery(check, s.schema, s.id)(hidden.state)), hidden.name).toEqual({ ok: true });
+        // The second sort lost: sorted by the first column alone.
+        const byLead = applyView(check.rows, { ...hidden.state, sorts: hidden.state.sorts.slice(0, 1) }, s.schema).rows;
+        const lost = hidden.compare(byLead.map((row) => row[s.id] as string | number));
+        expect(lost.ok === false && lost.message, hidden.name).toMatch(/: wrong order: id \S+ came where id \S+ belongs$/);
+
+        // A sort beside a filter: each column a case sorts by, each way, and once with the column hidden.
+        const besides = check.cases.filter((c) => SORT_BESIDE_FILTER.test(c.name) || HIDDEN_SORT_BESIDE_FILTER.test(c.name));
+        const sortedBy = [...new Set(check.cases.flatMap((c) => c.state.sorts.map((sort) => sort.columnId)))].sort();
+        expect(besides.map((c) => `${c.state.sorts[0]?.columnId} ${c.state.sorts[0]?.direction}`).sort(), s.name).toEqual(
+          sortedBy.flatMap((columnId) => [`${columnId} asc`, `${columnId} desc`, `${columnId} desc`]).sort(),
+        );
+        for (const beside of besides) {
+          const hidden = HIDDEN_SORT_BESIDE_FILTER.test(beside.name);
+          expect(beside.state.visibleColumnIds.includes(beside.state.sorts[0]?.columnId as string), beside.name).toBe(!hidden);
+          expect(beside.state.filters?.combinator, beside.name).toBe("and");
+          expect(predicatesOf(beside.state.filters), beside.name).toHaveLength(1);
+          expect(beside.state.sorts, beside.name).toHaveLength(1);
+          expect(beside.state.limit, beside.name).toBeUndefined();
+          expect(beside.name).toMatch(/\(sorted by .+, (ascending|descending), where .+\)$/);
+          expect(beside.compare(applyViewQuery(check, s.schema, s.id)(beside.state)), beside.name).toEqual({ ok: true });
+          const filteredOnly = applyView(check.rows, { ...beside.state, sorts: [] }, s.schema).rows;
+          expect(filteredOnly.length, beside.name).toBeGreaterThan(3);
+          expect(filteredOnly.length, beside.name).toBeLessThan(check.rows.length);
+          // The filter kept and the sort lost, or turned round: the right rows, in another order.
+          const unsorted = beside.compare(filteredOnly.map((row) => row[s.id] as string | number));
+          expect(unsorted.ok === false && unsorted.message, beside.name).toMatch(/: wrong order: id \S+ came where id \S+ belongs$/);
+          const [sort] = beside.state.sorts as [ViewState["sorts"][number]];
+          const turned = { ...sort, direction: sort.direction === "asc" ? ("desc" as const) : ("asc" as const) };
+          const turnedRows = applyView(check.rows, { ...beside.state, sorts: [turned] }, s.schema).rows;
+          expect(beside.compare(turnedRows.map((row) => row[s.id] as string | number)).ok, beside.name).toBe(false);
+          // The sort kept and the filter lost fails too.
+          const unfiltered = applyView(check.rows, { ...beside.state, filters: null }, s.schema).rows;
+          expect(beside.compare(unfiltered.map((row) => row[s.id] as string | number)).ok, beside.name).toBe(false);
+        }
+        // Two sorts beside a filter: the second a number, date or yes/no column, an enum, and text, each way.
+        const two = check.cases.filter((c) => TWO_SORTS_BESIDE_FILTER.test(c.name));
+        expect(
+          two
+            .map(
+              (c) =>
+                `${kindOf(c.state.sorts[1]?.columnId as string) === "enum" ? "enum" : kindOf(c.state.sorts[1]?.columnId as string) === "string" ? "text" : "ordered"} ${c.state.sorts[1]?.direction}`,
+            )
+            .sort(),
+          s.name,
+        ).toEqual(["enum asc", "enum desc", "ordered asc", "ordered desc", "text asc", "text desc"]);
+        for (const c of two) {
+          expect(c.state.filters?.combinator, c.name).toBe("and");
+          expect(c.state.limit, c.name).toBeUndefined();
+          expect(c.compare(applyViewQuery(check, s.schema, s.id)(c.state)), c.name).toEqual({ ok: true });
+        }
+        // The filters kept, and only the first sort: the rows that tie on it come in one order, so one of each pair
+        // fails, however the rows that tie are ordered.
+        for (const then of new Set(two.map((c) => c.state.sorts[1]?.columnId))) {
+          const pair = two.filter((c) => c.state.sorts[1]?.columnId === then);
+          for (const ties of ["reverse load order", "load order", "id ascending", "id descending"] as const) {
+            const query = handQuery(check, s.schema, s.id, "only the first sort is used beside filters joined with and", false, { ties });
+            const failed = pair.flatMap((c) => {
+              const result = c.compare(query(c.state));
+              return result.ok ? [] : [result.message];
+            });
+            expect(failed.length, `${then} ${ties}`).toBeGreaterThan(0);
+            for (const message of failed) expect(message).toMatch(/: wrong order: id \S+ came (where|before) id \S+ /);
+          }
+        }
+      }
+    });
+  }
 
   it("an enum sorts by its values' IDs as text: not in the order they are declared, and the sort is never dropped", () => {
     for (const s of SUBJECTS) {
@@ -1308,31 +2808,52 @@ describe("compare(ids)", () => {
       return c.state.sorts.map((sort) => row[sort.columnId] as Scalar);
     };
     const hasEmpty = (c: QueryCheckCase, id: number) => cellsFor(c, id).some(isEmptyCell);
+    /** No value in the first sorted column: the row has no checked place at all. */
+    const hasNoFirst = (c: QueryCheckCase, id: number) => isEmptyCell(cellsFor(c, id)[0]);
 
-    it("the expected order is ok, and so is any place for the rows with an empty sort cell", () => {
+    it("the expected order is ok, and so is any place for the rows with no value in the first sorted column", () => {
       expect(sorted).toHaveLength(2);
       for (const c of sorted) {
         const ids = expected(c);
         expect(c.compare(ids), c.name).toEqual({ ok: true });
-        const withValue = ids.filter((id) => !hasEmpty(c, id));
-        const without = ids.filter((id) => hasEmpty(c, id));
+        const withFirst = ids.filter((id) => !hasNoFirst(c, id));
+        const without = ids.filter((id) => hasNoFirst(c, id));
         expect(without.length, c.name).toBeGreaterThan(0);
-        expect(c.compare([...without, ...withValue]), c.name).toEqual({ ok: true });
-        expect(c.compare([...withValue, ...without.reverse()]), c.name).toEqual({ ok: true });
-        const half = Math.floor(withValue.length / 2);
-        expect(c.compare([...withValue.slice(0, half), ...without, ...withValue.slice(half)]), c.name).toEqual({ ok: true });
+        expect(c.compare([...without, ...withFirst]), c.name).toEqual({ ok: true });
+        expect(c.compare([...withFirst, ...without.reverse()]), c.name).toEqual({ ok: true });
+        const half = Math.floor(withFirst.length / 2);
+        expect(c.compare([...withFirst.slice(0, half), ...without, ...withFirst.slice(half)]), c.name).toEqual({ ok: true });
+      }
+    });
+
+    it("a row with a value in the first sorted column and none in the second is held to its place by the first", () => {
+      for (const c of sorted) {
+        const ids = expected(c);
+        const later = ids.filter((id) => !hasNoFirst(c, id) && hasEmpty(c, id));
+        expect(later.length, c.name).toBeGreaterThan(0);
+        // All such rows moved to the front, or to the end: past rows with another first value.
+        for (const moved of [
+          [...later, ...ids.filter((id) => !later.includes(id))],
+          [...ids.filter((id) => !later.includes(id)), ...later],
+        ]) {
+          const result = c.compare(moved);
+          expect(result.ok === false && result.message, c.name).toMatch(
+            /: wrong order: id \d+ came before id \d+, which belongs ahead of it by Market value$/,
+          );
+        }
       }
     });
 
     it("rows that tie on every sorted column may come in either order", () => {
       for (const c of sorted) {
-        const ids = expected(c).filter((id) => !hasEmpty(c, id));
-        const at = ids.findIndex((id, i) => i > 0 && JSON.stringify(cellsFor(c, id)) === JSON.stringify(cellsFor(c, ids[i - 1] as number)));
+        const ids = expected(c);
+        const at = ids.findIndex(
+          (id, i) => i > 0 && !hasEmpty(c, id) && JSON.stringify(cellsFor(c, id)) === JSON.stringify(cellsFor(c, ids[i - 1] as number)),
+        );
         expect(at, c.name).toBeGreaterThan(0);
         const swapped = [...ids];
         [swapped[at - 1], swapped[at]] = [swapped[at] as number, swapped[at - 1] as number];
-        const rest = expected(c).filter((id) => hasEmpty(c, id));
-        expect(c.compare([...swapped, ...rest]), c.name).toEqual({ ok: true });
+        expect(c.compare(swapped), c.name).toEqual({ ok: true });
       }
     });
 
@@ -1376,7 +2897,7 @@ describe("compare(ids)", () => {
         expect(c.compare(ids), c.name).toEqual({ ok: true });
         // Any other text may go anywhere, as a database's collation puts it.
         expect(c.compare([...ids.filter((id) => !letters(id)).reverse(), ...ids.filter(letters)]), c.name).toEqual({ ok: true });
-        // Ordered by character code, "cedar Row" comes after "Elm Garth": that fails.
+        // Ordered by character code, "cob" comes after "Elm Garth": that fails.
         const byCode = [...ids].sort((a, b) => {
           const [x, y] = [String(cellOf(a) ?? ""), String(cellOf(b) ?? "")];
           const d = x < y ? -1 : x > y ? 1 : 0;
@@ -1576,19 +3097,126 @@ type Mistake =
   | "is empty on an enum is null only"
   | "a sort on an enum is dropped"
   | "an enum sorts in the order its values are declared"
-  | "a row with an empty sort cell goes last, then the count cuts";
+  | "a row with an empty sort cell goes last, then the count cuts"
+  // The classes the second round of the Query Check closes, each written here afresh.
+  // A count that cuts inside rows that tie (ruling R2).
+  | "a count keeps every row that ties with its last row"
+  | "a count leaves out the rows that tie at its cut"
+  | "a count keeps one row for each value"
+  | "a count skips its first row"
+  // A row with no value in a later sorted column (ruling R3).
+  | "a row with an empty sort cell goes first"
+  | "a row with an empty sort cell goes last, after the count cuts"
+  | "a row with an empty sort cell goes last on each page"
+  // Sorts beside other things.
+  | "a second sort on a hidden column is dropped"
+  | "a second sort on an enum is dropped"
+  | "a second sort on text is dropped"
+  | "the sorts are dropped when a filter is set"
+  // Accents.
+  | "accents are ignored, but for å, ä and ö"
+  // The classes the second held-out check of the Query Check found, each written here afresh.
+  // A count with two sorts that cuts inside rows that tie on the first.
+  | "the count is cut by the first sort alone"
+  // A count's guard on a later sorted column.
+  | "the count leaves out a row with no value in a later sorted text or enum column"
+  | "the count leaves out a row with empty text in a later sorted column"
+  // Sorts and hidden columns beside an or group.
+  | "the sorts are dropped beside an or group"
+  | "a filter on a hidden column is dropped in an or group"
+  // Accents, one operator at a time.
+  | "not equal reads é as e"
+  | "in a list reads é as e"
+  | "starts with reads é as e"
+  | "not equal ignores accents"
+  | "in a list ignores accents"
+  | "contains ignores accents"
+  | "starts with ignores accents"
+  // Numbers, and pages.
+  | "numbers sort as text"
+  | "each page breaks ties its own way"
+  // The classes the third held-out check of the Query Check found, each written here afresh.
+  | "the count is cut by its first two sorts alone"
+  | "only the first sort is used beside an or group"
+  | "the count is dropped beside an or group"
+  | "a filter on a hidden column is dropped in an or group inside an and"
+  | "the count drops a sort on a hidden column"
+  | "text sorts by its length first"
+  // The classes the review of the Query Check's second round found, each written here afresh.
+  // Sorts beside a filter joined with "and".
+  | "the first sort goes down when a filter is set"
+  | "a sort on an enum is dropped when a filter is set"
+  | "a sort on text is dropped when a filter is set"
+  | "a sort on a hidden column is dropped when a filter is set"
+  | "only the first sort is used beside filters joined with and"
+  // A second sort's direction.
+  | "a second sort on an enum always goes up"
+  | "a second sort on text always goes down"
+  // Sorts beside an or group.
+  | "a later sort goes up beside an or group inside an and"
+  | "only the last sort is used beside an or group of three or more"
+  | "a filter on a hidden column is dropped in an and group inside an or"
+  // A count's cut.
+  | "the count is cut by the first sort alone when text or an enum is sorted next"
+  | "a count sorted by text or an enum first takes its rows from the end"
+  | "a count cuts text by character code"
+  | "a count beside a filter keeps every row that ties with its last row"
+  | "the count is cut by its first three sorts alone"
+  | "the count drops a hidden last sort of three"
+  // The classes the re-check of the Query Check's second round found, each written here afresh: the count or the sorts
+  // built another way beside an or group, or where a column is hidden.
+  | "a count beside an or group keeps every row that ties with its last row"
+  | "a count with a filter and a hidden sorted column keeps every row that ties with its last row"
+  | "the count is cut by the first sort alone beside an or group"
+  | "only the first sort is used beside a filter on a hidden column"
+  | "a count beside a filter on a hidden column keeps one row too many"
+  | "the sorts are used in reverse beside a filter on a hidden column";
+
+/** The mistakes that fold accents in one operator only: the operator, and whether å, ä and ö are kept apart. */
+const ACCENTS_IN_ONE: Partial<Record<Mistake, readonly [FilterOperator, "nordic" | "all"]>> = {
+  "not equal reads é as e": ["neq", "nordic"],
+  "in a list reads é as e": ["in", "nordic"],
+  "starts with reads é as e": ["startsWith", "nordic"],
+  "not equal ignores accents": ["neq", "all"],
+  "in a list ignores accents": ["in", "all"],
+  "contains ignores accents": ["contains", "all"],
+  "starts with ignores accents": ["startsWith", "all"],
+};
 
 const NUMERIC_KINDS = new Set(["number", "currency", "percent"]);
 const textOrder = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
 /**
+ * What a right Data Query may choose for itself (spec 5.5, `compare`): how rows that tie on every sort column are
+ * ordered, and where an empty cell sorts.
+ */
+interface Choices {
+  /** Rows that tie: in the reverse of the order they were loaded in, in that order, or by their ids, either way. */
+  ties?: "reverse load order" | "load order" | "id ascending" | "id descending";
+  /**
+   * An empty cell: the lowest value or the highest, so it moves with the direction, or always first or always last, as
+   * NULLS FIRST and NULLS LAST put it.
+   */
+  empties?: "lowest" | "highest" | "first" | "last";
+  /** Rows that tie: in a shuffle made from this seed, as `ORDER BY …, random()` gives them. */
+  shuffle?: number;
+}
+
+/**
  * A Data Query written by hand from the table in 4.1, the way a Host translates a View State for a database, with one
  * mistake when asked. It shares no code with core. Where the table leaves a choice it takes the other one from
- * `applyView`: empty cells sort first, and rows that tie come in the reverse of the rows' own order. With `byInstant`
- * it orders a date-and-time column by the instant each cell names, as a database that stores instants does, where
- * `applyView` orders the cells as text.
+ * `applyView`: empty cells sort first, and rows that tie come in the reverse of the rows' own order. `choices` takes
+ * another. With `byInstant` it orders a date-and-time column by the instant each cell names, as a database that stores
+ * instants does, where `applyView` orders the cells as text.
  */
-const handQuery = (check: QueryCheck, schema: ViewSchema, id: string, mistake?: Mistake, byInstant = false): DataQuery => {
+const handQuery = (
+  check: QueryCheck,
+  schema: ViewSchema,
+  id: string,
+  mistake?: Mistake,
+  byInstant = false,
+  choices: Choices = {},
+): DataQuery => {
   const zone = schema.calendar?.timeZone;
   const dayIn = zone ? new Intl.DateTimeFormat("en-CA", { timeZone: zone, year: "numeric", month: "2-digit", day: "2-digit" }) : undefined;
   const clockIn = zone
@@ -1623,15 +3251,27 @@ const handQuery = (check: QueryCheck, schema: ViewSchema, id: string, mistake?: 
     if (!text.endsWith("Z") || mistake === "a day is the UTC day") return text.slice(0, 10);
     return (dayIn as Intl.DateTimeFormat).format(new Date(text));
   };
-  const lower = (v: unknown) => {
+  /** Text without letter case, as the filter's operator compares it. */
+  const lower = (v: unknown, operator: FilterOperator) => {
     if (mistake === "lower folds only A to Z") return String(v).replace(/[A-Z]+/g, (s) => s.toLowerCase());
+    const [scope, accents] = (mistake && ACCENTS_IN_ONE[mistake]) ?? [];
+    // A collation that keeps å, ä and ö as letters of their own and reads every other accented letter as its plain
+    // one, as a Swedish or Finnish collation does: é is e, and å is not a.
+    if (mistake === "accents are ignored, but for å, ä and ö" || (scope === operator && accents === "nordic")) {
+      return [...String(v).toLowerCase()]
+        .map((letter) => ("åäö".includes(letter) ? letter : letter.normalize("NFD").replace(/\p{M}/gu, "")))
+        .join("");
+    }
     // A collation that ignores accents, such as MySQL's default: Å is A.
-    if (mistake === "text is compared ignoring accents") return String(v).toLowerCase().normalize("NFD").replace(/\p{M}/gu, "");
+    if (mistake === "text is compared ignoring accents" || (scope === operator && accents === "all")) {
+      return String(v).toLowerCase().normalize("NFD").replace(/\p{M}/gu, "");
+    }
     return String(v).toLowerCase();
   };
   const PLACEHOLDERS: unknown[] = ["N/A", "n/a", "NA", "-", "--", "none"];
   /** What the filter asks for, without letter case: "LOWER(column) = ?" forgets this side. */
-  const asked = (v: unknown) => (mistake === "only the column's letter case is ignored" ? String(v) : lower(v));
+  const asked = (v: unknown, operator: FilterOperator) =>
+    mistake === "only the column's letter case is ignored" ? String(v) : lower(v, operator);
   /** SQL's LIKE with the value put straight in the pattern: % is any text and _ any one character. */
   const pattern = (needle: string) =>
     needle
@@ -1650,7 +3290,7 @@ const handQuery = (check: QueryCheck, schema: ViewSchema, id: string, mistake?: 
       if (target === "") return mistake === "an empty operand drops null" ? cell === "" : empty;
       if (empty) return mistake === "equal on text keeps empty cells";
       if (mistake === "equal on text is a pattern match") return new RegExp(`^${pattern(String(target))}$`, "is").test(String(cell));
-      return caseSensitive ? cell === target : lower(cell) === asked(target);
+      return caseSensitive ? cell === target : lower(cell, p.operator) === asked(target, p.operator);
     };
     /** Below zero, zero or above: the cell against one end. */
     const sign = (target: Scalar): number => {
@@ -1684,7 +3324,7 @@ const handQuery = (check: QueryCheck, schema: ViewSchema, id: string, mistake?: 
         // Not equal to empty text keeps every value: on text an empty cell is empty text.
         if (text && value === "") return mistake === "not equal to empty text keeps empty text" ? cell !== null : !empty;
         if (empty) return zeroForEmpty ? value !== 0 : mistake !== "not equal drops empty cells";
-        return text && mistake !== "not equal is case-sensitive on text" ? lower(cell) !== asked(value) : cell !== value;
+        return text && mistake !== "not equal is case-sensitive on text" ? lower(cell, "neq") !== asked(value, "neq") : cell !== value;
       case "in": {
         const listed = value as Scalar[];
         // "IN (?, ?)" with the empty text taken out, as if "" were only ever asked for on its own.
@@ -1719,7 +3359,8 @@ const handQuery = (check: QueryCheck, schema: ViewSchema, id: string, mistake?: 
         }
         if (needle === "") return mistake === "an empty operand drops null" ? cell !== null : true;
         if (empty) return mistake === "contains keeps empty cells" && !start;
-        const [hay, find] = mistake === "LIKE is case-sensitive" ? [String(cell), needle] : [lower(cell), asked(needle)];
+        const [hay, find] =
+          mistake === "LIKE is case-sensitive" ? [String(cell), needle] : [lower(cell, p.operator), asked(needle, p.operator)];
         return start ? hay.startsWith(find) : hay.includes(find);
       }
       case "gt":
@@ -1745,9 +3386,31 @@ const handQuery = (check: QueryCheck, schema: ViewSchema, id: string, mistake?: 
     const kept = keepsRow(row, p);
     return [kept && cell === null, kept && cell === "", kept && !isEmptyCell(cell)];
   };
-  const where = (row: Row, group: FilterGroup, visible: readonly string[]): boolean => {
+  const where = (row: Row, group: FilterGroup, visible: readonly string[], nested = false): boolean => {
     if (mistake === "everything is joined with and") return predicatesOf(group).every((p) => keepsRow(row, p));
+    // The same, only in an "or" group inside another group: a Data Query that builds its root group in one place and
+    // the groups inside it in another.
+    if (mistake === "a filter on a hidden column is dropped in an or group inside an and" && nested && group.combinator === "or") {
+      group = {
+        ...group,
+        children: group.children.filter((child) => child.type === "group" || visible.includes(child.columnId)),
+      };
+    }
+    // The same, in an "and" group inside an "or".
+    if (mistake === "a filter on a hidden column is dropped in an and group inside an or" && nested && group.combinator === "and") {
+      group = {
+        ...group,
+        children: group.children.filter((child) => child.type === "group" || visible.includes(child.columnId)),
+      };
+    }
     if (mistake === "a filter on a hidden column is dropped") {
+      group = {
+        ...group,
+        children: group.children.filter((child) => child.type === "group" || visible.includes(child.columnId)),
+      };
+    }
+    // The same, only where the filters are joined with "or".
+    if (mistake === "a filter on a hidden column is dropped in an or group" && group.combinator === "or") {
       group = {
         ...group,
         children: group.children.filter((child) => child.type === "group" || visible.includes(child.columnId)),
@@ -1769,7 +3432,7 @@ const handQuery = (check: QueryCheck, schema: ViewSchema, id: string, mistake?: 
       const line: Array<boolean | "and" | "or"> = group.children.flatMap((child, i) => [
         ...(i > 0 ? (["and"] as const) : []),
         ...(child.type === "group"
-          ? [where(row, child, visible)]
+          ? [where(row, child, visible, true)]
           : armsOf(row, child).flatMap((arm, k) => [...(k > 0 ? (["or"] as const) : []), arm])),
       ]);
       const runs: boolean[][] = [[]];
@@ -1793,28 +3456,86 @@ const handQuery = (check: QueryCheck, schema: ViewSchema, id: string, mistake?: 
       }
       return runs.some((run) => run.every(Boolean));
     }
-    const results = group.children.map((child) => (child.type === "group" ? where(row, child, visible) : keepsRow(row, child)));
+    const results = group.children.map((child) => (child.type === "group" ? where(row, child, visible, true) : keepsRow(row, child)));
     return group.combinator === "and" ? results.every(Boolean) : results.some(Boolean);
   };
-  return (state) => {
+  /** Whether a filter group holds an "or" group anywhere, itself included. */
+  const holdsOr = (g: FilterGroup | null): boolean =>
+    g !== null && (g.combinator === "or" || g.children.some((child) => child.type === "group" && holdsOr(child)));
+  return (given) => {
+    // The count left out where the filters hold an "or" group: built in one branch, and the "LIMIT" in another.
+    const state = mistake === "the count is dropped beside an or group" && holdsOr(given.filters) ? { ...given, limit: undefined } : given;
+    // "ORDER BY …, random()": each page is read on its own, so rows that tie come in another order on each.
+    if (mistake === "each page breaks ties its own way") {
+      const pages = Math.ceil(handQuery(check, schema, id, undefined, byInstant, choices)(state).length / 7);
+      return Array.from({ length: pages }, (_, page) =>
+        handQuery(check, schema, id, undefined, byInstant, { ...choices, shuffle: page + 1 })(state).slice(page * 7, page * 7 + 7),
+      ).flat();
+    }
     if (mistake === "no filters keep no rows" && state.filters === null) return [];
     const filtered = (rows: Row[]) => rows.filter((row) => (state.filters ? where(row, state.filters, state.visibleColumnIds) : true));
-    const shown =
-      mistake === "a sort on a hidden column is dropped"
-        ? state.sorts.filter((sort) => state.visibleColumnIds.includes(sort.columnId))
-        : mistake === "a sort on an enum is dropped"
-          ? state.sorts.filter((sort) => columnOf(sort.columnId).kind !== "enum")
-          : state.sorts;
-    const sorts =
-      mistake === "only the first sort is used"
+    const dropped = (sort: ViewState["sorts"][number], place: number): boolean => {
+      const { kind } = columnOf(sort.columnId);
+      const hidden = !state.visibleColumnIds.includes(sort.columnId);
+      if (mistake === "a sort on a hidden column is dropped") return hidden;
+      // The count's own query built from the columns that show.
+      if (mistake === "the count drops a sort on a hidden column") return hidden && state.limit !== undefined;
+      if (mistake === "a sort on an enum is dropped") return kind === "enum";
+      // The first sort is kept and a later one lost: the table's own header shows one sorted column.
+      if (mistake === "a second sort on a hidden column is dropped") return place > 0 && hidden;
+      if (mistake === "a second sort on an enum is dropped") return place > 0 && kind === "enum";
+      if (mistake === "a second sort on text is dropped") return place > 0 && kind === "string";
+      if (mistake === "the sorts are dropped beside an or group") return holdsOr(state.filters);
+      // The filtered branch builds its own "ORDER BY", and leaves some sorts out.
+      if (state.filters !== null) {
+        if (mistake === "a sort on an enum is dropped when a filter is set") return kind === "enum";
+        if (mistake === "a sort on text is dropped when a filter is set") return kind === "string";
+        if (mistake === "a sort on a hidden column is dropped when a filter is set") return hidden;
+      }
+      // "WHERE …" built in one branch and "ORDER BY …" in the other.
+      return mistake === "the sorts are dropped when a filter is set" && state.filters !== null;
+    };
+    const shown = state.sorts.filter((sort, place) => !dropped(sort, place));
+    /** Whether a filter is on a hidden column, and whether a sort is. */
+    const hiddenFilter = predicatesOf(state.filters).some((p) => !state.visibleColumnIds.includes(p.columnId));
+    const hiddenSort = state.sorts.some((sort) => !state.visibleColumnIds.includes(sort.columnId));
+    /** Whether the root "and" holds an "or" group. */
+    const orInAnd = state.filters?.combinator === "and" && state.filters.children.some((child) => child.type === "group" && holdsOr(child));
+    /** Whether a group anywhere joins three or more filters with "or". */
+    const wideOr = (g: FilterGroup | null): boolean =>
+      g !== null &&
+      ((g.combinator === "or" && g.children.length >= 3) || g.children.some((child) => child.type === "group" && wideOr(child)));
+    const firstOnly =
+      mistake === "only the first sort is used" ||
+      (mistake === "only the first sort is used beside an or group" && holdsOr(state.filters)) ||
+      (mistake === "only the first sort is used beside filters joined with and" && state.filters !== null && !holdsOr(state.filters)) ||
+      (mistake === "only the first sort is used beside a filter on a hidden column" && hiddenFilter);
+    const turned = (sort: ViewState["sorts"][number], place: number): ViewState["sorts"][number] => {
+      const { kind } = columnOf(sort.columnId);
+      if (mistake === "the first sort goes down when a filter is set" && place === 0 && state.filters !== null) {
+        return { ...sort, direction: "desc" };
+      }
+      if (mistake === "a second sort on an enum always goes up" && place > 0 && kind === "enum") return { ...sort, direction: "asc" };
+      if (mistake === "a second sort on text always goes down" && place > 0 && kind === "string") return { ...sort, direction: "desc" };
+      if (mistake === "a later sort goes up beside an or group inside an and" && place > 0 && orInAnd) return { ...sort, direction: "asc" };
+      return sort;
+    };
+    /** While true, text sorts by character code: the count's own inner query, with a case-sensitive collation. */
+    let byCode = false;
+    const sorts = (
+      firstOnly
         ? shown.slice(0, 1)
-        : mistake === "the sorts are used in reverse"
+        : mistake === "the sorts are used in reverse" ||
+            (mistake === "the sorts are used in reverse beside a filter on a hidden column" && hiddenFilter)
           ? [...shown].reverse()
-          : shown;
+          : mistake === "only the last sort is used beside an or group of three or more" && wideOr(state.filters)
+            ? shown.slice(-1)
+            : shown
+    ).map(turned);
     const cells = (a: Scalar, b: Scalar, columnId: string): number => {
       if (a === b) return 0;
-      if (a === null) return -1;
-      if (b === null) return 1;
+      // "ORDER BY CAST(x AS TEXT)": "10" before "9".
+      if (typeof a === "number" && typeof b === "number" && mistake === "numbers sort as text") return textOrder(String(a), String(b));
       if (typeof a === "number" && typeof b === "number") return a - b;
       if (byInstant && columnOf(columnId).kind === "datetime") return instantOf(String(a)) - instantOf(String(b));
       if (typeof a === "boolean" && typeof b === "boolean") return Number(a) - Number(b);
@@ -1823,28 +3544,102 @@ const handQuery = (check: QueryCheck, schema: ViewSchema, id: string, mistake?: 
         return declared.indexOf(String(a)) - declared.indexOf(String(b));
       }
       // Text ignoring case, then by character code, as a database's case-blind collation does.
-      if (mistake === "text sorts by character code") return textOrder(String(a), String(b));
+      if (mistake === "text sorts by character code" || byCode) return textOrder(String(a), String(b));
+      // "ORDER BY length(x), x": shorter text first.
+      if (mistake === "text sorts by its length first" && columnOf(columnId).kind === "string" && String(a).length !== String(b).length) {
+        return String(a).length - String(b).length;
+      }
       return textOrder(String(a).toLowerCase(), String(b).toLowerCase()) || textOrder(String(a), String(b));
     };
-    const ordered = (rows: Row[]) => {
-      const sorted = [...rows].reverse().sort((a, b) => {
-        for (const sort of sorts) {
-          const d = cells(a[sort.columnId] as Scalar, b[sort.columnId] as Scalar, sort.columnId);
-          if (d !== 0) return sort.direction === "desc" && mistake !== "the sort ignores direction" ? -d : d;
+    const idNumber = (row: Row) => Number(row[id]);
+    /** The rows as the sort meets them: a stable sort keeps this order for rows that tie. */
+    const beforeSort = (rows: Row[]): Row[] => {
+      if (choices.shuffle !== undefined) {
+        const random = seededRandom(choices.shuffle);
+        return rows
+          .map((row) => [random(), row] as const)
+          .sort((a, b) => a[0] - b[0])
+          .map(([, row]) => row);
+      }
+      if (choices.ties === "load order") return [...rows];
+      if (choices.ties === "id ascending") return [...rows].sort((a, b) => idNumber(a) - idNumber(b));
+      if (choices.ties === "id descending") return [...rows].sort((a, b) => idNumber(b) - idNumber(a));
+      return [...rows].reverse();
+    };
+    const empties = choices.empties ?? "lowest";
+    const holed = (row: Row) => sorts.some((sort) => isEmptyCell(row[sort.columnId]));
+    /** "ORDER BY (a IS NULL OR b IS NULL)": every row with an empty cell in any sorted column after the rest, or before. */
+    const holedLast = (rows: Row[]) => [...rows.filter((row) => !holed(row)), ...rows.filter(holed)];
+    const holedFirst = (rows: Row[]) => [...rows.filter(holed), ...rows.filter((row) => !holed(row))];
+    const ordered = (rows: Row[], by = sorts) => {
+      const sorted = beforeSort(rows).sort((a, b) => {
+        for (const sort of by) {
+          const [x, y] = [a[sort.columnId] as Scalar, b[sort.columnId] as Scalar];
+          const descending = sort.direction === "desc" && mistake !== "the sort ignores direction";
+          if (x !== y && (x === null || y === null)) {
+            const nullFirst = empties === "first" || (empties === "lowest" && !descending) || (empties === "highest" && descending);
+            return (x === null) === nullFirst ? -1 : 1;
+          }
+          const d = cells(x, y, sort.columnId);
+          if (d !== 0) return descending ? -d : d;
         }
         return 0;
       });
-      if (mistake !== "a row with an empty sort cell goes last, then the count cuts") return sorted;
-      // "ORDER BY (b IS NULL), a, b": every row with an empty cell in any sorted column goes after the rest.
-      const holed = (row: Row) => sorts.some((sort) => isEmptyCell(row[sort.columnId]));
-      return [...sorted.filter((row) => !holed(row)), ...sorted.filter(holed)];
+      if (mistake === "a row with an empty sort cell goes last, then the count cuts") return holedLast(sorted);
+      if (mistake === "a row with an empty sort cell goes first") return holedFirst(sorted);
+      return sorted;
     };
     const first = state.sorts[0]?.columnId;
+    const collatedKind = (columnId: string) => ["string", "enum"].includes(columnOf(columnId).kind);
     const needed =
-      mistake === "the count leaves out a row with no value in any sorted column" ? state.sorts.map((s) => s.columnId) : [first];
+      mistake === "the count leaves out a row with no value in any sorted column"
+        ? state.sorts.map((s) => s.columnId)
+        : mistake === "the count leaves out a row with no value in a later sorted text or enum column"
+          ? state.sorts.filter((s, i) => i === 0 || collatedKind(s.columnId)).map((s) => s.columnId)
+          : [first];
     const hasValue = (cell: unknown) => (mistake === "the count keeps rows with empty text" ? cell !== null : !isEmptyCell(cell));
+    // "AND b <> ''" for each later sorted column, written to keep out what reads as no value.
+    const emptyTextLater = (row: Row) =>
+      mistake === "the count leaves out a row with empty text in a later sorted column" &&
+      state.sorts.slice(1).some((s) => row[s.columnId] === "");
     const withValue = (rows: Row[]) =>
-      first === undefined ? rows : rows.filter((row) => needed.every((columnId) => hasValue(row[columnId as string])));
+      first === undefined
+        ? rows
+        : rows.filter((row) => needed.every((columnId) => hasValue(row[columnId as string])) && !emptyTextLater(row));
+    const tie = (a: Row, b: Row) => state.sorts.every((sort) => a[sort.columnId] === b[sort.columnId]);
+    /** The count's cut, on rows already filtered and sorted. */
+    const cut = (inOrder: Row[], limit: number): Row[] => {
+      const firstRows = inOrder.slice(0, limit);
+      const [last, next] = [inOrder[limit - 1], inOrder[limit]];
+      // "RANK() OVER (ORDER BY …) <= N", or "FETCH FIRST N ROWS WITH TIES": every row that ties with the Nth stays.
+      if (mistake === "a count keeps every row that ties with its last row" && last) {
+        return inOrder.filter((row, i) => i < limit || tie(row, last));
+      }
+      // "WHERE value > (the value of row N + 1)": the rows that tie with the first row left out go with it.
+      if (mistake === "a count leaves out the rows that tie at its cut" && next) return firstRows.filter((row) => !tie(row, next));
+      // The same, only where the filters are set: the filtered branch builds its count another way.
+      if (mistake === "a count beside a filter keeps every row that ties with its last row" && last && state.filters !== null) {
+        return inOrder.filter((row, i) => i < limit || tie(row, last));
+      }
+      // The same where the filters hold an "or" group, or where a filter is set and a sorted column is hidden.
+      const ranked =
+        (mistake === "a count beside an or group keeps every row that ties with its last row" && holdsOr(state.filters)) ||
+        (mistake === "a count with a filter and a hidden sorted column keeps every row that ties with its last row" &&
+          state.filters !== null &&
+          hiddenSort);
+      if (ranked && last) return inOrder.filter((row, i) => i < limit || tie(row, last));
+      // "LIMIT N + 1", in the branch that builds a filter on a hidden column.
+      if (mistake === "a count beside a filter on a hidden column keeps one row too many" && hiddenFilter) {
+        return inOrder.slice(0, limit + 1);
+      }
+      // "SELECT DISTINCT ON (value)": the first row of each value, then the first N of those.
+      if (mistake === "a count keeps one row for each value") {
+        return inOrder.filter((row, i) => i === 0 || !tie(row, inOrder[i - 1] as Row)).slice(0, limit);
+      }
+      // "LIMIT N OFFSET 1", from a page counted from 1.
+      if (mistake === "a count skips its first row") return inOrder.slice(1, limit + 1);
+      return firstRows;
+    };
     let rows: Row[];
     if (state.limit === undefined && mistake === "a sort with no count drops rows with no value")
       rows = ordered(withValue(filtered(check.rows)));
@@ -1852,7 +3647,49 @@ const handQuery = (check: QueryCheck, schema: ViewSchema, id: string, mistake?: 
     else if (mistake === "the count is cut before the filter") rows = filtered(ordered(withValue(check.rows)).slice(0, state.limit));
     else if (mistake === "the count keeps rows with no value") rows = ordered(filtered(check.rows)).slice(0, state.limit);
     else if (mistake === "the count is cut before the sort") rows = ordered(withValue(filtered(check.rows)).slice(0, state.limit));
-    else rows = ordered(withValue(filtered(check.rows))).slice(0, state.limit);
+    // "ORDER BY a LIMIT N" in an inner query, and "ORDER BY a, b" outside it.
+    else if (mistake === "the count is cut by the first sort alone")
+      rows = ordered(ordered(withValue(filtered(check.rows)), sorts.slice(0, 1)).slice(0, state.limit));
+    // The same, only where the filters hold an "or" group.
+    else if (mistake === "the count is cut by the first sort alone beside an or group" && holdsOr(state.filters))
+      rows = ordered(ordered(withValue(filtered(check.rows)), sorts.slice(0, 1)).slice(0, state.limit));
+    // The same with the first two sorts in the inner query.
+    else if (mistake === "the count is cut by its first two sorts alone")
+      rows = ordered(ordered(withValue(filtered(check.rows)), sorts.slice(0, 2)).slice(0, state.limit));
+    // The same with the first sort alone when text or an enum is sorted next, and with the first three of four.
+    else if (
+      mistake === "the count is cut by the first sort alone when text or an enum is sorted next" &&
+      sorts[1] !== undefined &&
+      collatedKind(sorts[1].columnId)
+    )
+      rows = ordered(ordered(withValue(filtered(check.rows)), sorts.slice(0, 1)).slice(0, state.limit));
+    else if (mistake === "the count is cut by its first three sorts alone" && sorts.length >= 4)
+      rows = ordered(ordered(withValue(filtered(check.rows)), sorts.slice(0, 3)).slice(0, state.limit));
+    // The count's inner query sorts by the columns that show, when the last of three or more is hidden.
+    else if (
+      mistake === "the count drops a hidden last sort of three" &&
+      sorts.length >= 3 &&
+      !state.visibleColumnIds.includes((sorts.at(-1) as ViewState["sorts"][number]).columnId)
+    )
+      rows = ordered(ordered(withValue(filtered(check.rows)), sorts.slice(0, -1)).slice(0, state.limit));
+    // A count sorted first by text or an enum, cut from the far end: the direction turned round for the cut.
+    else if (mistake === "a count sorted by text or an enum first takes its rows from the end" && first && collatedKind(first)) {
+      const inOrder = ordered(withValue(filtered(check.rows)));
+      rows = inOrder.slice(Math.max(0, inOrder.length - state.limit));
+    }
+    // The count's inner query orders text by character code, and the page by the letters.
+    else if (mistake === "a count cuts text by character code" && sorts.some((sort) => columnOf(sort.columnId).kind === "string")) {
+      byCode = true;
+      const inner = ordered(withValue(filtered(check.rows))).slice(0, state.limit);
+      byCode = false;
+      rows = ordered(inner);
+    } else rows = cut(ordered(withValue(filtered(check.rows))), state.limit);
+    // The right rows, cut in the right place, and then put in order again by an outer query or by the page.
+    if (mistake === "a row with an empty sort cell goes last, after the count cuts") rows = holedLast(rows);
+    if (mistake === "a row with an empty sort cell goes last on each page") {
+      const pages = Array.from({ length: Math.ceil(rows.length / 7) }, (_, page) => rows.slice(page * 7, page * 7 + 7));
+      rows = pages.flatMap(holedLast);
+    }
     // The database's own row numbers, from 1 in the order the rows were loaded, in place of the ids.
     if (mistake === "the ids are the row numbers") return rows.map((row) => check.rows.indexOf(row) + 1);
     return rows.map((row) => row[id] as string | number);
@@ -2129,6 +3966,170 @@ const MISTAKES: Array<{ mistake: Mistake; row: string; rules: RegExp[]; only?: "
     row: "a count",
     rules: [/^a count keeps a row with no value in a later sorted column \(/],
   },
+  // The classes the second round of the Query Check closes.
+  // A count that cuts inside rows that tie (ruling R2): more rows than asked for, fewer, a row from behind the tie, and
+  // a row ahead of it left out.
+  { mistake: "a count keeps every row that ties with its last row", row: "a count at ties", rules: [TIED] },
+  { mistake: "a count leaves out the rows that tie at its cut", row: "a count at ties", rules: [TIED] },
+  { mistake: "a count keeps one row for each value", row: "a count at ties", rules: [TIED] },
+  { mistake: "a count skips its first row", row: "a count at ties", rules: [TIED] },
+  // A row with no value in a later sorted column (ruling R3), with a count and without.
+  { mistake: "a row with an empty sort cell goes last, then the count cuts", row: "an empty later sort cell", rules: [LATER_EMPTY] },
+  { mistake: "a row with an empty sort cell goes first", row: "an empty later sort cell", rules: [LATER_EMPTY] },
+  {
+    mistake: "a row with an empty sort cell goes last, after the count cuts",
+    row: "an empty later sort cell",
+    rules: [LATER_EMPTY, /^a count keeps a row with no value in a later sorted column \(/],
+  },
+  { mistake: "a row with an empty sort cell goes last on each page", row: "an empty later sort cell", rules: [LATER_EMPTY] },
+  // Sorts beside other things.
+  {
+    mistake: "a second sort on a hidden column is dropped",
+    row: "hidden columns",
+    rules: [/^a second sort on a hidden column still orders the rows \(/],
+  },
+  {
+    mistake: "a second sort on an enum is dropped",
+    row: "sorting",
+    rules: [/^a second sort on an enum orders the rows that tie on the first, by its values' IDs \(/],
+  },
+  {
+    mistake: "an enum sorts in the order its values are declared",
+    row: "sorting",
+    rules: [/^a second sort on an enum orders the rows that tie on the first, by its values' IDs \(/],
+  },
+  {
+    mistake: "a second sort on text is dropped",
+    row: "sorting",
+    rules: [/^a second sort on text orders the rows that tie on the first, by its letters \(/],
+  },
+  { mistake: "the sorts are dropped when a filter is set", row: "sorting", rules: [/^a sort beside a filter still orders the rows \(/] },
+  // Accents: é read as e, with å, ä and ö kept apart.
+  {
+    mistake: "accents are ignored, but for å, ä and ö",
+    row: "eq, in on a text column",
+    rules: [/^equal keeps é and e apart \(/],
+  },
+  { mistake: "accents are ignored, but for å, ä and ö", row: "contains, startsWith", rules: [/^contains keeps é and e apart \(/] },
+  // The classes the second held-out check of the Query Check found.
+  // Accents in every text operator, each named for accents: é and e, and Å and A.
+  {
+    mistake: "accents are ignored, but for å, ä and ö",
+    row: "neq",
+    rules: [/^not equal keeps é and e apart \(/, /^in a list keeps é and e apart \(/, /^starts with keeps é and e apart \(/],
+  },
+  {
+    mistake: "text is compared ignoring accents",
+    row: "neq",
+    rules: [
+      /^not equal ignores case but not accents \(/,
+      /^in a list ignores case but not accents \(/,
+      /^contains ignores case but not accents \(/,
+      /^starts with ignores case but not accents \(/,
+    ],
+  },
+  { mistake: "not equal reads é as e", row: "neq", rules: [/^not equal keeps é and e apart \(/] },
+  { mistake: "in a list reads é as e", row: "eq, in on a text column", rules: [/^in a list keeps é and e apart \(/] },
+  { mistake: "starts with reads é as e", row: "contains, startsWith", rules: [/^starts with keeps é and e apart \(/] },
+  { mistake: "not equal ignores accents", row: "neq", rules: [/^not equal ignores case but not accents \(/] },
+  { mistake: "in a list ignores accents", row: "eq, in on a text column", rules: [/^in a list ignores case but not accents \(/] },
+  { mistake: "contains ignores accents", row: "contains, startsWith", rules: [/^contains ignores case but not accents \(/] },
+  { mistake: "starts with ignores accents", row: "contains, startsWith", rules: [/^starts with ignores case but not accents \(/] },
+  // A count with two sorts, cut inside rows that tie on the first.
+  { mistake: "the count is cut by the first sort alone", row: "a count at ties", rules: [NEXT_DECIDES] },
+  // A count with an empty cell in a later sorted column of each kind.
+  {
+    mistake: "the count leaves out a row with no value in a later sorted text or enum column",
+    row: "an empty later sort cell",
+    rules: [/^a count keeps a row with an empty cell in a later sorted column \(.*, then (Household|Advisor|Owner|Counterparty), /],
+  },
+  {
+    mistake: "the count leaves out a row with no value in a later sorted text or enum column",
+    row: "an empty later sort cell",
+    rules: [/^a count keeps a row with an empty cell in a later sorted column \(.*, then (Registration type|Custodian|Category), /],
+  },
+  {
+    mistake: "the count leaves out a row with empty text in a later sorted column",
+    row: "an empty later sort cell",
+    rules: [EMPTY_LATER_IN_COUNT],
+  },
+  // Beside an or group.
+  { mistake: "the sorts are dropped beside an or group", row: "sorting", rules: [/^a sort beside an or group still orders the rows \(/] },
+  {
+    mistake: "a filter on a hidden column is dropped in an or group",
+    row: "hidden columns",
+    rules: [/^a filter on a hidden column still holds in an or group \(/],
+  },
+  // Numbers sorted as numbers, and a read in pages.
+  { mistake: "numbers sort as text", row: "sorting", rules: [/^numbers sort by their value, not as text \(/] },
+  { mistake: "each page breaks ties its own way", row: "sorting", rules: [PAGED] },
+  // The classes the third held-out check of the Query Check found.
+  { mistake: "the count is cut by its first two sorts alone", row: "a count at ties", rules: [THIRD_DECIDES] },
+  { mistake: "only the first sort is used beside an or group", row: "sorting", rules: [TWO_SORTS_BESIDE_OR] },
+  { mistake: "the count is dropped beside an or group", row: "a count", rules: [COUNT_BESIDE_OR] },
+  {
+    mistake: "a filter on a hidden column is dropped in an or group inside an and",
+    row: "hidden columns",
+    rules: [HIDDEN_IN_NESTED_OR],
+  },
+  {
+    mistake: "the count drops a sort on a hidden column",
+    row: "hidden columns",
+    rules: [COUNT_HIDDEN_SORT, COUNT_HIDDEN_SECOND],
+  },
+  { mistake: "text sorts by its length first", row: "sorting", rules: [/^text sorts by its letters, ignoring case \(/] },
+  // The classes the review of the Query Check's second round found.
+  { mistake: "the first sort goes down when a filter is set", row: "sorting", rules: [SORT_BESIDE_FILTER] },
+  { mistake: "a sort on an enum is dropped when a filter is set", row: "sorting", rules: [SORT_BESIDE_FILTER] },
+  { mistake: "a sort on text is dropped when a filter is set", row: "sorting", rules: [SORT_BESIDE_FILTER] },
+  { mistake: "a sort on a hidden column is dropped when a filter is set", row: "hidden columns", rules: [HIDDEN_SORT_BESIDE_FILTER] },
+  { mistake: "only the first sort is used beside filters joined with and", row: "sorting", rules: [TWO_SORTS_BESIDE_FILTER] },
+  {
+    mistake: "a second sort on an enum always goes up",
+    row: "sorting",
+    rules: [/^a second sort on an enum orders the rows that tie on the first, by its values' IDs \(/],
+  },
+  {
+    mistake: "a second sort on text always goes down",
+    row: "sorting",
+    rules: [/^a second sort on text orders the rows that tie on the first, by its letters \(/],
+  },
+  { mistake: "a later sort goes up beside an or group inside an and", row: "sorting", rules: [TWO_SORTS_BESIDE_OR] },
+  { mistake: "only the last sort is used beside an or group of three or more", row: "sorting", rules: [TWO_SORTS_BESIDE_OR] },
+  {
+    mistake: "a filter on a hidden column is dropped in an and group inside an or",
+    row: "hidden columns",
+    rules: [HIDDEN_IN_NESTED_AND],
+  },
+  {
+    mistake: "the count is cut by the first sort alone when text or an enum is sorted next",
+    row: "a count at ties",
+    rules: [COLLATED_NEXT_DECIDES],
+  },
+  { mistake: "a count sorted by text or an enum first takes its rows from the end", row: "a count", rules: [COUNT_BY_COLLATED] },
+  { mistake: "a count cuts text by character code", row: "a count", rules: [COUNT_BY_COLLATED] },
+  { mistake: "a count beside a filter keeps every row that ties with its last row", row: "a count at ties", rules: [TIED_BESIDE_FILTER] },
+  { mistake: "the count is cut by its first three sorts alone", row: "a count at ties", rules: [FOURTH_DECIDES] },
+  { mistake: "the count drops a hidden last sort of three", row: "hidden columns", rules: [COUNT_HIDDEN_THIRD] },
+  // The classes the re-check of the Query Check's second round found.
+  { mistake: "a count beside an or group keeps every row that ties with its last row", row: "a count at ties", rules: [TIED_BESIDE_OR] },
+  {
+    mistake: "a count with a filter and a hidden sorted column keeps every row that ties with its last row",
+    row: "a count at ties",
+    rules: [TIED_BESIDE_HIDDEN],
+  },
+  { mistake: "the count is cut by the first sort alone beside an or group", row: "a count at ties", rules: [NEXT_BESIDE_OR] },
+  { mistake: "only the first sort is used beside a filter on a hidden column", row: "hidden columns", rules: [TWO_SORTS_BESIDE_HIDDEN] },
+  {
+    mistake: "a count beside a filter on a hidden column keeps one row too many",
+    row: "hidden columns",
+    rules: [COUNT_BESIDE_HIDDEN, TIED_BESIDE_HIDDEN],
+  },
+  {
+    mistake: "the sorts are used in reverse beside a filter on a hidden column",
+    row: "hidden columns",
+    rules: [TWO_SORTS_BESIDE_HIDDEN],
+  },
 ];
 
 describe("the self-check", () => {
@@ -2181,11 +4182,86 @@ describe("the self-check", () => {
         for (const rule of rules) {
           const named = failed.filter((message) => rule.test(message));
           expect(named.length, `${rule} among:\n${failed.join("\n")}`).toBeGreaterThan(0);
-          for (const message of named) expect(message).toMatch(/: (\d+ rows? (missing|extra), ids? |wrong order: id )/);
+          for (const message of named) {
+            expect(message).toMatch(
+              /: (\d+ rows? (missing|extra), ids? |wrong order: id |\d+ rows? came back, and the count asks for \d+)/,
+            );
+          }
         }
       });
     }
   }
+
+  // What a right Data Query may choose for itself (spec 5.5, `compare`; rulings R1 to R3). Each of these is a right
+  // Data Query, so each passes every case: the ones that cut inside tied rows and the ones that sort by two columns too.
+  const TIES = ["reverse load order", "load order", "id ascending", "id descending"] as const;
+  const EMPTIES = ["lowest", "highest", "first", "last"] as const;
+  for (const s of SUBJECTS) {
+    for (const ties of TIES) {
+      it(`${s.name}: a right Data Query that breaks ties by ${ties} passes every case`, () => {
+        const check = full(checkOf(s));
+        expect(check.cases.filter((c) => TIED.test(c.name)).length).toBeGreaterThan(0);
+        for (const empties of EMPTIES) {
+          expect(failuresOf(check, handQuery(check, s.schema, s.id, undefined, false, { ties, empties })), empties).toEqual([]);
+        }
+      });
+    }
+    for (const empties of EMPTIES) {
+      it(`${s.name}: a right Data Query that sorts an empty cell ${empties} passes every case, with instants in order too`, () => {
+        const check = full(checkOf(s));
+        expect(check.cases.filter((c) => LATER_EMPTY.test(c.name)).length).toBeGreaterThan(0);
+        expect(failuresOf(check, handQuery(check, s.schema, s.id, undefined, true, { empties }))).toEqual([]);
+        expect(failuresOf(check, handQuery(check, s.schema, s.id, undefined, true, { empties, ties: "load order" }))).toEqual([]);
+      });
+    }
+  }
+
+  // A Data Query that cuts before it filters may break ties its own way too. The case must catch it whichever of the
+  // rows that tie at its cut it takes, not only when it takes the ones core would.
+  it("a count cut before the filter fails whichever of the tied rows it takes", () => {
+    for (const s of SUBJECTS) {
+      const check = full(checkOf(s));
+      for (const ties of TIES) {
+        for (const empties of EMPTIES) {
+          const failed = failuresOf(
+            check,
+            handQuery(check, s.schema, s.id, "the count is cut before the filter", false, { ties, empties }),
+          );
+          expect(
+            failed.filter((message) => /^a count keeps the first rows of the sorted, filtered rows \(/.test(message)).length,
+            `${s.name}, ties by ${ties}, empty cells ${empties}`,
+          ).toBeGreaterThan(0);
+        }
+      }
+    }
+  });
+
+  it("the sorts dropped beside a filter fail with no count case at all", () => {
+    for (const s of SUBJECTS) {
+      const check = full(queryCheck(s.schema, { id: s.id }));
+      expect(check.cases.filter((c) => c.state.limit !== undefined)).toEqual([]);
+      const failed = failuresOf(check, handQuery(check, s.schema, s.id, "the sorts are dropped when a filter is set"));
+      expect(failed.length, s.name).toBeGreaterThan(0);
+      for (const message of failed) {
+        expect(message, s.name).toMatch(
+          /^(a sort (on a hidden column )?beside (a filter|an or group|a filter on a hidden column) still orders the rows|two sorts beside (a filter|an or group|a filter on a hidden column) order the rows by each in turn) \(.*\): wrong order: id \S+ came where id \S+ belongs$/,
+        );
+      }
+    }
+  });
+
+  it("é read as e fails the cases about é, and none about å: a collation that keeps å, ä and ö apart is still caught", () => {
+    for (const s of SUBJECTS) {
+      const check = full(checkOf(s));
+      const failed = failuresOf(check, handQuery(check, s.schema, s.id, "accents are ignored, but for å, ä and ö"));
+      expect(failed.length, s.name).toBeGreaterThan(0);
+      for (const message of failed) expect(message, s.name).toMatch(/é/i);
+      expect(
+        failed.filter((message) => /^equal ignores case but not accents \(/.test(message)),
+        s.name,
+      ).toEqual([]);
+    }
+  });
 
   it("a mistake fails only the cases whose view it touches", () => {
     const s = SUBJECTS[2] as Subject;
@@ -2223,21 +4299,43 @@ describe("the self-check", () => {
 // --- Small and odd schemas: a right Data Query must never fail ------------------------------------------------
 
 describe("a right Data Query passes on any schema", () => {
-  /** Both references pass every case: `applyView`, and the hand query that orders ties and empty cells another way. */
+  /**
+   * Every reference passes every case: `applyView`, the hand query that orders ties and empty cells another way, and
+   * hand queries that take each other choice a right Data Query may make (rulings R1 to R3).
+   */
   const passes = (schema: ViewSchema, id: string, more: Partial<QueryCheckOptions> = {}): QueryCheck => {
     const check = queryCheck(schema, { id, operations: WITH_COUNT, ...more });
     expect(failuresOf(check, applyViewQuery(check, schema, id))).toEqual([]);
     expect(failuresOf(check, handQuery(check, schema, id))).toEqual([]);
     expect(failuresOf(check, handQuery(check, schema, id, undefined, true))).toEqual([]);
+    expect(failuresOf(check, handQuery(check, schema, id, undefined, false, { ties: "id ascending", empties: "highest" }))).toEqual([]);
+    expect(failuresOf(check, handQuery(check, schema, id, undefined, true, { ties: "id descending", empties: "first" }))).toEqual([]);
+    expect(failuresOf(check, handQuery(check, schema, id, undefined, true, { ties: "load order", empties: "last" }))).toEqual([]);
     return check;
   };
 
-  it("text columns only: each is sorted on its own, and the only counts are about empty text", () => {
+  it("text columns only: each is sorted on its own, beside a filter, each or group and each hidden shape, and counted by its letters and its empty text", () => {
     const check = full(passes(defineSchema([{ id: "key" }, { id: "name" }, { id: "note" }]), "key"));
     const sorted = check.cases.filter((c) => c.state.sorts.length > 0 || c.state.limit !== undefined);
+    for (const c of sorted) expect(c.state.sorts, c.name).toHaveLength(1);
     expect(sorted.map((c) => c.name.replace(/ \(.*$/, "")).sort()).toEqual([
       "a count never keeps a row with no value in the first sorted column",
       "a count never keeps a row with no value in the first sorted column",
+      "a count sorted by text keeps its first rows by its letters, ignoring case",
+      "a count sorted by text keeps its first rows by its letters, ignoring case",
+      "a count sorted by text keeps its first rows by its letters, ignoring case",
+      "a count sorted by text keeps its first rows by its letters, ignoring case",
+      ...Array.from({ length: 8 }, () => "a sort beside a filter on a hidden column still orders the rows"),
+      "a sort beside a filter still orders the rows",
+      "a sort beside a filter still orders the rows",
+      "a sort beside a filter still orders the rows",
+      "a sort beside a filter still orders the rows",
+      "a sort beside an or group still orders the rows",
+      "a sort beside an or group still orders the rows",
+      "a sort beside an or group still orders the rows",
+      "a sort beside an or group still orders the rows",
+      "a sort on a hidden column beside a filter still orders the rows",
+      "a sort on a hidden column beside a filter still orders the rows",
       "a sort on a hidden column still orders the rows",
       "a sort on a hidden column still orders the rows",
       "text sorts by its letters, ignoring case",
@@ -2315,5 +4413,55 @@ describe("a right Data Query passes on any schema", () => {
       expect(new Set(check.cases.map((c) => c.name)).size, `seed ${seed}`).toBe(check.cases.length);
     }
     expect(cases).toBeGreaterThan(1000);
-  });
+    // Six right Data Queries on each of sixty schemas: a few seconds alone, and more when the whole suite runs at once.
+  }, 60_000);
+
+  // Rulings R1 to R3 leave three things to the Host. Whatever a right Data Query chooses for each, on any schema, it
+  // passes every case. The enums here declare IDs of letters, in both letter cases, so they are sorted second too.
+  it("twelve more seeded schemas, under every choice a right Data Query may make for ties and empty cells", () => {
+    const kinds: Array<ColumnDescriptor["kind"]> = ["string", "number", "currency", "percent", "date", "datetime", "boolean", "enum"];
+    const zones = [undefined, "America/New_York", "Asia/Kolkata", "Pacific/Auckland", "UTC"];
+    const words = ["alpha", "Bravo", "charlie", "delta", "Echo", "roth_ira"];
+    let cases = 0;
+    let tied = 0;
+    let later = 0;
+    for (let seed = 61; seed <= 72; seed++) {
+      const random = seededRandom(seed);
+      const pick = <T>(items: readonly T[]): T => items[Math.floor(random() * items.length)] as T;
+      const columns = Array.from({ length: 1 + Math.floor(random() * 7) }, (_, i) => ({ id: `c${i}`, kind: pick(kinds) }));
+      const overrides = Object.fromEntries(
+        columns.map((column) => [
+          column.id,
+          {
+            ...(column.kind === "enum" && random() < 0.8
+              ? { enumValues: Array.from({ length: 1 + Math.floor(random() * 5) }, (_, n) => ({ id: words[n] as string, label: `E${n}` })) }
+              : {}),
+            ...(random() < 0.15 ? { capabilities: ["filter" as const, "show" as const] } : {}),
+          },
+        ]),
+      );
+      const timeZone = pick(zones);
+      const schema = defineSchema([{ id: "key" }, ...columns], { columns: overrides, ...(timeZone ? { calendar: { timeZone } } : {}) });
+      const notNull = columns.filter(() => random() < 0.25).map((column) => column.id);
+      const id = random() < 0.5 ? "key" : "row_id";
+      const check = queryCheck(schema, { id, operations: WITH_COUNT, notNull });
+      cases += check.cases.length;
+      tied += check.cases.filter((c) => TIED.test(c.name)).length;
+      later += check.cases.filter((c) => LATER_EMPTY.test(c.name)).length;
+      expect(failuresOf(check, applyViewQuery(check, schema, id)), `seed ${seed}`).toEqual([]);
+      for (const ties of ["reverse load order", "load order", "id ascending", "id descending"] as const) {
+        for (const empties of ["lowest", "highest", "first", "last"] as const) {
+          for (const byInstant of [false, true]) {
+            expect(
+              failuresOf(check, handQuery(check, schema, id, undefined, byInstant, { ties, empties })),
+              `seed ${seed} ${ties} ${empties} ${byInstant}`,
+            ).toEqual([]);
+          }
+        }
+      }
+    }
+    expect(cases).toBeGreaterThan(1000);
+    expect(tied).toBeGreaterThan(30);
+    expect(later).toBeGreaterThan(8);
+  }, 60_000);
 });
