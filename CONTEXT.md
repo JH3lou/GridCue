@@ -129,8 +129,20 @@ The translator between GridCue's View State and one specific grid library.
 _Avoid_: Driver, connector, plugin
 
 **Rows Adapter**:
-GridCue's built-in Grid Adapter for Hosts that hold their rows in memory. It applies View State to the rows so any table can render the result.
+GridCue's built-in Grid Adapter for Hosts that hold their rows in memory. It applies View State to the rows so any table can render the result. For rows on a server, see Query Adapter.
 _Avoid_: Default adapter, in-memory grid, local engine
+
+**Data Query**:
+The Host's own request to its server for the rows a View State asks for, such as a database query or an API call. GridCue never writes one.
+_Avoid_: Backend query, server filter, SQL
+
+**Query Adapter**:
+GridCue's built-in Grid Adapter for Hosts whose rows come from their own Data Query. It holds the View State and lists only the View Operations that Data Query can carry out.
+_Avoid_: Remote adapter, server adapter, SQL adapter
+
+**Query Check**:
+Synthetic rows and View States, built from a View Schema, that a Host runs through its own Data Query to prove it keeps the same rows GridCue would.
+_Avoid_: Conformance suite, contract suite, SQL tests
 
 **Candidate**:
 One option in a closed set of choices offered to an Intent Provider, always including an explicit "none" or "unsupported" option.
