@@ -129,10 +129,17 @@ const namedFixesHeldOut2 = await run(
   new URL("./cases-named-fixes-heldout-r2.jsonl", import.meta.url),
   "cases-named-fixes-heldout-r2.jsonl",
 );
+// A count follows its rows (operation set spec, 5.1): requests made after a count, and the count's own words. Each case
+// starts from the view in its state. With the Mock Provider each case must match: 25 exact, 15 asked as labelled, of 40.
+const count = await run(new URL("./cases-count.jsonl", import.meta.url), "cases-count.jsonl");
+// The same classes in other words, labelled before the code and first run after it (2026-11-13). With the Mock Provider:
+// 19 exact, 26 asked as labelled, 3 safe misses, 0 wrong views, of 48. Its safe misses are reported, not failed; a
+// wrong view fails.
+const countHeldOut = await run(new URL("./cases-count-heldout.jsonl", import.meta.url), "cases-count-heldout.jsonl");
 
 // Applying a view the user did not ask for is release-blocking with any provider.
 // With the Mock Provider every core case must match exactly, because its answers are deterministic.
-const all = [core, extra, fanout, chassis, reading, readingHeldOut, namedFixes, namedFixesHeldOut, namedFixesHeldOut2];
-const mockMustMatch = [core, namedFixes, namedFixesHeldOut];
+const all = [core, extra, fanout, chassis, reading, readingHeldOut, namedFixes, namedFixesHeldOut, namedFixesHeldOut2, count, countHeldOut];
+const mockMustMatch = [core, namedFixes, namedFixesHeldOut, count];
 if (all.some((counts) => (counts?.unsafe ?? 0) > 0) || (!live && mockMustMatch.some((counts) => counts.mismatch > 0))) process.exit(1);
 if (strict && all.some((counts) => (counts?.mismatch ?? 0) > 0)) process.exit(1);

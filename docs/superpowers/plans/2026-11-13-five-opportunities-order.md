@@ -329,6 +329,9 @@ The review of each planning record left these to the lead. None changes an appro
 | 1 | A count set on a grid that keeps none (O1) | A question with no choices, "This grid can't show only the first 5 rows." G3 moves it onto the shared result |
 | 1 | The ID of the "this grid can't" question (G3) | It starts with its Clause's index, so the command bar can show it beside its part |
 | 1 | ADR 0018's count bullet | G0 adds the sentence for a backend that cuts before paging. O1 rewrites the bullet and keeps that sentence |
+| 1 | "Show every row" where there is no count to clear (O1) | Read only on a grid that lists `limit.set`, and not on a filtered view with no count, where it may mean the rows the filters leave out. Elsewhere it goes to the provider as before, which is narrower than the operation set spec's 5.1 and errs toward asking |
+| 1 | Count words said before a change in the same request (O1) | "Show only the first 5 rows, sorted by advisor" asks, as does a count word before a reset. Said after the change, the count is the request's own and reads |
+| 1 | What "no value" means for a count (O1) | `null`, a missing key, an empty string and `NaN`, as `isEmpty` in core already says |
 | 2 | The code for a `now` that throws (N5) | `INPUT_CLOCK` |
 | 2 | The words table in named filters' spec, section 9 | The lead shows it to the owner when wave 1 clears. Wave 2 does not wait for an answer |
 | 3 | Totals an adapter doesn't apply (O3) | O3 settles how an adapter says which functions it applies, before its code, and the lead checks it |
