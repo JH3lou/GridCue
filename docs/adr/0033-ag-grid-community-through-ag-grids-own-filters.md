@@ -1,6 +1,6 @@
 # AG Grid Community through AG Grid's own filters
 
-**Status:** accepted with the more grids spec (2026-11-13). Built in more grids PR 6, which puts the setting on each column rather than in one default column definition (below).
+**Status:** accepted with the more grids spec (2026-11-13). Built in more grids PR 6, which puts the setting on each column rather than in one default column definition (below). The owner approved that change on 2026-11-24.
 
 GridCue gains a Grid Adapter for AG Grid Community, in a new `gridcue/ag-grid` entry. It writes filters into AG Grid's own column filters, set to GridCue's meanings, and reads them back.
 
