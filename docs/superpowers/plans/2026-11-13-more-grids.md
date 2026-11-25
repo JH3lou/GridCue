@@ -63,78 +63,78 @@ Spec 4.2 and 5.1. ADR 0031.
 
 ### Task 1.1: Harnesses (Sonnet)
 **Files:** `packages/gridcue/test/tanstack.test.ts`, `packages/gridcue/test/adapter-contract.ts`.
-- [ ] The new contract test, "applies, then undoes": apply a two-operation plan and expect `getState()` to hold the written state and the very Revision `apply` returned (today's defect); then `restore` the snapshot taken before, and expect the first state back with a new Revision.
-- [ ] Three dev harnesses from spec section 10 that run the whole suite through `renderHook`: table-owned; Host-controlled sorting and filters with handlers; `useLegacyTable` Host-controlled.
-- [ ] A fourth, Host-controlled sorting with no handler. It takes no write, so it runs one test: the apply fails and the table is unchanged.
-- [ ] `@tanstack/react-table` 9.2.4, exact, in `packages/gridcue` dev dependencies.
+- [x] The new contract test, "applies, then undoes": apply a two-operation plan and expect `getState()` to hold the written state and the very Revision `apply` returned (today's defect); then `restore` the snapshot taken before, and expect the first state back with a new Revision.
+- [x] Three dev harnesses from spec section 10 that run the whole suite through `renderHook`: table-owned; Host-controlled sorting and filters with handlers; `useLegacyTable` Host-controlled.
+- [x] A fourth, Host-controlled sorting with no handler. It takes no write, so it runs one test: the apply fails and the table is unchanged.
+- [x] `@tanstack/react-table` 9.2.4, exact, in `packages/gridcue` dev dependencies.
 
 ### Task 1.2: The wait (Opus)
 **Files:** `packages/gridcue/src/tanstack/index.ts`, `packages/gridcue/src/core/adapter.ts` (doc comment only), `packages/gridcue/src/core/controller.ts` (the recovery), tests. Needs 1.1.
-- [ ] Tests first: owned returns in the same tick; controlled waits for the render; no handler fails after 1,000 ms and the Controller says "Nothing was changed"; a manual change during the wait fails with recovery; `restore` waits the same way.
-- [ ] The recovery after a failed apply: a part of the view the plan writes is the plan's own only when it holds its old value or the value the plan wrote. Test: a sort apply waits, the User clicks a header and changes the sort, the wait fails, and the User's sort stays.
-- [ ] After a write, compare the table's View State with the written one; wait on store notifications up to the bound; return the store's Revision.
-- [ ] `GridAdapter.apply`'s doc comment states 4.2.
+- [x] Tests first: owned returns in the same tick; controlled waits for the render; no handler fails after 1,000 ms and the Controller says "Nothing was changed"; a manual change during the wait fails with recovery; `restore` waits the same way.
+- [x] The recovery after a failed apply: a part of the view the plan writes is the plan's own only when it holds its old value or the value the plan wrote. Test: a sort apply waits, the User clicks a header and changes the sort, the wait fails, and the User's sort stays.
+- [x] After a write, compare the table's View State with the written one; wait on store notifications up to the bound; return the store's Revision.
+- [x] `GridAdapter.apply`'s doc comment states 4.2.
 
 ### Task 1.3: Held-out run (lead)
-- [ ] Write the two held-out harnesses from spec section 10 after the build. Run the suite once. Report pass or fail per test, and the wait's median and worst.
+- [x] Write the two held-out harnesses from spec section 10 after the build. Run the suite once. Report pass or fail per test, and the wait's median and worst. An agent that did not build the code wrote and ran them, and the lead reports.
 
 ### Task 1.4: Docs (Sonnet), changelog (Haiku)
-- [ ] Site: `guides/vite-tanstack` (a controlled slice needs its handler; set state, then fetch), `guides/build-an-adapter` (the new test; an apply is done when the grid holds it).
-- [ ] `skills/gridcue/references/troubleshooting.md`: "Undo refused on a controlled table" and its fix. `pnpm check:skills`.
-- [ ] `packages/gridcue/CHANGELOG.md`.
+- [x] Site: `guides/vite-tanstack` (a controlled slice needs its handler; set state, then fetch), `guides/build-an-adapter` (the new test; an apply is done when the grid holds it).
+- [x] `skills/gridcue/references/troubleshooting.md`: "Undo refused on a controlled table" and its fix. `pnpm check:skills`.
+- [x] `packages/gridcue/CHANGELOG.md`.
 
 ### Task 1.5: Review (Opus), gate
-- [ ] Both UIs: no change; a smoke check that apply and undo work in the Vite example.
+- [x] Both UIs: no change; a smoke check that apply and undo work in the Vite example.
 
 ## PR 2: v8 apps through `useLegacyTable` (`docs/tanstack-v8-bridge`)
 
 Spec 5.2. Needs PR 1.
 
 ### Task 2.1: Label (lead)
-- [ ] Name the six TanStack v8 examples from spec section 10 before the guide exists. Fetch them into scratch, outside the repo, at v8.21.3.
+- [x] Name the six TanStack v8 examples from spec section 10 before the guide exists. Fetch them into scratch, outside the repo, at v8.21.3.
 
 ### Task 2.2: CI run and guide (Sonnet)
 **Files:** `packages/gridcue/test/tanstack-legacy.test.ts`, `apps/site/content/docs/guides/tanstack-v8.mdx`, `apps/site/content/docs/guides/meta.json`.
-- [ ] The contract suite on `useLegacyTable`, owned and Host-controlled.
-- [ ] The guide: install `@tanstack/react-table@9`; change the import to `/legacy`; add GridCue as for v9; then move to `useTable`. It says React 18 is needed for v9 and 19 for `gridcue/react`, and that the Rows Adapter remains for apps that can't move.
+- [x] The contract suite on `useLegacyTable`, owned and Host-controlled.
+- [x] The guide: install `@tanstack/react-table@9`; change the import to `/legacy`; add GridCue as for v9; then move to `useTable`. It says React 18 is needed for v9 and 19 for `gridcue/react`, and that the Rows Adapter remains for apps that can't move.
 
 ### Task 2.3: Held-out run (Sonnet, a separate agent; lead reports)
-- [ ] An agent that didn't write the guide moves each of the six examples using only the guide, in scratch. The lead reports how many run unchanged after the import change and what each other one needed. No bar; a failure goes to the owner.
+- [x] An agent that didn't write the guide moves each of the six examples using only the guide, in scratch. The lead reports how many run unchanged after the import change and what each other one needed. No bar; a failure goes to the owner.
 
 ### Task 2.4: Skill (Sonnet), links (Haiku)
-- [ ] `skills/gridcue/references/setup.md`: the v8 row becomes the steps. `pnpm check:skills`.
-- [ ] `get-started/quick-start` links the new guide.
+- [x] `skills/gridcue/references/setup.md`: the v8 row becomes the steps. `pnpm check:skills`.
+- [x] `get-started/quick-start` links the new guide.
 
 ### Task 2.5: Review (Opus), gate
-- [ ] A throwaway copy of the Vite example on `useLegacyTable`, outside the repo, checked in a real browser, light and dark. Screenshots in the PR.
+- [x] A throwaway copy of the Vite example on `useLegacyTable`, outside the repo, checked in a real browser, light and dark. Screenshots in the PR. The lead made the copy as a local edit of the example, following the guide's steps, and discarded it.
 
 ## PR 3: A grid that can't group says so (`fix/grid-cant-group`)
 
 Spec 5.3.
 
 ### Task 3.1: Label (Sonnet)
-- [ ] 25 dev requests on an adapter without `group.set`: grouping alone, grouping with a filter or sort, "ungroup", and controls where "group" is a value or a column label.
-- [ ] 25 held-out requests of the same classes, outside the repo, written before any code.
-- [ ] An eval mode that runs every existing set on an adapter without `group.set`, with expected results derived: a case whose expected plan groups must end not applied.
+- [x] 25 dev requests on an adapter without `group.set`: grouping alone, grouping with a filter or sort, "ungroup", and controls where "group" is a value or a column label.
+- [x] 25 held-out requests of the same classes, outside the repo, written before any code.
+- [x] An eval mode that runs every existing set on an adapter without `group.set`, with expected results derived: a case whose expected plan groups must end not applied.
 
 ### Task 3.2: The prompt and the hint (Opus)
 **Files:** `packages/gridcue/src/core/compile.ts`, tests, `evals/run.ts`, `evals/evals.test.ts`.
-- [ ] Tests first, one per row of the table in spec 5.3.
-- [ ] A grouping verb read by code, on a grid without `group.set`, ends in the required Clarification "This grid can't group rows." with no options. Nothing in the request applies.
-- [ ] The result comes from one function that takes the operation the grid doesn't list, so the operation set's pins, density and totals reuse it (order plan). The count question the operation set's PR 1 asks on a grid without `limit.set` moves onto it.
-- [ ] The Clarification's ID starts with its Clause's index, as the compiler's other questions do, so the command bar can show it beside its part (command bar spec).
-- [ ] The hint at `compile.ts:661` lists only the grid's families.
-- [ ] Bars on the dev set: 0 wrong views; on the Rows Adapter, every existing verdict unchanged.
+- [x] Tests first, one per row of the table in spec 5.3.
+- [x] A grouping verb read by code, on a grid without `group.set`, ends in the required Clarification "This grid can't group rows." with no options. Nothing in the request applies.
+- [x] The result comes from one function that takes the operation the grid doesn't list, so the operation set's pins, density and totals reuse it (order plan). The count question the operation set's PR 1 asks on a grid without `limit.set` moves onto it.
+- [x] The Clarification's ID starts with its Clause's index, as the compiler's other questions do, so the command bar can show it beside its part (command bar spec).
+- [x] The hint at `compile.ts:661` lists only the grid's families.
+- [x] Bars on the dev set: 0 wrong views; on the Rows Adapter, every existing verdict unchanged.
 
 ### Task 3.3: Held-out run (lead)
-- [ ] Run once. Report wrong views, exact, and safe misses. A wrong view goes back as a class.
+- [x] Run once. Report wrong views, exact, and safe misses. A wrong view goes back as a class.
 
 ### Task 3.4: Docs (Sonnet), changelog (Haiku)
-- [ ] Site: `concepts/requests` (what a grid that can't group says).
-- [ ] `packages/gridcue/CHANGELOG.md`.
+- [x] Site: `concepts/requests` (what a grid that can't group says).
+- [x] `packages/gridcue/CHANGELOG.md`.
 
 ### Task 3.5: Review (Opus), gate
-- [ ] Both UIs show the new prompt in the status row: the Vite example on a test adapter without `group.set`, and the registry command bar. Light and dark.
+- [x] Both UIs show the new prompt in the status row: the Vite example on a test adapter without `group.set`, and the registry command bar. Light and dark.
 
 ## PR 4: The Query Adapter (`feat/query-adapter`)
 

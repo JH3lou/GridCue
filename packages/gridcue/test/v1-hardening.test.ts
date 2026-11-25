@@ -1,4 +1,15 @@
+import {
+  columnFilteringFeature,
+  columnGroupingFeature,
+  columnOrderingFeature,
+  columnVisibilityFeature,
+  constructTable,
+  rowSortingFeature,
+  tableFeatures,
+} from "@tanstack/table-core";
+import { storeReactivityBindings } from "@tanstack/table-core/store-reactivity-bindings";
 import { describe, expect, it, vi } from "vitest";
+import type { GridAdapter } from "../src/core/adapter";
 import { compile } from "../src/core/compile";
 import { createGridCue } from "../src/core/controller";
 import { normalize } from "../src/core/normalize";
@@ -6,7 +17,9 @@ import { emptyViewState } from "../src/core/protocol";
 import type { IntentProvider } from "../src/core/resolution";
 import { createRowsAdapter } from "../src/core/rows-adapter";
 import { defineSchema } from "../src/core/schema";
+import { resultingState } from "../src/core/validate";
 import { createMockProvider } from "../src/mock";
+import { createTanStackAdapter, gridcueFilterFn, type TanStackTableLike } from "../src/tanstack";
 
 // v1 hardening (docs/planning/v1-release-grill.md, Q1): a User is never left waiting, stuck, or at a dead end.
 const schema = defineSchema([{ id: "name" }, { id: "value", kind: "currency" }]);
@@ -73,55 +86,101 @@ describe("apply and undo never stick", () => {
     });
   }
 
-  it("restores the previous view when a write throws part-way", async () => {
-    const adapter = createRowsAdapter({ schema });
-    const cue = createGridCue({ adapter, provider: mock });
-    const before = adapter.getState().state;
-    await cue.propose("sort by value");
-    const realApply = adapter.apply.bind(adapter);
-    adapter.apply = async (plan) => {
-      await realApply(plan);
-      throw new Error("half-written");
-    };
-    expect(await cue.apply()).toBe(false);
-    expect(adapter.getState().state).toEqual(before);
-    expect(cue.getState()).toMatchObject({ status: "error", message: "The grid couldn't apply that change. The previous view is back." });
-  });
+  // The recovery after a write that throws, on both first-release adapters.
+  const tanstackAdapter = (): GridAdapter => {
+    const table = constructTable({
+      features: tableFeatures({
+        coreReactivityFeature: storeReactivityBindings(),
+        columnFilteringFeature,
+        rowSortingFeature,
+        columnGroupingFeature,
+        columnVisibilityFeature,
+        columnOrderingFeature,
+      }),
+      data: [],
+      defaultColumn: { filterFn: gridcueFilterFn },
+      columns: [{ accessorKey: "name" }, { accessorKey: "value" }],
+    } as never) as unknown as TanStackTableLike;
+    return createTanStackAdapter({ schema, table });
+  };
+  const adapters: Array<[string, () => GridAdapter]> = [
+    ["Rows Adapter", () => createRowsAdapter({ schema })],
+    ["TanStack Table adapter", tanstackAdapter],
+  ];
+  for (const [name, makeAdapter] of adapters) {
+    describe(name, () => {
+      it("restores the previous view when a write throws part-way", async () => {
+        const adapter = makeAdapter();
+        const cue = createGridCue({ adapter, provider: mock });
+        const before = adapter.getState().state;
+        await cue.propose("sort by value");
+        const realApply = adapter.apply.bind(adapter);
+        adapter.apply = async (plan) => {
+          await realApply(plan);
+          throw new Error("half-written");
+        };
+        expect(await cue.apply()).toBe(false);
+        expect(adapter.getState().state).toEqual(before);
+        expect(cue.getState()).toMatchObject({
+          status: "error",
+          message: "The grid couldn't apply that change. The previous view is back.",
+        });
+      });
 
-  it("restores the previous view when a write stops with an in-between value", async () => {
-    const adapter = createRowsAdapter({ schema });
-    const cue = createGridCue({ adapter, provider: mock });
-    const before = adapter.getState().state;
-    await cue.propose("sort by value");
-    adapter.apply = async () => {
-      // The write got as far as a sort that is neither the old one nor the plan's, then failed.
-      const now = adapter.getState();
-      await adapter.restore({ ...now, state: { ...now.state, sorts: [{ columnId: "name", direction: "asc" }] } });
-      throw new Error("half-written");
-    };
-    expect(await cue.apply()).toBe(false);
-    expect(adapter.getState().state).toEqual(before);
-    expect(cue.getState().message).toBe("The grid couldn't apply that change. The previous view is back.");
-  });
+      it("restores the previous view when a write stops between parts", async () => {
+        const adapter = makeAdapter();
+        const cue = createGridCue({ adapter, provider: mock });
+        const before = adapter.getState().state;
+        await cue.propose("sort by value, hide name");
+        expect(cue.getState().status).toBe("ready");
+        adapter.apply = async (plan) => {
+          // The write got as far as the plan's sort, then failed before hiding the column.
+          const now = adapter.getState();
+          await adapter.restore({ ...now, state: { ...now.state, sorts: resultingState(plan).sorts } });
+          throw new Error("half-written");
+        };
+        expect(await cue.apply()).toBe(false);
+        expect(adapter.getState().state).toEqual(before);
+        expect(cue.getState().message).toBe("The grid couldn't apply that change. The previous view is back.");
+      });
 
-  it("leaves the view alone when a newer change landed before recovery", async () => {
-    const adapter = createRowsAdapter({ schema });
-    const cue = createGridCue({ adapter, provider: mock });
-    await cue.propose("sort by value");
-    const realApply = adapter.apply.bind(adapter);
-    adapter.apply = async (plan) => {
-      await realApply(plan);
-      // Someone else hides a column before GridCue can recover.
-      const now = adapter.getState();
-      await adapter.restore({ ...now, state: { ...now.state, visibleColumnIds: ["value"] } });
-      throw new Error("half-written");
-    };
-    expect(await cue.apply()).toBe(false);
-    expect(adapter.getState().state.visibleColumnIds).toEqual(["value"]);
-    expect(cue.getState().message).toBe(
-      "The grid couldn't apply that change, and the view changed meanwhile, so GridCue left it as it is.",
-    );
-  });
+      it("leaves the view alone when a part the plan writes holds a value the plan didn't write", async () => {
+        const adapter = makeAdapter();
+        const cue = createGridCue({ adapter, provider: mock });
+        await cue.propose("sort by value");
+        adapter.apply = async () => {
+          // The User sorts by name before the write lands. That sort is a newer change, not the plan's.
+          const now = adapter.getState();
+          await adapter.restore({ ...now, state: { ...now.state, sorts: [{ columnId: "name", direction: "asc" }] } });
+          throw new Error("half-written");
+        };
+        expect(await cue.apply()).toBe(false);
+        expect(adapter.getState().state.sorts).toEqual([{ columnId: "name", direction: "asc" }]);
+        expect(cue.getState().message).toBe(
+          "The grid couldn't apply that change, and the view changed meanwhile, so GridCue left it as it is.",
+        );
+      });
+
+      it("leaves the view alone when a newer change landed before recovery", async () => {
+        const adapter = makeAdapter();
+        const cue = createGridCue({ adapter, provider: mock });
+        await cue.propose("sort by value");
+        const realApply = adapter.apply.bind(adapter);
+        adapter.apply = async (plan) => {
+          await realApply(plan);
+          // Someone else hides a column before GridCue can recover.
+          const now = adapter.getState();
+          await adapter.restore({ ...now, state: { ...now.state, visibleColumnIds: ["value"] } });
+          throw new Error("half-written");
+        };
+        expect(await cue.apply()).toBe(false);
+        expect(adapter.getState().state.visibleColumnIds).toEqual(["value"]);
+        expect(cue.getState().message).toBe(
+          "The grid couldn't apply that change, and the view changed meanwhile, so GridCue left it as it is.",
+        );
+      });
+    });
+  }
 
   it("reports an error instead of throwing when undo can't read the grid", async () => {
     const adapter = createRowsAdapter({ schema });

@@ -40,9 +40,10 @@ One atomic kind of view change. GridCue proposes these:
 | `columns.show` | Show Concentration |
 | `columns.hide` | Hide Account number |
 | `columns.order` | Put Advisor and Market value first |
+| `limit.set` | Show only the first 10 rows, or Show every row |
 | `view.reset` | Reset the view |
 
-Clearing sorting or grouping is a `sort.set` or `group.set` with an empty list. Pinning, aggregation and density are declared in the protocol for later; GridCue does not propose them today.
+Clearing sorting or grouping is a `sort.set` or `group.set` with an empty list. A count is a `limit.set`: it keeps the first rows of the sorted view, and a row with no value in the first sorted column never fills it, so "top 10" on a column where only 7 rows have a value shows 7. Clearing the count is a `limit.set` with `null`. A count belongs to the view, so changing the sort or the filters of a counted view asks before it plans anything (see [Requests](/docs/concepts/requests)). Pinning, aggregation and density are declared in the protocol for later; GridCue does not propose them today.
 
 ## View Plan
 
