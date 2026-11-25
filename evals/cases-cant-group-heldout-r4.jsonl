@@ -1,0 +1,55 @@
+{"id":"r4-regroup-by","grid":"no-group","utterance":"regroup by custodian","expect":{"mustNotBeReady":true}}
+{"id":"r4-regroup-bare","grid":"no-group","utterance":"Please regroup everything","expect":{"mustNotBeReady":true}}
+{"id":"r4-subgroup-by","grid":"no-group","utterance":"subgroup by registration type","expect":{"mustNotBeReady":true}}
+{"id":"r4-subgroups-after-sort","grid":"no-group","utterance":"Sort by market value largest first, then subgroups by advisor","expect":{"mustNotBeReady":true}}
+{"id":"r4-regrouped-by","grid":"no-group","utterance":"Show the accounts regrouped by household","expect":{"mustNotBeReady":true}}
+{"id":"r4-groupwise","grid":"no-group","utterance":"groupwise view of the custodians","expect":{"mustNotBeReady":true}}
+{"id":"r4-groupwise-after-filter","grid":"no-group","utterance":"Only trusts, groupwise by advisor","expect":{"mustNotBeReady":true}}
+{"id":"r4-groupings-plural","grid":"no-group","utterance":"I want groupings by custodian","expect":{"mustNotBeReady":true}}
+{"id":"r4-groupby-joined","grid":"no-group","utterance":"groupby registration type","expect":{"mustNotBeReady":true}}
+{"id":"r4-group-by-hyphen","grid":"no-group","utterance":"do a group-by on advisor","expect":{"mustNotBeReady":true}}
+{"id":"r4-group-by-after-filter","grid":"no-group","utterance":"Accounts over $1 million, group-by custodian","expect":{"mustNotBeReady":true}}
+{"id":"r4-bare-plural-before-column","grid":"no-group","utterance":"groups advisor","expect":{"mustNotBeReady":true}}
+{"id":"r4-bare-plural-after-column","grid":"no-group","utterance":"advisor groups","expect":{"mustNotBeReady":true}}
+{"id":"r4-ing-before-value","grid":"no-group","utterance":"grouping Northgate accounts","expect":{"mustNotBeReady":true}}
+{"id":"r4-ing-after-value","grid":"no-group","utterance":"Roth accounts grouping","expect":{"mustNotBeReady":true}}
+{"id":"r4-ing-after-column","grid":"no-group","utterance":"custodian grouping please","expect":{"mustNotBeReady":true}}
+{"id":"r4-keep-then-column","grid":"no-group","utterance":"Clear the sort, keep the grouping by advisor","expect":{"mustNotBeReady":true}}
+{"id":"r4-without-then-column","grid":"no-group","utterance":"Sort by market value without grouping custodian","expect":{"mustNotBeReady":true}}
+{"id":"r4-not-then-column","grid":"no-group","utterance":"Clear the filters, not the grouping on household","expect":{"mustNotBeReady":true}}
+{"id":"r4-leave-out-then-sort","grid":"no-group","utterance":"leave out grouping and sort by gain","expect":{"mustNotBeReady":true}}
+{"id":"r4-keep-then-filter","grid":"no-group","utterance":"keep the groups only for trusts","expect":{"mustNotBeReady":true}}
+{"id":"r4-keep-nothing-after","grid":"no-group","utterance":"Clear the sort, keep the grouping.","expect":{"status":"ready","operations":[{"type":"sort.set","sorts":[]}]}}
+{"id":"r4-without-nothing-after","grid":"no-group","utterance":"Sort by market value largest first without grouping","expect":{"status":"ready","operations":[{"type":"sort.set","sorts":[{"columnId":"market_value","direction":"desc"}]}]}}
+{"id":"r4-not-nothing-after","grid":"no-group","utterance":"Clear the filters, not the grouping","expect":{"status":"ready","operations":[{"type":"filter.clear"}]}}
+{"id":"r4-keep-and-join","grid":"no-group","utterance":"Show IRAs at Northgate, but keep the grouping and","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"registration_type","operator":"eq","value":"ira"}},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"custodian","operator":"eq","value":"northgate"}}]}}
+{"id":"r4-after-like","grid":"no-group","utterance":"households like group","expect":{"mustNotBeReady":true}}
+{"id":"r4-after-matching","grid":"no-group","utterance":"accounts matching grouped","expect":{"mustNotBeReady":true}}
+{"id":"r4-after-called","grid":"no-group","utterance":"advisors called regroup","expect":{"mustNotBeReady":true}}
+{"id":"r4-after-named","grid":"no-group","utterance":"households named Groupings Trust","expect":{"mustNotBeReady":true}}
+{"id":"r4-after-contains","grid":"no-group","utterance":"household contains group and sort by market value","expect":{"mustNotBeReady":true}}
+{"id":"r4-quoted-household","grid":"no-group","utterance":"Households named \"Group of Seven\"","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"household","operator":"contains","value":"Group of Seven"}}]}}
+{"id":"r4-quoted-with-sort","grid":"no-group","utterance":"Households containing \"regrouping\", sort by market value largest first","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"household","operator":"contains","value":"regrouping"}},{"type":"sort.set","sorts":[{"columnId":"market_value","direction":"desc"}]}]}}
+{"id":"r4-quoted-then-real-group","grid":"no-group","utterance":"Households named \"Group of Seven\", group by custodian","expect":{"status":"needs_clarification","clarificationPrompt":"This grid can't group rows."}}
+{"id":"r4-verb-group-alone","grid":"no-group","utterance":"group accounts by custodian","expect":{"status":"needs_clarification","clarificationPrompt":"This grid can't group rows."}}
+{"id":"r4-verb-group-bare-column","grid":"no-group","utterance":"Group advisors","expect":{"status":"needs_clarification","clarificationPrompt":"This grid can't group rows."}}
+{"id":"r4-verb-grouped-by-value-first","grid":"no-group","utterance":"Trusts grouped by advisor","expect":{"status":"needs_clarification","clarificationPrompt":"This grid can't group rows."}}
+{"id":"r4-verb-grouped-by-polite","grid":"no-group","utterance":"Could you show everything grouped by registration type?","expect":{"status":"needs_clarification","clarificationPrompt":"This grid can't group rows."}}
+{"id":"r4-verb-ungroup-alone","grid":"no-group","utterance":"ungroup","expect":{"status":"needs_clarification","clarificationPrompt":"This grid can't group rows."}}
+{"id":"r4-verb-ungroup-polite","grid":"no-group","utterance":"Please ungroup the rows","expect":{"status":"needs_clarification","clarificationPrompt":"This grid can't group rows."}}
+{"id":"r4-verb-group-with-filter","grid":"no-group","utterance":"Only Harborline accounts, and group by household","expect":{"status":"needs_clarification","clarificationPrompt":"This grid can't group rows."}}
+{"id":"r4-verb-group-with-sort","grid":"no-group","utterance":"Sort by gain largest first and group them by advisor","expect":{"status":"needs_clarification","clarificationPrompt":"This grid can't group rows."}}
+{"id":"r4-verb-grouped-with-hide","grid":"no-group","utterance":"Hide tax status and show accounts grouped by custodian","expect":{"status":"needs_clarification","clarificationPrompt":"This grid can't group rows."}}
+{"id":"r4-verb-group-with-count","grid":"no-group","utterance":"How many accounts are there, grouped by custodian?","expect":{"status":"needs_clarification","clarificationPrompt":"This grid can't group rows."}}
+{"id":"r4-verb-ungroup-with-filter","grid":"no-group","utterance":"Ungroup, then show trusts","expect":{"status":"needs_clarification","clarificationPrompt":"This grid can't group rows."}}
+{"id":"r4-verb-group-two-columns","grid":"no-group","utterance":"group by custodian then registration type","expect":{"status":"needs_clarification","clarificationPrompt":"This grid can't group rows."}}
+{"id":"r4-plain-filter-1","grid":"no-group","utterance":"Show accounts over $2 million.","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"market_value","operator":"gt","value":2000000}}]}}
+{"id":"r4-plain-filter-2","grid":"no-group","utterance":"Only taxable accounts with concentration above 20%.","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"registration_type","operator":"eq","value":"taxable"}},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"concentration","operator":"gt","value":0.2}}]}}
+{"id":"r4-plain-sort-1","grid":"no-group","utterance":"Sort by market value smallest to largest","expect":{"status":"ready","operations":[{"type":"sort.set","sorts":[{"columnId":"market_value","direction":"asc"}]}]}}
+{"id":"r4-plain-sort-2","grid":"no-group","utterance":"Sort by acct, descending.","expect":{"status":"ready","operations":[{"type":"sort.set","sorts":[{"columnId":"account_number","direction":"desc"}]}]}}
+{"id":"r4-plain-hide-1","grid":"no-group","utterance":"Hide custodian and household.","expect":{"status":"ready","operations":[{"type":"columns.hide","columnIds":["custodian","household"]}]}}
+{"id":"r4-plain-hide-2","grid":"no-group","utterance":"Hide account numbers.","expect":{"status":"ready","operations":[{"type":"columns.hide","columnIds":["account_number"]}]}}
+{"id":"r4-plain-two-values","grid":"no-group","utterance":"Only IRA and Roth accounts.","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"registration_type","operator":"in","value":["ira","roth_ira"]}}]}}
+{"id":"r4-plain-retirement","grid":"no-group","utterance":"Show retirement accounts.","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"registration_type","operator":"in","value":["ira","roth_ira"]}}]}}
+{"id":"r4-plain-clear","grid":"no-group","utterance":"Clear the filters and sorting.","expect":{"status":"ready","operations":[{"type":"filter.clear"},{"type":"sort.set","sorts":[]}]}}
+{"id":"r4-plain-gain","grid":"no-group","utterance":"Show gain over $50k.","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"unrealized_gain","operator":"gt","value":50000}}]}}

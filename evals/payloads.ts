@@ -73,7 +73,8 @@ export const recordPayloads = async (run: Run = runCase): Promise<string> => {
     if (seen.has(`${file}: ${id}`)) throw new Error(`${file} labels “${id}” twice.`);
     seen.add(`${file}: ${id}`);
     const request = await providerRequest(c, run);
-    const schema = c.schema ?? "wealth";
+    // A grid that lists other operations offers the provider other candidates, so it is a schema of its own here.
+    const schema = `${c.schema ?? "wealth"}${c.grid ? `, ${c.grid}` : ""}`;
     let pinned: unknown = null;
     if (request) {
       const { candidates, view } = request;
