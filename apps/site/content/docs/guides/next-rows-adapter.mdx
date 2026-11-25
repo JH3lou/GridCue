@@ -122,9 +122,10 @@ export function AccountsView({ rows }: { rows: Account[] }) {
 | `rows` | The filtered and sorted rows |
 | `pinned` | The visible columns pinned to the start and to the end, `{ start, end }`, each in its pin order |
 | `density` | `"compact"`, `"comfortable"` or `"spacious"` |
-| `groups` | Present only when the view is grouped: one entry per distinct key, `{ key, rows }`, in first-seen order |
+| `totals` | One for each total the view holds, `{ columnId, function, value }`, over every row it shows. `[]` when there are none. `value` is `null` when no row has a value |
+| `groups` | Present only when the view is grouped: one entry per distinct key, `{ key, rows, totals }`, in one order: by the total when the sort is on a column with a total, else the order the groups first appear in your rows ([details](/docs/api/adapters#one-group-order-in-both-adapters)) |
 
-To render groups, loop over `view.groups` when it is set and render each group's `rows`, as `examples/next` does. GridCue groups rows; it does not compute totals.
+To render groups, loop over `view.groups` when it is set and render each group's `rows`, as `examples/next` does. A group's `totals` and the view's `totals` are there for a table that draws them (see below); a table that doesn't can ignore them.
 
 Import the stylesheet once, in the root layout:
 
@@ -156,6 +157,22 @@ const adapter = createRowsAdapter({ schema, initialState, renders: ["pinning", "
 ```
 
 GridCue can't see what your markup draws. A Host that names one it doesn't draw gets a Preview and "View updated." with nothing to see. See [Adapters](/docs/api/adapters#renders).
+
+### Totals
+
+GridCue can show a total for each group, or one for the whole view when it isn't grouped. The adapter lists `aggregation.set` only when you say so with `renders: ["totals"]`, and the default is none: "total market value by advisor" then asks "This grid can't show totals." and changes nothing.
+
+Turn on `"totals"` only when your table draws them: a value for each group beside its rows, from `group.totals`, and for an ungrouped view one total from `view.totals`. Show the value as a total, with a word such as "total" or "avg" beside it, so a User doesn't read it as a row's own value. An empty total is `null`: draw nothing, never 0.
+
+```tsx
+const adapter = createRowsAdapter({ schema, initialState, renders: ["totals"] });
+const view = applyView(rows, state, schema);
+
+view.groups?.map((group) => group.totals); // [{ columnId: "market_value", function: "sum", value: 12_400_000 }]
+view.totals; // the same, over every row the view shows
+```
+
+**The group order changed.** `applyView` now orders a grouped, sorted view's groups as TanStack Table does: by the total when the sort is on a column with a total, else in the order the groups first appear in your rows. Before, it ordered them by the sorted rows, so a descending sort on Market value put first the group that held the largest single row. A grouped, sorted view can draw its groups in a different order from before, with no change to its View State. See [one group order](/docs/api/adapters#one-group-order-in-both-adapters).
 
 ## Let a request name a value
 

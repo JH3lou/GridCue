@@ -83,7 +83,7 @@ What each piece does:
 
 - **`gridcueFilterFn`** evaluates GridCue's filter predicates inside TanStack's filtering. Set it as the default. A column with its own `filterFn` can wrap it with `withGridCueFilter(yourFilterFn)`, so both filters keep working on that column.
 - **`schemaFromTanStack(table, options)`** reads the table's leaf columns (IDs and string headers) and the first 50 rows, to infer kinds. It takes the same options as `defineSchema`, except `sampleRows`. Currency and percent can't be inferred, so declare them. If your rows load later, declare every kind, because the sample is read once, when the schema is built. See [Describe your domain](/docs/get-started/describe-your-domain) for aliases, enum values, `rowNoun`, `entity`, and `valueGroups`.
-- **`createTanStackAdapter({ schema, table })`** also takes `maxSorts` (default 3), `maxGroups` (default 2) and `renders` (default none: [see below](#pinning-and-density)). The view at the moment you create the adapter is what "reset the view" returns to.
+- **`createTanStackAdapter({ schema, table })`** also takes `maxSorts` (default 3), `maxGroups` (default 2) and `renders` (default none: [pins and density](#pinning-and-density), [totals](#totals), [a count](#show-only-the-first-rows)). The view at the moment you create the adapter is what "reset the view" returns to.
 
 ### Pinning and density
 
@@ -100,6 +100,62 @@ createTanStackAdapter({ schema, table, renders: ["pinning", "density"] });
 ```
 
 `renders: ["pinning"]` throws `INPUT_CONFIG` when the table has no `setColumnPinning`, so a missing `columnPinningFeature` shows up when the adapter is created. GridCue can't see whether your markup draws a pin: a Host that names one it doesn't draw gets a Preview and "View updated." with nothing to see. See [Adapters](/docs/api/adapters#renders).
+
+### Totals
+
+GridCue can show a total for each group, or one for the whole view when it isn't grouped ("total market value by advisor"). The adapter lists `aggregation.set` only when you say your table draws totals, and the default is none: "total market value" then asks "This grid can't show totals." and changes nothing.
+
+Name `"totals"` only when your table draws them. Register `rowAggregationFeature`, put GridCue's two functions on `defaultColumn`, and draw the values: a group row's cell is `row.getValue(columnId)`, and a footer's is `column.getAggregationValue()`. The adapter holds the totals, so undo puts them back.
+
+```tsx
+import { rowAggregationFeature } from "@tanstack/react-table";
+import { gridcueAggregationFn, gridcueAggregationValue } from "gridcue/tanstack-table";
+
+const features = tableFeatures({ /* …the features above, */ rowAggregationFeature });
+
+const table = useTable({
+  features,
+  columns,
+  data,
+  defaultColumn: {
+    filterFn: gridcueFilterFn,
+    aggregationFn: gridcueAggregationFn,
+    getAggregationValue: gridcueAggregationValue,
+  },
+});
+
+createTanStackAdapter({ schema, table, renders: ["totals"] });
+```
+
+`renders: ["totals"]` throws `INPUT_CONFIG` when it can see a missing piece: no `rowAggregationFeature`, a column the schema lets GridCue total that the table lacks, or a column that doesn't use the two functions. Leave `aggregationFn` and `getAggregationValue` out of the columns' own definitions. A column you add or redefine after the adapter is made isn't checked. GridCue can't see whether your markup draws a total. See [`gridcueAggregationFn`](/docs/api/adapters#gridcueaggregationfn).
+
+### Show only the first rows
+
+GridCue can show only the first rows of the sorted view for a count: "top 10 accounts by market value", "show only the first 5 rows". TanStack has no count, so GridCue brings one in two parts you register in the table's `features`: `gridcueCountFeature`, which holds the count in the table's own store, and `gridcueCountRowModel`, which wraps the filtered row model and keeps the rows `applyView` keeps for it. Then name `"count"` in `renders`. With no `"count"`, "top 10" still sorts, and the Preview notes "Count not applied: this grid can't show only the first 10".
+
+```tsx
+import { gridcueCountFeature, gridcueCountRowModel } from "gridcue/tanstack-table";
+
+const features = tableFeatures({
+  /* …the features above, */
+  ...{ gridcueCountFeature }, // spread in: TanStack's types name only its own features
+  filteredRowModel: gridcueCountRowModel(createFilteredRowModel()),
+});
+
+const table = useTable({ features, columns, data, defaultColumn: { filterFn: gridcueFilterFn } });
+
+createTanStackAdapter({ schema, table, renders: ["count"] });
+```
+
+The table then shows the first rows of the view: sorted with GridCue's own comparison, without a row that has no value in the first sorted column. It sorts, groups and pages those rows as it does any others, and each group's total is over them. Undo puts the count back, and a sort the User makes with the table's own header is reported like any manual change, with the count then keeping the first rows of the new order.
+
+- **`renders: ["count"]` throws `INPUT_CONFIG`** when the table sets `manualPagination`, `manualSorting`, `manualFiltering` or `manualGrouping`, since a table that pages on a server holds one page, and the first rows of a page are not the first rows of the view. It throws on a table with `getSubRows` too, since a count would keep each row with all of its sub-rows. It also throws when the table's `filteredRowModel` is not `gridcueCountRowModel(…)` or the table has no `gridcueCountFeature`, and on `useLegacyTable`, which builds its own row model.
+- **A manual setting or `getSubRows` turned on later stops the count.** The table shows every row it holds, the View State has no count, and "top 10" sorts with a note that the count isn't applied. A pending Preview is refused, and a write of a count fails and changes nothing.
+- **The rows a count keeps are picked with GridCue's comparison, before TanStack sorts them.** So they need not be the first rows your table shows with no count on a column with its own `sortFn`, or with a null in a later sorted number column, which TanStack reads as 0.
+- **Say the count in your markup.** `rowsBeforeCount(table)?.rows.length` is the number of rows before the count, for a caption such as "First 10 of 48 rows". GridCue can't see whether your markup shows the table's rows.
+- **After a count, a change to the sort or the filters asks first.** "Sort by advisor" asks "Keep only the first 10 rows of the new view, or show every row?", as on the Rows Adapter.
+
+See [`gridcueCountFeature`](/docs/api/adapters#gridcuecountfeature).
 
 Start with the Mock Provider if you have no server yet: `provider: createMockProvider()` from `gridcue/mock`. It runs in the browser and understands your column names and declared aliases.
 

@@ -59,6 +59,7 @@ interface ViewCapabilities {
   supportsAtomicApply: boolean;
   supportsSnapshotRestore: boolean;
   observesChanges: boolean;
+  aggregationFunctions?: Array<"sum" | "avg" | "min" | "max" | "count">;
 }
 ```
 
@@ -70,6 +71,7 @@ interface ViewCapabilities {
 | `supportsAtomicApply` | `boolean` | Whether `apply` changes everything or nothing. When `false`, every plan fails validation with `PLAN_NOT_ATOMIC`. |
 | `supportsSnapshotRestore` | `boolean` | Whether `restore` can put a saved view back. |
 | `observesChanges` | `boolean` | `true` when the adapter reports manual view changes through `subscribe`. |
+| `aggregationFunctions` | `string[]` | With `aggregation.set`: the total functions the grid applies. Left out, a sum and an average, which both shipped adapters apply. A total with any other function fails validation with `PLAN_AGGREGATION_KIND`. |
 
 ## MVP_OPERATIONS
 
@@ -88,26 +90,28 @@ const MVP_OPERATIONS: readonly string[] = [
 ];
 ```
 
-The operations every adapter supports. With no [`renders`](#renders), the TanStack Table adapter reports exactly this list, and the Rows Adapter adds `limit.set`, since its rows are all in memory and a count is exact there. An adapter whose rows come a page at a time should not list `limit.set`: GridCue then sorts alone and says the count was not applied. `columns.pin` and `density.set` are not in `MVP_OPERATIONS`: an adapter lists each only when the Host's table draws it, and a plan that uses one the adapter doesn't list fails validation with `PLAN_OPERATION_UNSUPPORTED`. `aggregation.set` exists in the protocol but no adapter lists it. GridCue changes the view only.
+The operations every adapter supports. With no [`renders`](#renders), the TanStack Table adapter reports exactly this list, and the Rows Adapter adds `limit.set`, since its rows are all in memory and a count is exact there. The TanStack Table adapter adds it with `renders: ["count"]` and [GridCue's count piece](#gridcuecountfeature). An adapter whose rows come a page at a time should not list `limit.set`: GridCue then sorts alone and says the count was not applied. `columns.pin`, `density.set` and `aggregation.set` are not in `MVP_OPERATIONS`: an adapter lists each only when the Host's table draws it, and a plan that uses one the adapter doesn't list fails validation with `PLAN_OPERATION_UNSUPPORTED`.
 
 ## renders
 
-Both adapters are headless. GridCue writes the View State, and your own markup draws it. So an adapter lists `columns.pin` and `density.set` only when you say your table draws them:
+Both adapters are headless. GridCue writes the View State, and your own markup draws it. So an adapter lists `columns.pin`, `density.set` and `aggregation.set` only when you say your table draws them:
 
 ```ts
-createRowsAdapter({ schema, renders: ["pinning", "density"] });
-createTanStackAdapter({ schema, table, renders: ["pinning", "density"] });
+createRowsAdapter({ schema, renders: ["pinning", "density", "totals"] });
+createTanStackAdapter({ schema, table, renders: ["pinning", "density", "totals", "count"] });
 ```
 
 | Name | Lists | Your table must |
 | --- | --- | --- |
 | `"pinning"` | `columns.pin` | Keep the pinned columns in place at the start and the end while the rest scroll |
 | `"density"` | `density.set` | Set its row height, and its cell spacing, from the View State's `density` |
+| `"totals"` | `aggregation.set` | Draw each group's total and, when the view isn't grouped, one total for the view. The Rows Adapter gives them in `applyView`'s `totals` and each group's `totals`. The TanStack Table adapter needs [`gridcueAggregationFn`](#gridcueaggregationfn) registered |
+| `"count"` | `limit.set` | TanStack Table adapter only: show only the rows the table holds, which GridCue's [count piece](#gridcuecountfeature) cuts to the count. The Rows Adapter keeps a count with no option |
 
-- **The default is none.** With none, the adapter's capabilities are what they were, and a request to pin, unpin or change density ends in "This grid can't pin columns." or "This grid can't change its density.", with no choices and nothing applied. See [Requests](/docs/concepts/requests#pins-and-density).
+- **The default is none.** With none, the adapter's capabilities are what they were, and a request to pin, unpin, change density or show a total ends in "This grid can't pin columns.", "This grid can't change its density." or "This grid can't show totals.", with no choices and nothing applied. See [Requests](/docs/concepts/requests#pins-and-density) and [Totals](/docs/concepts/requests#totals).
 - **GridCue can't check it.** `renders` is a promise. A Host that names something its table doesn't draw gets a Preview, an apply and "View updated." with nothing for the User to see. Name only what you draw.
-- **Columns may be pinned by default.** Every column that isn't restricted has the `pin` [capability](/docs/api/schema#column-capabilities) unless its override says otherwise. Density belongs to no column.
-- **Anything else throws `INPUT_CONFIG`** when the adapter is created: a name that isn't `"pinning"` or `"density"`, and a value that isn't a list. So does `"count"` on the Rows Adapter, which keeps a count with no option, and `"totals"` or `"count"` on the TanStack Table adapter, which don't list them yet. The TanStack Table adapter also throws `INPUT_CONFIG` for `"pinning"` when the table has no `setColumnPinning` (register `columnPinningFeature`), or holds its pins as `left` and `right`, as TanStack Table v8 did, instead of `start` and `end`.
+- **Columns may be pinned and totalled by default.** Every column that isn't restricted has the `pin` [capability](/docs/api/schema#column-capabilities) unless its override says otherwise, and a number, currency or percent column has `aggregate` too. Density belongs to no column.
+- **Anything else throws `INPUT_CONFIG`** when the adapter is created: a name the adapter doesn't take, and a value that isn't a list. The Rows Adapter takes `"pinning"`, `"density"` and `"totals"`, so `"count"` throws there, since it keeps a count with no option. The TanStack Table adapter takes those and `"count"`. It also throws `INPUT_CONFIG` for `"pinning"` when the table has no `setColumnPinning` (register `columnPinningFeature`), or holds its pins as `left` and `right`, as TanStack Table v8 did, instead of `start` and `end`, and for `"totals"` when it can see the table isn't set up for it (see [gridcueAggregationFn](#gridcueaggregationfn)), and for `"count"` when it can see the table can't keep one (see [gridcueCountFeature](#gridcuecountfeature)).
 
 ## createRowsAdapter
 
@@ -121,7 +125,7 @@ interface RowsAdapterOptions {
   initialState?: ViewState;
   maxSorts?: number;
   maxGroups?: number;
-  renders?: ReadonlyArray<"pinning" | "density">;
+  renders?: ReadonlyArray<"pinning" | "density" | "totals">;
 }
 ```
 
@@ -133,7 +137,7 @@ A Grid Adapter for Hosts that keep rows in memory. It holds the View State itsel
 | `initialState` | `ViewState` | every schema column visible, in schema order, with no filters, sorts or groups | The starting view. It is also the view `view.reset` returns to. |
 | `maxSorts` | `number` | `3` | Most sort levels allowed. |
 | `maxGroups` | `number` | `2` | Most group levels allowed. |
-| `renders` | `("pinning" \| "density")[]` | none | What your table draws, so the adapter lists `columns.pin` and `density.set`. See [renders](#renders). |
+| `renders` | `("pinning" \| "density" \| "totals")[]` | none | What your table draws, so the adapter lists `columns.pin`, `density.set` and `aggregation.set`. See [renders](#renders). |
 
 It reports `MVP_OPERATIONS` and `limit.set`, plus what `renders` names, atomic apply, snapshot restore and `observesChanges: true`. Revisions look like `rows:0`, `rows:1`, and so on.
 
@@ -177,8 +181,16 @@ interface ViewResult<Row> {
   density: "compact" | "comfortable" | "spacious";
   /** Filtered and sorted rows. */
   rows: Row[];
-  /** Present when the view is grouped: one entry per distinct key, in first-seen order. */
-  groups?: Array<{ key: Record<string, Scalar>; rows: Row[] }>;
+  /** One for each total of the view, over every row it shows. Empty when the view has none. */
+  totals: TotalValue[];
+  /** Present when the view is grouped: one entry per distinct key, in the order described below. */
+  groups?: Array<{ key: Record<string, Scalar>; rows: Row[]; totals: TotalValue[] }>;
+}
+
+interface TotalValue {
+  columnId: string;
+  function: "sum" | "avg" | "min" | "max" | "count";
+  value: number | null; // null when no row holds a value, never 0
 }
 ```
 
@@ -186,10 +198,38 @@ Applies a View State to in-memory rows. It is pure: it never changes `rows`, and
 
 - **Filters** use each column's kind. Text comparisons on `string` columns ignore case; `contains` and `startsWith` always do. `gt`, `lt`, `between` and the like never match an empty cell.
 - **Sorts** apply level by level. Empty cells sort after other values in ascending order and before them in descending order.
+- **A count** keeps the first rows of the sorted view, before grouping, so "top 10" grouped by Advisor is still ten rows. A row with no value in the first sorted column never fills it. With no sort, it keeps the first rows in the order of `rows`. `countOrder(positions, cell, sorts)` is that choice of rows as a function, for an adapter that keeps a count in its own table: it returns the positions it keeps, before it cuts them to the count, in the order it keeps them.
 - **Columns** are the visible column IDs in `columnOrder`, with the columns pinned to the start first and those pinned to the end last, each side in its pin order. `pinned` names them, for your table to keep in place; a hidden pinned column is in neither list and is pinned again when it is shown. `density` is the View State's, for your table to draw. They hold the View State whether or not the adapter lists the operations, so a table that draws neither can ignore them.
-- **Groups** are present only when `groupBy` has columns. Each group holds its rows in sorted order.
+- **Groups** are present only when `groupBy` has columns. Each group holds its rows in sorted order, and its own `totals`. See [one group order](#one-group-order-in-both-adapters).
+- **Totals** are one entry for each total in the View State, in its order, over the rows the view shows: after its filters and its count. Empty cells are skipped, a sum is exact in decimal (`0.1 + 0.2` is `0.3`), an average is that exact sum divided once by the rows that have a value, and a group or a view with no values has `value: null`, never `0`. `applyView` gives `null` for a function other than a sum or an average. `totals` is `[]` when the view has none, whether or not you set `renders`, so a table that doesn't draw totals can ignore it. `totalOf(values, "sum" | "avg")` is the same arithmetic for one list of values.
 
 It does not paginate.
+
+### One group order, in both adapters
+
+A grouped, sorted view has one group order, and the Rows Adapter and the TanStack Table adapter draw the same one:
+
+| Sort | Groups are ordered by |
+| --- | --- |
+| On a column with a total | That total, over the group's rows |
+| On a grouping column | That column's value |
+| On any other column | The order they first appear in the rows the view shows, before sorting. The sort orders the rows inside each group |
+
+With two group levels, the groups of one outer group sit together, and each level is ordered by its own totals. Ties keep the order they first appear.
+
+**What changed for the Rows Adapter.** It used to group the sorted rows, so a descending sort on Market value put first the group that held the largest single row. Now, with a total on Market value, the group with the largest total is first, and with no total the groups keep the order they first appear in your rows. The View State is the same, so a grouped, sorted view that requests reach today can draw its groups in a different order. TanStack Table already ordered groups this way. If you read the old order as a ranking, ask for it with a total: "total market value by advisor", then "sort by market value, descending".
+
+### Where the two adapters differ
+
+A shared test draws seeded views through both adapters, on rows with ties and empty cells, and compares the rows, their order, the groups, their order and every total. It passes on rows whose text cells are empty as missing cells and in one letter case, and whose number columns never hold both `null` and `0`. Five differences stay, and each is counted there:
+
+- **Where a row with no value in a sorted column sits.** Both keep the same rows, in the same groups.
+- **A `null` text cell in a sorted column.** TanStack's default sort can draw the text values around it out of order.
+- **Letter case in a sorted text column.** TanStack's default text sort orders by code unit ("Birch" before "alder"), `applyView` as the locale does.
+- **`null` and missing cells in one grouped column.** `applyView` puts them in one group, TanStack Table in two, so those groups' totals differ too. Give empty cells one shape, `null` or missing, in a column you group by.
+- **A `null` beside a `0` in a sorted number column.** TanStack's basic sort finds `null` smaller than `0` and `0` smaller than `null`, so it can draw the rows that hold values out of order. Leave an empty number cell missing (`undefined`) in a column that can hold `0`: TanStack's `sortUndefined` places it.
+
+A total on a column the view groups by would differ as well: TanStack Table shows the group's own value in that cell. GridCue never applies such a view; it asks instead, and validation refuses it. A User can still make one with the table's own controls.
 
 ## createTanStackAdapter
 
@@ -203,7 +243,7 @@ interface TanStackAdapterOptions {
   table: TanStackTableLike;
   maxSorts?: number;
   maxGroups?: number;
-  renders?: ReadonlyArray<"pinning" | "density">;
+  renders?: ReadonlyArray<"pinning" | "density" | "totals" | "count">;
 }
 ```
 
@@ -215,11 +255,13 @@ A Grid Adapter over a TanStack Table v9 instance. The Host keeps owning the tabl
 | `table` | `TanStackTableLike` | required | A table from `useTable` or `constructTable` with the filtering, sorting, grouping, visibility and ordering features, and `columnPinningFeature` for `renders: ["pinning"]`. |
 | `maxSorts` | `number` | `3` | Most sort levels allowed. |
 | `maxGroups` | `number` | `2` | Most group levels allowed. |
-| `renders` | `("pinning" \| "density")[]` | none | What your table draws, so the adapter lists `columns.pin` and `density.set`. See [renders](#renders). |
+| `renders` | `("pinning" \| "density" \| "totals" \| "count")[]` | none | What your table draws, so the adapter lists `columns.pin`, `density.set`, `aggregation.set` and `limit.set`. See [renders](#renders). |
 
 Behavior to know:
 
 - It reports `MVP_OPERATIONS` plus what `renders` names, atomic apply, snapshot restore and `observesChanges: true`.
+- With `"totals"`, the adapter holds the totals, as it holds density, and reads them back with the rest of the View State, so undo puts them back. Register [`gridcueAggregationFn`](#gridcueaggregationfn) and `gridcueAggregationValue` so your table draws them. When the totals change, the adapter groups the rows again in the same batch, so every group row reads its new total. TanStack groups again only for a grouping array it hasn't seen, so on a grouped view the change is done only once the table holds a new one. If your state hands the table back the grouping array it had, as a shallow-equal memo does, the change fails with "The grid couldn't apply that change. Nothing was changed." rather than leave the old totals in the group rows. Pass the grouping your handler receives.
+- With `"count"`, the adapter holds the count in the table's own store, through [`gridcueCountFeature`](#gridcuecountfeature), and reads it back with the rest of the View State, so undo puts it back. The table shows the first rows of the sorted view, the rows `applyView` keeps. A manual change in the table, such as the User sorting with a header, is a view change like any other: the count then keeps the first rows of the new order, as `applyView` does.
 - With `"pinning"`, pins are read from and written to TanStack's own `columnPinning` state, which has GridCue's shape: `start` and `end`. A pin the User makes with the table's own controls is a view change like any other: the Revision changes and a pending Preview is refused. Without `"pinning"`, the adapter neither reads nor writes the table's pins.
 - On a grouped view, TanStack's own `groupedColumnMode: "reorder"`, its default, draws the grouped columns first among the unpinned ones. `applyView` keeps every column in its place. Set `groupedColumnMode: false` on the table to draw the order `applyView` gives. Pinned columns stay where their pins put them either way.
 - TanStack has no density. With `"density"`, the adapter holds it, starting at `comfortable`, and reads it back with the rest of the View State, so undo puts it back. Your table reads it from the View State and draws it.
@@ -271,6 +313,65 @@ const [cue] = useState(() => {
 - **The index is kept while the table's data is.** Each function returns the same array while the table's data is the same array, so GridCue indexes it once.
 - **A column id the table doesn't have throws `INPUT_CONFIG`** when you call it. `createGridCue` then checks each column against the schema and throws `INPUT_CONFIG` for one that is not an exposed, filterable text column. If the table later loses a column, the request stops with `INPUT_LOCAL_VALUES` and the view doesn't change.
 
+## gridcueAggregationFn
+
+```ts
+import { gridcueAggregationFn, gridcueAggregationValue } from "gridcue/tanstack-table";
+```
+
+What lets a TanStack table draw the totals GridCue holds. A total is part of a column definition in TanStack, which you own, so you register two pieces once on `defaultColumn`, beside `gridcueFilterFn`, and the table needs `rowAggregationFeature`:
+
+```ts
+const table = useTable({
+  features, // includes rowAggregationFeature
+  columns,
+  data,
+  defaultColumn: {
+    filterFn: gridcueFilterFn,
+    aggregationFn: gridcueAggregationFn,
+    getAggregationValue: gridcueAggregationValue,
+  },
+});
+const adapter = createTanStackAdapter({ schema, table, renders: ["totals"] });
+```
+
+- **`gridcueAggregationFn`** gives each group row the sum, the average or nothing for a column, as the adapter holds it. `row.getValue(columnId)` on a group row is the total, so a sort on that column orders the groups by it, as in [one group order](#one-group-order-in-both-adapters). A group's total is over its own rows, at every level, never over its sub-groups' totals. A group with no values has no total (`undefined`).
+- **`gridcueAggregationValue`** gives `column.getAggregationValue()` the column's total over every row the table shows, for a footer when the view isn't grouped.
+- **A column with no total** gives `undefined`, in a group row and in the footer. A column the view groups by gives nothing in a group row.
+- **The numbers match.** Both use the arithmetic `applyView` uses, so over the same rows the two adapters give the same total to the last digit. A group's rows can differ: see [where the two adapters differ](#where-the-two-adapters-differ).
+- **`createTanStackAdapter` throws `INPUT_CONFIG`** when `renders` names `"totals"` and it can see a missing piece: the table has no `rowAggregationFeature`, a column the schema lets GridCue total isn't a column of the table, or one doesn't use `gridcueAggregationFn` and `gridcueAggregationValue` as its `aggregationFn` and `getAggregationValue`. Put them on `defaultColumn`, and leave them out of a column's own definition. The adapter sees the columns as they are when it is created: a column you add or redefine later isn't checked.
+- **Draw them yourself.** The adapter draws nothing: your group rows and footer show the values, and your own words ("total", "avg") tell the User it isn't a row's own value.
+
+## gridcueCountFeature
+
+```ts
+import { gridcueCountFeature, gridcueCountRowModel, rowsBeforeCount } from "gridcue/tanstack-table";
+```
+
+What lets a TanStack table show only the first rows of the view for a count ("top 10 accounts by market value"). TanStack has no count, so GridCue brings one in two parts that you register in the table's `features`:
+
+```ts
+const features = tableFeatures({
+  /* …the features above, */
+  ...{ gridcueCountFeature },
+  filteredRowModel: gridcueCountRowModel(createFilteredRowModel()),
+});
+const table = useTable({ features, columns, data, defaultColumn: { filterFn: gridcueFilterFn } });
+const adapter = createTanStackAdapter({ schema, table, renders: ["count"] });
+```
+
+- **`gridcueCountFeature`** holds the count in the table's own store: a `gridcueCount` state slice (`null` for none), `onGridcueCountChange` and `table.setGridcueCount`. The adapter writes the count there, so the table draws again when only the count changes. TanStack's types name only its own features, so spread the feature in as above. A Host that controls the table's state puts `gridcueCount` in `state` and gives an `onGridcueCountChange` handler that sets it at once, as for sorting.
+- **`gridcueCountRowModel(createFilteredRowModel())`** wraps the table's filtered row model. With a count, it keeps the rows `applyView` keeps: the filtered rows sorted with GridCue's own comparison, with no row that has no value in the first sorted column, the first N of them. It returns them in the table's own order, so TanStack sorts, groups and pages them as it does any rows, and each group's total is over the rows the count keeps. With no count, the rows are the filtered rows as they are.
+- **Your own filters apply first.** A column filter or a global filter on the table leaves some rows, and the count keeps the first rows of those. `applyView` can't see a global filter, so there the two can differ.
+- **`rowsBeforeCount(table)`** gives the rows the table's filters leave, before the count, for a caption such as "First 10 of 48 rows". It is `undefined` until the table has built its rows once, and on a table with no `gridcueCountRowModel`.
+- **Never on a table that holds one page of its rows.** With `manualPagination`, `manualSorting`, `manualFiltering` or `manualGrouping` on, the rows the table holds are one page, and the first N of a page are not the first N of the view. `createTanStackAdapter` throws `INPUT_CONFIG` naming the setting, and `limit.set` is not listed.
+- **Never on a table with sub-rows.** With `getSubRows`, a row can hold sub-rows, and a count would keep each of the first rows with every one of its sub-rows, unsorted and uncounted. `createTanStackAdapter` throws `INPUT_CONFIG` naming `getSubRows`.
+- **A setting turned on later stops the count.** If you turn a manual setting or `getSubRows` on after the adapter is made, as when you move to paging on a server, the table stops cutting its rows and shows them all. The adapter then reads no count in the View State and doesn't list `limit.set`, so "top 10" sorts and the Preview notes that the count isn't applied. The change is reported like a manual change, so a pending Preview is refused. A write of a count fails with `ADAPTER_UNSUPPORTED_COUNT` and changes nothing. The count the table holds stays in its store: if you turn the setting off before GridCue writes again, it cuts again.
+- **`createTanStackAdapter` throws `INPUT_CONFIG`** when `renders` names `"count"` and it can see a missing piece: the table's `filteredRowModel` is not `gridcueCountRowModel(…)`, or the table has no `gridcueCountFeature`. It reads the table's options as they are when the adapter is created. A table whose options the adapter can't read is refused as if the piece were missing.
+- **It can't take `useLegacyTable`,** which builds its own filtered row model. Move the table to `useTable`: see [TanStack Table v8](/docs/guides/tanstack-v8).
+- **The adapter draws nothing.** Your table shows the rows it holds, and your own words, such as "First 10 of 48 rows", tell the User the rest are not gone. GridCue can't check that your markup shows the table's rows, so name `"count"` only when it does.
+- **Where the two adapters differ.** With a count, both keep the same rows, grouped and not. The [five differences](#where-the-two-adapters-differ) stay as they were: they change how rows are ordered or grouped, never which rows a count keeps. The count picks its rows with GridCue's comparison, before TanStack sorts them, so they need not be the first rows your table shows with no count on a column with its own `sortFn`, or with a null in a later sorted number column, which TanStack reads as 0.
+
 ## gridcueFilterFn
 
 ```ts
@@ -309,7 +410,9 @@ interface TanStackTableLike {
   setColumnVisibility(visibility: Record<string, boolean>): void;
   setColumnOrder(order: string[]): void;
   setColumnPinning?(pinning: { start: string[]; end: string[] }): void;
-  getAllLeafColumns(): Array<{ id: string; columnDef: { header?: unknown } }>;
+  setGridcueCount?(count: number | null): void;
+  options?: object;
+  getAllLeafColumns(): TanStackLeafColumnLike[];
   getCoreRowModel(): {
     rows: Array<{ getValue(columnId: string): unknown }>;
     flatRows?: Array<{ getValue(columnId: string): unknown }>;
@@ -317,4 +420,4 @@ interface TanStackTableLike {
 }
 ```
 
-The parts of a TanStack Table v9 instance GridCue uses. Any table from `useTable` or `constructTable` with the filtering, sorting, grouping, visibility and ordering features fits. `setColumnPinning` is there when the table registers `columnPinningFeature`, which `renders: ["pinning"]` needs.
+The parts of a TanStack Table v9 instance GridCue uses. Any table from `useTable` or `constructTable` with the filtering, sorting, grouping, visibility and ordering features fits. `setColumnPinning` is there when the table registers `columnPinningFeature`, which `renders: ["pinning"]` needs. `setGridcueCount` is there when it registers `gridcueCountFeature`, which `renders: ["count"]` needs, and the adapter reads `options` to see the count piece and the table's manual settings. A leaf column is `{ id, columnDef: { header?, aggregationFn?, getAggregationValue? }, getAggregationFns? }`, and `getAggregationFns` is there when the table registers `rowAggregationFeature`, which `renders: ["totals"]` needs.
