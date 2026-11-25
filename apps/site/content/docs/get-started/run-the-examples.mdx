@@ -3,12 +3,13 @@ title: Run the examples
 description: Run GridCue's Vite and Next.js examples from the repository, on the Mock Provider or on Jev.
 ---
 
-The GridCue repository has two working examples. Both show the same synthetic wealth grid: 500 generated advisory accounts, none of them real client data.
+The GridCue repository has three working examples. All show the same synthetic wealth grid: 500 generated advisory accounts, none of them real client data.
 
 | Example | Stack | Grid Adapter | Command bar |
 | --- | --- | --- | --- |
 | `examples/vite` | Vite, React, TanStack Table v9, shadcn/ui | TanStack Table | The registry's shadcn `CommandBar` |
-| `examples/next` | Next.js App Router, plain CSS, no Tailwind | Rows Adapter | The package's `<GridCueBar />` |
+| `examples/next` | Next.js App Router, plain CSS, no Tailwind | Rows Adapter; AG Grid on `/ag-grid`; Query Adapter on `/paged` | The package's `<GridCueBar />` |
+| `examples/ag-grid` | Vite, React, AG Grid Community | AG Grid | The package's `<GridCueBar />` |
 
 ## Set up
 
@@ -62,6 +63,10 @@ Never prefix the key with `VITE_` or `NEXT_PUBLIC_`. The repository's `pnpm chec
 
 - `app/accounts-view.tsx`: `createRowsAdapter`, `applyView`, and `GridCueBar`, including grouped rows.
 - `app/api/gridcue/route.ts`: the Server Handler as a route's `POST` export.
+- `app/ag-grid/`: the same grid on AG Grid Community, with `gridcueColumnDefs`.
+- `app/paged/`: rows from a server one page at a time, through the Query Adapter and a Data Query its tests check with the Query Check.
+
+**`examples/ag-grid`** is the [AG Grid guide](/docs/guides/ag-grid) in Vite. It has no root `dev:` script: run `pnpm build`, then `pnpm --filter @gridcue-internal/example-ag-grid dev`. It and the `/ag-grid` page of `examples/next` always use the Mock Provider, in the browser.
 
 Both read their schema from `fixtures/wealth`, which shows every declaration in [Describe your domain](/docs/get-started/describe-your-domain).
 

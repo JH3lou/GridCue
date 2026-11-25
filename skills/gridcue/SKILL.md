@@ -1,6 +1,6 @@
 ---
 name: gridcue
-description: Sets up GridCue, the open-source toolkit that lets people ask a data grid or table for a view in plain language ("taxable accounts over $1M, largest first") and get a checked, previewed, undoable filter, sort, group, or column change. Use when adding a natural-language command bar, "ask your data", or AI search to a data grid, TanStack Table, or other table in a React app; when configuring GridCue's schema, aliases, or domain words; when turning on the Jev provider or a GridCue server route; when writing GridCue evals; or when debugging a GridCue setup.
+description: Sets up GridCue, the open-source toolkit that lets people ask a data grid or table for a view in plain language ("taxable accounts over $1M, largest first") and get a checked, previewed, undoable filter, sort, group, or column change. Use when adding a natural-language command bar, "ask your data", or AI search to a data grid, TanStack Table, AG Grid, or other table in a React app; when configuring GridCue's schema, aliases, or domain words; when turning on the Jev provider or a GridCue server route; when writing GridCue evals; or when debugging a GridCue setup.
 ---
 
 # Set up GridCue
@@ -23,7 +23,7 @@ Your job is to add it to the User's app in small steps, checking each one works 
 
 Do these in order. Finish each step's check before moving on, and tell the User what you checked.
 
-1. **Detect the stack.** Is it Vite or Next.js? Does the table use TanStack Table v9 or a plain array of rows? Is it React 19? Are Tailwind and shadcn/ui set up? Read [references/setup.md](references/setup.md).
+1. **Detect the stack.** Is it Vite or Next.js? Does the table use TanStack Table v9 or v8, AG Grid Community, rows held in memory, or rows a server fetches? Is it React 19? Are Tailwind and shadcn/ui set up? Read [references/setup.md](references/setup.md).
 2. **Install.** `npm i gridcue` (plus `@tanstack/react-table` if the app uses it). **Check:** the app still builds.
 3. **Wire the Mock Provider and a command bar.** The Mock needs no key and no server. **Check:** in the running app, a request naming a real column ("sort by <column>, largest first") shows a Preview, and Apply and Undo work.
 4. **Pick the UI.** Use `GridCueBar` (plain CSS, any React app) or the shadcn command bar from GridCue's Component Registry (Tailwind + shadcn apps). **Check:** it renders in light and dark themes.
@@ -131,6 +131,6 @@ Never trade these away, even if asked to "just make it work":
 ## Stop and ask the User when
 
 - Turning on Jev means adding or changing a server the app doesn't already have.
-- The table isn't TanStack Table and doesn't render from a plain array of rows, so neither built-in adapter fits.
+- The table isn't TanStack Table or AG Grid Community, and its rows are neither held in memory nor fetched by the app's own Data Query, so no built-in adapter fits.
 - The User asks GridCue to change data, not the view.
 - A column's names or values might be sensitive, and you can't tell whether to mark it `restricted`.

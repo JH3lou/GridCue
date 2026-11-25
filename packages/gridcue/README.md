@@ -12,7 +12,7 @@ GridCue lets people use natural language to get the insight they need from compl
 - **View-only.** It never edits data.
 - **Preview before apply.** Ambiguity becomes a question, not a guess.
 - **Rows never leave your app.** The model gets the request text, the values read from it, and the columns and values you expose. It only picks among closed choices; code builds the plan.
-- **Headless and grid-agnostic.** A framework-free core, React bindings, TanStack Table and in-memory adapters, and a plain-CSS command bar.
+- **Headless and grid-agnostic.** A framework-free core, React bindings, adapters for rows in memory, rows on a server, TanStack Table and AG Grid Community, and a plain-CSS command bar.
 
 ## Try it with no key
 
@@ -57,7 +57,7 @@ export function Grid<Row extends RowData>({ columns, data }: { columns: ColumnDe
 }
 ```
 
-The Mock Provider runs in the browser, with no server and no account. Not using TanStack Table? The Rows Adapter in `gridcue` works over any array.
+The Mock Provider runs in the browser, with no server and no account. Not using TanStack Table? The Rows Adapter in `gridcue` works over any array, `gridcue/ag-grid` over AG Grid Community, and the Query Adapter over rows your server fetches.
 
 ## Turn on Jev
 
@@ -82,9 +82,11 @@ In the browser, swap `createMockProvider()` for `createRemoteProvider({ endpoint
 
 | Entry | What it holds |
 | --- | --- |
-| `gridcue` | The Controller, schema, protocol, Rows Adapter, and remote provider |
+| `gridcue` | The Controller, schema, protocol, Rows Adapter, Query Adapter, and remote provider |
 | `gridcue/react` | `useGridCue` and the plain-CSS `GridCueBar` |
 | `gridcue/tanstack-table` | The TanStack Table adapter and schema inference |
+| `gridcue/ag-grid` | The AG Grid Community adapter, `gridcueColumnDefs`, and schema inference |
+| `gridcue/testing` | The Query Check (`queryCheck`), for a Host's own Data Query |
 | `gridcue/server` | The Server Handler, Node helper, and Jev provider (server only) |
 | `gridcue/mock` | The keyless Mock Provider |
 
