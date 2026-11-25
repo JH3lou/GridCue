@@ -20,8 +20,8 @@ import {
 } from "@tanstack/react-table";
 import { createGridCue, type GridCueController, type IntentProvider, type ResolutionRequest, type SchemaOptions } from "gridcue";
 import { createMockProvider } from "gridcue/mock";
-import { createTanStackAdapter, gridcueFilterFn, schemaFromTanStack } from "gridcue/tanstack-table";
-import { useState } from "react";
+import { createTanStackAdapter, gridcueFilterFn, localValuesFromTable, schemaFromTanStack } from "gridcue/tanstack-table";
+import { useState, useSyncExternalStore } from "react";
 
 export const features = tableFeatures({
   columnFilteringFeature,
@@ -35,6 +35,7 @@ export const features = tableFeatures({
 });
 
 const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+const dateTime = new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short" });
 const LABELS: Record<string, string> = {
   taxable: "Taxable",
   ira: "IRA",
@@ -51,18 +52,77 @@ const FORMAT: Partial<Record<string, (value: unknown) => string>> = {
   has_restricted_holding: (v) => (v ? "Yes" : "No"),
   registration_type: (v) => LABELS[v as string] ?? String(v),
   custodian: (v) => LABELS[v as string] ?? String(v),
+  last_contact: (v) => dateTime.format(new Date(v as string)),
 };
 export const formatCell = (columnId: string, value: unknown) => (FORMAT[columnId] ?? String)(value);
 
-const columns: Array<ColumnDef<typeof features, AccountRow>> = wealthColumns.map((c) => ({
-  accessorKey: c.id as keyof AccountRow,
-  header: c.label,
-  cell: (info) => formatCell(c.id, info.getValue()),
-}));
+/** The demo's two date columns, beside the fixture's own: the day the account opened, and the last contact with it. */
+interface DatedRow extends AccountRow {
+  opened: string;
+  last_contact: string;
+}
 
-/** The fixture's schema options plus the demo's House Terms, which GridCue reads in the browser and never sends. */
+/**
+ * Adds the two dates to each row, worked out from its index and today in the browser's time zone, so "opened in the
+ * last 90 days" always keeps some rows and not all. Opened dates spread over four years back from today.
+ */
+const withDates = (rows: AccountRow[], now: Date): DatedRow[] => {
+  const today: Record<string, string> = {};
+  for (const part of new Intl.DateTimeFormat("en-US", { year: "numeric", month: "numeric", day: "numeric" }).formatToParts(now)) {
+    today[part.type] = part.value;
+  }
+  // Date.UTC rolls a day count over into earlier months and years, so this is arithmetic on calendar days.
+  const back = (days: number, hour = 0, minute = 0) =>
+    new Date(Date.UTC(Number(today.year), Number(today.month) - 1, Number(today.day) - days, hour, minute)).toISOString();
+  return rows.map((row, i) => ({
+    ...row,
+    opened: back((i * 97) % 1461).slice(0, 10),
+    last_contact: back((i * 13) % 120, 13 + (i % 8), (i * 7) % 60),
+  }));
+};
+
+const never = () => () => {};
+/**
+ * A cell of one of the two date columns. Its text is worked out from today in the browser's time zone, and the Site's
+ * pages are prerendered on another day, in another zone. So the prerendered cell holds blank figures as wide as a date,
+ * and the browser writes the date in once the page is its own: the two never disagree, and the column keeps its width.
+ */
+function DateCell({ getValue, column }: { getValue: () => unknown; column: { id: string } }) {
+  const inBrowser = useSyncExternalStore(
+    never,
+    () => true,
+    () => false,
+  );
+  return inBrowser ? formatCell(column.id, getValue()) : "\u2007".repeat(column.id === "opened" ? 10 : 21);
+}
+
+const fixtureColumns = wealthColumns.map(
+  (c): ColumnDef<typeof features, AccountRow> => ({
+    accessorKey: c.id as keyof AccountRow,
+    header: c.label,
+    cell: (info) => formatCell(c.id, info.getValue()),
+  }),
+);
+// Opened sits right after the Advisor, where it shows without scrolling the table sideways; Last contact is last.
+const OPENED_AT = wealthColumns.findIndex((c) => c.id === "advisor_name") + 1;
+const columns: Array<ColumnDef<typeof features, AccountRow>> = [
+  ...fixtureColumns.slice(0, OPENED_AT),
+  { id: "opened", header: "Opened", accessorFn: (row) => (row as DatedRow).opened, cell: DateCell },
+  ...fixtureColumns.slice(OPENED_AT),
+  { id: "last_contact", header: "Last contact", accessorFn: (row) => (row as DatedRow).last_contact, cell: DateCell },
+];
+
+/**
+ * The fixture's schema options plus the demo's two date columns and its House Terms, which GridCue reads in the browser
+ * and never sends. No `calendar`: the rows are filtered in the browser, so the browser's time zone is the right one.
+ */
 const demoSchemaOptions: SchemaOptions = {
   ...wealthSchemaOptions,
+  columns: {
+    ...wealthSchemaOptions.columns,
+    opened: { kind: "date", aliases: ["opened", "open date"] },
+    last_contact: { kind: "datetime", aliases: ["contacted", "last contacted"] },
+  },
   houseTerms: [
     { label: "Large", aliases: ["big"], where: [{ columnId: "market_value", operator: "gt", value: 1_000_000 }] },
     {
@@ -83,10 +143,11 @@ export interface LastRequest {
 
 /**
  * A synthetic wealth grid wired to GridCue with the keyless Mock Provider. The same hook powers the hero (a few rows)
- * and /demo (all 500). Everything runs in the browser: no server, no key.
+ * and /demo (all 500). Everything runs in the browser: no server, no key. `now` is the clock the rows' dates and a
+ * request's dates are both worked out from; tests pass a fixed one.
  */
-export function useWealthDemo(rowCount: number) {
-  const [data] = useState(() => generateAccounts(rowCount));
+export function useWealthDemo(rowCount: number, now: () => Date = () => new Date()) {
+  const [data] = useState<AccountRow[]>(() => withDates(generateAccounts(rowCount), now()));
   const [last] = useState<LastRequest>(() => ({ request: null }));
   const table = useTable({
     features,
@@ -105,7 +166,9 @@ export function useWealthDemo(rowCount: number) {
         return mock.resolve(request, signal);
       },
     };
-    return createGridCue({ schema, adapter: createTanStackAdapter({ schema, table }), provider });
+    // Local Values: the advisor and household names the rows hold, read in the browser and never sent.
+    const localValues = localValuesFromTable(table, ["advisor_name", "household"]);
+    return createGridCue({ schema, adapter: createTanStackAdapter({ schema, table }), provider, localValues, now });
   });
   return { table, cue, last };
 }

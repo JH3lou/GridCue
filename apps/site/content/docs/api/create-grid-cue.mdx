@@ -37,6 +37,8 @@ interface GridCueOptions {
   audit?: { onEvent: (event: AuditEvent) => void; policy?: AuditPolicy };
   maxUtteranceLength?: number;
   providerTimeoutMs?: number;
+  localValues?: LocalValues;
+  now?: () => Date;
 }
 ```
 
@@ -44,11 +46,13 @@ interface GridCueOptions {
 | --- | --- | --- | --- |
 | `adapter` | `GridAdapter` | required | The Grid Adapter that reads and writes the grid's view. See [Adapters](/docs/api/adapters). |
 | `provider` | `IntentProvider` | required | The Intent Provider that resolves each Clause. See [Providers](/docs/api/providers). |
-| `schema` | `ViewSchema` | `adapter.getSchema()` | The schema GridCue plans and validates against. |
+| `schema` | `ViewSchema` | `adapter.getSchema()` | The schema GridCue plans and validates against. Pass the schema your grid filters with: its Calendar decides the days a Preview names, and `applyView` or your adapter keeps rows by the Calendar of the schema it is given. Two Calendars name one day in the Preview and keep another. |
 | `confidence` | `ConfidencePolicy` | `{ ready: 0.85, clarify: 0.65 }` | Confidence bands. A decision at or above `ready` is used as-is; below `clarify` it is discarded; between the two, GridCue asks a Clarification. Both fields are required when you pass it. |
 | `audit` | `{ onEvent, policy? }` | none | Receives one `AuditEvent` each time a plan is applied, cancelled, rejected, undone or fails. See [Audit events](#audit-events). |
 | `maxUtteranceLength` | `number` | `500` | Longest Utterance accepted, in characters, after trimming. A longer one sets status `error` with the issue `INPUT_TOO_LONG`. At most 2000, the protocol's limit; a larger value makes `createGridCue` throw `INPUT_CONFIG`. |
 | `providerTimeoutMs` | `number` | `8000` | How long the provider may take before GridCue gives up and returns to `idle` with the request kept. `0` turns the limit off. |
+| `localValues` | `LocalValues` | none | A function for each text column whose values GridCue may read from your rows, in the browser, so a request can name a value: "Avery Lane's accounts". Off unless set. See [Local Values](#local-values). |
+| `now` | `() => Date` | The system clock | The clock a relative date in a request is worked out from. See [now](#now). |
 
 `DEFAULT_CONFIDENCE` is exported with the default bands:
 
@@ -64,6 +68,47 @@ const DEFAULT_CONFIDENCE: ConfidencePolicy = { ready: 0.85, clarify: 0.65 };
 ```
 
 For how the bands shape Clarifications, see [Providers and confidence](/docs/concepts/providers-and-confidence).
+
+## Local Values
+
+`localValues` lets a request name a value your rows hold. With it set, "Avery Lane's accounts" filters Advisor to exactly "Avery Lane". Without it, the same request asks what to filter on. A value is read in the browser by GridCue's own code and is never sent to an Intent Provider: see [Safety and protocol](/docs/safety#the-data-boundary).
+
+```ts
+type LocalValues = Record<string, () => readonly unknown[]>;
+```
+
+```ts
+const cue = createGridCue({
+  adapter,
+  provider,
+  localValues: {
+    advisor_name: () => rows.map((row) => row.advisor_name),
+    household: () => rows.map((row) => row.household),
+  },
+});
+```
+
+The keys are column ids. Each function returns that column's values from your own rows. For a TanStack Table, [`localValuesFromTable`](/docs/api/adapters#localvaluesfromtable) builds the object for you.
+
+- **Which columns.** A key must name a text column of the schema that is exposed (not `restricted`, and not `exposeToProvider: false`) and whose `capabilities` include `filter`. If the column sets `allowedOperators`, they must include `eq` and `in`: a value is filtered as exact text, so a column limited to `contains` can't take one. Anything else makes `createGridCue` throw `INPUT_CONFIG` with the reason: "localValues names “nope”, which is not a column of this grid.", "localValues can read only text columns, and Market value isn't one.", "localValues can't read Tax ID: it is restricted.", "localValues can't read Advisor: it may not be filtered.", "localValues can't read Advisor: a value is filtered as exact text, and its allowedOperators leave out “eq” or “in”.". So does a value that is not a function, and a `localValues` that is not a plain object, such as a `Map`. Name the columns that hold names: an advisor, a household, a counterparty. A column with a few approved values, such as Registration type, belongs in `enumValues`.
+- **The function is synchronous.** GridCue calls each one when a request is made, in the browser. It drops values that are not text, that hold no letter or digit, or that repeat an earlier one, and builds a word index. It keeps the index while the function returns the same array, so return the same array while your rows haven't changed, and a new one when they change; GridCue doesn't see a change made in place. A function that builds a new array on every call makes GridCue index it again on every request.
+- **A paged grid supplies its own list.** GridCue reads what the function returns, not what the grid shows. If the grid holds one page of a larger table, return the Host's own list of every name, from a store you already hold in the browser, and not that page. A name the function doesn't return is never read.
+- **A function that throws stops the request.** The status is `error`, with the issue `INPUT_LOCAL_VALUES` and the message "Couldn't read this grid's values. The view hasn't changed." The same happens when a function returns something that is not an array. The provider is not called, and GridCue never reads a request with half its values. A function that cancels the request, or makes a newer one, before it throws leaves that state as it is.
+- **The request is built first.** The request to the provider is built before any value is looked at, and the provider is called once whether or not a request matched a value. See [Safety and protocol](/docs/safety#the-data-boundary).
+
+How a request reads a value, and which requests ask, is on [Requests](/docs/concepts/requests#local-values).
+
+## now
+
+```ts
+const cue = createGridCue({ adapter, provider, now: () => new Date("2026-11-13T15:00:00Z") });
+```
+
+A request such as "entries booked in the last 90 days" is worked out once, when it is made, from today's date in the schema's [Calendar](/docs/api/schema#calendar). The view keeps the two fixed days, not the words: see [Views](/docs/concepts/views#a-view-keeps-fixed-dates). `now` is the clock. Leave it out for the system clock. Tests pass a fixed one, so today doesn't move under them.
+
+- **It is called at most once for a request,** and only for a request that holds a relative date form ("today", "last 90 days", "this quarter", "YTD"). A request with no date, or with an ISO date, never calls it.
+- **Today is the day that instant falls on in the Calendar's `timeZone`.** At 2026-11-13T15:00:00Z it is 2026-11-13 in `America/New_York` and in `UTC`, and 2026-11-14 in `Pacific/Auckland`.
+- **A clock that fails stops the request.** If `now` throws, or returns anything but a valid `Date`, the status is `error` with the issue `INPUT_CLOCK` and the message "Couldn't read today's date. The view hasn't changed." The provider is not called and the view does not change. Nothing guesses a date.
 
 ## GridCueController
 
@@ -111,6 +156,7 @@ Turns an Utterance into a View Plan and a Preview.
 - While the provider works, status is `resolving`.
 - If a Clause names a restricted column, the provider is not called at all; the plan comes back `unsupported`.
 - If the provider takes longer than `providerTimeoutMs`, status returns to `idle` with the Utterance kept, the message "That took too long. Try again." and the issue `PROVIDER_TIMEOUT`. The call returns `null`.
+- If a `localValues` function throws, status is `error` with the issue `INPUT_LOCAL_VALUES`, the provider is not called and the view doesn't change. See [Local Values](#local-values).
 - If the provider throws, status is `error` with the provider's `GridCueError` code (or `PROVIDER_FAILED`). A result that does not match `ResolutionResult` gives `PROVIDER_MALFORMED`.
 
 Otherwise it returns the compiled `ViewPlan` and sets status from it:

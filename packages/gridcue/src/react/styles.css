@@ -25,6 +25,8 @@
   border-radius: calc(var(--gridcue-radius) + var(--gridcue-pad));
   padding: var(--gridcue-pad);
   display: grid;
+  /* One column that may be narrower than its content, so the input row shrinks inside a narrow bar. */
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--gridcue-gap);
   /* Its own alignment: a host page that centres text (Vite's starter does) mustn't centre the Preview. */
   text-align: start;
@@ -75,6 +77,12 @@
 }
 .gridcue-button:active:not(:disabled) {
   scale: 0.96;
+}
+/* A choice may be a long name the grid holds. It wraps inside the bar and never widens the page. */
+.gridcue-choice {
+  max-width: 100%;
+  text-align: start;
+  overflow-wrap: anywhere;
 }
 .gridcue-button:disabled {
   opacity: 0.5;

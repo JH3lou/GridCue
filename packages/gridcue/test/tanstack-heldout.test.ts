@@ -37,7 +37,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import type { GridAdapter } from "../src/core/adapter";
 import { validatePlan } from "../src/core/validate";
 import { createTanStackAdapter, gridcueFilterFn, schemaFromTanStack, type TanStackTableLike } from "../src/tanstack";
-import { type ContractHarness, runAdapterContract } from "./adapter-contract";
+import { type ContractHarness, DATED_COLUMNS, DATED_ROWS, runAdapterContract } from "./adapter-contract";
 
 type Account = { balance: number; region: string; owner: string };
 
@@ -117,7 +117,12 @@ const columns: Array<ColumnDef<typeof features, Account>> = [
   { accessorKey: "owner", header: "Owner" },
 ];
 
-const useFullyControlledTable = () => {
+/** The rows and columns a Host table shows: the accounts above, or the adapter contract's dated rows. */
+type Grid = { data: readonly object[]; columns: ReadonlyArray<{ accessorKey: string; header: string }> };
+const accounts: Grid = { data, columns: columns as Grid["columns"] };
+const datedGrid: Grid = { data: DATED_ROWS, columns: DATED_COLUMNS.map((id) => ({ accessorKey: id, header: id })) };
+
+const useFullyControlledTable = (grid: Grid = accounts) => {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [grouping, setGrouping] = useState<GroupingState>([]);
@@ -125,8 +130,8 @@ const useFullyControlledTable = () => {
   const [columnOrder, setColumnOrder] = useState<ColumnOrderState>([]);
   const table = useTable({
     features,
-    columns,
-    data,
+    columns: grid.columns as typeof columns,
+    data: grid.data as Account[],
     defaultColumn: { filterFn: gridcueFilterFn },
     state: { sorting, columnFilters, grouping, columnVisibility, columnOrder },
     onSortingChange: setSorting,
@@ -149,14 +154,14 @@ const legacyColumns: Array<LegacyColumnDef<Account>> = [
   { accessorKey: "owner", header: "Owner" },
 ];
 
-const useLegacyPagedTable = () => {
+const useLegacyPagedTable = (grid: Grid = { data, columns: legacyColumns as Grid["columns"] }) => {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   // The User has moved to the second page before asking GridCue for anything.
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 1, pageSize: 2 });
   const table = useLegacyTable({
-    columns: legacyColumns,
-    data,
+    columns: grid.columns as typeof legacyColumns,
+    data: grid.data as Account[],
     defaultColumn: { filterFn: gridcueFilterFn },
     state: { sorting, columnFilters, pagination },
     onSortingChange: setSorting,
@@ -191,9 +196,15 @@ const mount = (name: string, useHost: () => unknown) => {
 const FULL = "all five slices Host-controlled, useTable";
 const LEGACY = "Host-controlled with pagination auto-reset, useLegacyTable";
 
-const harness = (name: string, useHost: () => unknown) => (): ContractHarness => {
-  const { adapter, manualChange } = mount(name, useHost);
-  return { adapter, manualChange, numericColumn: "balance", otherColumn: "owner" };
+const harness = (name: string, useHost: (grid?: Grid) => unknown) => (): ContractHarness => {
+  const { adapter, manualChange } = mount(name, () => useHost());
+  return {
+    adapter,
+    manualChange,
+    numericColumn: "balance",
+    otherColumn: "owner",
+    dated: () => mount(`${name}, dated rows`, () => useHost(datedGrid)).adapter,
+  };
 };
 
 runAdapterContract(`TanStack Table held-out, ${FULL}`, harness(FULL, useFullyControlledTable));

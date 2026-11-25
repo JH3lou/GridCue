@@ -89,6 +89,8 @@
 {"file":"cases-count.jsonl","id":"ct-ctl-hide-advisor","lines":["Hide Advisor"],"notes":[]}
 {"file":"cases-count.jsonl","id":"ct-ctl-hide-concentration","lines":["Hide Concentration"],"notes":[]}
 {"file":"cases-count.jsonl","id":"ct-ctl-group-registration","lines":["Group by Registration type"],"notes":[]}
+{"file":"cases-dates.jsonl","id":"dt-value-then-iso-after","lines":["Filter Category to Travel","Filter Booked above “2026-01-31”"],"notes":[]}
+{"file":"cases-dates.jsonl","id":"dt-ask-since-january","lines":["Filter Category to Travel"],"notes":[]}
 {"file":"cases-fanout.jsonl","id":"f-roth-grouped","lines":["Filter Registration type to Roth IRA","Group by Advisor"],"notes":[]}
 {"file":"cases-fanout.jsonl","id":"f-amount-sorted","lines":["Filter Market value above $2,000,000","Sort by Concentration, descending"],"notes":[]}
 {"file":"cases-fanout.jsonl","id":"f-taxable-grouped","lines":["Filter Registration type to Taxable","Group by Custodian"],"notes":[]}
@@ -763,6 +765,82 @@
 {"file":"cases-reading.jsonl","id":"rd6-z4-dollar-both-small","lines":["Filter Market value between $999 and $2,000"],"notes":[]}
 {"file":"cases-reading.jsonl","id":"rd6-z4-dollar-both-gain","lines":["Filter Unrealized gain between $500 and $5,000"],"notes":[]}
 {"file":"cases-reading.jsonl","id":"rd6-z4-ctl-full","lines":["Filter Market value between $1,000,000 and $2,000,000"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-negated-clear-02","lines":["Clear grouping"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-negated-clear-06","lines":["Remove the filter Registration type to Trust"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-negated-clear-07","lines":["Clear sorting","Clear grouping"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-negated-clear-08","lines":["Remove the filter Registration type to Trust"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-clear-one-01","lines":["Sort by Market value, descending"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-clear-one-02","lines":["Remove the filters Custodian to Northgate; Registration type to Trust","Filter Registration type to Trust"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-clear-one-03","lines":["Group by Advisor"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-clear-one-07","lines":["Clear sorting"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-clear-one-08","lines":["Remove the filters Custodian to Northgate; Registration type to Trust"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-clear-one-09","lines":["Clear grouping"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-clear-one-10","lines":["Sort by Units, ascending"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-clear-one-11","lines":["Remove the filters Category to Travel; Cleared is Yes","Show only rows where Cleared is Yes"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-clear-one-12","lines":["Group by Category"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-quoted-inside-01","lines":["Filter Advisor containing “unrestricted restricted”"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-quoted-inside-02","lines":["Filter Household containing “taxable”"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-quoted-inside-03","lines":["Filter Advisor containing “northgate”"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-quoted-inside-04","lines":["Filter Advisor containing “gainsborough”"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-quoted-inside-05","lines":["Filter Household containing “custodianship”","Sort by Market value, ascending"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-quoted-inside-06","lines":["Filter Advisor containing “ira”"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-quoted-inside-07","lines":["Filter Advisor containing “lane”"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-quoted-inside-08","lines":["Filter Registration type to Taxable","Filter Advisor containing “lane”"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-quoted-inside-09","lines":["Filter Counterparty containing “travel”"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-quoted-inside-10","lines":["Filter Counterparty containing “software”"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-quoted-inside-11","lines":["Filter Counterparty containing “cedar”"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-hide-where-04","lines":["Filter Unrealized gain at or above $0"],"notes":["Rows with no Unrealized gain are hidden too"]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-hide-where-05","lines":["Filter Custodian to any of Harborline and Summit Trust"],"notes":["Rows with no Custodian are hidden too"]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-hide-where-06","lines":["Filter Market value at or above $100,000"],"notes":["Rows with no Market value are hidden too"]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-hide-where-07","lines":["Filter Custodian to Northgate","Filter Unrealized gain below $0"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-hide-where-10","lines":["Filter Amount at or below $5,000"],"notes":["Rows with no Amount are hidden too"]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-mixed-range-05","lines":["Filter Concentration between 10% and 20%"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-mixed-range-06","lines":["Filter Market value between $1,000,000 and $2,000,000"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-mixed-range-07","lines":["Filter Market value between $1,000,000 and $2,000,000"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-mixed-range-10","lines":["Filter Rate between 5% and 10%"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-mixed-range-11","lines":["Filter Amount between $100 and $500"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-two-bounds-07","lines":["Filter Unrealized gain between $10,000 and $20,000"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-two-bounds-08","lines":["Filter Unrealized gain above $10,000"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-bang-after-comma-05","lines":["Filter Registration type to Trust"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-bang-after-comma-06","lines":["Show only rows where Restricted holdings is Yes","Filter Registration type to Trust"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-bang-after-comma-07","lines":["Filter Registration type to Trust","Filter Advisor containing “lane”"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-bang-after-comma-11","lines":["Filter Category to Travel"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-keep-quoted-01","lines":["Remove the filters Advisor containing “lane”; Custodian to Northgate","Filter Advisor containing “lane”"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-keep-quoted-02","lines":["Remove the filters Advisor containing “lane”; Custodian to Northgate","Filter Advisor containing “lane”"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-keep-quoted-03","lines":["Remove the filters Advisor containing “lane”; Custodian to Northgate","Filter Advisor containing “lane”"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-keep-quoted-05","lines":["Remove the filters Advisor containing “lane”; Market value above $1,000,000","Filter Advisor containing “lane”"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-keep-quoted-06","lines":["Remove the filters Advisor containing “lane”; Custodian to Northgate"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-keep-quoted-07","lines":["Remove the filters Advisor containing “lane”; Custodian to Northgate","Filter Custodian to Northgate"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-keep-quoted-08","lines":["Remove the filters Owner containing “casey”; Category to Travel","Filter Owner containing “casey”"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-keep-quoted-09","lines":["Remove the filters Owner containing “casey”; Category to Travel","Filter Owner containing “casey”"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-keep-quoted-10","lines":["Remove the filters Owner containing “casey”; Category to Travel","Filter Owner containing “casey”"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-keep-quoted-11","lines":["Remove the filters Owner containing “casey”; Category to Travel","Filter Category to Travel"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-sort-after-count-04","lines":["Sort by Unrealized gain, ascending","Show only the first 5 rows"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-sort-after-count-05","lines":["Sort by Market value, descending","Show only the first 10 rows"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-sort-after-count-06","lines":["Sort by Advisor, ascending","Show only the first 5 rows"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-sort-after-count-07","lines":["Sort by Market value, descending","Show only the first 10 rows","Hide Custodian"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-sort-after-count-10","lines":["Sort by Amount, descending","Show only the first 5 rows"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-sort-after-count-11","lines":["Sort by Booked, ascending","Show only the first 10 rows"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-quoted-question-word-02","lines":["Filter Advisor to exactly “which”"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-quoted-question-word-03","lines":["Filter Household to exactly “who”","Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-quoted-question-word-04","lines":["Filter Advisor to exactly “that”","Sort by Unrealized gain, ascending"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-quoted-question-word-06","lines":["Filter Advisor to exactly “lane”"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-quoted-question-word-07","lines":["Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-quoted-question-word-08","lines":["Filter Counterparty to exactly “who”"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-quoted-question-word-10","lines":["Filter Counterparty to exactly “that”","Show only rows where Category is empty"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-quoted-question-word-11","lines":["Show only rows where Counterparty is empty"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-only-column-and-sort-02","lines":["Sort by Market value, ascending","Show only rows where Household is empty","Show Advisor","Hide Account number, Household, Registration type, Custodian, Market value, Concentration, Unrealized gain and Restricted holdings","Put Advisor first"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-only-column-and-sort-04","lines":["Show only rows where Advisor is empty","Show Household","Hide Account number, Advisor, Registration type, Custodian, Market value, Concentration, Unrealized gain and Restricted holdings","Put Household first","Sort by Unrealized gain, ascending"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-only-column-and-sort-06","lines":["Show Household","Hide Account number, Advisor, Registration type, Custodian, Market value, Concentration, Unrealized gain and Restricted holdings","Put Household first"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-only-column-and-sort-07","lines":["Show only rows where Advisor is empty","Sort by Unrealized gain, descending"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-only-column-and-sort-09","lines":["Sort by Amount, ascending","Show only rows where Category is empty","Show Owner","Hide Entry number, Counterparty, Booked, Posted at, Units, Amount, Rate, Category and Cleared","Put Owner first"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-only-column-and-sort-11","lines":["Show Owner","Hide Entry number, Counterparty, Booked, Posted at, Units, Amount, Rate, Category and Cleared","Put Owner first"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-same-column-twice-04","lines":["Filter Advisor to any of “Avery Lane” and “Blake Moreno”"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-same-column-twice-05","lines":["Filter Advisor to any of “Avery Lane” and “Blake Moreno”"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-same-column-twice-06","lines":["Filter Advisor to exactly “Avery Lane”"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-same-column-twice-07","lines":["Filter Advisor to exactly “Avery Lane”","Filter Household to exactly “Alder Household”"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-same-column-twice-10","lines":["Filter Owner to any of “Gale Ivers” and “Casey Ortiz”"],"notes":[]}
+{"file":"cases-review-fixes-heldout.jsonl","id":"rf-same-column-twice-11","lines":["Filter Owner to exactly “Casey Ortiz”","Filter Counterparty to exactly “Cedar Works”"],"notes":[]}
 {"file":"cases-text-forms.jsonl","id":"tf-spec-empty-then-amount","lines":["Filter Market value above $1,000,000"],"notes":[]}
 {"file":"cases-text-forms.jsonl","id":"tf-spec-no-restricted","lines":["Show only rows where Restricted holdings is No"],"notes":[]}
 {"file":"cases-text-forms.jsonl","id":"tf-spec-no-accounts-over","lines":["Filter Market value at or below $1,000,000"],"notes":["Rows with no Market value are hidden too"]}
@@ -1025,3 +1103,387 @@
 {"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-plain-l02","lines":["Sort by Amount, descending"],"notes":[]}
 {"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-plain-l03","lines":["Hide Rate and Units"],"notes":[]}
 {"file":"cases-text-forms-heldout-r3.jsonl","id":"r3-plain-l05","lines":["Show only rows where Cleared is Yes"],"notes":[]}
+{"file":"cases-names.jsonl","id":"lv-middle","lines":["Filter Registration type to Taxable"],"notes":[]}
+{"file":"cases-names.jsonl","id":"lv-end","lines":["Filter Registration type to Taxable"],"notes":[]}
+{"file":"cases-names.jsonl","id":"lv-table-taxable-for","lines":["Filter Registration type to Taxable"],"notes":[]}
+{"file":"cases-names.jsonl","id":"lv-table-sort-for","lines":["Sort by Market value, ascending; then Household, ascending"],"notes":[]}
+{"file":"cases-names.jsonl","id":"lv-table-group-for","lines":["Group by Advisor"],"notes":[]}
+{"file":"cases-names.jsonl","id":"lv-quoted-value-unchanged","lines":["Filter Advisor containing “avery lane”"],"notes":[]}
+{"file":"cases-names.jsonl","id":"lv-spec-quoted-lane","lines":["Filter Advisor containing “lane”"],"notes":[]}
+{"file":"cases-names.jsonl","id":"lv-one-word-taxable-for-lane","lines":["Filter Registration type to Taxable"],"notes":[]}
+{"file":"cases-names.jsonl","id":"lv-ledger-cleared-yes","lines":["Show only rows where Cleared is Yes"],"notes":[]}
+{"file":"cases-names.jsonl","id":"lv-ledger-sorted","lines":["Sort by Amount, descending"],"notes":[]}
+{"file":"cases-names.jsonl","id":"lv-ledger-group","lines":["Group by Category"],"notes":[]}
+{"file":"cases-provider-picks.jsonl","id":"pp-lv-sort-for-name","lines":["Sort by Account number, descending; then Advisor, descending; then Market value, descending"],"notes":[]}
+{"file":"cases-provider-picks.jsonl","id":"pp-lv-group-for-name","lines":["Group by Account number, then Advisor, then Custodian"],"notes":[]}
+{"file":"cases-provider-picks.jsonl","id":"pp-lv-hide-for-name","lines":["Hide Account number, Advisor and Custodian"],"notes":[]}
+{"file":"cases-provider-picks.jsonl","id":"pp-lv-show-for-name","lines":["Show Account number, Advisor and Custodian"],"notes":[]}
+{"file":"cases-provider-picks.jsonl","id":"pp-lv-value-beside-name-taxable","lines":["Filter Registration type to Taxable","Sort by Advisor, descending; then Concentration, descending"],"notes":[]}
+{"file":"cases-provider-picks.jsonl","id":"pp-lv-ledger-sort-for-owner","lines":["Sort by Owner, descending; then Amount, descending"],"notes":[]}
+{"file":"cases-provider-picks.jsonl","id":"pp-lv-ledger-value-for-counterparty","lines":["Filter Category to Fees"],"notes":[]}
+{"file":"cases-provider-picks.jsonl","id":"pp-lv-ledger-group-for-list","lines":["Group by Owner, then Category"],"notes":[]}
+{"file":"cases-provider-picks.jsonl","id":"pp-dt-sort-for-quarter","lines":["Sort by Booked, descending; then Amount, descending"],"notes":[]}
+{"file":"cases-provider-picks.jsonl","id":"pp-dt-group-for-ytd","lines":["Group by Booked, then Category"],"notes":[]}
+{"file":"cases-provider-picks.jsonl","id":"pp-dt-hide-for-last-quarter","lines":["Hide Booked and Posted at"],"notes":[]}
+{"file":"cases-provider-picks.jsonl","id":"pp-dt-sort-for-today","lines":["Sort by Booked, ascending; then Posted at, ascending"],"notes":[]}
+{"file":"cases-provider-picks.jsonl","id":"pp-dt-show-for-ytd","lines":["Show Booked and Rate"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-owner-possessive","lines":["Filter Owner to exactly “Avery Lane”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-owner-for","lines":["Filter Owner to exactly “Avery Lane”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-owner-is","lines":["Filter Owner to exactly “Avery Lane”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-owner-show","lines":["Filter Owner to exactly “Avery Lane”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-owner-bare","lines":["Filter Owner to exactly “Avery Lane”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-owner-lower-lead-in","lines":["Filter Owner to exactly “Blake Moreno”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-owner-upper-possessive","lines":["Filter Owner to exactly “Casey Ortiz”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-owner-final-period","lines":["Filter Owner to exactly “Dana Whitfield”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-owner-where-owner-is","lines":["Filter Owner to exactly “Emerson Hale”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-owner-want-to-see","lines":["Filter Owner to exactly “Frankie Dunmore”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-owner-can-you-list","lines":["Filter Owner to exactly “Gale Ivers”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-owner-hyphen","lines":["Filter Owner to exactly “Avery Lane”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-owner-of","lines":["Filter Owner to exactly “Dana Whitfield”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-owner-with","lines":["Filter Owner to exactly “Emerson Hale”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-cp-possessive-form","lines":["Filter Counterparty to exactly “Cedar Works”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-cp-for","lines":["Filter Counterparty to exactly “Cedar Works”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-cp-is","lines":["Filter Counterparty to exactly “Dunmore Freight”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-cp-holds-category-word","lines":["Filter Counterparty to exactly “Fairholm Software”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-cp-holds-category-and-group","lines":["Filter Counterparty to exactly “Hollis Travel Group”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-cp-holds-alias-word","lines":["Filter Counterparty to exactly “Greaves Consulting”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-cp-ampersand","lines":["Filter Counterparty to exactly “Birch & Fenn Ltd”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-cp-no-ampersand","lines":["Filter Counterparty to exactly “Birch & Fenn Ltd”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-cp-trailing-period","lines":["Filter Counterparty to exactly “Alder Supply Co”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-cp-the","lines":["Filter Counterparty to exactly “Ellery Partners”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-list-two-owners","lines":["Filter Owner to any of “Avery Lane” and “Blake Moreno”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-list-and-owners","lines":["Filter Owner to any of “Avery Lane” and “Blake Moreno”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-list-three-owners","lines":["Filter Owner to any of “Avery Lane”, “Blake Moreno” and “Casey Ortiz”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-list-two-cps","lines":["Filter Counterparty to any of “Cedar Works” and “Dunmore Freight”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-list-three-cps","lines":["Filter Counterparty to any of “Alder Supply Co”, “Cedar Works” and “Ellery Partners”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-owner-and-cp","lines":["Filter Owner to exactly “Avery Lane”","Filter Counterparty to exactly “Cedar Works”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-with-category","lines":["Filter Owner to exactly “Avery Lane”","Filter Category to Fees"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-category-then-value","lines":["Filter Category to Travel","Filter Owner to exactly “Blake Moreno”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-with-category-and-cp","lines":["Filter Counterparty to exactly “Fairholm Software”","Filter Category to Fees"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-cp-travel-with-category","lines":["Filter Counterparty to exactly “Hollis Travel Group”","Filter Category to Software"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-with-amount","lines":["Filter Owner to exactly “Avery Lane”","Filter Amount above $50,000"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-cp-with-amount-under","lines":["Filter Counterparty to exactly “Cedar Works”","Filter Amount below $10,000"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-with-iso-date","lines":["Filter Owner to exactly “Casey Ortiz”","Filter Booked above “2026-03-01”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-with-starts-with","lines":["Filter Owner to exactly “Blake Moreno”","Filter Counterparty starting with “fa”"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-with-no-counterparty","lines":["Filter Owner to exactly “Dana Whitfield”","Show only rows where Counterparty is empty"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-with-no-category","lines":["Filter Owner to exactly “Emerson Hale”","Show only rows where Category is empty"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-cp-with-booked-empty","lines":["Filter Counterparty to exactly “Cedar Works”","Show only rows where Booked is empty"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-with-software-category","lines":["Filter Owner to exactly “Gale Ivers”","Filter Category to Software"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-beside-sort-leading","lines":["Filter Owner to exactly “Blake Moreno”","Sort by Units, ascending"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-beside-group","lines":["Filter Owner to exactly “Casey Ortiz”","Group by Category"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-beside-hide-trailing","lines":["Filter Owner to exactly “Dana Whitfield”","Hide Rate"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-two-words-category-and-group","lines":["Filter Category to Travel"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-own-word-software-category","lines":["Filter Category to Software"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-own-word-travel-category","lines":["Filter Category to Travel"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-own-word-consulting-alias","lines":["Filter Category to Services"],"notes":[]}
+{"file":"cases-names-heldout-ledger.jsonl","id":"lvl1-own-word-group-not-value","lines":["Group by Category"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-poss-avery","lines":["Filter Advisor to exactly “Avery Lane”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-for-avery","lines":["Filter Advisor to exactly “Avery Lane”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-advisor-is-avery","lines":["Filter Advisor to exactly “Avery Lane”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-the-alder-household","lines":["Filter Household to exactly “Alder Household”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-show-birch-household","lines":["Filter Household to exactly “Birch Household”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-show-me-casey","lines":["Filter Advisor to exactly “Casey Ortiz”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-please-dana","lines":["Filter Advisor to exactly “Dana Whitfield”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-can-you-emerson","lines":["Filter Advisor to exactly “Emerson Hale”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-i-want-cedar","lines":["Filter Household to exactly “Cedar Household”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-list-dunmore-accounts","lines":["Filter Household to exactly “Dunmore Household”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-upper-case","lines":["Filter Advisor to exactly “Avery Lane”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-lower-case","lines":["Filter Advisor to exactly “Avery Lane”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-bare-household-lower","lines":["Filter Household to exactly “Alder Household”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-bare-advisor","lines":["Filter Advisor to exactly “Blake Moreno”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-just-casey","lines":["Filter Advisor to exactly “Casey Ortiz”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-only-dana","lines":["Filter Advisor to exactly “Dana Whitfield”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-greaves-poss","lines":["Filter Household to exactly “Greaves Household”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-where-household-is","lines":["Filter Household to exactly “Hollis Household”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-full-stop","lines":["Filter Household to exactly “Ivers Household”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-capital-household","lines":["Filter Household to exactly “Jessup Household”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-kestrel-bare","lines":["Filter Household to exactly “Kestrel Household”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-lomax","lines":["Filter Household to exactly “Lomax Household”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-household-possessive","lines":["Filter Household to exactly “Cedar Household”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-hyphen-between-words","lines":["Filter Advisor to exactly “Avery Lane”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-trailing-please","lines":["Filter Advisor to exactly “Casey Ortiz”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-advisor-colon","lines":["Filter Advisor to exactly “Dana Whitfield”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-list-two-or","lines":["Filter Advisor to any of “Avery Lane” and “Blake Moreno”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-list-three","lines":["Filter Advisor to any of “Avery Lane”, “Blake Moreno” and “Casey Ortiz”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-list-accounts-for-or","lines":["Filter Advisor to any of “Avery Lane” and “Dana Whitfield”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-list-advisor-is-or","lines":["Filter Advisor to any of “Avery Lane” and “Blake Moreno”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-list-two-households","lines":["Filter Household to any of “Alder Household” and “Birch Household”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-list-three-households","lines":["Filter Household to any of “Alder Household”, “Cedar Household” and “Greaves Household”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-list-and","lines":["Filter Advisor to any of “Avery Lane” and “Blake Moreno”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-beside-taxable","lines":["Filter Registration type to Taxable","Filter Advisor to exactly “Avery Lane”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-household-amount","lines":["Filter Household to exactly “Alder Household”","Filter Market value above $500,000"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-beside-ira","lines":["Filter Advisor to exactly “Casey Ortiz”","Filter Registration type to IRA"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-beside-trust","lines":["Filter Advisor to exactly “Blake Moreno”","Filter Registration type to Trust"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-beside-custodian","lines":["Filter Custodian to Northgate","Filter Advisor to exactly “Emerson Hale”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-beside-concentration","lines":["Filter Advisor to exactly “Avery Lane”","Filter Concentration above 10%"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-beside-sort-household","lines":["Filter Household to exactly “Alder Household”","Sort by Market value, descending"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-beside-group","lines":["Filter Advisor to exactly “Avery Lane”","Group by Advisor"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-beside-group-custodian","lines":["Filter Household to exactly “Alder Household”","Group by Custodian"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-beside-text-form","lines":["Filter Advisor to exactly “Avery Lane”","Filter Household starting with “al”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-beside-empty-form","lines":["Filter Household to exactly “Alder Household”","Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-two-columns-values","lines":["Filter Advisor to exactly “Avery Lane”","Filter Household to exactly “Alder Household”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-conflict-no-advisor","lines":["Filter Advisor to exactly “Avery Lane”","Show only rows where Advisor is empty"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-conflict-starts-with","lines":["Filter Advisor to exactly “Avery Lane”","Filter Advisor starting with “bl”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-conflict-two-advisors","lines":["Filter Advisor to any of “Avery Lane” and “Blake Moreno”"],"notes":[]}
+{"file":"cases-names-heldout-wealth.jsonl","id":"lv1-mixed-columns-and","lines":["Filter Advisor to exactly “Avery Lane”","Filter Household to exactly “Alder Household”"],"notes":[]}
+{"file":"cases-names-natural-heldout.jsonl","id":"n4-w-advisor-full","lines":["Filter Advisor to exactly “Avery Lane”"],"notes":[]}
+{"file":"cases-names-natural-heldout.jsonl","id":"n4-w-advisor-bare","lines":["Filter Advisor to exactly “Dana Whitfield”"],"notes":[]}
+{"file":"cases-names-natural-heldout.jsonl","id":"n4-w-advisor-lower","lines":["Filter Advisor to exactly “Emerson Hale”"],"notes":[]}
+{"file":"cases-names-natural-heldout.jsonl","id":"n4-w-two-advisors","lines":["Filter Advisor to any of “Avery Lane” and “Blake Moreno”"],"notes":[]}
+{"file":"cases-names-natural-heldout.jsonl","id":"n4-w-household-full","lines":["Filter Household to exactly “Alder Household”"],"notes":[]}
+{"file":"cases-names-natural-heldout.jsonl","id":"n4-w-household-poss","lines":["Filter Household to exactly “Greaves Household”"],"notes":[]}
+{"file":"cases-names-natural-heldout.jsonl","id":"n4-w-with-enum","lines":["Filter Advisor to exactly “Blake Moreno”","Filter Registration type to Taxable"],"notes":[]}
+{"file":"cases-names-natural-heldout.jsonl","id":"n4-w-with-hide","lines":["Filter Household to exactly “Dunmore Household”","Hide Advisor"],"notes":[]}
+{"file":"cases-names-natural-heldout.jsonl","id":"n4-w-two-columns","lines":["Filter Advisor to exactly “Emerson Hale”","Filter Household to exactly “Ivers Household”"],"notes":[]}
+{"file":"cases-names-natural-heldout.jsonl","id":"n4-l-owner-full","lines":["Filter Owner to exactly “Frankie Dunmore”"],"notes":[]}
+{"file":"cases-names-natural-heldout.jsonl","id":"n4-l-two-owners","lines":["Filter Owner to any of “Blake Moreno” and “Casey Ortiz”"],"notes":[]}
+{"file":"cases-names-natural-heldout.jsonl","id":"n4-l-cp-ampersand","lines":["Filter Counterparty to exactly “Birch & Fenn Ltd”"],"notes":[]}
+{"file":"cases-names-natural-heldout.jsonl","id":"n4-l-cp-two","lines":["Filter Counterparty to any of “Alder Supply Co” and “Fairholm Software”"],"notes":[]}
+{"file":"cases-names-natural-heldout.jsonl","id":"n4-l-cp-and-owner","lines":["Filter Owner to exactly “Casey Ortiz”","Filter Counterparty to exactly “Greaves Consulting”"],"notes":[]}
+{"file":"cases-names-picks-heldout.jsonl","id":"lvp1-ledger-sort-for-owner","lines":["Filter Owner to exactly “Avery Lane”"],"notes":[]}
+{"file":"cases-names-picks-heldout.jsonl","id":"lvp1-ledger-group-for-cp","lines":["Filter Counterparty to exactly “Cedar Works”"],"notes":[]}
+{"file":"cases-names-picks-heldout.jsonl","id":"lvp1-ledger-hide-for-owner","lines":["Filter Owner to exactly “Blake Moreno”"],"notes":[]}
+{"file":"cases-names-picks-heldout.jsonl","id":"lvp1-ledger-category-value-for-owner","lines":["Filter Owner to exactly “Dana Whitfield”"],"notes":[]}
+{"file":"cases-names-picks-heldout.jsonl","id":"lvp1-ledger-boolean-value-for-owner","lines":["Filter Owner to exactly “Casey Ortiz”"],"notes":[]}
+{"file":"cases-names-picks-heldout.jsonl","id":"lvp1-ledger-travel-for-hollis-travel-group","lines":["Filter Counterparty to exactly “Hollis Travel Group”"],"notes":[]}
+{"file":"cases-names-picks-heldout.jsonl","id":"lvp1-ledger-software-for-fairholm-software","lines":["Filter Counterparty to exactly “Fairholm Software”"],"notes":[]}
+{"file":"cases-names-picks-heldout.jsonl","id":"lvp1-ledger-services-for-greaves-consulting","lines":["Filter Counterparty to exactly “Greaves Consulting”"],"notes":[]}
+{"file":"cases-names-picks-heldout.jsonl","id":"lvp1-ledger-group-pick-beside-named-sort","lines":["Filter Owner to exactly “Avery Lane”","Sort by Units, descending"],"notes":[]}
+{"file":"cases-names-picks-heldout.jsonl","id":"lvp1-ledger-sort-pick-on-owner-column","lines":["Filter Owner to exactly “Emerson Hale”"],"notes":[]}
+{"file":"cases-names-picks-heldout.jsonl","id":"lvp1-ledger-sort-pick-beside-named-group","lines":["Filter Owner to exactly “Gale Ivers”","Group by Category"],"notes":[]}
+{"file":"cases-names-picks-heldout.jsonl","id":"lvp1-ledger-other-column-for-owner","lines":["Filter Owner to exactly “Frankie Dunmore”"],"notes":[]}
+{"file":"cases-names-picks-heldout.jsonl","id":"lvp1-ledger-list-with-sort-pick","lines":["Filter Owner to any of “Avery Lane” and “Blake Moreno”"],"notes":[]}
+{"file":"cases-names-picks-heldout.jsonl","id":"lvp1-ledger-category-word-hide-pick","lines":["Filter Counterparty to exactly “Cedar Works”","Filter Category to Fees"],"notes":[]}
+{"file":"cases-names-picks-heldout.jsonl","id":"lvp1-ledger-other-category-value-beside-named-one","lines":["Filter Owner to exactly “Casey Ortiz”","Filter Category to Fees"],"notes":[]}
+{"file":"cases-names-picks-heldout.jsonl","id":"lvp1-wealth-sort-for-advisor","lines":["Filter Advisor to exactly “Avery Lane”"],"notes":[]}
+{"file":"cases-names-picks-heldout.jsonl","id":"lvp1-wealth-group-for-household","lines":["Filter Household to exactly “Alder Household”"],"notes":[]}
+{"file":"cases-names-picks-heldout.jsonl","id":"lvp1-wealth-value-pick-for-advisor","lines":["Filter Advisor to exactly “Blake Moreno”"],"notes":[]}
+{"file":"cases-names-picks-heldout.jsonl","id":"lvp1-wealth-hide-for-household","lines":["Filter Household to exactly “Cedar Household”"],"notes":[]}
+{"file":"cases-names-picks-heldout.jsonl","id":"lvp1-wealth-other-value-beside-named","lines":["Filter Advisor to exactly “Dana Whitfield”","Filter Registration type to Taxable"],"notes":[]}
+{"file":"cases-names-picks-heldout.jsonl","id":"lvp1-wealth-group-pick-beside-named-sort","lines":["Filter Advisor to exactly “Avery Lane”","Sort by Market value, descending"],"notes":[]}
+{"file":"cases-names-picks-heldout.jsonl","id":"lvp1-wealth-list-with-sort-pick","lines":["Filter Advisor to any of “Avery Lane” and “Blake Moreno”"],"notes":[]}
+{"file":"cases-names-heldout-wealth-r2.jsonl","id":"r2-whole-three-word-value","lines":["Filter Counterparty to exactly “Hollis Travel Group”"],"notes":[]}
+{"file":"cases-names-heldout-wealth-r2.jsonl","id":"r2-possessive","lines":["Filter Advisor to exactly “Dana Whitfield”"],"notes":[]}
+{"file":"cases-names-heldout-wealth-r2.jsonl","id":"r2-for","lines":["Filter Advisor to exactly “Emerson Hale”"],"notes":[]}
+{"file":"cases-names-heldout-wealth-r2.jsonl","id":"r2-lowercase-typed","lines":["Filter Advisor to exactly “Casey Ortiz”"],"notes":[]}
+{"file":"cases-names-heldout-wealth-r2.jsonl","id":"r2-uppercase-household","lines":["Filter Household to exactly “Jessup Household”"],"notes":[]}
+{"file":"cases-names-heldout-wealth-r2.jsonl","id":"r2-household-show","lines":["Filter Household to exactly “Kestrel Household”"],"notes":[]}
+{"file":"cases-names-heldout-wealth-r2.jsonl","id":"r2-ledger-owner","lines":["Filter Owner to exactly “Gale Ivers”"],"notes":[]}
+{"file":"cases-names-heldout-wealth-r2.jsonl","id":"r2-ledger-cp-for","lines":["Filter Counterparty to exactly “Greaves Consulting”"],"notes":[]}
+{"file":"cases-names-heldout-wealth-r2.jsonl","id":"r2-ledger-punctuated-value","lines":["Filter Counterparty to exactly “Birch & Fenn Ltd”"],"notes":[]}
+{"file":"cases-names-heldout-wealth-r2.jsonl","id":"r2-list-three","lines":["Filter Advisor to any of “Avery Lane”, “Blake Moreno” and “Casey Ortiz”"],"notes":[]}
+{"file":"cases-names-heldout-wealth-r2.jsonl","id":"r2-list-or-accounts","lines":["Filter Advisor to any of “Casey Ortiz” and “Emerson Hale”"],"notes":[]}
+{"file":"cases-names-heldout-wealth-r2.jsonl","id":"r2-list-ledger-or","lines":["Filter Owner to any of “Frankie Dunmore” and “Gale Ivers”"],"notes":[]}
+{"file":"cases-names-heldout-wealth-r2.jsonl","id":"r2-list-and","lines":["Filter Advisor to any of “Dana Whitfield” and “Emerson Hale”"],"notes":[]}
+{"file":"cases-names-heldout-wealth-r2.jsonl","id":"r2-value-plus-registration","lines":["Filter Advisor to exactly “Emerson Hale”","Filter Registration type to Trust"],"notes":[]}
+{"file":"cases-names-heldout-wealth-r2.jsonl","id":"r2-two-columns-for","lines":["Filter Advisor to exactly “Avery Lane”","Filter Household to exactly “Alder Household”"],"notes":[]}
+{"file":"cases-names-heldout-wealth-r2.jsonl","id":"r2-ledger-two-columns-for","lines":["Filter Owner to exactly “Avery Lane”","Filter Counterparty to exactly “Cedar Works”"],"notes":[]}
+{"file":"cases-names-heldout-wealth-r2.jsonl","id":"r2-quoted-contains-unchanged","lines":["Filter Advisor containing “hale”"],"notes":[]}
+{"file":"cases-names-heldout-wealth-r2.jsonl","id":"r2-export","lines":["Filter Advisor to exactly “Avery Lane”"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-last-7-days","lines":["Filter Booked from 2026-11-06 to 2026-11-13 (last 7 days)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-past-30-days-noun","lines":["Filter Booked from 2026-10-14 to 2026-11-13 (past 30 days)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-over-the-365-days","lines":["Filter Booked from 2025-11-13 to 2026-11-13 (last 365 days)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-during-the-999-days","lines":["Filter Booked from 2024-02-18 to 2026-11-13 (last 999 days)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-within-the-2-weeks","lines":["Filter Booked from 2026-10-30 to 2026-11-13 (last 2 weeks)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-last-6-weeks","lines":["Filter Booked from 2026-10-02 to 2026-11-13 (last 6 weeks)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-for-the-past-52-weeks","lines":["Filter Booked from 2025-11-14 to 2026-11-13 (past 52 weeks)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-for-the-past-8-weeks","lines":["Filter Booked from 2026-09-18 to 2026-11-13 (past 8 weeks)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-last-3-weeks-alias","lines":["Filter Booked from 2026-10-23 to 2026-11-13 (last 3 weeks)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-last-3-months","lines":["Filter Booked from 2026-08-13 to 2026-11-13 (last 3 months)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-last-9-months","lines":["Filter Booked from 2026-02-13 to 2026-11-13 (last 9 months)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-past-12-months","lines":["Filter Booked from 2025-11-13 to 2026-11-13 (past 12 months)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-during-18-months","lines":["Filter Booked from 2025-05-13 to 2026-11-13 (last 18 months)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-last-2-years","lines":["Filter Booked from 2024-11-13 to 2026-11-13 (last 2 years)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-within-past-5-years","lines":["Filter Booked from 2021-11-13 to 2026-11-13 (past 5 years)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-last-999-years","lines":["Filter Booked from 1027-11-13 to 2026-11-13 (last 999 years)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-last-1-day","lines":["Filter Booked from 2026-11-12 to 2026-11-13 (last 1 day)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-today","lines":["Filter Booked on 2026-11-13 (today)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-yesterday","lines":["Filter Booked on 2026-11-12 (yesterday)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-posted-10-days","lines":["Filter Posted at from 2026-11-03 to 2026-11-13 (last 10 days)"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-posted-45-days-noun","lines":["Filter Posted at from 2026-09-29 to 2026-11-13 (last 45 days)"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-posting-time-this-month","lines":["Filter Posted at from 2026-11-01 to 2026-11-30 (this month)"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-timestamp-last-quarter","lines":["Filter Posted at from 2026-07-01 to 2026-09-30 (last quarter)"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-posted-this-year","lines":["Filter Posted at from 2026-01-01 to 2026-12-31 (this year)"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-posted-ytd","lines":["Filter Posted at from 2026-01-01 to 2026-11-13 (YTD)"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-this-month","lines":["Filter Booked from 2026-11-01 to 2026-11-30 (this month)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-this-quarter-noun","lines":["Filter Booked from 2026-10-01 to 2026-12-31 (this quarter)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-during-this-year","lines":["Filter Booked from 2026-01-01 to 2026-12-31 (this year)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-last-month","lines":["Filter Booked from 2026-10-01 to 2026-10-31 (last month)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-in-the-last-quarter","lines":["Filter Booked from 2026-07-01 to 2026-09-30 (last quarter)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-last-year-noun","lines":["Filter Booked from 2025-01-01 to 2025-12-31 (last year)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-for-the-last-quarter","lines":["Filter Booked from 2026-07-01 to 2026-09-30 (last quarter)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-month-to-date","lines":["Filter Booked from 2026-11-01 to 2026-11-13 (month to date)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-quarter-to-date-noun","lines":["Filter Booked from 2026-10-01 to 2026-11-13 (quarter to date)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-year-to-date","lines":["Filter Booked from 2026-01-01 to 2026-11-13 (year to date)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-mtd","lines":["Filter Booked from 2026-11-01 to 2026-11-13 (MTD)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-qtd","lines":["Filter Booked from 2026-10-01 to 2026-11-13 (QTD)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-in-the-quarter-to-date","lines":["Filter Booked from 2026-10-01 to 2026-11-13 (quarter to date)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-between-iso","lines":["Filter Booked from 2026-02-01 to 2026-04-30"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-from-to-noun","lines":["Filter Booked from 2025-06-15 to 2025-09-15"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-from-through","lines":["Filter Booked from 2026-03-01 to 2026-03-31"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-between-reversed","lines":["Filter Booked from 2026-03-01 to 2026-09-30"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-from-to-reversed","lines":["Filter Booked from 2026-01-01 to 2026-12-31"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-from-through-reversed","lines":["Filter Booked from 2026-06-01 to 2026-06-30"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-posted-between","lines":["Filter Posted at from 2026-05-01 to 2026-05-31"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-posted-from-through-noun","lines":["Filter Posted at from 2026-01-15 to 2026-02-15"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-fees-last-quarter","lines":["Filter Category to Fees","Filter Booked from 2026-07-01 to 2026-09-30 (last quarter)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-travel-30-days","lines":["Filter Category to Travel","Filter Booked from 2026-10-14 to 2026-11-13 (last 30 days)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-software-this-year","lines":["Filter Category to Software","Filter Booked from 2026-01-01 to 2026-12-31 (this year)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-no-vendor-after-form","lines":["Filter Booked from 2026-11-01 to 2026-11-30 (this month)","Show only rows where Counterparty is empty"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-no-vendor-before-form","lines":["Show only rows where Counterparty is empty","Filter Booked from 2025-01-01 to 2025-12-31 (last year)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-settled-ytd","lines":["Show only rows where Cleared is Yes","Filter Booked from 2026-01-01 to 2026-11-13 (YTD)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-amount-then-form","lines":["Filter Amount above $50,000","Filter Booked from 2026-10-14 to 2026-11-13 (last 30 days)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-text-form-beside","lines":["Filter Owner starting with “av”","Filter Booked from 2026-10-01 to 2026-12-31 (this quarter)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-exactly-beside","lines":["Filter Counterparty to exactly “cedar works”","Filter Booked from 2026-10-01 to 2026-10-31 (last month)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-no-category-beside","lines":["Filter Booked from 2026-09-14 to 2026-11-13 (last 60 days)","Show only rows where Category is empty"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-have-counterparty-beside","lines":["Show only rows where Counterparty is not empty","Filter Booked from 2026-10-01 to 2026-12-31 (this quarter)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-beside-sort-end","lines":["Filter Booked from 2026-10-30 to 2026-11-13 (last 14 days)","Sort by Units, ascending"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-beside-group-start","lines":["Filter Booked from 2026-10-01 to 2026-12-31 (this quarter)","Group by Category"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-beside-hide-start","lines":["Hide Rate","Filter Booked from 2026-11-01 to 2026-11-30 (this month)"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-beside-hide-end","lines":["Filter Booked from 2026-07-01 to 2026-09-30 (last quarter)","Hide Cleared"],"notes":[]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-two-forms-booked-posted","lines":["Filter Booked from 2026-01-01 to 2026-12-31 (this year)","Filter Posted at from 2026-11-06 to 2026-11-13 (last 7 days)"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-two-forms-quarter-month","lines":["Filter Booked from 2026-07-01 to 2026-09-30 (last quarter)","Filter Posted at from 2026-11-01 to 2026-11-30 (this month)"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout.jsonl","id":"dr1-two-forms-ytd-range","lines":["Filter Booked from 2026-01-01 to 2026-11-13 (YTD)","Filter Posted at from 2026-10-01 to 2026-10-31"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-natural-heldout.jsonl","id":"n1-booked-today","lines":["Filter Booked on 2026-11-13 (today)"],"notes":[]}
+{"file":"cases-dates-natural-heldout.jsonl","id":"n1-booked-last-30","lines":["Filter Booked from 2026-10-14 to 2026-11-13 (last 30 days)"],"notes":[]}
+{"file":"cases-dates-natural-heldout.jsonl","id":"n1-posted-last-30-travel","lines":["Filter Category to Travel","Filter Posted at from 2026-10-14 to 2026-11-13 (last 30 days)"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-natural-heldout.jsonl","id":"n1-booked-last-7","lines":["Filter Booked from 2026-11-06 to 2026-11-13 (last 7 days)"],"notes":[]}
+{"file":"cases-dates-natural-heldout.jsonl","id":"n1-booked-this-month","lines":["Filter Booked from 2026-11-01 to 2026-11-30 (this month)"],"notes":[]}
+{"file":"cases-dates-natural-heldout.jsonl","id":"n1-posted-last-month","lines":["Filter Posted at from 2026-10-01 to 2026-10-31 (last month)"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-natural-heldout.jsonl","id":"n1-booked-this-quarter","lines":["Filter Booked from 2026-10-01 to 2026-12-31 (this quarter)"],"notes":[]}
+{"file":"cases-dates-natural-heldout.jsonl","id":"n1-posted-ytd-grouped","lines":["Filter Posted at from 2026-01-01 to 2026-11-13 (year to date)","Group by Category"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-natural-heldout.jsonl","id":"n1-booked-after-iso","lines":["Filter Booked after 2026-01-31"],"notes":[]}
+{"file":"cases-dates-natural-heldout.jsonl","id":"n1-booked-between","lines":["Filter Booked from 2026-02-01 to 2026-02-28"],"notes":[]}
+{"file":"cases-dates-natural-heldout.jsonl","id":"n1-hide-and-yesterday","lines":["Hide Rate and Units","Filter Booked on 2026-11-12 (yesterday)"],"notes":[]}
+{"file":"cases-dates-picks-heldout.jsonl","id":"dr1-pk-sort-amount","lines":["Filter Booked from 2026-10-14 to 2026-11-13 (last 30 days)"],"notes":[]}
+{"file":"cases-dates-picks-heldout.jsonl","id":"dr1-pk-group-category","lines":["Filter Booked from 2026-10-01 to 2026-12-31 (this quarter)"],"notes":[]}
+{"file":"cases-dates-picks-heldout.jsonl","id":"dr1-pk-hide-rate","lines":["Filter Booked from 2026-10-01 to 2026-10-31 (last month)"],"notes":[]}
+{"file":"cases-dates-picks-heldout.jsonl","id":"dr1-pk-value-fees","lines":["Filter Booked from 2026-01-01 to 2026-11-13 (YTD)"],"notes":[]}
+{"file":"cases-dates-picks-heldout.jsonl","id":"dr1-pk-column-for-form-words","lines":["Filter Booked from 2026-08-15 to 2026-11-13 (last 90 days)"],"notes":[]}
+{"file":"cases-dates-picks-heldout.jsonl","id":"dr1-pk-form-words-as-sort-posted","lines":["Filter Posted at from 2026-11-06 to 2026-11-13 (last 7 days)"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-picks-heldout.jsonl","id":"dr1-pk-sort-recent-ytd","lines":["Filter Posted at from 2026-01-01 to 2026-11-13 (YTD)"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-picks-heldout.jsonl","id":"dr1-pk-value-beside-named","lines":["Filter Category to Travel","Filter Booked from 2026-01-01 to 2026-12-31 (this year)"],"notes":[]}
+{"file":"cases-dates-picks-heldout.jsonl","id":"dr1-pk-group-owner-range","lines":["Filter Booked from 2026-02-01 to 2026-04-30"],"notes":[]}
+{"file":"cases-dates-picks-heldout.jsonl","id":"dr1-pk-hide-booked-itself","lines":["Filter Booked from 2026-07-01 to 2026-09-30 (last quarter)"],"notes":[]}
+{"file":"cases-dates-picks-heldout.jsonl","id":"dr1-pk-sort-unmatched-term","lines":["Filter Booked from 2026-10-30 to 2026-11-13 (past 2 weeks)"],"notes":[]}
+{"file":"cases-dates-picks-heldout.jsonl","id":"dr1-pk-keeps-named-sort","lines":["Filter Booked from 2026-11-01 to 2026-11-30 (this month)","Sort by Amount, descending"],"notes":[]}
+{"file":"cases-dates-picks-heldout.jsonl","id":"dr1-pk-group-with-named-amount","lines":["Filter Amount above $50,000","Filter Booked from 2026-10-14 to 2026-11-13 (last 30 days)"],"notes":[]}
+{"file":"cases-dates-picks-heldout.jsonl","id":"dr1-pk-sort-on-today","lines":["Filter Booked on 2026-11-13 (today)"],"notes":[]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-b-01","lines":["Filter Booked on or after 2026-01-31"],"notes":[]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-b-02","lines":["Filter Booked on or before 2026-03-01"],"notes":[]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-b-07","lines":["Filter Booked on or before 2026-06-30"],"notes":[]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-c-01","lines":["Filter Booked from 2026-10-01 to 2026-10-31 (last month)","Filter Posted at from 2026-10-01 to 2026-12-31 (this quarter)"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-c-02","lines":["Filter Posted at on 2026-11-12 (yesterday)","Filter Booked on 2026-11-13 (today)"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-c-15","lines":["Filter Booked from 2026-10-01 to 2026-10-31 (last month)","Hide Posted at"],"notes":[]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-c-19","lines":["Filter Posted at from 2026-10-01 to 2026-10-31 (last month)","Filter Booked from 2026-11-01 to 2026-11-30 (this month)"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-c-20","lines":["Filter Category to Services","Filter Posted at from 2026-10-01 to 2026-12-31 (this quarter)","Group by Booked"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-c-24","lines":["Filter Booked from 2026-10-01 to 2026-10-31 (last month)","Sort by Posted at, descending"],"notes":[]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-e-01","lines":["Filter Booked from 2026-10-23 to 2026-11-13 (last 21 days)"],"notes":[]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-e-02","lines":["Filter Booked from 2026-09-29 to 2026-11-13 (last 45 days)"],"notes":[]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-e-03","lines":["Filter Posted at from 2026-11-06 to 2026-11-13 (last 7 days)"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-e-04","lines":["Filter Booked from 2026-05-13 to 2026-11-13 (last 6 months)"],"notes":[]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-e-05","lines":["Filter Booked from 2024-11-13 to 2026-11-13 (last 2 years)"],"notes":[]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-e-06","lines":["Filter Booked on 2026-11-12 (yesterday)"],"notes":[]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-e-07","lines":["Filter Posted at on 2026-11-13 (today)"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-e-08","lines":["Filter Booked from 2026-01-01 to 2026-12-31 (this year)"],"notes":[]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-e-09","lines":["Filter Booked from 2025-01-01 to 2025-12-31 (last year)"],"notes":[]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-e-10","lines":["Filter Booked from 2026-07-01 to 2026-09-30 (last quarter)"],"notes":[]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-e-11","lines":["Filter Booked from 2026-10-01 to 2026-11-13 (QTD)"],"notes":[]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-e-12","lines":["Filter Posted at from 2026-11-01 to 2026-11-13 (MTD)"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-e-13","lines":["Filter Booked from 2026-01-01 to 2026-03-31"],"notes":[]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-e-14","lines":["Filter Booked from 2025-12-01 to 2026-02-28"],"notes":[]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-e-15","lines":["Filter Booked after 2026-06-30"],"notes":[]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-e-16","lines":["Filter Booked on or before 2026-02-14"],"notes":[]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-e-17","lines":["Filter Posted at before 2026-09-01"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-e-18","lines":["Filter Booked on or after 2026-04-01"],"notes":[]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-e-19","lines":["Filter Booked from 2026-11-01 to 2026-11-30 (this month)"],"notes":[]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-e-20","lines":["Filter Booked from 2026-08-21 to 2026-11-13 (past 12 weeks)"],"notes":[]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-e-25","lines":["Filter Booked from 2026-10-16 to 2026-11-13 (past 4 weeks)"],"notes":[]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-e-26","lines":["Filter Booked from 2026-11-03 to 2026-11-13 (past 10 days)"],"notes":[]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-e-27","lines":["Filter Booked from 2026-07-16 to 2026-11-13 (last 120 days)"],"notes":[]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-e-28","lines":["Filter Booked from 2026-10-30 to 2026-11-13 (last 2 weeks)"],"notes":[]}
+{"file":"cases-dates-heldout-r2.jsonl","id":"dr2-f-01","lines":["Filter Booked from 2026-07-01 to 2026-09-30 (last quarter)"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-a-44","lines":["Filter Booked from 2026-10-14 to 2026-11-13 (last 30 days)"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-a-45","lines":["Filter Booked from 2026-08-15 to 2026-11-13 (last 90 days)"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-a-46","lines":["Filter Booked from 2026-10-01 to 2026-12-31 (this quarter)"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-01","lines":["Filter Category to Travel","Filter Booked from 2026-10-14 to 2026-11-13 (last 30 days)"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-02","lines":["Filter Booked from 2026-10-01 to 2026-12-31 (this quarter)","Sort by Amount, descending"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-03","lines":["Filter Category to Software","Filter Booked from 2026-07-01 to 2026-09-30 (last quarter)"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-04","lines":["Filter Booked from 2026-01-01 to 2026-11-13 (YTD)","Group by Category"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-05","lines":["Filter Amount above $5,000","Filter Booked from 2026-08-15 to 2026-11-13 (last 90 days)"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-06","lines":["Filter Booked on 2026-11-13 (today)"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-07","lines":["Filter Booked on 2026-11-12 (yesterday)","Hide Rate"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-09","lines":["Filter Booked from 2026-01-01 to 2026-03-31","Group by Category"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-10","lines":["Filter Category to Services","Filter Booked after 2026-01-31"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-11","lines":["Filter Booked before 2026-06-01"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-12","lines":["Filter Booked on or after 2026-06-01","Hide Units"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-13","lines":["Filter Booked on or after 2026-06-01"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-14","lines":["Filter Booked on or before 2026-06-30"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-15","lines":["Filter Booked from 2026-02-01 to 2026-02-28"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-16","lines":["Filter Booked from 2026-01-01 to 2026-03-31"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-17","lines":["Filter Posted at from 2026-11-06 to 2026-11-13 (last 7 days)"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-18","lines":["Filter Posted at from 2026-11-01 to 2026-11-30 (this month)","Group by Category"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-19","lines":["Filter Units above 10","Filter Booked from 2026-10-30 to 2026-11-13 (past 14 days)"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-21","lines":["Filter Category to Supplies","Filter Booked from 2026-05-13 to 2026-11-13 (last 6 months)"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-22","lines":["Filter Booked from 2026-10-30 to 2026-11-13 (last 2 weeks)"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-23","lines":["Filter Booked from 2025-11-13 to 2026-11-13 (last 12 months)","Sort by Booked, descending"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-24","lines":["Filter Category to Travel","Filter Booked from 2026-11-01 to 2026-11-13 (MTD)"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-25","lines":["Filter Booked from 2026-01-01 to 2026-12-31 (this year)","Group by Category"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-26","lines":["Filter Amount above $100,000","Filter Booked from 2026-10-01 to 2026-11-13 (QTD)"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-27","lines":["Filter Booked from 2023-11-13 to 2026-11-13 (last 3 years)"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-28","lines":["Filter Category to Software","Filter Posted at on 2026-11-12 (yesterday)"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-29","lines":["Filter Amount below $20,000","Filter Booked from 2026-08-15 to 2026-11-13 (past 90 days)"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-30","lines":["Filter Booked after 2026-01-31","Sort by Amount, descending","Group by Category"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-31","lines":["Filter Booked from 2026-10-13 to 2026-11-13 (last 1 month)"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-32","lines":["Filter Booked from 2025-11-13 to 2026-11-13 (last 365 days)"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-33","lines":["Filter Booked from 2026-08-21 to 2026-11-13 (last 12 weeks)","Hide Rate"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-34","lines":["Filter Category to Fees","Filter Booked from 2026-07-16 to 2026-11-13 (last 120 days)"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-35","lines":["Filter Booked from 2026-02-13 to 2026-11-13 (last 9 months)","Sort by Amount, descending"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-36","lines":["Filter Booked from 2026-05-17 to 2026-11-13 (last 180 days)"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-37","lines":["Filter Posted at from 2026-07-01 to 2026-09-30 (last quarter)"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-c-38","lines":["Filter Category to Travel","Filter Booked from 2026-09-14 to 2026-11-13 (last 60 days)"],"notes":[]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-d-01","lines":["Filter Booked after 2026-01-31","Filter Posted at before 2026-06-01"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-d-02","lines":["Filter Booked from 2026-10-14 to 2026-11-13 (last 30 days)","Filter Posted at from 2026-10-01 to 2026-12-31 (this quarter)"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-d-03","lines":["Filter Booked from 2026-01-01 to 2026-12-31 (this year)","Filter Posted at on 2026-11-12 (yesterday)"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-d-04","lines":["Filter Booked from 2026-07-01 to 2026-09-30 (last quarter)","Filter Posted at from 2026-10-01 to 2026-12-31 (this quarter)"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-d-07","lines":["Filter Booked from 2026-08-15 to 2026-11-13 (last 90 days)","Filter Posted at from 2026-10-14 to 2026-11-13 (last 30 days)"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-d-10","lines":["Filter Booked on 2026-11-12 (yesterday)","Filter Posted at on 2026-11-13 (today)"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-d-11","lines":["Filter Category to Travel","Filter Posted at before 2026-04-01","Filter Booked after 2026-03-01"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-d-15","lines":["Filter Booked from 2026-01-01 to 2026-03-31","Filter Posted at from 2026-04-01 to 2026-06-30"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-dates-heldout-r3.jsonl","id":"dr3-d-17","lines":["Filter Booked from 2026-10-14 to 2026-11-13 (last 30 days)","Filter Posted at from 2026-10-01 to 2026-12-31 (this quarter)"],"notes":["Whole days, in America/New_York time"]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-hide-extra-word-10","lines":["Filter Unrealized gain at or above $0"],"notes":["Rows with no Unrealized gain are hidden too"]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-hide-extra-word-11","lines":["Filter Amount at or above $100"],"notes":["Rows with no Amount are hidden too"]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-hide-extra-word-12","lines":["Filter Concentration at or below 30%"],"notes":["Rows with no Concentration are hidden too"]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-hide-column-where-01","lines":["Hide Concentration","Filter Market value above $1,000,000"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-hide-column-where-02","lines":["Hide Restricted holdings","Filter Market value above $1,000,000"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-hide-column-where-03","lines":["Hide Advisor","Filter Custodian to Northgate"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-hide-column-where-04","lines":["Hide Concentration","Filter Unrealized gain below $0"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-hide-column-where-06","lines":["Hide Counterparty","Filter Amount above $1,000"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-hide-column-where-08","lines":["Hide Rate","Filter Category to Travel"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-hide-column-where-09","lines":["Hide Concentration"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-hide-column-where-10","lines":["Filter Market value above $1,000,000","Hide Concentration"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-hide-column-where-11","lines":["Hide Units","Filter Amount above $500"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-hide-column-where-12","lines":["Hide Restricted holdings"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-count-then-sort-07","lines":["Sort by Market value, descending","Show only the first 10 rows"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-count-then-sort-08","lines":["Sort by Household, ascending","Show only the first 10 rows"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-count-then-sort-10","lines":["Sort by Amount, ascending","Show only the first 5 rows"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-count-then-sort-11","lines":["Sort by Owner, ascending","Show only the first 5 rows"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-count-then-group-01","lines":["Show only the first 5 rows","Group by Advisor"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-count-then-group-02","lines":["Sort by Market value, descending","Show only the first 10 rows","Group by Custodian"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-count-then-group-06","lines":["Sort by Amount, ascending","Show only the first 5 rows","Group by Category"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-count-then-group-07","lines":["Group by Owner","Sort by Amount, descending","Show only the first 3 rows"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-count-then-group-08","lines":["Group by Custodian","Show only the first 5 rows"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-count-then-group-09","lines":["Group by Advisor"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-count-then-group-10","lines":["Group by Custodian"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-count-then-group-11","lines":["Group by Category"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-count-then-group-12","lines":["Group by Owner"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-controls-near-01","lines":["Hide Concentration"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-controls-near-02","lines":["Filter Registration type to Taxable"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-controls-near-03","lines":["Sort by Unrealized gain, descending","Show only the first 5 rows"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-controls-near-04","lines":["Sort by Advisor, ascending; then Market value, ascending"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-controls-near-05","lines":["Group by Custodian","Sort by Unrealized gain, ascending"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-controls-near-06","lines":["Filter Market value at or below $2,000,000","Sort by Unrealized gain, ascending"],"notes":["Rows with no Market value are hidden too"]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-controls-near-07","lines":["Hide Units"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-controls-near-08","lines":["Filter Category to Travel"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-controls-near-09","lines":["Sort by Amount, descending","Show only the first 5 rows"],"notes":[]}
+{"file":"cases-review-fixes-heldout-r2.jsonl","id":"rf2-controls-near-10","lines":["Group by Owner","Sort by Amount, ascending"],"notes":[]}

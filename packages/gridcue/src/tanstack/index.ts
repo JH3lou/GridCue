@@ -7,6 +7,7 @@ import {
   type GridAdapter,
   GridCueError,
   isApplicable,
+  type LocalValues,
   MVP_OPERATIONS,
   matchesPredicate,
   resultingState,
@@ -38,8 +39,52 @@ export interface TanStackTableLike {
   setColumnVisibility(visibility: Record<string, boolean>): void;
   setColumnOrder(order: string[]): void;
   getAllLeafColumns(): Array<{ id: string; columnDef: { header?: unknown } }>;
-  getCoreRowModel(): { rows: Array<{ getValue(columnId: string): unknown }> };
+  getCoreRowModel(): { rows: Array<{ getValue(columnId: string): unknown }>; flatRows?: Array<{ getValue(columnId: string): unknown }> };
 }
+
+/**
+ * Local Values from a table's own rows (named filters spec, 5.4; ADR 0025): for each column id, a function that
+ * reads that column's value from every row the table has loaded, sub-rows included. These are the rows before the
+ * table filters, sorts, groups or pages them, so a name is found while the User's filter hides its row. A table that
+ * pages on a server holds only its page: pass the Host's own list to `localValues` instead.
+ *
+ * Each function returns the same array while the table's data is the same array, so the Controller keeps its index.
+ * Values are passed on as the table holds them; the Controller drops any that are not text. A column id the table
+ * doesn't have throws `INPUT_CONFIG` here. If the table later loses one, reading throws and the request stops with
+ * `INPUT_LOCAL_VALUES`. `createGridCue` still checks each column against the schema.
+ */
+export const localValuesFromTable = (
+  table: Pick<TanStackTableLike, "getAllLeafColumns" | "getCoreRowModel">,
+  columnIds: readonly string[],
+): LocalValues => {
+  const missing = (): string | undefined => {
+    const leaves = new Set(table.getAllLeafColumns().map((c) => c.id));
+    return columnIds.find((id) => !leaves.has(id));
+  };
+  const absent = missing();
+  if (absent !== undefined) {
+    throw new GridCueError("INPUT_CONFIG", `localValuesFromTable names “${absent}”, which is not a column of this table.`);
+  }
+  // TanStack keeps its core row model while the table's data is the same array, so its rows mark the data.
+  let rowsRead: unknown;
+  const kept = new Map<string, readonly unknown[]>();
+  const reader = (columnId: string) => (): readonly unknown[] => {
+    if (missing() !== undefined) throw new Error("The table no longer has a column localValuesFromTable reads.");
+    const model = table.getCoreRowModel();
+    const rows = model.flatRows ?? model.rows;
+    if (rows !== rowsRead) {
+      rowsRead = rows;
+      kept.clear();
+    }
+    let values = kept.get(columnId);
+    if (!values) {
+      values = rows.map((row) => row.getValue(columnId));
+      kept.set(columnId, values);
+    }
+    return values;
+  };
+  return Object.fromEntries(columnIds.map((id) => [id, reader(id)]));
+};
 
 /**
  * The filter value GridCue stores in TanStack's column filter state. `host` carries the
@@ -49,6 +94,11 @@ export interface TanStackTableLike {
 interface GridCueFilterValue {
   gridcue: 1;
   kind: ColumnDescriptor["kind"];
+  /**
+   * On a date or date-and-time column, the Calendar's time zone, which a date in a filter is a whole day in. With no
+   * Calendar time zone it is left out, and the browser's is read when a row is filtered, as `applyView` does.
+   */
+  timeZone?: string;
   predicates: FilterPredicate[];
   host?: unknown;
 }
@@ -62,9 +112,13 @@ const isGridCueValue = (v: unknown): v is GridCueFilterValue =>
  * it has no Host filter function to call, so a `host` value carried alongside them is not
  * evaluated here. Use `withGridCueFilter` on a column that needs its Host filter honoured too.
  */
-export const gridcueFilterFn = (row: { getValue(columnId: string): unknown }, columnId: string, value: unknown): boolean =>
-  !isGridCueValue(value) ||
-  value.predicates.every((p) => matchesPredicate(row.getValue(columnId), p, { kind: value.kind } as ColumnDescriptor));
+export const gridcueFilterFn = (row: { getValue(columnId: string): unknown }, columnId: string, value: unknown): boolean => {
+  if (!isGridCueValue(value)) return true;
+  const cell = row.getValue(columnId);
+  const column = { kind: value.kind } as ColumnDescriptor;
+  const options = value.timeZone === undefined ? undefined : { timeZone: value.timeZone };
+  return value.predicates.every((p) => matchesPredicate(cell, p, column, options));
+};
 
 type FilterFn = (
   row: { getValue(columnId: string): unknown },
@@ -208,6 +262,13 @@ export const createTanStackAdapter = ({ schema, table, maxSorts = 3, maxGroups =
       if (host !== undefined && !hostByColumn.has(f.id)) hostByColumn.set(f.id, host);
     }
     const kind = (id: string) => schema.columns.find((c) => c.id === id)?.kind ?? "string";
+    // Beside a date column's kind, the time zone its dates are whole days in, so `gridcueFilterFn` keeps the rows
+    // `applyView` keeps.
+    const zoneOf = (id: string) => {
+      const timeZone = schema.calendar?.timeZone;
+      const dated = kind(id) === "date" || kind(id) === "datetime";
+      return dated && timeZone !== undefined ? { timeZone } : {};
+    };
     const slices = {
       columnFilters: [
         ...[...hostByColumn].filter(([id]) => !byColumn.has(id)).map(([id, host]) => ({ id, value: host })),
@@ -216,6 +277,7 @@ export const createTanStackAdapter = ({ schema, table, maxSorts = 3, maxGroups =
           value: {
             gridcue: 1,
             kind: kind(id),
+            ...zoneOf(id),
             predicates: preds,
             ...(hostByColumn.has(id) ? { host: hostByColumn.get(id) } : {}),
           } satisfies GridCueFilterValue,

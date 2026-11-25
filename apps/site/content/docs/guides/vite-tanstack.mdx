@@ -93,6 +93,29 @@ Create the Controller once, with a `useState` initializer. `useTable` returns a 
 
 The adapter holds on to the first table object. That is safe: it reads state through `table.store` and writes through the table's setters, which stay the same for the table's lifetime.
 
+## Let a request name a value
+
+Add `localValues` to the same `createGridCue` call, and "Avery Lane's accounts" filters Advisor to that advisor, while "the Alder household" filters Household. `localValuesFromTable` reads the values from the table's own rows:
+
+```tsx
+import { createTanStackAdapter, gridcueFilterFn, localValuesFromTable, schemaFromTanStack } from "gridcue/tanstack-table";
+
+return createGridCue({
+  schema,
+  adapter: createTanStackAdapter({ schema, table }),
+  provider: createRemoteProvider({ endpoint: "/api/gridcue" }),
+  localValues: localValuesFromTable(table, ["advisor_name", "household"]),
+});
+```
+
+- **It reads every loaded row, whatever filters the table has.** A request can name an advisor whose rows the current filter hides. It includes sub-rows, and it reads the rows when a request is made, so rows that load later are found.
+- **Name the columns that hold names,** such as an advisor or a household. Each must be a text column of the schema that is not restricted, and a column id the table doesn't have throws `INPUT_CONFIG`.
+- **Keep `data` the same array between renders.** The index is kept while the table's data is the same array. A `data` that is a new array on every render makes GridCue index it again on every request.
+- **A table that pages on a server holds one page.** Pass `localValues` your own list of every name instead of `localValuesFromTable`.
+- **The values are read in the browser and never sent.** The endpoint gets the same request with `localValues` on or off. A name the User types is in the request. See [Safety and protocol](/docs/safety#the-data-boundary).
+
+See [Requests](/docs/concepts/requests#local-values) for what reads and what asks, and [`localValuesFromTable`](/docs/api/adapters#localvaluesfromtable) for the reference.
+
 ## If your app controls the table's state
 
 Many apps pass `state: { sorting }` and `onSortingChange` to the table, to keep the view in a store or the URL. GridCue works with that, with three rules.

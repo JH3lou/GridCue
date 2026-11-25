@@ -1,24 +1,16 @@
-import { emptyWordsOutside, inComparison } from "./code-read";
+import { inComparison } from "./code-read";
 import { isExposed, operatorsFor } from "./columns";
+import { isTimeZone } from "./dates";
 import { GridCueError } from "./errors";
-import { leavesRowsOut, nothingAfter } from "./lead";
-import { LEAVES_OUT, matchMentions } from "./mentions";
+import { matchMentions } from "./mentions";
+import { normalize } from "./normalize";
+import { ownWord } from "./own-words";
+import { rowNouns } from "./placed";
 import {
-  comparisonSpans,
-  directionSpans,
-  literalText,
-  normalize,
-  readsOrder,
-  SIZE_WORDS,
-  startsInstruction,
-  TEXT_MATCH_WORDS,
-} from "./normalize";
-import { onPlacedLists, rowNouns } from "./placed";
-import {
+  Calendar,
   type ColumnCapability,
   type ColumnDescriptor,
   type ColumnKind,
-  Density,
   type EnumValue,
   type FilterOperator,
   HouseTerm,
@@ -72,6 +64,14 @@ export interface SchemaOptions {
    * must be the term's own. They are never sent to an Intent Provider.
    */
   houseTerms?: HouseTerm[];
+  /**
+   * The Calendar (ADR 0026): `{ timeZone: "America/New_York", fiscalYearStart: 1 }`. It turns date words such as "last
+   * 90 days" into fixed days, and a date in a filter means the whole day in its time zone. `timeZone` is an IANA name;
+   * left out, it is the browser's, taken when a request is read or a row is filtered. `fiscalYearStart` is a month from
+   * 1 to 12, default 1. Anything else in it, a time zone the runtime doesn't know, or a month outside 1 to 12 throws
+   * `INPUT_SCHEMA`. It is never sent to an Intent Provider.
+   */
+  calendar?: Calendar;
 }
 
 /** Turns "market_value" or "marketValue" into "Market value". */
@@ -110,56 +110,6 @@ const formsOf = (name: string): string[] => {
   return [key, `${key}s`, `${key}es`, ...(/[^aeiou]y$/.test(key) ? [`${key.slice(0, -1)}ies`] : [])];
 };
 
-const whole = (pattern: string) => new RegExp(`^(?:${pattern})$`, "u");
-/** GridCue's own words that its reader writes as patterns: the size words, the words that leave rows out, the match words. */
-const OWN_PATTERNS: readonly RegExp[] = [whole(SIZE_WORDS.source), whole(LEAVES_OUT), ...TEXT_MATCH_WORDS.map(([, words]) => whole(words))];
-
-/** Whether `text` holds one amount and nothing but the comparison words read for it: "over 1", "1 or more". */
-const onlyComparison = (text: string): boolean => {
-  const { clauses } = normalize(text);
-  const clause = clauses[0];
-  const lit = clause?.literals[0];
-  if (clauses.length !== 1 || !clause || !lit || clause.literals.length !== 1) return false;
-  const read = [{ start: lit.at, end: lit.at + literalText(clause.text, lit).length }, ...comparisonSpans(clause.text, lit)];
-  return clause.text.split("").every((ch, i) => /\s/.test(ch) || read.some((s) => i >= s.start && i < s.end));
-};
-
-/** The densities a view can have: "compact view" asks for one. */
-const DENSITIES: ReadonlySet<string> = new Set(Density.options);
-/**
- * The words for days and periods the dates of named filters' spec 5.5 read ("today", "last 90 days", "this quarter",
- * "YTD", a month's name). GridCue keeps them for itself before it reads them, so no term can be named one now and read
- * twice later.
- */
-const TIME_WORDS =
-  /^(?:today|yesterday|tomorrow|days?|weeks?|months?|quarters?|years?|ago|next|recent|mtd|qtd|ytd|january|february|march|april|may|june|july|august|september|october|november|december)$/u;
-
-/**
- * Whether `words` (lower case, one space between) are one of GridCue's own words, taken from the lists its reader
- * already holds: a word the placed-words check places or a lead-in (`core/placed.ts`, `core/lead.ts`), a joining or
- * staying word ("plus", "then", "stays"), a size, age or order word or a direction, a verb that starts an instruction, a
- * density, a word for no value, a word that leaves rows out, a text match's words, a comparison, or a time word. A House
- * Term that held one would be read twice.
- */
-const ownWord = (words: string): boolean => {
-  const all = (span: { start: number; end: number } | undefined) => !!span && span.start === 0 && span.end === words.length;
-  return (
-    onPlacedLists(words) ||
-    nothingAfter(words, 0) ||
-    OWN_PATTERNS.some((re) => re.test(words)) ||
-    all(directionSpans(words).direction) ||
-    readsOrder(words) ||
-    startsInstruction(words) ||
-    DENSITIES.has(words) ||
-    TIME_WORDS.test(words) ||
-    leavesRowsOut(`${words} rows`) ||
-    emptyWordsOutside({ index: 0, text: words, literals: [] }, []).some(all) ||
-    onlyComparison(`${words} 1`) ||
-    onlyComparison(`1 ${words}`) ||
-    onlyComparison(`${words} 1 and 2`)
-  );
-};
-
 /**
  * The first of GridCue's own words a name holds, if any: the name read on its own holds an amount, a count or a sort's
  * direction, or splits into parts ("Top 10", "1m", "Tier 1"); or one of its words, or a run of them, is one of
@@ -174,7 +124,8 @@ const ownWordIn = (name: string): string | undefined => {
   for (let from = 0; from < words.length; from++) {
     for (let to = from + 1; to <= words.length; to++) {
       const run = words.slice(from, to).join(" ");
-      if (ownWord(run)) return run;
+      // The word after the run in the name, if any: "May items" never puts a number after "may".
+      if (ownWord(run, words[to])) return run;
     }
   }
   if (words.every(inComparison)) return text;
@@ -280,6 +231,35 @@ const checkHouseTerms = (terms: readonly unknown[], schema: ViewSchema): HouseTe
   });
 };
 
+/**
+ * Checks the Host's Calendar (ADR 0026) and returns it parsed: an object holding `timeZone`, an IANA name the runtime
+ * knows, and `fiscalYearStart`, a whole month from 1 to 12, and nothing else. Both may be left out. Throws
+ * `INPUT_SCHEMA`, naming the reason. The time zone a Calendar leaves out is not looked up here: it is the browser's,
+ * taken when a request is read or a row is filtered.
+ */
+const checkCalendar = (input: unknown): Calendar => {
+  const fail = (message: string): never => {
+    throw new GridCueError("INPUT_SCHEMA", message);
+  };
+  if (typeof input !== "object" || input === null || Array.isArray(input)) fail("calendar must be an object.");
+  const raw = input as Record<string, unknown>;
+  const stray = Object.keys(raw).filter((key) => key !== "timeZone" && key !== "fiscalYearStart");
+  if (stray.length > 0) fail(`calendar holds only timeZone and fiscalYearStart, not ${stray.join(", ")}.`);
+  const { timeZone, fiscalYearStart } = raw;
+  if (timeZone !== undefined && (typeof timeZone !== "string" || !isTimeZone(timeZone))) {
+    fail("calendar.timeZone must be an IANA time zone name, such as America/New_York.");
+  }
+  if (
+    fiscalYearStart !== undefined &&
+    (typeof fiscalYearStart !== "number" || !Number.isInteger(fiscalYearStart) || fiscalYearStart < 1 || fiscalYearStart > 12)
+  ) {
+    fail("calendar.fiscalYearStart must be a month from 1 to 12.");
+  }
+  const parsed = Calendar.safeParse(raw);
+  if (!parsed.success) fail(`calendar is malformed: ${parsed.error.issues.map((issue) => issue.message).join("; ")}`);
+  return (parsed as { data: Calendar }).data;
+};
+
 /** Builds a ViewSchema from the columns a table already has. */
 export const defineSchema = (columns: readonly ColumnInput[], options: SchemaOptions = {}): ViewSchema => {
   const restricted = new Set(options.restricted ?? []);
@@ -343,6 +323,7 @@ export const defineSchema = (columns: readonly ColumnInput[], options: SchemaOpt
   }
   const houseTerms = checkHouseTerms(options.houseTerms ?? [], schema);
   if (houseTerms.length > 0) schema.houseTerms = houseTerms;
+  if (options.calendar !== undefined) schema.calendar = checkCalendar(options.calendar);
 
   const parsed = ViewSchema.safeParse(schema);
   if (!parsed.success) {

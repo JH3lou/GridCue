@@ -34,7 +34,7 @@ A negation in a part with quoted text asks, such as `advisor is not "Avery Lane"
 
 A "!" that starts a request, follows a space, a comma, a semicolon or a colon, or sits right before a name, quoted text or an amount says "not", and GridCue asks about it, with quoted text or without: `!trusts`, `!advisor "Lane"`, `advisor "Lane" !trusts` and `advisor "Lane",! trusts` ask. A "!" right after a word ends the sentence ("show trusts!"), and `!=` is a comparison.
 
-A date is a day. A date compared with a date-and-time column ("last contact after 2026-01-31" on a column that holds times of day) is asked about, since the time of day would decide which rows stay. A date that is not a real day ("2026-02-31") is asked about too.
+A date is a day, on a date column and on a date-and-time column alike: see [Dates](#dates). A date that is not a real day ("2026-02-31") is asked about.
 
 Size words set a sort direction: "largest to smallest", "biggest first", "top" and "largest" sort descending; "smallest to largest", "smallest first" and "smallest" ascending. With no column named, they sort by the schema's [`defaultMeasure`](/docs/api/schema#schemaoptions), or GridCue asks which column. A count after a size word ("top 10", "largest 5") is a count, never a filter value: it becomes [`limit.set`](/docs/api/protocol#viewoperation) where the adapter supports it.
 
@@ -163,6 +163,138 @@ These ask instead:
 - **With no terms declared** a term's words are read as before: "show the big accounts" asks what to filter on, and "show larger taxable accounts" filters Taxable. The adverb and size-word checks above hold for every grid, with terms or without.
 - **A term is never sent to a provider.** The request a provider receives is the same with terms declared or not, and the provider is called as often. See [Safety and protocol](/docs/safety#the-data-boundary).
 
+## Local Values
+
+A **Local Value** is a value of a text column that GridCue reads from your rows, in the browser, when you set [`localValues`](/docs/api/create-grid-cue#local-values). Code reads it, like a form or a House Term, and the provider is never asked what it means. The examples here use the synthetic wealth grid, with `localValues` on Advisor and Household and the House Terms above declared. With no `localValues`, every request on this page reads as it did before.
+
+A whole value, with every word of it in order as whole words, reads as an exact filter. Letter case doesn't matter, and the filter keeps the value as the grid holds it. Between two of its words the request may hold spaces, one hyphen, underscore, full stop or apostrophe with no space beside it ("avery-lane", "O'Jessup"), or the punctuation the value itself holds there ("Birch & Fenn"). Any other punctuation separates two names: "Hollis, Greaves" lists two, and "hollis/greaves" or "hollis - greaves" asks. There is no plural: "Avery Lanes accounts" asks about “lanes”.
+
+| Request | Preview lines |
+| --- | --- |
+| "Avery Lane's accounts", "accounts for Avery Lane", "advisor is Avery Lane", "avery lane" | "Filter Advisor to exactly “Avery Lane”" |
+| "The Alder household" | "Filter Household to exactly “Alder Household”" |
+| "Avery Lane or Blake Moreno", "accounts for Avery Lane and Blake Moreno" | "Filter Advisor to any of “Avery Lane” and “Blake Moreno”" |
+| "Show taxable accounts for Avery Lane" | "Filter Registration type to Taxable" · "Filter Advisor to exactly “Avery Lane”" |
+| "Avery Lane's accounts in the Alder household", "Avery Lane's Alder household accounts" | "Filter Advisor to exactly “Avery Lane”" · "Filter Household to exactly “Alder Household”" |
+| "Avery Lane's large accounts" | "Filter Advisor to exactly “Avery Lane”" · "Filter Market value above $1,000,000 (Large)" |
+| "Avery Lane's accounts, sort by market value" | "Filter Advisor to exactly “Avery Lane”" · "Sort by Market value, ascending" |
+| "Group by advisor for Avery Lane" | "Filter Advisor to exactly “Avery Lane”" · "Group by Advisor" |
+
+Where a value goes:
+
+- **One filter for each column.** Several values of one column, written as one list, make one filter that keeps rows with any of them. The Preview names each. A list is joined by commas, "and" and "or", and "the" may start the next value. "Avery Lane + Blake Moreno" and "Avery Lane / Blake Moreno" ask about the symbol.
+- **A column named right before its value is part of it.** "Advisor is Avery Lane", "advisor Avery Lane" and "the advisor Avery Lane" name the column once.
+- **The longest name wins.** "The Alder household" is the value Alder Household, not the Household column. A number inside a value ("Fund 7") is part of its name. A value inside a longer value is not read on its own.
+- **Quoted text is never read.** `advisor containing "Lane"` is still "containing", as before.
+- **The value is shown as the grid holds it.** The line says “Avery Lane” for the text you typed in any letter case. A text form's line, `Advisor is exactly "avery lane"`, shows the User's own quoted text in lower case. Values that differ only in letter case ("Avery Lane", "AVERY LANE") are one value, shown as first seen: an exact filter ignores letter case, so it keeps the rows of both.
+- **The filter replaces the current ones** unless the request says to add, as for any filter. A value's own words never say so: "show Further Lane" replaces them. Once applied, the value is a plain filter in the view.
+
+A part with a Local Value is ready only when every word in it is placed, as for [a form](#text-forms-and-empty-values) and [a term](#house-terms). Its rules hold here too: any other word asks (`Avery Lane called about the trust accounts` asks about “called about”, "assign Avery Lane to the taxable accounts" about “assign” and “to”, "who is Avery Lane" about “who”), a provider's picks are limited to what the words name, a column asked for beside the value must end up in the plan, and a yes/no column named on its own keeps only Yes. "By" is placed only beside a sort or a group, so "accounts held by Avery Lane" asks about “by”: say "accounts for Avery Lane".
+
+These ask instead:
+
+| Request | Asks |
+| --- | --- |
+| A value left out: "hide Avery Lane", "everyone except Avery Lane" | "GridCue can't leave out “avery lane” yet. Ask for the rows to keep." |
+| A value where a column goes: "sort by Avery Lane", "group by Blake Moreno" | "Avery Lane is a value in Advisor, not a column." |
+| A statement: "Avery Lane is an advisor", "every advisor is Avery Lane" | "I'm not sure what to do with “avery lane is”. Try rephrasing that part." |
+| A possessive that owns something other than the rows: "Avery Lane's household" | "I'm not sure what to do with “avery lane's household”. Try rephrasing that part." |
+| Two values of one column apart, or each after the column's name with anything but "or" between them: "Avery Lane's accounts for Blake Moreno", "advisor is Avery Lane and advisor is Blake Moreno" | "No row has two Advisor values. Ask for them as one list, such as “Avery Lane or Blake Moreno”." |
+| The same in two parts: "Avery Lane's accounts; Blake Moreno's accounts" | "No row has two Advisor values. Ask for them in one part, such as “Avery Lane or Blake Moreno”." |
+| Values of two columns with "and", "also", a comma or a dash anywhere between them, each with the rows' own noun, or in two parts: "Avery Lane and the Alder household", "Avery Lane's accounts and the Alder household's accounts", "Avery Lane's accounts the Alder household's accounts", "Avery Lane's accounts; the Alder household". Two values that each follow their column's name are two conditions, and are read: "advisor is Avery Lane and household is Alder Household" | "GridCue can't tell whether you want rows with both “Avery Lane” and “Alder Household”, or with either. Ask for one at a time, or for the rows that have both." |
+| A value beside another filter on its column that no row can match with it: "Avery Lane's accounts with no advisor" | "No row matches every Advisor filter, so the view would be empty. Ask for the rows to keep." |
+| A word built on "group" that is a word of a value, where the part doesn't group: "entries in the Travel Group", on a ledger that holds Hollis Travel Group | "I'm not sure what to do with “group”. Try rephrasing that part." |
+
+A request GridCue refuses stays refused: "Export Avery Lane's accounts to Excel" is unsupported, as it was, and "move Casey Ortiz's accounts to Harborline" asks about “move” and “to”.
+
+### When GridCue isn't sure which value
+
+Three cases ask which was meant, and the answer stays in the browser. A choice is read as if the User had typed the whole value at its own words, so the question's words it leaves out are still read or asked about, and "None of these", or "No" for one choice, says nothing will change: "Nothing will change for “lane”. Type the full name, or rephrase that part."
+
+- **One word of a value.** A word that GridCue places nowhere else and that is a whole word of one value asks: "Lane's accounts" asks "Did you mean Advisor: Avery Lane?", with “Yes, Avery Lane” and “No”. A word of two to five values asks "Which Advisor did you mean by “lee”?", with each value as a choice and "None of these" last. When the values are in two columns, each choice carries its column: "Owner: Frankie Dunmore", "Counterparty: Dunmore Freight". A word of six or more values asks for the full name, with no choices: "6 Advisor values contain “lee”. Type the full name." A word that is a declared name, or one of GridCue's own words, is never offered.
+- **A value that two columns hold,** such as a name in both Owner and Counterparty.
+- **A value that is also a declared name.** A value of a column that is also the label or alias of a column, a value, a Value Group, the `rowNoun`, an entity word or a House Term asks which was meant. A declared name is one of the choices: picking it reads the words as GridCue would without Local Values. Each column's names are one choice, such as "The Household column" or "Registration type: Trust and IRA".
+
+A question offers five choices at most, then "None of these". With more, it has no choices and asks the User to rephrase: "“…” could mean more than 5 things here. Try rephrasing that part."
+
+Two more cases ask, because the part reads without the value: a value made only of GridCue's own words and your declared names ("Trust Accounts"), and one that may list two others ("Alder and Cedar", when the grid also holds Alder and Cedar). A value made only of GridCue's own words, such as "Top 10", is never read from the grid, and it is never offered either. It can still be quoted.
+
+### What the provider sees
+
+The request to the provider is built before any value is looked at, and the provider is called once whether or not a value matched. The values, whether one matched, the choices in a question and the User's answer are never sent. The words the User typed are, so a name they type is in the request. See [Safety and protocol](/docs/safety#the-data-boundary).
+
+With the Mock Provider, a part that starts with a word it doesn't know, such as a name, gets no pick for its other words. "Avery Lane's taxable accounts over $1m" asks "Which column should be above $1,000,000?" The value and Taxable are read, and the amount is never guessed, as with a term. A real provider's pick for the amount is used.
+
+## Dates
+
+GridCue's own code reads a closed list of date words and turns them into fixed days. The provider still receives the request, but never decides which days the words mean. A relative form is worked out once, when the request is made, from the Controller's [clock](/docs/api/create-grid-cue#now) and the schema's [Calendar](/docs/api/schema#calendar). The view keeps the two days, never the words: see [Views](/docs/concepts/views#a-view-keeps-fixed-dates).
+
+The examples in this section use GridCue's synthetic ledger grid, where Booked holds dates and Posted at holds dates and times. Today is 2026-11-13, the Calendar's `timeZone` is `America/New_York`, and the year starts in January.
+
+| You say | GridCue filters | Example |
+| --- | --- | --- |
+| "today", "yesterday" | That day | "entries booked today" is 2026-11-13 |
+| "last N days", "past N days"; the same with weeks, months or years | From the day N units before today, through today. A week is 7 days. A month day that doesn't exist is that month's last day, so "last 1 month" on 2026-03-31 starts on 2026-02-28 | "last 90 days" is 2026-08-15 to 2026-11-13 |
+| "this month", "this quarter", "this year" | The whole period that holds today | "this quarter" is 2026-10-01 to 2026-12-31 |
+| "last month", "last quarter", "last year" | The whole period before it | "last quarter" is 2026-07-01 to 2026-09-30 |
+| "month to date", "quarter to date", "year to date", "MTD", "QTD", "YTD" | From the period's first day, through today | "YTD" is 2026-01-01 to 2026-11-13 |
+| "between A and B", "from A to B", "from A through B", with two ISO dates | Both ends included. Written high to low, the ends are swapped | "between 2026-01-01 and 2026-03-31" |
+| One ISO date with a comparison | The day, compared as the words say | "booked after 2026-01-31" |
+
+- **N is a whole number from 1 to 999, in digits.** "Last two weeks" and "last 1,000 days" ask.
+- **"Last year" is the whole year before this one,** also in "in the last year". For a rolling year say "last 12 months" or "last 365 days".
+- **A form may follow** "in", "in the", "over the", "during", "during the", "within the" or "for the": "entries booked during the last 30 days". Bare "last 30 days" is read too.
+- **Years and quarters follow `fiscalYearStart`.** With `4`, "this year" on 2026-11-13 is 2026-04-01 to 2027-03-31, and "YTD" starts on 2026-04-01.
+- **Today is the day in the Calendar's time zone.** At 2026-11-13T15:00Z, "today" is 2026-11-13 in `America/New_York` and 2026-11-14 in `Pacific/Auckland`.
+- **A comparison word before a relative form asks:** "booked before this quarter" and "booked since last month" ask. Say the dates, such as "booked before 2026-10-01".
+
+### Which column a date goes to
+
+The date goes to the date column named right before the form: "entries booked in the last 90 days" filters Booked, and "entries posted yesterday" filters Posted at. The name also holds right after the grid's `rowNoun` or a value, where it used to be lost: "fees entries booked this quarter" filters Category to Fees and Booked to the quarter, and "entries booked after 2026-01-31" filters Booked.
+
+With no date column named, the provider's pick decides, or GridCue asks: "entries in the last 90 days" asks "Which date column should “last 90 days” filter?" with a choice of each date column. A column the part names is never taken for it: "entries in the last 90 days booked this quarter" asks the same question, since Booked is named for this quarter. The provider's pick goes to the date alone, never to a sort or a grouping that no word names. A grid with no date column says so: "This grid has no date column for “last 90 days”." A column that holds no dates asks too: "entries cleared today" asks "Cleared can't be compared with “today”. Name a column that holds dates."
+
+### What asks
+
+Every time word of the kinds below asks, and is never dropped. A part that holds a day, week, month, quarter or year word, "ago", "next", "recent", a month name, a slash date, a quarter or half by number or place ("Q1", "back half"), a fiscal year ("fy"), a weekday or unit written short ("mon", "qtr", "2wk"), a unit with a prefix ("semiannual"), a period written short ("ttm", "cob"), "period" itself ("this period", "prior period"), a unit joined to where in it ("midyear", "yearend"), a day of the month ("on the 15th", "on the fifteenth"), a decade ("the 90s", "the nineties"), up to now ("to date", "so far", "as of now"), a time of day ("this morning", "9am"), the end of a period ("eod") or a season or holiday ("summer", "xmas"), outside the forms above and outside a name, asks. So does "this", "last", "prior", "previous", "past", "since" or "until" right after the rows or a date column and right before a word GridCue doesn't read ("travel entries this season", "entries booked last cycle", "travel entries last quater"), but not before a word it reads for the view ("this view", "the last column"). A kind is found written with a space, a hyphen or dots ("back-half", "to-date", "t.t.m."). A place in the grid and a share are not time words: "put advisor last", "the next column", "the 2nd column" and "a quarter of the entries" read as they do on a grid with no dates. A range of two dates with a comparison after it ("from 2026-01-01 to 2026-03-01 or later") is not read as a range, and "or so" after a form ("booked last month or so") asks. A word of none of these kinds ("soon", "earlier") is not read as a time word: in a part with no form it is dropped, as any word nothing reads is. A name is a column's or value's label or alias, or a [Local Value](#local-values): "sort by last month return" sorts by a column labelled "Last month return", and "Today Partners" is a value the grid holds, not today.
+
+| Request | Question |
+| --- | --- |
+| "Entries booked this week", "booked last week" | "I'm not sure which dates “this week” means. Use dates like 2026-01-31, or “last 90 days”." The Calendar holds no first day of the week |
+| "Booked since january", "booked on may 5", "May 2026" | The same question, about “since january”, “may 5” or “may 2026”. "May" counts only before a number |
+| "Booked after 1/31/2026", "booked after Jan 31, 2026" | The same question. Write 2026-01-31 |
+| "Booked 90 days ago", "booked in 2024", "booked in Q1", "booked recently", "booked next month" | The same question |
+| "Travel entries last qtr", "travel entries since mon", "travel entries this morning" | The same question, about “last qtr”, “since mon” or “this morning” |
+| "Travel entries this fy", "travel entries ttm", "travel entries to date", "travel entries last cycle" | The same question, about “this fy”, “ttm”, “to date” or “last cycle” |
+| "Booked before this quarter", "booked since last month" | The same question: a comparison before a relative form asks |
+| "Booked in the last 0 days", "in the last 1000 days" | The same question |
+
+### A date form is a code-read filter
+
+The rules of the [text and empty forms](#text-forms-and-empty-values) hold for a part with a date form. Every word in it must be one GridCue places, so "entries booked in the last 90 days called about travel" asks about “called about”. A statement asks ("entries booked in the last 90 days are mostly fees" asks about “mostly”). A column asked for beside the form must end up in the plan: "entries booked in the last 90 days, show only amount" adds the filter and shows only Amount. A provider's picks are limited to what the words name, so a provider that picks a sort or a column for the words the date took is dropped. Requests that hold no time word, no date and no date column read as they did before, with a Calendar set or without.
+
+### What the Preview says
+
+The Preview shows the dates first, because they are what applies, and the User's words after them in brackets, so the reading can be checked:
+
+```text
+Filter Booked from 2026-08-15 to 2026-11-13 (last 90 days)
+Filter Booked on 2026-11-13 (today)
+Filter Booked from 2026-01-01 to 2026-03-31
+Filter Booked after 2026-01-31
+```
+
+A comparison reads "after", "on or after", "before", "on or before" or "on", and a range reads "from … to …". Each is a word GridCue reads when a User types it, so a line can be typed back. A date is never in quote marks.
+
+On a date-and-time column the Preview adds one note, because the dates alone don't say it:
+
+```text
+Filter Posted at from 2026-11-06 to 2026-11-13 (last 7 days)
+Whole days, in America/New_York time
+```
+
+A date in a filter means the whole day in the Calendar's time zone, so a cell stamped 2026-11-13T23:30 is kept by "posted today", whatever the hour. The note is shown once, however many date-and-time filters the Preview holds. A date column needs no note. How a cell becomes its day is on [Build an adapter](/docs/guides/build-an-adapter#dates-are-whole-days).
+
 ## Mention
 
 A column or enum value that a Clause names by one of the Host's declared labels or aliases. Code finds Mentions before any provider call, matching whole words and plurals.
@@ -174,7 +306,7 @@ In "Roth accounts at Northgate, sorted by rep":
 - "rep" is a Mention of the Advisor column (an alias);
 - "accounts" is **not** a Mention of Account number. With `rowNoun: "account"` declared, it means the rows.
 
-A name used for the rows themselves is never a Mention. A [House Term](#house-terms) is not one either: a Mention is sent to the provider, and a term never is. The rules lean toward "the rows" on purpose: a name wrongly read as the rows falls back to the provider, while a name wrongly read as a column would propose a wrong view.
+A name used for the rows themselves is never a Mention. A [House Term](#house-terms) and a [Local Value](#local-values) are not Mentions either: a Mention is sent to the provider, and they never are. The rules lean toward "the rows" on purpose: a name wrongly read as the rows falls back to the provider, while a name wrongly read as a column would propose a wrong view.
 
 ## Clarification
 
@@ -196,8 +328,10 @@ A single focused question GridCue asks when it can't resolve a request without a
 | `Advisor is not "Avery Lane"` | "GridCue can't filter for text that isn't there. Ask for the text to look for instead." |
 | `Containing "Lane"`, with no column named | "Which column should contain “lane”?" |
 | `!trusts` | "GridCue can't tell what “!” leaves out. Say which rows to show." |
-| "Opened after 2026-02-31" | "2026-02-31 isn't a date." |
-| "Last contact after 2026-01-31", on a date-and-time column | "Last contact holds times of day, so GridCue can't filter it by date yet." |
+| "Booked after 2026-02-31" | "2026-02-31 isn't a date." |
+| "Entries booked this week" | "I'm not sure which dates “this week” means. Use dates like 2026-01-31, or “last 90 days”." See [Dates](#dates) |
+| "Entries in the last 90 days", when the grid has two date columns | "Which date column should “last 90 days” filter?", with a choice of each |
+| "Lane's accounts", when `localValues` holds “Avery Lane” | "Did you mean Advisor: Avery Lane?", with “Yes, Avery Lane” and “No”. See [Local Values](#local-values) |
 | "Accounts over $2M or at Northgate" | "GridCue can only show rows that match every condition, not either one. Ask for one at a time." |
 | "Group by custodian over $1M", when nothing in the plan uses the amount | "I'm not sure what to do with “$1m”. Try rephrasing that part." |
 

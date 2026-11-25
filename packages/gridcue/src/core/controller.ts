@@ -1,8 +1,10 @@
 import type { GridAdapter } from "./adapter";
 import { type CodeReadFilter, readCodeFilters } from "./code-read";
-import { isExposed } from "./columns";
+import { isExposed, operatorsFor } from "./columns";
 import { type ConfidencePolicy, compile } from "./compile";
+import { calendarZone, todayIn } from "./dates";
 import { GridCueError, type Issue, isGridCueError } from "./errors";
+import { indexLocalValues, type LocalValueColumn, type LocalValueIndex, type LocalValuesPart, readLocalValueParts } from "./local-values";
 import { type Mention, matchMentions } from "./mentions";
 import { type NormalizedInput, normalize, withoutNamedSizes } from "./normalize";
 import { screenRestricted } from "./policy";
@@ -24,10 +26,19 @@ export interface ControllerState {
   canUndo: boolean;
 }
 
+/**
+ * Where GridCue reads Local Values from (named filters spec, 5.4; ADR 0025): for each text column the Host names, a
+ * function that returns that column's values from the grid's own rows. For a grid that pages, that is the Host's own
+ * list, not the page. GridCue calls each function when a request is made, in the User's browser, and keeps its index
+ * while the function returns the same array, so a Host returns a new array when its values change: a change made in
+ * place to the same array is not seen. Nothing about the values is sent to an Intent Provider.
+ */
+export type LocalValues = Record<string, () => readonly unknown[]>;
+
 export interface GridCueOptions {
   adapter: GridAdapter;
   provider: IntentProvider;
-  /** Defaults to the adapter's schema. */
+  /** Defaults to the adapter's schema. Its Calendar must be the one the grid filters rows with. */
   schema?: ViewSchema;
   confidence?: ConfidencePolicy;
   audit?: { onEvent: (event: AuditEvent) => void; policy?: AuditPolicy };
@@ -38,6 +49,20 @@ export interface GridCueOptions {
    * 0 turns the limit off. A live Jev call once hung for 78 s through the SDK's own retries (v1 grill, Q1).
    */
   providerTimeoutMs?: number;
+  /**
+   * Local Values, off unless set: a function for each text column whose values GridCue may read in the browser. Each
+   * column must be a text column that is exposed, not restricted, and may be filtered to exact text (its operators
+   * include "eq" and "in"); anything else throws `INPUT_CONFIG` here. A function that throws stops the request with `INPUT_LOCAL_VALUES`, and the view doesn't
+   * change. A whole value in a request is read as an exact filter; one word of a value only ever asks.
+   */
+  localValues?: LocalValues;
+  /**
+   * The clock date words are read with (named filters spec, 5.5; ADR 0026): "last 90 days" is worked out from today in
+   * the Calendar's time zone, once, when the request is made, and the view keeps the two days. Defaults to the system
+   * clock; tests pass a fixed one. It is called only for a request that holds a relative date form. One that throws, or
+   * returns anything but a valid `Date`, stops the request with `INPUT_CLOCK`, and the view doesn't change.
+   */
+  now?: () => Date;
 }
 
 export interface GridCueController {
@@ -63,6 +88,63 @@ const unsupportedMessage = (plan: ViewPlan): string => {
   return `GridCue only changes how the table looks, so it can't do “${segment.text ?? "that"}”. Remove that part to continue.`;
 };
 
+/** The message a request ends with when a Local Values function throws (spec 5.4). */
+const LOCAL_VALUES_FAILED = "Couldn't read this grid's values. The view hasn't changed.";
+/** The message a request ends with when the clock throws or gives no valid time (spec 5.5). */
+const CLOCK_FAILED = "Couldn't read today's date. The view hasn't changed.";
+
+/**
+ * Today in a time zone, from a clock (spec 5.5). Throws `INPUT_CLOCK` when the clock throws, or gives anything but a
+ * valid `Date` in the years 0001 to 9999.
+ */
+const todayFrom = (now: () => Date, timeZone: string): string => {
+  try {
+    const at = now();
+    if (!(at instanceof Date) || Number.isNaN(at.getTime())) throw new Error("Not a time.");
+    return todayIn(at, timeZone);
+  } catch {
+    throw new GridCueError("INPUT_CLOCK", CLOCK_FAILED);
+  }
+};
+
+/**
+ * Checks `localValues` when the Controller is made (spec 5.4): a function for each column, and each column a text
+ * column of the schema that is exposed, not restricted, and may be filtered to exact text ("eq" and "in"). Returns the
+ * columns in the order given.
+ */
+const localValueSources = (localValues: unknown, schema: ViewSchema): Array<{ columnId: string; read: () => readonly unknown[] }> => {
+  if (localValues === undefined) return [];
+  // A plain object only: a Map, an array or a class instance would read as no columns, and turn the feature off unseen.
+  const plain =
+    typeof localValues === "object" && localValues !== null && [Object.prototype, null].includes(Object.getPrototypeOf(localValues));
+  if (!plain) {
+    throw new GridCueError("INPUT_CONFIG", "localValues must be an object with a function for each column.");
+  }
+  return Object.entries(localValues).map(([columnId, read]) => {
+    const column = schema.columns.find((c) => c.id === columnId);
+    if (!column) throw new GridCueError("INPUT_CONFIG", `localValues names “${columnId}”, which is not a column of this grid.`);
+    if (column.sensitivity === "restricted")
+      throw new GridCueError("INPUT_CONFIG", `localValues can't read ${column.label}: it is restricted.`);
+    if (!isExposed(column)) throw new GridCueError("INPUT_CONFIG", `localValues can't read ${column.label}: it is not exposed.`);
+    if (column.kind !== "string")
+      throw new GridCueError("INPUT_CONFIG", `localValues can read only text columns, and ${column.label} isn't one.`);
+    if (!column.capabilities.includes("filter")) {
+      throw new GridCueError("INPUT_CONFIG", `localValues can't read ${column.label}: it may not be filtered.`);
+    }
+    // A value is read as an exact filter, and several as one "any of" filter. A column the Host limits to other
+    // operators ("contains" alone) could never take one, and every name would end in a question.
+    const allowed = operatorsFor(column);
+    if (!allowed.includes("eq") || !allowed.includes("in")) {
+      throw new GridCueError(
+        "INPUT_CONFIG",
+        `localValues can't read ${column.label}: a value is filtered as exact text, and its allowedOperators leave out “eq” or “in”.`,
+      );
+    }
+    if (typeof read !== "function") throw new GridCueError("INPUT_CONFIG", `localValues needs a function for ${column.label}.`);
+    return { columnId, read: read as () => readonly unknown[] };
+  });
+};
+
 /** The one object a Host creates to wire a grid to GridCue. */
 export const createGridCue = (options: GridCueOptions): GridCueController => {
   const { adapter, provider } = options;
@@ -72,6 +154,27 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
   if (maxLength > MAX_UTTERANCE_LENGTH) {
     throw new GridCueError("INPUT_CONFIG", `maxUtteranceLength can be at most ${MAX_UTTERANCE_LENGTH}.`);
   }
+  const sources = localValueSources(options.localValues, schema);
+  if (options.now !== undefined && typeof options.now !== "function") {
+    throw new GridCueError("INPUT_CONFIG", "now must be a function that returns the current time.");
+  }
+  const now = options.now ?? (() => new Date());
+  // Each column's index, kept while its function returns the same array.
+  const indexes = new Map<string, { values: readonly unknown[]; index: LocalValueIndex }>();
+  /**
+   * Every column's Local Values, read now and indexed. Throws when a function throws or returns something other than
+   * an array, and then keeps no index from this call: GridCue never reads a request with half its values.
+   */
+  const readLocalValues = (): LocalValueColumn[] => {
+    const read = sources.map(({ columnId, read }) => {
+      const values = read();
+      if (!Array.isArray(values)) throw new Error("Not an array.");
+      const kept = indexes.get(columnId);
+      return { columnId, values, index: kept && kept.values === values ? kept.index : indexLocalValues(values) };
+    });
+    for (const { columnId, values, index } of read) indexes.set(columnId, { values, index });
+    return read.map(({ columnId, index }) => ({ columnId, index }));
+  };
   const providerTimeoutMs = options.providerTimeoutMs ?? 8000;
   let state: ControllerState = IDLE;
   let inflight: AbortController | null = null;
@@ -84,6 +187,7 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
     restricted: ReturnType<typeof screenRestricted>;
     mentions: Mention[];
     codeRead: CodeReadFilter[];
+    localValues: LocalValuesPart[];
   } | null = null;
   let applicable: ApplicableViewPlan | null = null;
   // Every applied plan can be undone, newest first. An entry is undoable while the grid still shows what that plan
@@ -125,6 +229,7 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
       restricted: session.restricted,
       mentions: session.mentions,
       codeRead: session.codeRead,
+      localValues: session.localValues,
       answers: session.answers,
       operations: adapter.getCapabilities().operations,
       defaultState: adapter.getDefaultState(),
@@ -277,19 +382,57 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
       const mentions =
         restricted.length === 0 ? matchMentions(normalized.clauses, schema.columns.filter(isExposed), { rowNoun: schema.rowNoun }) : [];
       const input = withoutNamedSizes(normalized, mentions);
-      // Code-read filters are read from the same input as the provider's request, and change nothing in it (ADR 0023).
-      const codeRead = readCodeFilters(input, mentions, schema);
+      // Today, read from the clock once, and only when a relative date form needs it (spec 5.5).
+      let today: string | undefined;
+      const readToday = () => {
+        today ??= todayFrom(now, calendarZone(schema.calendar));
+        return today;
+      };
       try {
         let resolution: ResolutionResult = { clauses: [] };
+        let localValues: LocalValuesPart[] = [];
+        let codeRead: CodeReadFilter[] = [];
         if (restricted.length === 0) {
           const request = buildResolutionRequest(input, schema, adapter.getCapabilities(), base.state, mentions);
+          // Code-read filters are read from the same input as the provider's request, and change nothing in it (ADR
+          // 0023). A date form's days are worked out here, after the request is built: the request is the same with
+          // any clock and any Calendar (spec 4.3).
+          try {
+            codeRead = readCodeFilters(input, mentions, schema, { today: readToday });
+          } catch (error) {
+            // A clock that cancelled this request, or made a newer one, before it failed leaves that state alone.
+            if (controller.signal.aborted) return stopped();
+            if (!isGridCueError(error) || error.code !== "INPUT_CLOCK") throw error;
+            set({ status: "error", message: CLOCK_FAILED, issues: [{ code: "INPUT_CLOCK", message: CLOCK_FAILED }] });
+            return null;
+          }
+          if (controller.signal.aborted) return stopped();
+          // Local Values are read only once the request is built, and nothing read from them reaches it: the provider
+          // is sent the same request, and called once, whether or not the grid holds a name (spec 4.3; ADR 0025).
+          if (sources.length > 0) {
+            let columns: LocalValueColumn[];
+            try {
+              columns = readLocalValues();
+            } catch {
+              // A function that cancelled this request, or made a newer one, before it threw leaves that state alone.
+              if (controller.signal.aborted) return stopped();
+              set({
+                status: "error",
+                message: LOCAL_VALUES_FAILED,
+                issues: [{ code: "INPUT_LOCAL_VALUES", message: LOCAL_VALUES_FAILED }],
+              });
+              return null;
+            }
+            localValues = readLocalValueParts(input, mentions, codeRead, schema, columns);
+            if (controller.signal.aborted) return stopped();
+          }
           const raw = await Promise.race([provider.resolve(request, controller.signal), abandoned]);
           if (controller.signal.aborted) return stopped();
           const parsed = ResolutionResult.safeParse(raw);
           if (!parsed.success) throw new GridCueError("PROVIDER_MALFORMED", "The provider returned an unexpected response.");
           resolution = parsed.data;
         }
-        session = { input, resolution, base, channel, answers: {}, restricted, mentions, codeRead };
+        session = { input, resolution, base, channel, answers: {}, restricted, mentions, codeRead, localValues };
         return present();
       } catch (error) {
         if (controller.signal.aborted) return stopped();
