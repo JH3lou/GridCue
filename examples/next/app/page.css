@@ -36,6 +36,10 @@ th {
   background: #f3f4f6;
   font-weight: 600;
 }
+/* A date is one word: it never breaks at a hyphen or a comma. */
+td.date {
+  white-space: nowrap;
+}
 
 @media (prefers-color-scheme: dark) {
   body {

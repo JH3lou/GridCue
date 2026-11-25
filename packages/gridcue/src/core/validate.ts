@@ -1,3 +1,4 @@
+import { operatorsFor } from "./columns";
 import { GridCueError, type Issue } from "./errors";
 import {
   type ColumnCapability,
@@ -11,7 +12,6 @@ import {
   type ViewState,
 } from "./protocol";
 import { applyOperations } from "./reduce";
-import { operatorsFor } from "./schema";
 
 declare const applicableBrand: unique symbol;
 /** A plan that passed every check against a specific revision. Only `validatePlan` creates one. */
@@ -77,7 +77,7 @@ const columnIdsOf = (op: ViewOperation): string[] => {
   }
 };
 
-const valueIssue = (p: FilterPredicate, column: ColumnDescriptor): string | undefined => {
+const valueIssue = (p: Pick<FilterPredicate, "operator" | "value">, column: ColumnDescriptor): string | undefined => {
   const v = p.value;
   if (p.operator === "isEmpty" || p.operator === "isNotEmpty") return v === undefined ? undefined : "takes no value";
   const numeric = ["number", "currency", "percent"].includes(column.kind);
@@ -94,6 +94,37 @@ const valueIssue = (p: FilterPredicate, column: ColumnDescriptor): string | unde
   }
   if (p.operator === "in") return Array.isArray(v) && v.length > 0 && v.every(one) ? undefined : "needs a list of valid values";
   return one(v) ? undefined : "has a value of the wrong type";
+};
+
+/** Why a column can't take a change that needs `capability`, as an issue, or `undefined`. */
+const columnIssue = (column: ColumnDescriptor | undefined, capability: ColumnCapability | undefined): Issue | undefined => {
+  if (!column) return { code: "PLAN_UNKNOWN_COLUMN", message: "The plan refers to a column that does not exist." };
+  if (column.sensitivity === "restricted") return { code: "POLICY_RESTRICTED_COLUMN", message: `${column.label} is restricted.` };
+  if (capability && !column.capabilities.includes(capability)) {
+    return { code: "PLAN_COLUMN_CAPABILITY", message: `${column.label} cannot be used for ${capability}.` };
+  }
+  return undefined;
+};
+
+/**
+ * Every reason one filter can't apply on this schema: its column does not exist, is restricted or may not be filtered,
+ * does not allow the operator, or the value does not fit its kind. `validatePlan` checks a plan's filters with it, and
+ * `defineSchema` a House Term's conditions (ADR 0024), so the two can't drift apart.
+ */
+export const filterIssues = (p: Pick<FilterPredicate, "columnId" | "operator" | "value">, schema: ViewSchema): Issue[] => {
+  const column = schema.columns.find((c) => c.id === p.columnId);
+  const issues: Issue[] = [];
+  const unusable = columnIssue(column, "filter");
+  if (unusable) issues.push(unusable);
+  if (column && column.sensitivity !== "restricted") {
+    if (!operatorsFor(column).includes(p.operator)) {
+      issues.push({ code: "PLAN_OPERATOR_NOT_ALLOWED", message: `${column.label} cannot use ${p.operator}.` });
+    } else {
+      const problem = valueIssue(p, column);
+      if (problem) issues.push({ code: "PLAN_VALUE_TYPE", message: `The filter on ${column.label} ${problem}.` });
+    }
+  }
+  return issues;
 };
 
 /**
@@ -119,26 +150,16 @@ export const validatePlan = (input: unknown, ctx: ValidationContext): Validation
       add("PLAN_OPERATION_UNSUPPORTED", `This grid does not support ${op.type}.`, path);
       return;
     }
-    const capability = CAPABILITY_FOR[op.type];
-    for (const id of columnIdsOf(op)) {
-      const column = ctx.schema.columns.find((c) => c.id === id);
-      if (!column) {
-        add("PLAN_UNKNOWN_COLUMN", "The plan refers to a column that does not exist.", path);
-      } else if (column.sensitivity === "restricted") {
-        add("POLICY_RESTRICTED_COLUMN", `${column.label} is restricted.`, path);
-      } else if (capability && !column.capabilities.includes(capability)) {
-        add("PLAN_COLUMN_CAPABILITY", `${column.label} cannot be used for ${capability}.`, path);
-      }
-    }
     if (op.type === "filter.add") {
-      const column = ctx.schema.columns.find((c) => c.id === op.predicate.columnId);
-      if (column && column.sensitivity !== "restricted") {
-        if (!operatorsFor(column).includes(op.predicate.operator)) {
-          add("PLAN_OPERATOR_NOT_ALLOWED", `${column.label} cannot use ${op.predicate.operator}.`, path);
-        } else {
-          const problem = valueIssue(op.predicate, column);
-          if (problem) add("PLAN_VALUE_TYPE", `The filter on ${column.label} ${problem}.`, path);
-        }
+      for (const issue of filterIssues(op.predicate, ctx.schema)) add(issue.code, issue.message, path);
+    } else {
+      const capability = CAPABILITY_FOR[op.type];
+      for (const id of columnIdsOf(op)) {
+        const issue = columnIssue(
+          ctx.schema.columns.find((c) => c.id === id),
+          capability,
+        );
+        if (issue) add(issue.code, issue.message, path);
       }
     }
     if (op.type === "sort.set" && ctx.capabilities.maxSorts && op.sorts.length > ctx.capabilities.maxSorts) {

@@ -1,6 +1,6 @@
 ---
 title: Describe your domain
-description: Teach GridCue the words your Users use with aliases, approved values, restricted columns, and three domain declarations.
+description: Teach GridCue the words your Users use with aliases, approved values, restricted columns, three domain declarations, House Terms, and Local Values.
 ---
 
 Every grid has its own vocabulary. An advisor says "rep" for Advisor, "Roth" for Roth IRA, and "retirement accounts" for two registration types at once. GridCue learns this from your **View Schema**: your declaration of which columns exist, what they mean, and what may be done with each.
@@ -60,7 +60,7 @@ registration_type: {
 
 Now "Roth accounts" filters Registration type to Roth IRA, and "non-retirement" or "excluding trusts" filters to the other approved values.
 
-These values are sent to the provider. List only values you are willing to share, and never fill this list by uploading every distinct value from your data.
+These values are sent to the provider. List only values you are willing to share, and never fill this list by uploading every distinct value from your data. To let a request name the values of a column such as Advisor without sharing them, use [Local Values](#local-values).
 
 ## Restricted columns
 
@@ -106,6 +106,75 @@ registration_type: {
 ```
 
 A Value Group is a Host-named category over several values of one column. "Retirement accounts grouped by advisor" filters Registration type to IRA or Roth IRA, then groups. "Non-retirement" filters to the rest. `defineSchema` throws if a group names a value that is not in the column's `enumValues`.
+
+## House terms
+
+Every firm has a word that means a fixed set of conditions. At a wealth firm "large" means Market value above $1,000,000, and "needs attention" means more than 10% in one security and a restricted holding. Nothing in the data says so, and GridCue won't pick $1 million for you: without a declaration, "show large accounts" asks. A **House Term** is how you tell it. Declare the word and its conditions once, and GridCue reads it with its own code.
+
+```ts
+const schema = defineSchema(columns, {
+  rowNoun: "account",
+  houseTerms: [
+    { label: "Large", aliases: ["big"], where: [{ columnId: "market_value", operator: "gt", value: 1_000_000 }] },
+    {
+      label: "Needs attention",
+      aliases: ["need attention", "needing attention"],
+      where: [
+        { columnId: "concentration", operator: "gt", value: 0.1 },
+        { columnId: "has_restricted_holding", operator: "eq", value: true },
+      ],
+    },
+  ],
+});
+```
+
+Now "large accounts" and "show the big accounts" preview `Filter Market value above $1,000,000 (Large)`, and "accounts that need attention" previews two lines, one for each condition, each ending `(Needs attention)`. The brackets name the term, so the User sees the threshold and not only the word. "Show large taxable accounts" adds the term's filter and the Taxable filter.
+
+Declare a term when:
+
+- **Your firm's word has one fixed meaning,** and the User means it every time. "Large" is a good term if everyone at the firm means $1 million. It is a poor one if each advisor means something different: leave it out, and GridCue keeps asking.
+- **The meaning is a list of conditions on columns,** all of which must hold. A term can't say "or", and it can't say a moving date such as "last 90 days". Write those as a request.
+- **The name is its own.** A term's label and aliases can't be a column's, a value's, a Value Group's, your `rowNoun` or an `entity` word, another term's, or one of GridCue's own words such as "top", "largest" or "empty". It can't hold one among its words either ("Top tier", "Out of policy", "Due today"), or an amount ("Tier 1"), or a column's or value's name ("Big gain"), or be only words a comparison is written with ("More", "Up", "Equal"). `defineSchema` throws `INPUT_SCHEMA` and says which name or word collides. Pick a different word.
+
+A few rules are worth knowing:
+
+- **A term is a name for rows, not a column or an amount.** "Sort by large" and "group by large" ask, and so do "large or taxable accounts" and "accounts under large".
+- **A term can't be left out.** "Accounts that aren't large" and "hide large accounts" ask: GridCue can't leave out a term yet. The question says what to ask for instead, such as "market value at or below $1,000,000".
+- **"Largest" is a size word, not the term.** "Largest accounts" still sorts by size, and asks which column when you declare no [`defaultMeasure`](/docs/api/schema#schemaoptions). A term is found as a whole word with no plural form.
+- **A term's definition is never sent to the provider.** Not its label, its aliases or its conditions: the request the provider receives is the same with terms declared or not. The words the User typed are sent as always, as part of the request, so a term's word reaches the provider like any other word. See [Safety and protocol](/docs/safety#the-data-boundary).
+
+A term is also the way to name a placeholder. "Accounts with no advisor" finds rows with no value. It does not find rows where your data holds the text "Unassigned". Declare `{ label: "Unassigned", aliases: ["orphaned"], where: [{ columnId: "advisor_name", operator: "eq", value: "Unassigned" }] }` and "unassigned accounts" previews `Filter Advisor to exactly “Unassigned” (Unassigned)`. If the field is empty instead, use `operator: "isEmpty"` with no `value`, and the line reads `Show only rows where Advisor is empty (Unassigned)`.
+
+[House Terms in Requests](/docs/concepts/requests#house-terms) lists what reads and what asks.
+
+## Local Values
+
+A request can name a value your rows hold: "Avery Lane's accounts", "the Alder household". You don't list those values in the schema, and they are not sent to the provider. You tell GridCue which columns hold names, and where to read them. It reads them in the browser, from your own rows, when a request is made. This is a **Local Value**.
+
+```ts
+createGridCue({
+  adapter,
+  provider,
+  localValues: {
+    advisor_name: () => rows.map((row) => row.advisor_name),
+    household: () => rows.map((row) => row.household),
+  },
+});
+```
+
+With a TanStack Table, `localValuesFromTable(table, ["advisor_name", "household"])` builds the same object. Now "Avery Lane's accounts" previews `Filter Advisor to exactly “Avery Lane”`, "Avery Lane or Blake Moreno" previews `Filter Advisor to any of “Avery Lane” and “Blake Moreno”`, and "show taxable accounts for Avery Lane" adds the Taxable filter too. Without `localValues`, the same requests ask what to filter on.
+
+Which columns to name:
+
+- **Columns whose values are names of people, households, firms or counterparties.** A User says "Avery Lane", not a code. A name is a whole value of one column, and GridCue reads it as an exact filter.
+- **Text columns only, and only ones the provider may know about.** A column must be a text column that is exposed, not `restricted`, and not turned off for filtering, and if it sets `allowedOperators`, they must include `eq` and `in`, or `createGridCue` throws `INPUT_CONFIG`. A restricted column's values are never read.
+- **Not a category with a few values.** Registration type belongs in `enumValues`, where a User's word for each value is an alias. A column with a handful of values and a short list of words is a poor Local Value.
+- **Not a column whose values are made of GridCue's own words.** A value such as "Top 10" is never read from the grid, because its words mean something else in a request: "top 10 accounts" still asks for a count. It can still be quoted: `advisor is exactly "Top 10"`.
+- **Names that GridCue also uses stay a question.** A value that two of the columns you name both hold ("Dunmore" is an owner and a counterparty), or that is also a label or alias you declared, asks which was meant.
+
+A grid that pages holds one page of its rows, and GridCue reads only what the function returns. Return your own list of every name, and not the page the grid shows, so a User can name an advisor on page 9. A name the function doesn't return is never read.
+
+[Local Values in Requests](/docs/concepts/requests#local-values) lists what reads and what asks, and [Safety and protocol](/docs/safety#the-data-boundary) says what is sent.
 
 ## Narrowing what a column allows
 

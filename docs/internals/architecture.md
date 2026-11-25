@@ -45,7 +45,7 @@ Normalize whitespace and common spoken punctuation without changing meaning. Ext
 
 - numbers, currency, and percentages;
 - comparators such as `over`, `at least`, and `between`;
-- ISO and locale-aware dates when unambiguous;
+- dates: ISO dates, a range of two of them, and a closed list of relative forms ("last 90 days", "this quarter", "YTD"). A relative form is worked out once, from the Controller's clock and the schema's Calendar, and becomes two fixed days, so the View State holds no relative value (ADR 0026). Any other time word of the kinds `core/code-read.ts` lists, "this week" and "since january" included, asks, and so does "this", "last" or the like before a word nothing reads ("this fy"). A place in the grid ("put advisor last", "the next column") and a share ("a quarter of") are not time words. The provider is sent the same literals with any clock or Calendar, and a relative form reaches it as a plain number;
 - quoted text;
 - explicit directions such as `largest first`;
 - conjunctions that may indicate compound operations.
@@ -59,7 +59,7 @@ Candidate sets come from the schema and capability registry, never from provider
 - possible action types: filter, sort, group, columns, reset, unsupported;
 - columns eligible for each action;
 - operators legal for the selected column type;
-- values explicitly present in the utterance or supplied by an approved resolver;
+- values explicitly present in the utterance, or a host-approved candidate list in the schema;
 - an explicit `none` or `ambiguous` choice.
 
 ### 4. Resolve semantics
@@ -141,7 +141,7 @@ Because Jev is a new service and its API may evolve, keep endpoint names, model 
 - account numbers, client names, tax lots, orders, or other record data;
 - hidden-field values;
 - credentials, tokens, cookies, or internal authorization details;
-- unrestricted distinct values gathered from the dataset.
+- unrestricted distinct values gathered from the dataset, including the Local Values GridCue reads in the browser, whether one matched, which column holds it, and the choices in a question about it. A name the user types is in the utterance and is sent with it. The provider is called exactly as often, and with exactly the same request, whether or not a Local Value matched (ADR 0025); the payload pin test runs with `localValues` on and off.
 
 Hosts may extend the payload, but doing so is an explicit integration decision outside core defaults.
 

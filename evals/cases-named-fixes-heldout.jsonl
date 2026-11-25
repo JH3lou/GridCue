@@ -9,13 +9,13 @@
 {"id":"h1-neg-does-not-contain","utterance":"accounts where advisor does not contain \"Quinn\"","expect":{"status":"needs_clarification"}}
 {"id":"h1-neg-with-filter","utterance":"advisor is not \"Quinn\" and market value over $1m","expect":{"status":"needs_clarification"}}
 {"id":"h1-neg-after-value","utterance":"taxable accounts, advisor isn't \"Quinn\"","expect":{"status":"needs_clarification"}}
-{"id":"h1-form-starts","utterance":"advisor starts with \"Qu\"","expect":{"status":"needs_clarification","clarificationPrompt":"I'm not sure how to match “qu”. Try “containing”."}}
+{"id":"h1-form-starts","utterance":"advisor starts with \"Qu\"","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"startsWith","value":"qu"}}]}}
 {"id":"h1-form-ends","utterance":"accounts where advisor ends with \"Quinn\"","expect":{"status":"needs_clarification","clarificationPrompt":"I'm not sure how to match “quinn”. Try “containing”."}}
-{"id":"h1-form-exactly","utterance":"advisor is exactly \"Mara Quinn\"","expect":{"status":"needs_clarification","clarificationPrompt":"I'm not sure how to match “mara quinn”. Try “containing”."}}
-{"id":"h1-form-equals-sign","utterance":"advisor = \"Mara Quinn\"","expect":{"status":"needs_clarification","clarificationPrompt":"I'm not sure how to match “mara quinn”. Try “containing”."}}
-{"id":"h1-form-household-starts","utterance":"household starts with \"Ha\"","expect":{"status":"needs_clarification","clarificationPrompt":"I'm not sure how to match “ha”. Try “containing”."}}
-{"id":"h1-form-begins","utterance":"advisor begins with \"Qu\"","expect":{"status":"needs_clarification"}}
-{"id":"h1-form-equals-word","utterance":"household equals \"Hale\"","expect":{"status":"needs_clarification"}}
+{"id":"h1-form-exactly","utterance":"advisor is exactly \"Mara Quinn\"","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"eq","value":"mara quinn"}}]}}
+{"id":"h1-form-equals-sign","utterance":"advisor = \"Mara Quinn\"","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"eq","value":"mara quinn"}}]}}
+{"id":"h1-form-household-starts","utterance":"household starts with \"Ha\"","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"household","operator":"startsWith","value":"ha"}}]}}
+{"id":"h1-form-begins","utterance":"advisor begins with \"Qu\"","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"startsWith","value":"qu"}}]}}
+{"id":"h1-form-equals-word","utterance":"household equals \"Hale\"","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"household","operator":"eq","value":"hale"}}]}}
 {"id":"h1-form-named","utterance":"accounts with advisor named \"Quinn\"","expect":{"status":"needs_clarification"}}
 {"id":"h1-form-ending-in","utterance":"household ending in \"ale\"","expect":{"status":"needs_clarification"}}
 {"id":"h1-ctl-containing","utterance":"advisor containing \"Quinn\"","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"contains","value":"quinn"}}]}}
@@ -38,11 +38,11 @@
 {"id":"h1-bare-two-words","utterance":"\"Mara Quinn\"","expect":{"status":"needs_clarification","clarificationPrompt":"Which column should contain “mara quinn”?"}}
 {"id":"h1-bare-one-word","utterance":"\"Hale\"","expect":{"status":"needs_clarification","clarificationPrompt":"Which column should contain “hale”?"}}
 {"id":"h1-bare-show","utterance":"show \"Quinn\"","expect":{"status":"needs_clarification","clarificationPrompt":"Which column should contain “quinn”?"}}
-{"id":"h1-dt-after","utterance":"last contact after 2026-03-15","schema":"dated","expect":{"status":"needs_clarification","clarificationPrompt":"Last contact holds times of day, so GridCue can't filter it by date yet."}}
-{"id":"h1-dt-before","utterance":"accounts with last contact before 2026-03-15","schema":"dated","expect":{"status":"needs_clarification","clarificationPrompt":"Last contact holds times of day, so GridCue can't filter it by date yet."}}
-{"id":"h1-dt-on","utterance":"last contact on 2026-03-15","schema":"dated","expect":{"status":"needs_clarification","clarificationPrompt":"Last contact holds times of day, so GridCue can't filter it by date yet."}}
-{"id":"h1-dt-or-after","utterance":"last contact on or after 2025-12-01","schema":"dated","expect":{"status":"needs_clarification","clarificationPrompt":"Last contact holds times of day, so GridCue can't filter it by date yet."}}
-{"id":"h1-dt-is","utterance":"last contact is 2026-04-02","schema":"dated","expect":{"status":"needs_clarification","clarificationPrompt":"Last contact holds times of day, so GridCue can't filter it by date yet."}}
+{"id":"h1-dt-after","utterance":"last contact after 2026-03-15","schema":"dated","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"last_contact","operator":"gt","value":"2026-03-15"}}]}}
+{"id":"h1-dt-before","utterance":"accounts with last contact before 2026-03-15","schema":"dated","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"last_contact","operator":"lt","value":"2026-03-15"}}]}}
+{"id":"h1-dt-on","utterance":"last contact on 2026-03-15","schema":"dated","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"last_contact","operator":"eq","value":"2026-03-15"}}]}}
+{"id":"h1-dt-or-after","utterance":"last contact on or after 2025-12-01","schema":"dated","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"last_contact","operator":"gte","value":"2025-12-01"}}]}}
+{"id":"h1-dt-is","utterance":"last contact is 2026-04-02","schema":"dated","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"last_contact","operator":"eq","value":"2026-04-02"}}]}}
 {"id":"h1-bad-apr31","utterance":"opened after 2026-04-31","schema":"dated","expect":{"status":"needs_clarification","clarificationPrompt":"2026-04-31 isn't a date."}}
 {"id":"h1-bad-feb29","utterance":"accounts opened before 2025-02-29","schema":"dated","expect":{"status":"needs_clarification","clarificationPrompt":"2025-02-29 isn't a date."}}
 {"id":"h1-bad-month13","utterance":"close date on 2026-13-01","schema":"dated","expect":{"status":"needs_clarification","clarificationPrompt":"2026-13-01 isn't a date."}}

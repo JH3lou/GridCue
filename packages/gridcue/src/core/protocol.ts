@@ -57,6 +57,36 @@ export const ColumnDescriptor = z.object({
 });
 export type ColumnDescriptor = z.infer<typeof ColumnDescriptor>;
 
+export const FilterValue = z.union([Scalar, z.array(Scalar), z.object({ min: Scalar, max: Scalar })]);
+export type FilterValue = z.infer<typeof FilterValue>;
+
+/**
+ * A House Term (ADR 0024): a Host-named list of fixed conditions on the rows, all of which must hold, such as Large =
+ * Market value above $1,000,000. Each condition is a filter, checked by `defineSchema` the way validation checks a
+ * plan's filter. Its label and aliases are its own: no column, value, Value Group, Row Noun, entity word, other House
+ * Term or word of GridCue's own uses them. It is never sent to an Intent Provider.
+ */
+export const HouseTerm = z.object({
+  label: z.string().min(1),
+  aliases: z.array(z.string().min(1)).optional(),
+  where: z.array(z.object({ columnId: z.string().min(1), operator: FilterOperator, value: FilterValue.optional() })).min(1),
+});
+export type HouseTerm = z.infer<typeof HouseTerm>;
+
+/**
+ * The Calendar (ADR 0026): the Host's time zone and the first month of its year, which turn date words in a request
+ * into dates. `timeZone` is an IANA name, such as "America/New_York"; left out, it is the browser's, taken when a
+ * request is read or a row is filtered. `fiscalYearStart` is a month from 1 to 12, default 1: years, quarters and their
+ * "to date" forms start in it. It is never sent to an Intent Provider.
+ */
+export const Calendar = z
+  .object({
+    timeZone: z.string().min(1).optional(),
+    fiscalYearStart: z.number().int().min(1).max(12).optional(),
+  })
+  .strict();
+export type Calendar = z.infer<typeof Calendar>;
+
 export const ViewSchema = z.object({
   id: z.string().min(1),
   version: z.string().min(1),
@@ -68,11 +98,12 @@ export const ViewSchema = z.object({
    * first" sort by it (ADR 0018). Without one, GridCue asks which column.
    */
   defaultMeasure: z.string().min(1).optional(),
+  /** The Host's House Terms (ADR 0024). Code reads them; they are never sent to an Intent Provider. */
+  houseTerms: z.array(HouseTerm).optional(),
+  /** The Host's Calendar (ADR 0026). Code reads it; it is never sent to an Intent Provider. */
+  calendar: Calendar.optional(),
 });
 export type ViewSchema = z.infer<typeof ViewSchema>;
-
-export const FilterValue = z.union([Scalar, z.array(Scalar), z.object({ min: Scalar, max: Scalar })]);
-export type FilterValue = z.infer<typeof FilterValue>;
 
 export const FilterPredicate = z.object({
   id: z.string().min(1),

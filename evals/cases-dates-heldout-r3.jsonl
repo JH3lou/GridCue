@@ -1,0 +1,172 @@
+{"id":"dr3-a-01","utterance":"booked in the last 30 days or so","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-a-02","utterance":"booked around the last 30 days","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-a-03","utterance":"booked in the last 30 days, give or take","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-a-04","utterance":"booked in the last 30-ish days","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-a-05","utterance":"booked in the last 30 days (maybe 45)","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-a-06","utterance":"booked in the last 30 days, no wait, 60","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-a-07","utterance":"show entries booked in about the last 90 days","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-a-08","utterance":"booked roughly this quarter","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-a-09","utterance":"booked this quarter but not the first week","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-a-10","utterance":"booked this month except the 5th","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-a-11","utterance":"booked YTD minus january","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-a-12","utterance":"booked in the last 90 days, excluding weekends","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-a-13","utterance":"booked in the last 90 days, mostly","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-a-14","utterance":"booked in the last 30 days, I think","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-a-15","utterance":"maybe booked in the last 30 days","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-a-16","utterance":"booked last quarter, or whatever it was","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-a-17","utterance":"travel entries booked in the last 7 days ish","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-a-18","utterance":"amount over 5000 booked in the last 30 days or thereabouts","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-a-19","utterance":"sort by amount descending, booked in the last 90 days or so","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-a-20","utterance":"booked yesterday-ish","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-a-21","utterance":"booked today, well, the last couple of days","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-a-22","utterance":"booked in the last 30 days, more or less","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-a-23","utterance":"booked within the last 30 days at most","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-a-24","utterance":"booked in the last 30 days and a bit more","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-a-25","utterance":"booked in the last 30 days (not counting today)","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-a-26","utterance":"booked this year, apart from december","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-a-27","utterance":"group by category, booked the last 90 days give or take a week","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-a-28","utterance":"booked in the last, uh, 30 days","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-a-29","utterance":"booked in the last 30 days, actually make that 3 months","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-a-30","utterance":"booked last year, mainly the second half","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-a-31","utterance":"booked between 2026-01-01 and 2026-03-31 roughly","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-a-32","utterance":"booked after 2026-01-31 or thereabouts","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-a-33","utterance":"booked from 2026-01-01 to 2026-03-31, give or take","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-a-34","utterance":"booked on or after about 2026-06-01","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-a-35","utterance":"booked after 2026-01-31 (the 31st included)","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-a-36","utterance":"hide rate, booked in the last 30 days or so","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-a-37","utterance":"booked YTD, I guess","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-a-38","utterance":"booked MTD, roughly","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-a-39","utterance":"booked in the last 30 days, don't be too strict about it","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-a-40","utterance":"booked about last month","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-a-41","utterance":"booked in the last 30 days at least","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-a-42","utterance":"travel entries booked sort of in the last 90 days","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-a-43","utterance":"booked in the last 30 days, give or take, then sort by amount descending","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-a-44","utterance":"show me entries booked in the last 30 days","schema":"ledger","clock":true,"alsoAcceptsAsk":true,"expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"booked","operator":"between","value":{"min":"2026-10-14","max":"2026-11-13"}}}]}}
+{"id":"dr3-a-45","utterance":"only entries booked in the last 90 days","schema":"ledger","clock":true,"alsoAcceptsAsk":true,"expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"booked","operator":"between","value":{"min":"2026-08-15","max":"2026-11-13"}}}]}}
+{"id":"dr3-a-46","utterance":"please, booked this quarter","schema":"ledger","clock":true,"alsoAcceptsAsk":true,"expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"booked","operator":"between","value":{"min":"2026-10-01","max":"2026-12-31"}}}]}}
+{"id":"dr3-b-01","utterance":"booked this week","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-02","utterance":"booked last week","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-03","utterance":"booked in the last thirty days","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-04","utterance":"booked in the last 30 business days","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-05","utterance":"booked in Q3","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-06","utterance":"booked FYTD","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-07","utterance":"booked in the last fortnight","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-08","utterance":"booked 30 days ago","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-09","utterance":"booked next month","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-10","utterance":"booked in the next 30 days","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-11","utterance":"booked in 2025","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-12","utterance":"booked since march","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-13","utterance":"booked the quarter before last","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-14","utterance":"booked recently","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-15","utterance":"booked in the last 30d","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-16","utterance":"booked in the last 3mo","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-17","utterance":"booked over the past 90days","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-18","utterance":"booked in the 3rd quarter","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-19","utterance":"booked in H1","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-20","utterance":"booked 2 quarters ago","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-21","utterance":"booked in the lst 90 days","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-22","utterance":"booked in the past quater","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-23","utterance":"booked in the last 30 dys","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-24","utterance":"booked for the trailing 12 months","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-25","utterance":"booked in the last twelve months","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-26","utterance":"booked rolling 90 days","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-27","utterance":"booked in the last 0 days","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-28","utterance":"booked in the last 1000 days","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-29","utterance":"booked in the last 2.5 months","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-30","utterance":"booked week to date","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-31","utterance":"booked in the current fiscal year","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-32","utterance":"booked 12/31/2025 or later","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-33","utterance":"booked after Jan 31, 2026","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-34","utterance":"booked in the previous month","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-35","utterance":"booked this past month","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-36","utterance":"booked in the last few days","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-37","utterance":"booked at the start of the year","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-38","utterance":"booked on a Monday","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-39","utterance":"booked at month-end","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-40","utterance":"booked in 2026-Q1","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-41","utterance":"booked a month ago","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-42","utterance":"booked in the previous 30 days","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-43","utterance":"booked in the last 30 calendar days","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-44","utterance":"booked in the upcoming quarter","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-45","utterance":"posted at in the last hour","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-46","utterance":"posted at this morning","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-47","utterance":"posted at after 2026-01-31 14:00","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-48","utterance":"booked the day before yesterday","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-49","utterance":"booked tomorrow","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-50","utterance":"booked in the 90-day period ending today","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-51","utterance":"booked in the first quarter of the fiscal year","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-52","utterance":"booked in the last ninety days","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-53","utterance":"booked in the last 3 fiscal quarters","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-54","utterance":"booked in the 2nd half of last year","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-55","utterance":"booked the last working day of the month","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-b-56","utterance":"travel entries booked in the last 90 days of the year","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-c-01","utterance":"travel entries booked in the last 30 days","schema":"ledger","clock":true,"expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"category","operator":"eq","value":"travel"}},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"booked","operator":"between","value":{"min":"2026-10-14","max":"2026-11-13"}}}]}}
+{"id":"dr3-c-02","utterance":"booked this quarter, sort by amount descending","schema":"ledger","clock":true,"expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"booked","operator":"between","value":{"min":"2026-10-01","max":"2026-12-31"}}},{"type":"sort.set","sorts":[{"columnId":"amount","direction":"desc"}]}]}}
+{"id":"dr3-c-03","utterance":"software entries booked last quarter","schema":"ledger","clock":true,"expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"category","operator":"eq","value":"software"}},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"booked","operator":"between","value":{"min":"2026-07-01","max":"2026-09-30"}}}]}}
+{"id":"dr3-c-04","utterance":"booked YTD, group by category","schema":"ledger","clock":true,"expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"booked","operator":"between","value":{"min":"2026-01-01","max":"2026-11-13"}}},{"type":"group.set","columnIds":["category"]}]}}
+{"id":"dr3-c-05","utterance":"amount over 5000 booked in the last 90 days","schema":"ledger","clock":true,"expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"amount","operator":"gt","value":5000}},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"booked","operator":"between","value":{"min":"2026-08-15","max":"2026-11-13"}}}]}}
+{"id":"dr3-c-06","utterance":"booked today","schema":"ledger","clock":true,"expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"booked","operator":"eq","value":"2026-11-13"}}]}}
+{"id":"dr3-c-07","utterance":"booked yesterday, hide rate","schema":"ledger","clock":true,"expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"booked","operator":"eq","value":"2026-11-12"}},{"type":"columns.hide","columnIds":["rate"]}]}}
+{"id":"dr3-c-08","utterance":"fees booked last year and then sort by amount ascending","schema":"ledger","clock":true,"expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"category","operator":"eq","value":"fees"}},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"booked","operator":"between","value":{"min":"2025-01-01","max":"2025-12-31"}}},{"type":"sort.set","sorts":[{"columnId":"amount","direction":"asc"}]}]}}
+{"id":"dr3-c-09","utterance":"booked between 2026-01-01 and 2026-03-31, group by category","schema":"ledger","clock":true,"expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"booked","operator":"between","value":{"min":"2026-01-01","max":"2026-03-31"}}},{"type":"group.set","columnIds":["category"]}]}}
+{"id":"dr3-c-10","utterance":"services entries booked after 2026-01-31","schema":"ledger","clock":true,"expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"category","operator":"eq","value":"services"}},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"booked","operator":"gt","value":"2026-01-31"}}]}}
+{"id":"dr3-c-11","utterance":"booked before 2026-06-01","schema":"ledger","clock":true,"expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"booked","operator":"lt","value":"2026-06-01"}}]}}
+{"id":"dr3-c-12","utterance":"booked on or after 2026-06-01, hide units","schema":"ledger","clock":true,"expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"booked","operator":"gte","value":"2026-06-01"}},{"type":"columns.hide","columnIds":["units"]}]}}
+{"id":"dr3-c-13","utterance":"booked 2026-06-01 or later","schema":"ledger","clock":true,"expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"booked","operator":"gte","value":"2026-06-01"}}]}}
+{"id":"dr3-c-14","utterance":"booked up to 2026-06-30","schema":"ledger","clock":true,"expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"booked","operator":"lte","value":"2026-06-30"}}]}}
+{"id":"dr3-c-15","utterance":"booked from 2026-02-01 through 2026-02-28","schema":"ledger","clock":true,"expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"booked","operator":"between","value":{"min":"2026-02-01","max":"2026-02-28"}}}]}}
+{"id":"dr3-c-16","utterance":"booked from 2026-03-31 to 2026-01-01","schema":"ledger","clock":true,"expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"booked","operator":"between","value":{"min":"2026-01-01","max":"2026-03-31"}}}]}}
+{"id":"dr3-c-17","utterance":"posted at in the last 7 days","schema":"ledger","clock":true,"expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"posted_at","operator":"between","value":{"min":"2026-11-06","max":"2026-11-13"}}}]}}
+{"id":"dr3-c-18","utterance":"posted at this month, group by category","schema":"ledger","clock":true,"expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"posted_at","operator":"between","value":{"min":"2026-11-01","max":"2026-11-30"}}},{"type":"group.set","columnIds":["category"]}]}}
+{"id":"dr3-c-19","utterance":"units over 10, booked in the past 14 days","schema":"ledger","clock":true,"expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"units","operator":"gt","value":10}},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"booked","operator":"between","value":{"min":"2026-10-30","max":"2026-11-13"}}}]}}
+{"id":"dr3-c-20","utterance":"amount under 250 and then booked last month","schema":"ledger","clock":true,"expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"amount","operator":"lt","value":250}},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"booked","operator":"between","value":{"min":"2026-10-01","max":"2026-10-31"}}}]}}
+{"id":"dr3-c-21","utterance":"supplies booked during the last 6 months","schema":"ledger","clock":true,"expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"category","operator":"eq","value":"supplies"}},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"booked","operator":"between","value":{"min":"2026-05-13","max":"2026-11-13"}}}]}}
+{"id":"dr3-c-22","utterance":"booked within the last 2 weeks","schema":"ledger","clock":true,"expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"booked","operator":"between","value":{"min":"2026-10-30","max":"2026-11-13"}}}]}}
+{"id":"dr3-c-23","utterance":"booked over the last 12 months, sort by booked descending","schema":"ledger","clock":true,"expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"booked","operator":"between","value":{"min":"2025-11-13","max":"2026-11-13"}}},{"type":"sort.set","sorts":[{"columnId":"booked","direction":"desc"}]}]}}
+{"id":"dr3-c-24","utterance":"booked MTD, travel entries","schema":"ledger","clock":true,"expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"booked","operator":"between","value":{"min":"2026-11-01","max":"2026-11-13"}}},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"category","operator":"eq","value":"travel"}}]}}
+{"id":"dr3-c-25","utterance":"group by category, booked this year","schema":"ledger","clock":true,"expect":{"status":"ready","operations":[{"type":"group.set","columnIds":["category"]},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"booked","operator":"between","value":{"min":"2026-01-01","max":"2026-12-31"}}}]}}
+{"id":"dr3-c-26","utterance":"amount above 100000 and booked QTD","schema":"ledger","clock":true,"expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"amount","operator":"gt","value":100000}},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"booked","operator":"between","value":{"min":"2026-10-01","max":"2026-11-13"}}}]}}
+{"id":"dr3-c-27","utterance":"booked in the last 3 years","schema":"ledger","clock":true,"expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"booked","operator":"between","value":{"min":"2023-11-13","max":"2026-11-13"}}}]}}
+{"id":"dr3-c-28","utterance":"software entries posted at yesterday","schema":"ledger","clock":true,"expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"category","operator":"eq","value":"software"}},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"posted_at","operator":"eq","value":"2026-11-12"}}]}}
+{"id":"dr3-c-29","utterance":"booked in the past 90 days and amount below 20000","schema":"ledger","clock":true,"expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"booked","operator":"between","value":{"min":"2026-08-15","max":"2026-11-13"}}},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"amount","operator":"lt","value":20000}}]}}
+{"id":"dr3-c-30","utterance":"booked after 2026-01-31, sort by amount descending, group by category","schema":"ledger","clock":true,"expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"booked","operator":"gt","value":"2026-01-31"}},{"type":"sort.set","sorts":[{"columnId":"amount","direction":"desc"}]},{"type":"group.set","columnIds":["category"]}]}}
+{"id":"dr3-c-31","utterance":"booked in the last 1 month","schema":"ledger","clock":true,"expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"booked","operator":"between","value":{"min":"2026-10-13","max":"2026-11-13"}}}]}}
+{"id":"dr3-c-32","utterance":"booked in the last 365 days","schema":"ledger","clock":true,"expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"booked","operator":"between","value":{"min":"2025-11-13","max":"2026-11-13"}}}]}}
+{"id":"dr3-c-33","utterance":"booked in the last 12 weeks, hide rate","schema":"ledger","clock":true,"expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"booked","operator":"between","value":{"min":"2026-08-21","max":"2026-11-13"}}},{"type":"columns.hide","columnIds":["rate"]}]}}
+{"id":"dr3-c-34","utterance":"fees booked in the last 120 days","schema":"ledger","clock":true,"expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"category","operator":"eq","value":"fees"}},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"booked","operator":"between","value":{"min":"2026-07-16","max":"2026-11-13"}}}]}}
+{"id":"dr3-c-35","utterance":"booked in the last 9 months and sort by amount descending","schema":"ledger","clock":true,"expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"booked","operator":"between","value":{"min":"2026-02-13","max":"2026-11-13"}}},{"type":"sort.set","sorts":[{"columnId":"amount","direction":"desc"}]}]}}
+{"id":"dr3-c-36","utterance":"booked in the last 180 days","schema":"ledger","clock":true,"expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"booked","operator":"between","value":{"min":"2026-05-17","max":"2026-11-13"}}}]}}
+{"id":"dr3-c-37","utterance":"posted at last quarter","schema":"ledger","clock":true,"expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"posted_at","operator":"between","value":{"min":"2026-07-01","max":"2026-09-30"}}}]}}
+{"id":"dr3-c-38","utterance":"travel entries booked in the last 60 days","schema":"ledger","clock":true,"expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"category","operator":"eq","value":"travel"}},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"booked","operator":"between","value":{"min":"2026-09-14","max":"2026-11-13"}}}]}}
+{"id":"dr3-d-01","utterance":"booked after 2026-01-31 and posted at before 2026-06-01","schema":"ledger","clock":true,"expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"booked","operator":"gt","value":"2026-01-31"}},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"posted_at","operator":"lt","value":"2026-06-01"}}]}}
+{"id":"dr3-d-02","utterance":"booked in the last 30 days and posted at this quarter","schema":"ledger","clock":true,"expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"booked","operator":"between","value":{"min":"2026-10-14","max":"2026-11-13"}}},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"posted_at","operator":"between","value":{"min":"2026-10-01","max":"2026-12-31"}}}]}}
+{"id":"dr3-d-03","utterance":"booked this year, posted at yesterday","schema":"ledger","clock":true,"expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"booked","operator":"between","value":{"min":"2026-01-01","max":"2026-12-31"}}},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"posted_at","operator":"eq","value":"2026-11-12"}}]}}
+{"id":"dr3-d-04","utterance":"booked last quarter and posted at this quarter","schema":"ledger","clock":true,"expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"booked","operator":"between","value":{"min":"2026-07-01","max":"2026-09-30"}}},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"posted_at","operator":"between","value":{"min":"2026-10-01","max":"2026-12-31"}}}]}}
+{"id":"dr3-d-05","utterance":"booked after 2026-01-31 and before 2026-06-01","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-d-06","utterance":"booked in the last 30 days and in the last 7 days","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-d-07","utterance":"booked in the last 90 days and posted at in the last 30 days","schema":"ledger","clock":true,"expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"booked","operator":"between","value":{"min":"2026-08-15","max":"2026-11-13"}}},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"posted_at","operator":"between","value":{"min":"2026-10-14","max":"2026-11-13"}}}]}}
+{"id":"dr3-d-08","utterance":"booked after 2026-01-31, before 2026-06-01","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-d-09","utterance":"booked last month and this month","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-d-10","utterance":"booked yesterday and posted at today","schema":"ledger","clock":true,"expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"booked","operator":"eq","value":"2026-11-12"}},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"posted_at","operator":"eq","value":"2026-11-13"}}]}}
+{"id":"dr3-d-11","utterance":"travel entries booked after 2026-03-01 and posted at before 2026-04-01","schema":"ledger","clock":true,"expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"category","operator":"eq","value":"travel"}},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"booked","operator":"gt","value":"2026-03-01"}},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"posted_at","operator":"lt","value":"2026-04-01"}}]}}
+{"id":"dr3-d-12","utterance":"booked after 2026-01-31 and this quarter","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-d-13","utterance":"booked in the last 30 days and YTD","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-d-14","utterance":"booked on or after 2026-01-01 and posted at on or before 2026-12-31","schema":"ledger","clock":true,"expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"booked","operator":"gte","value":"2026-01-01"}},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"posted_at","operator":"lte","value":"2026-12-31"}}]}}
+{"id":"dr3-d-15","utterance":"booked from 2026-01-01 to 2026-03-31 and posted at from 2026-04-01 to 2026-06-30","schema":"ledger","clock":true,"expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"booked","operator":"between","value":{"min":"2026-01-01","max":"2026-03-31"}}},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"posted_at","operator":"between","value":{"min":"2026-04-01","max":"2026-06-30"}}}]}}
+{"id":"dr3-d-16","utterance":"posted at after 2026-05-01 and in the last 30 days","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-d-17","utterance":"booked in the last 30 days, posted this quarter","schema":"ledger","clock":true,"expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"booked","operator":"between","value":{"min":"2026-10-14","max":"2026-11-13"}}},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"posted_at","operator":"between","value":{"min":"2026-10-01","max":"2026-12-31"}}}]}}
+{"id":"dr3-d-18","utterance":"booked last year and in the last 90 days","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-e-01","utterance":"I booked it in the last 30 days","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-e-02","utterance":"the last 90 days were slow","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-e-03","utterance":"yesterday was a mess","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-e-04","utterance":"today is the last day of the review","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-e-05","utterance":"this quarter was rough for travel","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-e-06","utterance":"YTD fees look huge","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-e-07","utterance":"what did we book last quarter?","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-e-08","utterance":"my boss says the last 90 days are what matters","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-e-09","utterance":"is this year better than last year?","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-e-10","utterance":"everything posted at yesterday looked off to me","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-e-11","utterance":"we closed the books for last month already","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-e-12","utterance":"booked amounts in the last 30 days totalled a lot","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-e-13","utterance":"QTD numbers are due today","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr3-e-14","utterance":"MTD was fine, thanks","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}

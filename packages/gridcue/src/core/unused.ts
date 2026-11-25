@@ -1,6 +1,8 @@
+import type { CodeReadFilter } from "./code-read";
 import { leavesRowsOut } from "./lead";
 import type { Mention } from "./mentions";
 import { type Literal, literalText, type NormalizedInput, unquoted } from "./normalize";
+import type { CodeReadSpan } from "./placed";
 import type { DecisionEvidence, FilterPredicate, ViewOperation } from "./protocol";
 
 /** Something code read from a part of the request that no operation in the plan uses, in the User's words. */
@@ -32,7 +34,11 @@ const possessiveOfRows = (text: string, at: number, rowNoun: string, values: rea
 };
 const singular = (words: string) => (words.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []).join(" ").replace(/(?:es|s)$/, "");
 
-const namesOf = (op: ViewOperation): string[] => {
+/**
+ * The columns an operation names. A filter names the column it filters on. The placed-words check (`core/placed.ts`)
+ * reads it too: a column a part asks for is placed only when one of the plan's changes names it.
+ */
+export const namesOf = (op: ViewOperation): string[] => {
   switch (op.type) {
     case "filter.add":
       return [op.predicate.columnId];
@@ -50,6 +56,12 @@ const namesOf = (op: ViewOperation): string[] => {
       return [];
   }
 };
+
+/**
+ * Whether two filter values are the same. A form's value is text or nothing; a House Term's may also be a list or a
+ * range, which are compared by what they hold.
+ */
+const sameValue = (a: unknown, b: unknown): boolean => a === b || (typeof a === "object" && JSON.stringify(a) === JSON.stringify(b));
 
 /** The comparison that keeps the rows a part leaves out: "exclude accounts over $1m" keeps "at most $1m". */
 const COMPLEMENT: Partial<Record<string, string>> = { gt: "lte", gte: "lt", lt: "gte", lte: "gt" };
@@ -90,6 +102,14 @@ const usesValue = (p: FilterPredicate, m: Mention): boolean => {
  * a name the plan dropped with `dropped:` evidence, the grid's own row noun, the other values named for a column after
  * the User picked one of them, and a column named in a part that clears or resets (what the clear targets). A name
  * read as the rows is never a Mention, so it is not counted either.
+ *
+ * A code-read filter (named filters spec, 4.4) is read as a whole: it is used when the plan holds its filter, and the
+ * names and quoted text inside its words are its own. Its filter uses nothing outside them: a name of its column outside
+ * them is used only when another operation names that column. A span with no filter places its words and is never
+ * counted. A House Term gives a code-read filter for each of its conditions, so it is used when the plan holds all of
+ * its filters. Several Local Values of one column share one filter, and each is used when the plan holds it. A date read
+ * by code (spec 5.5) is used when the plan holds its filter: its fixed days on its column, with no column named on the
+ * column the compiler gave it. A date literal `normalize` read from a relative form is used as any date literal is.
  */
 export const unusedReadings = (
   input: NormalizedInput,
@@ -97,9 +117,26 @@ export const unusedReadings = (
   operations: readonly ViewOperation[],
   evidence: readonly DecisionEvidence[] = [],
   rowNoun?: string,
+  codeRead: readonly (CodeReadSpan | CodeReadFilter)[] = [],
 ): UnusedReading[] => {
   const predicates = operations.flatMap((op) => (op.type === "filter.add" ? [op.predicate] : []));
-  const named = new Set(operations.flatMap(namesOf));
+  // A code-read filter's operation uses its own words and nothing else. The same column named again outside them
+  // ("show advisor where advisor starts with …", "no advisor, advisor") is used only by another operation.
+  const readOps = new Set<ViewOperation>();
+  for (const r of codeRead) {
+    if (!("predicate" in r)) continue;
+    const { columnId, operator, value } = r.predicate;
+    const op = operations.find(
+      (o) =>
+        o.type === "filter.add" &&
+        !readOps.has(o) &&
+        o.predicate.columnId === columnId &&
+        o.predicate.operator === operator &&
+        sameValue(o.predicate.value, value),
+    );
+    if (op) readOps.add(op);
+  }
+  const named = new Set(operations.filter((op) => !readOps.has(op)).flatMap(namesOf));
   const counts = operations.flatMap((op) => (op.type === "limit.set" && op.count !== null ? [op.count] : []));
   const has = (key: string, selectedId: string) => evidence.some((e) => e.key === key && e.selectedId === selectedId);
   // A part that clears or resets: by the compiler's evidence or, for a plan given without evidence, by its words and a
@@ -125,7 +162,19 @@ export const unusedReadings = (
     // uses it too, as a complemented amount does.
     const leaving = leavesRowsOut(unquoted(clause.text));
     const found: Array<{ at: number; text: string }> = [];
+    const spans = codeRead.filter((r) => r.clauseIndex === clause.index);
+    const inSpan = (at: number, end = at + 1) => spans.some((r) => at < r.end && end > r.start);
+    for (const r of spans) {
+      if (!("predicate" in r)) continue;
+      const { columnId, operator, value } = r.predicate;
+      const holds = (p: FilterPredicate) => p.columnId === columnId && p.operator === operator && sameValue(p.value, value);
+      const at = free.findIndex(holds);
+      if (at >= 0) free.splice(at, 1);
+      // Several Local Values of one column share one filter: each is used when the plan holds it.
+      else if (!(r.kind === "value" && predicates.some(holds))) found.push({ at: r.start, text: clause.text.slice(r.start, r.end) });
+    }
     for (const lit of clause.literals) {
+      if (inSpan(lit.at)) continue;
       // Quoted text that is exactly a column name the plan uses: 'hide "market value"'.
       const quotedName = mentions.some(
         (m) =>
@@ -146,6 +195,7 @@ export const unusedReadings = (
       found.push({ at: count?.index ?? 0, text: count?.[0] ?? String(clause.limit) });
     }
     for (const m of mentions.filter((x) => x.clauseIndex === clause.index)) {
+      if (inSpan(m.start, m.end)) continue;
       if (has(`dropped:c${clause.index}.mention`, m.columnId)) continue;
       // An ambiguous name is not counted when it is the grid's row noun. Another entity ("and the advisor") that no
       // reading resolved and no operation uses is asked about: it was named for a reason.

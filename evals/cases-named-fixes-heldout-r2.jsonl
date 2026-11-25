@@ -47,13 +47,13 @@
 {"id":"r2-ask-05","utterance":"Advisor doesn't contain \"Ortiz\".","expect":{"status":"needs_clarification"}}
 {"id":"r2-ask-06","utterance":"Advisor not containing \"Hale\"","expect":{"status":"needs_clarification"}}
 {"id":"r2-ask-07","utterance":"Advisor containing \"Lane\" not.","expect":{"status":"needs_clarification"}}
-{"id":"r2-ask-08","utterance":"Advisor starts with \"Av\".","expect":{"status":"needs_clarification","clarificationPrompt":"I'm not sure how to match “av”. Try “containing”."}}
-{"id":"r2-ask-09","utterance":"Household beginning with \"Alder\"","expect":{"status":"needs_clarification"}}
+{"id":"r2-ask-08","utterance":"Advisor starts with \"Av\".","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"startsWith","value":"av"}}]}}
+{"id":"r2-ask-09","utterance":"Household beginning with \"Alder\"","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"household","operator":"startsWith","value":"alder"}}]}}
 {"id":"r2-ask-10","utterance":"Advisor ends with \"Lane\"","expect":{"status":"needs_clarification"}}
-{"id":"r2-ask-11","utterance":"Advisor is exactly \"Avery Lane\".","expect":{"status":"needs_clarification"}}
-{"id":"r2-ask-12","utterance":"Household = \"Cedar Household\"","expect":{"status":"needs_clarification"}}
-{"id":"r2-ask-13","utterance":"Advisor equals \"Moreno\"","expect":{"status":"needs_clarification"}}
-{"id":"r2-ask-14","utterance":"Advisor equal to \"Ortiz\"","expect":{"status":"needs_clarification"}}
+{"id":"r2-ask-11","utterance":"Advisor is exactly \"Avery Lane\".","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"eq","value":"avery lane"}}]}}
+{"id":"r2-ask-12","utterance":"Household = \"Cedar Household\"","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"household","operator":"eq","value":"cedar household"}}]}}
+{"id":"r2-ask-13","utterance":"Advisor equals \"Moreno\"","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"eq","value":"moreno"}}]}}
+{"id":"r2-ask-14","utterance":"Advisor equal to \"Ortiz\"","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"eq","value":"ortiz"}}]}}
 {"id":"r2-ask-15","utterance":"Advisor matching exactly \"Hale\"","expect":{"status":"needs_clarification"}}
 {"id":"r2-ask-16","utterance":"Advisor similar to \"Lane\"","expect":{"status":"needs_clarification"}}
 {"id":"r2-ask-17","utterance":"Household other than \"Alder\"","expect":{"status":"needs_clarification"}}
@@ -66,7 +66,7 @@
 {"id":"r2-ask-24","utterance":"Not advisor \"Hale\"","expect":{"status":"needs_clarification"}}
 {"id":"r2-ask-25","utterance":"Never advisor \"Ortiz\"","expect":{"status":"needs_clarification"}}
 {"id":"r2-ask-26","utterance":"Taxable accounts where advisor is not \"Lane\" sorted by market value largest first.","expect":{"status":"needs_clarification"}}
-{"id":"r2-ask-27","utterance":"Advisor starts with \"Mo\" at Northgate.","expect":{"status":"needs_clarification"}}
+{"id":"r2-ask-27","utterance":"Advisor starts with \"Mo\" at Northgate.","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"custodian","operator":"eq","value":"northgate"}},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"startsWith","value":"mo"}}]}}
 {"id":"r2-ask-28","utterance":"Please show household equals \"Dunmore\" and market value over $1m, thanks.","expect":{"status":"needs_clarification"}}
 {"id":"r2-ask-29","utterance":"Advisor containing \"Lane\" grouped by custodian, household is not \"Alder\".","expect":{"status":"needs_clarification"}}
 {"id":"r2-ask-30","utterance":"Retirement accounts with advisor ends with \"Hale\".","expect":{"status":"needs_clarification"}}

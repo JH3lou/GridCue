@@ -91,54 +91,51 @@ Spec 4.1, 4.2, 4.4, 4.6, 5.2, and the PR 2 rows of section 9. ADR 0023.
 
 ### Task 2.1: The ledger fixture (Sonnet)
 **Files:** new `fixtures/ledger/`, `evals/run.ts`.
-- [ ] A ledger schema from spec 4.6 alone, with seeded synthetic rows: two text columns of names, a date column, a date-and-time column, a number, a currency, a percent, a category and a yes/no column.
-- [ ] `evals/run.ts` runs a case file against the schema it names. This PR owns the ledger (order plan). More grids, the operation set, routing, the command bar and the four bets reuse it and add no second schema of their own.
+- [x] A ledger schema from spec 4.6 alone, with seeded synthetic rows: two text columns of names, a date column, a date-and-time column, a number, a currency, a percent, a category and a yes/no column.
+- [x] `evals/run.ts` runs a case file against the schema it names. This PR owns the ledger (order plan). More grids, the operation set, routing, the command bar and the four bets reuse it and add no second schema of their own.
 
 ### Task 2.2: Label the text-form cases (Sonnet, two separate agents)
 **Files:** new `evals/cases-text-forms.jsonl`, new `evals/cases-not-requests.jsonl`; held-out sets outside the repo.
-- [ ] Form dev set, 40, on both schemas: each form in spec 5.2, each with a filter beside it, and each on a column kind that must ask.
-- [ ] Form held-out set, 40, from spec 5.2 alone.
-- [ ] Not-a-request sets, 20 dev and 20 held-out: sentences that hold an empty form or a text form and are not view requests ("there is no advisor I trust"). Labelled ask or refused.
-- [ ] Natural held-out set, 30, by the second labeller, who sees only the product definition and the two schemas.
-- [ ] Provider-pick sets, 20 dev and 20 held-out: requests that hold a code-read filter, each with a scripted provider answer that proposes a sort, a column or a value for words the filter took. Written before the code. Each of PR 3 to PR 5 adds 10 to both.
-- [ ] Baseline with the Mock Provider on all of them, before any code.
+- [x] Form dev set, 40, on both schemas: each form in spec 5.2, each with a filter beside it, and each on a column kind that must ask.
+- [x] Form held-out set, 40, from spec 5.2 alone.
+- [x] Not-a-request sets, 20 dev and 20 held-out: sentences that hold an empty form or a text form and are not view requests ("there is no advisor I trust"). Labelled ask or refused.
+- [x] Natural held-out set, 30, by the second labeller, who sees only the product definition and the two schemas.
+- [x] Provider-pick sets, 20 dev and 20 held-out: requests that hold a code-read filter, each with a scripted provider answer that proposes a sort, a column or a value for words the filter took. Written before the code. Each of PR 3 to PR 5 adds 10 to both.
+- [x] Baseline with the Mock Provider on all of them, before any code.
 
 ### Task 2.3: Every word is placed (Fable)
 **Files:** new `core/placed.ts`, `core/lead.ts`, tests.
-- [ ] Tests first: each kind of placed word in spec 4.2; each word the spec names as off the list; a verb for columns with and without a column as its object, and with a column but no column change in the plan ("pin advisor for Avery Lane's accounts"), which must ask.
-- [ ] One pure function that returns the unplaced words of a part, given its names, literals and code-read filters. The lists live in this module and nowhere else, except the operation set's form words, which it imports from `core/view-words.ts`.
-- [ ] The limit on a provider's picks in a part that passed: a column or value no Mention names is dropped; a sort, group, show or hide needs its own words. Tests use a fake provider.
-- [ ] In the compiler, a part with no code-read filter never reaches this function. A test runs every existing labelled request through the compiler and finds the function is not called. Task 2.5's report calls it from `evals/`, outside the compiler, so the report can't change a result.
-- [ ] The first PR's review left one class for this rule: unread words after the next name in a part with quoted text (`advisor "Lane" and restricted removed` previews Restricted holdings is Yes). Its cases join this PR's dev set. The allow-lists the first PR added in `core/compile.ts` (`unreadBesideText`, `afterText`) move into `core/placed.ts` or are replaced by it.
-- [ ] The first PR's reviews also found wrong views with no quoted text, which the release has too. Each joins this PR's dev set and must ask: `!=`, `≠` or `not=` before a named value reads as equal (`custodian != Northgate` shows Northgate); a full-width "！" before a name is dropped; "reversed", "backwards" or "inverted" after a sort is dropped; "all but restricted" shows the restricted rows; "reset and trusts" on a filtered view drops the reset; "account first for trusts" drops the column move.
-- [ ] The can't-group PR's held-out rounds found the same class on a grid that can group, where that PR may change nothing. Each joins this PR's dev set and must ask: "show accounts in the Northgate group" filters Custodian and drops "group"; "Northgate group accounts" also groups by Account number; "sort by value, groups by advisor" sorts by Advisor; "households named group" groups by Household. Once this rule asks about the unplaced word on every grid, the can't-group question narrows back to the grouping verb (more grids spec 5.3).
-- [ ] Requests the first PR made ask and this rule should read again, once every word in them is placed: `advisor "Lane" in descending order of value`, `advisor "Lane" is trusts`, `advisor "Lane" also not trusts`, `advisor's name is "Lane"`, `advisor containing the text "Lane"`.
+- [x] Tests first: each kind of placed word in spec 4.2; each word the spec names as off the list; a verb for columns with and without a column as its object, and with a column but no column change in the plan ("pin advisor for Avery Lane's accounts"), which must ask.
+- [x] One pure function that returns the unplaced words of a part, given its names, literals and code-read filters. The lists live in this module and nowhere else, except the operation set's form words, which it imports from `core/view-words.ts`.
+- [x] The limit on a provider's picks in a part that passed: a column or value no Mention names is dropped; a sort, group, show or hide needs its own words. Tests use a fake provider.
+- [x] In the compiler, a part with no code-read filter never reaches this function. A test runs every existing labelled request through the compiler and finds the function is not called. Task 2.5's report calls it from `evals/`, outside the compiler, so the report can't change a result.
+- [x] Where this module and the first PR's checks beside quoted text (`unreadBesideText`, `afterText` in `core/compile.ts`) hold the same kind of word, they share one list. The placed-words check never runs on a part with no code-read filter, plain quoted text included (spec 4.2). Such a part changes only through the two D4 narrowings the natural held-out set called for (order plan, section 11). The other wrong views the wave 1 reviews found in such parts are not this PR's: the order plan's section 12 lists them for the owner.
 
 ### Task 2.4: The forms (Opus)
 **Files:** `core/normalize.ts`, new `core/code-read.ts`, `core/compile.ts`, `core/resolution.ts`, `core/unused.ts`, `core/preview.ts`, `index.ts`, tests. Needs 2.3.
-- [ ] Tests first, one per row of both tables in spec 5.2, and each form with one extra word, which must ask.
-- [ ] `Literal.match` for "starts with" and "exactly". `readCodeFilters` with the empty forms.
-- [ ] `buildResolutionRequest` picks the fields it sends, so `Literal.match` is not sent. The payload pin test from the operation set's count fix passes unchanged. The command bar and the four bets reuse this and don't repeat it.
-- [ ] The compiler writes `startsWith`, `eq`, `isEmpty` and `isNotEmpty`, only where the column's kind and the Host's `allowedOperators` allow.
-- [ ] ADR 0019's check counts both forms. The expected-plan test: 0 blocked.
-- [ ] The Preview lines in spec section 9 for exact text and the two empty filters. A test pins every Preview line the evals produce before the change, and lists each one that changes. This PR owns that pin test; later PRs update it and say what changed.
-- [ ] PR 1's "I'm not sure how to match" question no longer fires for the forms now read.
-- [ ] Bars: 0 wrong views on the dev sets and on every existing set; no existing verdict worse.
+- [x] Tests first, one per row of both tables in spec 5.2, and each form with one extra word, which must ask.
+- [x] `Literal.match` for "starts with" and "exactly". `readCodeFilters` with the empty forms.
+- [x] `buildResolutionRequest` picks the fields it sends, so `Literal.match` is not sent. The payload pin test from the operation set's count fix passes unchanged. The command bar and the four bets reuse this and don't repeat it.
+- [x] The compiler writes `startsWith`, `eq`, `isEmpty` and `isNotEmpty`, only where the column's kind and the Host's `allowedOperators` allow.
+- [x] ADR 0019's check counts both forms. The expected-plan test: 0 blocked.
+- [x] The Preview lines in spec section 9 for exact text and the two empty filters. A test pins every Preview line the evals produce before the change, and lists each one that changes. This PR owns that pin test; later PRs update it and say what changed.
+- [x] PR 1's "I'm not sure how to match" question no longer fires for the forms now read.
+- [x] Bars: 0 wrong views on the dev sets and on every existing set; no existing verdict worse.
 
 ### Task 2.5: Held-out run (lead)
-- [ ] One run of each held-out set. Bar: 0 wrong views on all of them; none of the not-a-request sentences is ready; no provider pick the words don't name survives.
-- [ ] A wrong view in the natural set from a word nothing reads, in a part with no code-read filter, still fails the bar. It goes back as a class and is narrowed to a question; no reading is added (order plan, D4).
-- [ ] Report the form set's exact share, the natural set's ask rate, and each word that was unplaced in a request labelled ready.
-- [ ] Report how many ready plans on every set, old and new, hold a word the lists don't place, whether or not the part holds a code-read filter (order plan, D4). No bar; the number says how large the class left for the Local Resolver is. The report runs in `evals/`, not in the compiler.
-- [ ] The sets join the repo.
+- [x] One run of each held-out set. Bar: 0 wrong views on all of them; none of the not-a-request sentences is ready; no provider pick the words don't name survives.
+- [x] A wrong view in the natural set from a word nothing reads, in a part with no code-read filter, still fails the bar. It goes back as a class and is narrowed to a question; no reading is added (order plan, D4).
+- [x] Report the form set's exact share, the natural set's ask rate, and each word that was unplaced in a request labelled ready.
+- [x] Report how many ready plans on every set, old and new, hold a word the lists don't place, whether or not the part holds a code-read filter (order plan, D4). No bar; the number says how large the class left for the Local Resolver is. The report runs in `evals/`, not in the compiler.
+- [x] The sets join the repo.
 
 ### Task 2.6: Docs and skill (Sonnet)
-- [ ] Site: `concepts/requests` (the four forms, what "empty" means, what asks), `api/schema` (`allowedOperators` turns a form off), `guides/build-an-adapter` (empty, and exact text without letter case).
-- [ ] The four bets spec (`docs/superpowers/specs/2026-11-10-four-bets-design.md`), line 56: "starts with", empty and not empty leave the list of what a request can't reach. OR filters stay on it. This edit lands here, not in PR 0 (order plan, section 5; signed off as D2). The operation set's PRs change the same line later for pins, density and totals.
-- [ ] `skills/gridcue`: the forms, and a House Term as the way to name a placeholder such as "Unassigned" once PR 3 lands. `pnpm check:skills`. Changelog (Haiku).
+- [x] Site: `concepts/requests` (the four forms, what "empty" means, what asks), `api/schema` (`allowedOperators` turns a form off), `guides/build-an-adapter` (empty, and exact text without letter case).
+- [x] The four bets spec (`docs/superpowers/specs/2026-11-10-four-bets-design.md`), line 56: "starts with", empty and not empty leave the list of what a request can't reach. OR filters stay on it. This edit lands here, not in PR 0 (order plan, section 5; signed off as D2). The operation set's PRs change the same line later for pins, density and totals.
+- [x] `skills/gridcue`: the forms, and a House Term as the way to name a placeholder such as "Unassigned" once PR 3 lands. `pnpm check:skills`. Changelog (Haiku).
 
 ### Task 2.7: Review (Opus), then gate
-- [ ] The reviewer hunts for a part with a form that is ready with a word GridCue didn't place.
+- [x] The reviewer hunts for a part with a form that is ready with a word GridCue didn't place.
 - [ ] One live run, on the owner's command. `pnpm lint`, `pnpm check`.
 
 **Owner sees before code:** the words table in spec section 9. It covers PR 2 to PR 5.
@@ -149,41 +146,41 @@ Spec 4.3, 4.5, 5.3. ADR 0024.
 
 ### Task 3.1: Declare the terms, then label (lead, then Sonnet, two separate agents)
 **Files:** new `evals/cases-house-terms.jsonl`; held-out sets outside the repo.
-- [ ] The lead declares three terms on each schema before any labelling: one comparison, two conditions, and one empty or exact-text condition.
-- [ ] Form dev set, 40, both schemas: a term alone, beside values and amounts, beside another change, left out, in a column slot, with "or", and next to a size word.
-- [ ] Form held-out set, at least 40, both schemas, from spec 5.3 alone. Natural held-out set, 30. Not-a-request sentences: 10 more for each of the two sets from Task 2.2.
-- [ ] Baseline with the Mock Provider, before any code.
+- [x] The lead declares three terms on each schema before any labelling: one comparison, two conditions, and one empty or exact-text condition.
+- [x] Form dev set, 40, both schemas: a term alone, beside values and amounts, beside another change, left out, in a column slot, with "or", and next to a size word.
+- [x] Form held-out set, at least 40, both schemas, from spec 5.3 alone. Natural held-out set, 30. Not-a-request sentences: 10 more for each of the two sets from Task 2.2.
+- [x] Baseline with the Mock Provider, before any code.
 
 ### Task 3.2: `houseTerms` in the View Schema (Opus)
 **Files:** `core/protocol.ts`, `core/schema.ts`, `core/validate.ts`, `index.ts`, `test/schema.test.ts`.
-- [ ] Tests first: every way a term can be wrong in spec 5.3, and each name collision.
-- [ ] `SchemaOptions.houseTerms`, `ViewSchema.houseTerms`, `HouseTerm`. The name is `houseTerms` because the root entry already exports `unknownTerm` (order plan, D5). `defineSchema` checks each condition with validation's own value check.
-- [ ] `buildCandidates` and `describeProviderPayload` are unchanged; a test pins both.
+- [x] Tests first: every way a term can be wrong in spec 5.3, and each name collision.
+- [x] `SchemaOptions.houseTerms`, `ViewSchema.houseTerms`, `HouseTerm`. The name is `houseTerms` because the root entry already exports `unknownTerm` (order plan, D5). `defineSchema` checks each condition with validation's own value check.
+- [x] `buildCandidates` and `describeProviderPayload` are unchanged; a test pins both.
 
 ### Task 3.3: Reading a term (Opus)
 **Files:** `core/code-read.ts`, `core/compile.ts`, `core/unused.ts`, `core/preview.ts`, `core/controller.ts`, tests. Needs 3.2.
-- [ ] Tests first, one per row of the table in spec 5.3.
-- [ ] A term is a code-read filter: each condition a filter, `host` evidence with the term's label, and the label in brackets on each Preview line.
-- [ ] A left-out term and a term where a column goes ask.
-- [ ] The request is built before terms are looked at. The request-equality test of spec 4.3 over every labelled request: the operation set's payload pin test, run with the terms declared and without. No second pin test is built.
-- [ ] Fake-provider tests: a sort, a column and a value proposed for the term's word are each dropped.
+- [x] Tests first, one per row of the table in spec 5.3.
+- [x] A term is a code-read filter: each condition a filter, `host` evidence with the term's label, and the label in brackets on each Preview line.
+- [x] A left-out term and a term where a column goes ask.
+- [x] The request is built before terms are looked at. The request-equality test of spec 4.3 over every labelled request: the operation set's payload pin test, run with the terms declared and without. No second pin test is built.
+- [x] Fake-provider tests: a sort, a column and a value proposed for the term's word are each dropped.
 
 ### Task 3.4: Nothing old changes (lead)
-- [ ] Every existing labelled request with the terms declared: the same verdict and operations. Bar: 0 changes.
-- [ ] If it holds, the wealth fixture declares Large and Needs attention. If not, the terms stay in the eval schema and the Site demo declares its own.
+- [x] Every existing labelled request with the terms declared: the same verdict and operations. Bar: 0 changes. One changed: "uncategorised entries please" goes from a safe miss to its labelled view through Uncoded's alias. `evals/house-terms.test.ts` names it and holds every other request to no change.
+- [x] If it holds, the wealth fixture declares Large and Needs attention. If not, the terms stay in the eval schema and the Site demo declares its own. It did not hold by that one request, so the fixtures declare no terms.
 
 ### Task 3.5: Held-out run (lead)
-- [ ] One run of each set. Bar: 0 wrong views. Report the exact share, the natural set's ask rate, and how often a term was left out. The sets join the repo.
+- [x] One run of each set. Bar: 0 wrong views. Report the exact share, the natural set's ask rate, and how often a term was left out. The sets join the repo.
 
 ### Task 3.6: Examples, Site, skill (Sonnet)
-- [ ] Both examples use the fixture's terms. The Site demo suggests "large taxable accounts".
-- [ ] A test resolves every request the Site demo suggests, with the demo's provider, and checks the plan its comment promises. No test does this today (`apps/site/app/routes/demo.tsx:18`). The command bar's starters and the four bets reuse it.
-- [ ] Site: `api/schema` (`houseTerms`), `get-started/describe-your-domain` (a "House terms" section), `concepts/requests`, `safety` (terms are not sent). `docs/internals/product.md` and `intent-protocol.md`: the "large" and "big" paragraphs now point to House Terms.
-- [ ] `skills/gridcue`: when to declare a term, and that its names must be its own. `pnpm check:skills`. Changelog (Haiku).
-- [ ] Browser check of the bracketed Preview lines in both UIs, light and dark.
+- [x] Both examples declare Large and Needs attention themselves, since the fixture declares none (Task 3.4). The Site demo declares the same two and suggests "Large taxable accounts".
+- [x] A test resolves every request the Site demo suggests, with the demo's provider, and checks the plan its comment promises. No test does this today (`apps/site/app/routes/demo.tsx:18`). The command bar's starters and the four bets reuse it.
+- [x] Site: `api/schema` (`houseTerms`), `get-started/describe-your-domain` (a "House terms" section), `concepts/requests`, `safety` (terms are not sent). `docs/internals/product.md` and `intent-protocol.md`: the "large" and "big" paragraphs now point to House Terms.
+- [x] `skills/gridcue`: when to declare a term, and that its names must be its own. `pnpm check:skills`. Changelog (Haiku).
+- [x] Browser check of the bracketed Preview lines in both UIs, light and dark: the registry Command Bar in the Vite example, the registry's pieces in the Site demo, and the built-in bar in the Next.js example. The built-in bar was checked after the PR opened, from the Local Values branch: the first check took the Vite example's bar for it.
 
 ### Task 3.7: Review (Opus), then gate
-- [ ] The reviewer hunts for a term's word that also changes something else in the plan.
+- [x] The reviewer hunts for a term's word that also changes something else in the plan.
 - [ ] One live run, on the owner's command. `pnpm lint`, `pnpm check`.
 
 ## PR 4: Local Values (`feat/local-values`)
@@ -192,41 +189,41 @@ Spec 4.3, 5.4. ADR 0025.
 
 ### Task 4.1: Label the name cases (Sonnet, three separate agents)
 **Files:** new `evals/cases-names.jsonl`; held-out sets outside the repo.
-- [ ] Form dev set, 60, both schemas: whole values in each position, lists, a value beside other filters and other changes, one word of a value, ties with a declared name, a value where a column goes, a value left out, and refused requests that hold a value.
-- [ ] Two form held-out sets of at least 60, one for each schema, each by its own labeller, from spec 5.4 alone.
-- [ ] Natural held-out set, 30. Not-a-request sentences: 10 more for each set from Task 2.2 ("Avery Lane called about the trust accounts").
-- [ ] Baseline with the Mock Provider and no `localValues`, before any code.
+- [x] Form dev set, 60, both schemas: whole values in each position, lists, a value beside other filters and other changes, one word of a value, ties with a declared name, a value where a column goes, a value left out, and refused requests that hold a value.
+- [x] Two form held-out sets of at least 60, one for each schema, each by its own labeller, from spec 5.4 alone.
+- [x] Natural held-out set, 30. Not-a-request sentences: 10 more for each set from Task 2.2 ("Avery Lane called about the trust accounts").
+- [x] Baseline with the Mock Provider and no `localValues`, before any code.
 
 ### Task 4.2: The value index and what counts as a name (Fable)
 **Files:** new `core/local-values.ts`, tests.
-- [ ] Tests first: a whole value with other letter case and punctuation; no plural; the longest name; a value inside a longer value; an amount inside a value; a value made only of GridCue's own words; a value two columns hold; a value that is also a declared name; one word of one, five and six values; a word that is a declared name.
-- [ ] A word index built once for each column's values. Bars on 50,000 distinct names: built in at most 250 ms, a request looked up in at most 5 ms. Report both at 1,000 and 10,000.
-- [ ] One pure function from a part and the indexes to whole-value hits, ties and one-word hits, each with its span.
+- [x] Tests first: a whole value with other letter case and punctuation; no plural; the longest name; a value inside a longer value; an amount inside a value; a value made only of GridCue's own words; a value two columns hold; a value that is also a declared name; one word of one, five and six values; a word that is a declared name.
+- [x] A word index built once for each column's values. Bars on 50,000 distinct names: built in at most 250 ms, a request looked up in at most 5 ms. Report both at 1,000 and 10,000.
+- [x] One pure function from a part and the indexes to whole-value hits, ties and one-word hits, each with its span.
 
 ### Task 4.3: The Controller and the compiler (Opus)
 **Files:** `core/controller.ts`, `core/code-read.ts`, `core/compile.ts`, `core/unused.ts`, `core/errors.ts`, `index.ts`, tests. Needs 4.2.
-- [ ] Tests first: each `INPUT_CONFIG` case; `INPUT_LOCAL_VALUES` when a function throws; the index kept for the same array and rebuilt for a new one; one test per row of the table in spec 5.4; each question, each answer and "None of these".
-- [ ] `GridCueOptions.localValues`. The request is built before values are looked at.
-- [ ] The request-equality test with `localValues` on and off, over every labelled request, again as a run of the operation set's payload pin test. A test that the provider is called once whether or not a value matched.
-- [ ] A whole value is an exact filter in the grid's letter case; several make one `in` filter.
-- [ ] Every existing labelled request with the fixture's values on: the same verdict and operations.
+- [x] Tests first: each `INPUT_CONFIG` case; `INPUT_LOCAL_VALUES` when a function throws; the index kept for the same array and rebuilt for a new one; one test per row of the table in spec 5.4; each question, each answer and "None of these".
+- [x] `GridCueOptions.localValues`. The request is built before values are looked at.
+- [x] The request-equality test with `localValues` on and off, over every labelled request, again as a run of the operation set's payload pin test. A test that the provider is called once whether or not a value matched.
+- [x] A whole value is an exact filter in the grid's letter case; several make one `in` filter.
+- [x] Every existing labelled request with the fixture's values on: the same verdict and operations.
 
 ### Task 4.4: The TanStack Table helper (Opus)
 **Files:** `tanstack/index.ts`, `test/tanstack.test.ts`.
-- [ ] `localValuesFromTable(table, columnIds)` reads every loaded row, whatever filters the table has. A test filters the table and still finds a hidden row's value.
+- [x] `localValuesFromTable(table, columnIds)` reads every loaded row, whatever filters the table has. A test filters the table and still finds a hidden row's value.
 
 ### Task 4.5: Held-out run and the real Host test (lead)
-- [ ] One run of each held-out set. Bar: 0 wrong views. Report the exact share, the natural set's ask rate, how often the one-word question fired, and with how many choices. The sets join the repo.
-- [ ] A real Host application, in a throwaway clone, with `localValues` on its name columns. Report counts only, with no value written down: values that are also a declared name, values made only of GridCue's own words, and how often the one-word question fires on its earlier request set. Its own tests pass unchanged.
+- [x] One run of each held-out set. Bar: 0 wrong views. Report the exact share, the natural set's ask rate, how often the one-word question fired, and with how many choices. The sets join the repo.
+- [x] A real Host application, in a throwaway clone, with `localValues` on its name columns. Report counts only, with no value written down: values that are also a declared name, values made only of GridCue's own words, and how often the one-word question fires on its earlier request set. Its own tests pass unchanged. Done with the 123 names its own test files hold for its name columns; its live data was not read. As it stands, those columns allow "contains" alone, so `createGridCue` refuses them (`INPUT_CONFIG`, added here because of this test). With exact text allowed in the test harness only: typed whole, 113 values read, 5 tie with a declared name, 1 is not read, and 4 ask about other words. On its earlier 289 requests the one-word question fired 0 times and 1 request changed, from ready to asking, because it holds a whole value. Its typecheck, lint, tests and build pass with this build installed.
 
 ### Task 4.6: Examples, Site, skill (Sonnet)
-- [ ] The Next.js example passes `localValues` from its rows. The Vite example uses `localValuesFromTable`. The Site demo reads its rows' names and suggests "Avery Lane's accounts".
-- [ ] Site: `api/create-grid-cue` (`localValues`, `INPUT_LOCAL_VALUES`), `api/adapters` (`localValuesFromTable`), `safety` (read in the browser, never sent; what the Utterance still carries), `get-started/describe-your-domain`, `guides/vite-tanstack`, `guides/next-rows-adapter`, `concepts/requests`. `docs/internals/product.md` and `architecture.md`: the distinct-value resolver paragraph and the payload list.
-- [ ] `skills/gridcue`: `localValues` for each adapter, which columns to name, and a paged grid's own list. `pnpm check:skills`. Changelog (Haiku).
-- [ ] Browser check in the Vite example, the Next.js example and the Site, light and dark: six choices with long names at 320 px wide, and keyboard order through them. Screenshots.
+- [x] The Next.js example passes `localValues` from its rows. The Vite example uses `localValuesFromTable`. The Site demo reads its rows' names and suggests "Avery Lane's accounts".
+- [x] Site: `api/create-grid-cue` (`localValues`, `INPUT_LOCAL_VALUES`), `api/adapters` (`localValuesFromTable`), `safety` (read in the browser, never sent; what the Utterance still carries), `get-started/describe-your-domain`, `guides/vite-tanstack`, `guides/next-rows-adapter`, `concepts/requests`. `docs/internals/product.md` and `architecture.md`: the distinct-value resolver paragraph and the payload list.
+- [x] `skills/gridcue`: `localValues` for each adapter, which columns to name, and a paged grid's own list. `pnpm check:skills`. Changelog (Haiku).
+- [x] Browser check in the Vite example, the Next.js example and the Site, light and dark: six choices with long names at 320 px wide, and keyboard order through them. Screenshots. The check found that a long choice did not wrap in either UI, and that the built-in bar's input row overflowed a 320 px page; both are fixed here (order plan, section 11).
 
 ### Task 4.7: Review (Opus), then gate
-- [ ] The reviewer hunts two things: a request whose provider payload differs with `localValues` on, and a ready plan from a sentence that is not a view request.
+- [x] The reviewer hunts two things: a request whose provider payload differs with `localValues` on, and a ready plan from a sentence that is not a view request.
 - [ ] One live run, on the owner's command. `pnpm lint`, `pnpm check`, and the browser bundle check.
 
 ## PR 5: Dates (`feat/relative-dates`)
@@ -235,46 +232,48 @@ Spec 4.5, 5.5. ADR 0026.
 
 ### Task 5.1: Label the date cases (Sonnet, two separate agents)
 **Files:** new `evals/cases-dates.jsonl`; held-out sets outside the repo; a reference day counter in `evals/`.
-- [ ] Form dev set, 60, on the ledger with a fixed clock: each form in spec 5.5, with and without a column named, after the Row Noun, beside other filters, on the date-and-time column, and each wording that must ask, "this week" and "last week" among them.
-- [ ] Form held-out set, at least 60, from spec 5.5 alone, with the same fixed clock. Natural held-out set, 30. Not-a-request sentences: 10 more for each set from Task 2.2.
-- [ ] The expected dates for every form on a month end, a leap day, a year end, the first day of a quarter and both clock-change days, in the six time zones of spec section 10. Written by hand from the spec's table.
-- [ ] A reference day counter for the property tests, written by this labeller and not shown to the builder.
+- [x] Form dev set, 60, on the ledger with a fixed clock: each form in spec 5.5, with and without a column named, after the Row Noun, beside other filters, on the date-and-time column, and each wording that must ask, "this week" and "last week" among them.
+- [x] Form held-out set, at least 60, from spec 5.5 alone, with the same fixed clock. Natural held-out set, 30. Not-a-request sentences: 10 more for each set from Task 2.2.
+- [x] The expected dates for every form on a month end, a leap day, a year end, the first day of a quarter and both clock-change days, in the six time zones of spec section 10. Written by hand from the spec's table.
+- [x] A reference day counter for the property tests, written by this labeller and not shown to the builder.
 
 ### Task 5.2: Date arithmetic and whole days (Fable)
 **Files:** new `core/dates.ts`, tests.
-- [ ] Tests first: the labelled table from 5.1; today in a zone either side of midnight; a cell's day for a date string, a `Date`, a string with an offset and a string with none; an unreadable cell.
-- [ ] Today from a clock and a time zone. Each form to its dates, on calendar days only. A cell to its day.
-- [ ] Property tests against the reference counter: 1,000 random days, and 2,000 random instants in six zones, fixed seeds. Bar: every date equal, 0 rows differ.
+- [x] Tests first: the labelled table from 5.1; today in a zone either side of midnight; a cell's day for a date string, a `Date`, a string with an offset and a string with none; an unreadable cell.
+- [x] Today from a clock and a time zone. Each form to its dates, on calendar days only. A cell to its day.
+- [x] Property tests against the reference counter: 1,000 random days, and 2,000 random instants in six zones, fixed seeds. Bar: every date equal, 0 rows differ.
 
 ### Task 5.3: The reader, the column and the Preview (Opus)
 **Files:** `core/protocol.ts`, `core/schema.ts`, `core/normalize.ts`, `core/mentions.ts`, `core/code-read.ts`, `core/compile.ts`, `core/unused.ts`, `core/preview.ts`, `core/controller.ts`, `core/errors.ts`, `index.ts`, tests. Needs 5.2.
-- [ ] Tests first, one per row of both tables in spec 5.5.
-- [ ] `calendar` in the schema, holding `timeZone` and `fiscalYearStart` and nothing else, with its checks. `now` on the Controller; a `now` that throws stops the request with `INPUT_CLOCK` (order plan, D5). `normalize(text, { today, calendar })`; with no `today`, relative forms ask.
-- [ ] Ranges of two ISO dates. `Literal.words`.
-- [ ] A date column named right before a date form keeps its name after the Row Noun or a value.
-- [ ] Every other time word asks, "this week" and "last week" included. A grid with no date column asks.
-- [ ] The Preview's date words, the bracketed words and the whole-days note. Each test that pinned the old date wording is listed in the PR.
-- [ ] Every existing labelled request with a calendar set: the same verdict and operations.
+- [x] Tests first, one per row of both tables in spec 5.5.
+- [x] `calendar` in the schema, holding `timeZone` and `fiscalYearStart` and nothing else, with its checks. `now` on the Controller; a `now` that throws stops the request with `INPUT_CLOCK` (order plan, D5). `normalize(text, { today, calendar })`; with no `today`, relative forms ask.
+- [x] Ranges of two ISO dates. `Literal.words`.
+- [x] A date column named right before a date form keeps its name after the Row Noun or a value.
+- [x] Every other time word asks, "this week" and "last week" included. A grid with no date column asks.
+- [x] The Preview's date words, the bracketed words and the whole-days note. Each test that pinned the old date wording is listed in the PR.
+- [x] Every existing labelled request with a calendar set: the same verdict and operations.
 
 ### Task 5.4: Filtering by whole days (Opus)
 **Files:** `core/evaluate.ts`, `tanstack/index.ts`, `test/adapter-contract.ts`, new `test/rendered-rows.ts`, tests. Needs 5.2.
-- [ ] Tests first: the contract suite gains date, date-and-time and `Date`-object filters in its state checks. A new shared test, `test/rendered-rows.ts`, builds both Grid Adapters on the same rows and View State and compares the rows each keeps. This PR starts it with the whole-day, empty and exact-text cases; the operation set's PR 3 adds groups, order and totals.
-- [ ] `matchesPredicate` takes the time zone. `matchesFilter` reads it from the schema. The TanStack Table adapter stores it beside the column's kind.
-- [ ] PR 1's question for date-and-time columns is removed, with its tests turned into ready cases.
-- [ ] Report the time to filter 50,000 date-and-time rows.
+- [x] Tests first: the contract suite gains date, date-and-time and `Date`-object filters in its state checks. A new shared test, `test/rendered-rows.ts`, builds both Grid Adapters on the same rows and View State and compares the rows each keeps. This PR starts it with the whole-day, empty and exact-text cases; the operation set's PR 3 adds groups, order and totals.
+- [x] `matchesPredicate` takes the time zone. `matchesFilter` reads it from the schema. The TanStack Table adapter stores it beside the column's kind.
+- [x] PR 1's question for date-and-time columns is removed, with its tests turned into ready cases.
+- [x] Report the time to filter 50,000 date-and-time rows. At the gate, in America/New_York: the Rows Adapter took 63 ms on ISO strings and 45 ms on `Date` cells, and TanStack Table took 119 ms and 97 ms. Both adapters kept the same rows.
 
 ### Task 5.5: Held-out run (lead)
-- [ ] One run of each set, with the fixed clock. Bar: 0 wrong views. Report the exact share, the natural set's ask rate, and which unlisted date wording turned up most. The sets join the repo.
+- [x] One run of each set, with the fixed clock. Bar: 0 wrong views. Report the exact share, the natural set's ask rate, and which unlisted date wording turned up most. The sets join the repo.
+- [x] Two more blind sets after the review's fixes, each run once (order plan, section 11). Round 2, 171 cases: one wrong view from this work ("booked last month or so"), now asking; seven labels corrected; one statement the release already reads set aside (section 12 C). Round 3, 172 cases: no wrong view on its first run. Both joined the repo.
+- [x] The representative Host test, in a throwaway clone: its grids declare no date column; 5 of its 289 requests that dropped a time word now ask, none got worse, and its own typecheck, lint, tests and build pass.
 
 ### Task 5.6: Fixture, examples, Site, skill (Sonnet)
-- [ ] The wealth fixture gains an Opened date and a Last contact column if every existing labelled request stays the same. Otherwise both examples add a small ledger table.
-- [ ] Both examples and the Site demo resolve "opened in the last 90 days" and show the dates.
-- [ ] Site: `api/schema` (`calendar`), `api/create-grid-cue` (`now`), `concepts/requests` (the forms, and what asks), `concepts/views` (a view keeps fixed dates), `guides/going-to-production` (set `timeZone` when rows render on a server), `guides/build-an-adapter` and `guides/build-a-provider` (whole days). `docs/internals/architecture.md`: the dates line.
-- [ ] `skills/gridcue`: `calendar`, and when to set `timeZone`. `pnpm check:skills`. Changelog (Haiku).
-- [ ] Browser check in both examples and the Site, light and dark: a two-filter date Preview with its note. Screenshots.
+- [x] The wealth fixture gains an Opened date and a Last contact column if every existing labelled request stays the same. Otherwise both examples add a small ledger table. The lead ruled a third way (order plan, section 11): the fixture does not change, and each example and the Site demo adds the two columns to its own rows, worked out from today.
+- [x] Both examples and the Site demo resolve "opened in the last 90 days" and show the dates.
+- [x] Site: `api/schema` (`calendar`), `api/create-grid-cue` (`now`), `concepts/requests` (the forms, and what asks), `concepts/views` (a view keeps fixed dates), `guides/going-to-production` (set `timeZone` when rows render on a server), `guides/build-an-adapter` and `guides/build-a-provider` (whole days). `docs/internals/architecture.md`: the dates line.
+- [x] `skills/gridcue`: `calendar`, and when to set `timeZone`. `pnpm check:skills`. Changelog (Haiku).
+- [x] Browser check in both examples and the Site, light and dark: a two-filter date Preview with its note. Screenshots. The Vite example renders the registry Command Bar, the Next.js example the built-in bar, and the Site the registry's pieces; each was also checked at 320 px.
 
 ### Task 5.7: Review (Opus), then gate
-- [ ] The reviewer hunts for a date off by one day: either side of midnight, on a clock-change day, and with a fiscal year start.
+- [x] The reviewer hunts for a date off by one day: either side of midnight, on a clock-change day, and with a fiscal year start.
 - [ ] One live run, on the owner's command. `pnpm lint`, `pnpm check`.
 
 ## Spec coverage

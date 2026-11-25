@@ -121,14 +121,20 @@ describe("“without” beside quoted text", () => {
 });
 
 describe("a word GridCue doesn't read between a column and quoted text", () => {
-  it("asks for “starts with”, “ends with”, “is exactly” and “=”", async () => {
-    await asks('advisor starts with "Av"', match("av"));
+  it("asks for “ends with” and “==”", async () => {
     await asks('advisor ends with "Lane"', match("lane"));
-    await asks('advisor is exactly "Avery Lane"', match("avery lane"));
-    await asks('advisor = "Avery Lane"', match("avery lane"));
     await asks('advisor == "Avery Lane"', match("avery lane"));
-    await asks('account number starts with "AC-1"', match("ac-1"));
-    await asks('Accounts where advisor starts with "Av" and market value over $1m', match("av"));
+  });
+
+  it("no longer asks for “starts with”, “is exactly” and “=”, which spec 5.2 reads", async () => {
+    await reads('advisor starts with "Av"', [["advisor_name", "startsWith", "av"]]);
+    await reads('advisor is exactly "Avery Lane"', [["advisor_name", "eq", "avery lane"]]);
+    await reads('advisor = "Avery Lane"', [["advisor_name", "eq", "avery lane"]]);
+    await reads('account number starts with "AC-1"', [["account_number", "startsWith", "ac-1"]]);
+    await reads('Accounts where advisor starts with "Av" and market value over $1m', [
+      ["market_value", "gt", 1_000_000],
+      ["advisor_name", "startsWith", "av"],
+    ]);
   });
 
   it("asks for any other word, since this is a rule and not a list of bad words", async () => {
@@ -563,29 +569,26 @@ describe("quoted text with no column", () => {
   });
 });
 
+// PR 1 asked here, until whole days gave a date on a date-and-time column one meaning (named filters spec, 5.5; ADR
+// 0026). The date now means the whole day in the Calendar's time zone, so each request reads.
 describe("a date against a date-and-time column", () => {
-  const prompt = "Last contact holds times of day, so GridCue can't filter it by date yet.";
-
-  it("asks for every comparison", async () => {
-    for (const text of [
-      "last contact after 2026-01-31",
-      "last contact before 2026-01-31",
-      "accounts with last contact on 2026-01-31",
-      "last contact since 2025-10-01",
-      "last contact 2026-01-31",
-    ])
-      await asks(text, prompt, dated);
+  it("reads every comparison as whole days", async () => {
+    await reads("last contact after 2026-01-31", [["last_contact", "gt", "2026-01-31"]], dated);
+    await reads("last contact before 2026-01-31", [["last_contact", "lt", "2026-01-31"]], dated);
+    await reads("accounts with last contact on 2026-01-31", [["last_contact", "eq", "2026-01-31"]], dated);
+    await reads("last contact since 2025-10-01", [["last_contact", "gte", "2025-10-01"]], dated);
+    await reads("last contact 2026-01-31", [["last_contact", "eq", "2026-01-31"]], dated);
   });
 
-  it("asks for a column of Date objects, which schema inference calls date-and-time", async () => {
+  it("reads a column of Date objects, which schema inference calls date-and-time", async () => {
     const inferred = defineSchema([{ id: "contacted", label: "Contacted" }], {
       sampleRows: [{ contacted: new Date("2026-01-31T09:00:00Z") }],
     });
     expect(inferred.columns[0]?.kind).toBe("datetime");
-    await asks("contacted after 2026-01-31", "Contacted holds times of day, so GridCue can't filter it by date yet.", inferred);
+    await reads("contacted after 2026-01-31", [["contacted", "gt", "2026-01-31"]], inferred);
   });
 
-  it("offers no date-and-time column when it asks which column a date is for", async () => {
+  it("offers a date-and-time column, the provider's pick first, when it asks which column a date is for", async () => {
     // A provider that reads a filter and picks Last contact for the date, at a middling score.
     const picks: IntentProvider = {
       resolve: async (request) => ({
@@ -601,7 +604,7 @@ describe("a date against a date-and-time column", () => {
     };
     const state = await propose("after 2026-01-31", dated, picks);
     expect(state.message).toBe("Which column should be above 2026-01-31?");
-    expect(state.plan?.clarifications[0]?.options?.map((o) => o.id)).toEqual(["opened", "closed"]);
+    expect(state.plan?.clarifications[0]?.options?.map((o) => o.id)).toEqual(["last_contact", "opened", "closed"]);
   });
 
   it("still reads a date against a date column (control)", async () => {

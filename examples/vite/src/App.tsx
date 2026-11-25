@@ -13,8 +13,8 @@ import {
   tableFeatures,
   useTable,
 } from "@tanstack/react-table";
-import { createGridCue, createRemoteProvider } from "gridcue";
-import { createTanStackAdapter, gridcueFilterFn, schemaFromTanStack } from "gridcue/tanstack-table";
+import { createGridCue, createRemoteProvider, type HouseTerm } from "gridcue";
+import { createTanStackAdapter, gridcueFilterFn, localValuesFromTable, schemaFromTanStack } from "gridcue/tanstack-table";
 import { useState } from "react";
 import { CommandBar } from "@/components/gridcue/command-bar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -32,6 +32,7 @@ const features = tableFeatures({
   groupedRowModel: createGroupedRowModel(),
 });
 const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+const dateTime = new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short" });
 const LABELS: Record<string, string> = {
   taxable: "Taxable",
   ira: "IRA",
@@ -48,13 +49,55 @@ const FORMAT: Partial<Record<string, (value: unknown) => string>> = {
   has_restricted_holding: (v) => (v ? "Yes" : "No"),
   registration_type: (v) => LABELS[v as string] ?? String(v),
   custodian: (v) => LABELS[v as string] ?? String(v),
+  last_contact: (v) => dateTime.format(new Date(v as string)),
 };
-const columns: Array<ColumnDef<typeof features, AccountRow>> = wealthColumns.map((c) => ({
-  accessorKey: c.id as keyof AccountRow,
+
+// Two date columns of this app's own: the day an account opened, and the last contact with it.
+interface Row extends AccountRow {
+  opened: string;
+  last_contact: string;
+}
+// Opened sits right after the Advisor, where it shows without scrolling the table sideways; Last contact is last.
+const OPENED_AT = wealthColumns.findIndex((c) => c.id === "advisor_name") + 1;
+const columns: Array<ColumnDef<typeof features, Row>> = [
+  ...wealthColumns.slice(0, OPENED_AT),
+  { id: "opened", label: "Opened" },
+  ...wealthColumns.slice(OPENED_AT),
+  { id: "last_contact", label: "Last contact" },
+].map((c) => ({
+  accessorKey: c.id as keyof Row,
   header: c.label,
   cell: (info) => (FORMAT[c.id] ?? String)(info.getValue()),
 }));
-const data = generateAccounts();
+
+// Synthetic dates worked out from each row's index and today in the browser's time zone: Opened spreads over four
+// years back from today, so "opened in the last 90 days" keeps some rows and not all. Date.UTC rolls a day count over
+// into earlier months and years, so this is arithmetic on calendar days.
+const today = Object.fromEntries(
+  new Intl.DateTimeFormat("en-US", { year: "numeric", month: "numeric", day: "numeric" })
+    .formatToParts(new Date())
+    .map((p) => [p.type, p.value]),
+);
+const back = (days: number, hour = 0, minute = 0) =>
+  new Date(Date.UTC(Number(today.year), Number(today.month) - 1, Number(today.day) - days, hour, minute)).toISOString();
+const data: Row[] = generateAccounts().map((row, i) => ({
+  ...row,
+  opened: back((i * 97) % 1461).slice(0, 10),
+  last_contact: back((i * 13) % 120, 13 + (i % 8), (i * 7) % 60),
+}));
+
+// House Terms: the firm's own names for fixed filters. GridCue reads them in the browser and never sends them.
+const houseTerms: HouseTerm[] = [
+  { label: "Large", aliases: ["big"], where: [{ columnId: "market_value", operator: "gt", value: 1_000_000 }] },
+  {
+    label: "Needs attention",
+    aliases: ["need attention", "needing attention"],
+    where: [
+      { columnId: "concentration", operator: "gt", value: 0.1 },
+      { columnId: "has_restricted_holding", operator: "eq", value: true },
+    ],
+  },
+];
 
 export function App() {
   const table = useTable({
@@ -68,11 +111,22 @@ export function App() {
   // GridCue lines 2 and 3: an adapter over the existing table, and a controller.
   // Create it once: useTable returns a new object whenever table state changes.
   const [cue] = useState(() => {
-    const schema = schemaFromTanStack(table, wealthSchemaOptions);
+    // No `calendar`: the rows are filtered in the browser, so the browser's time zone is the right one.
+    const schema = schemaFromTanStack(table, {
+      ...wealthSchemaOptions,
+      columns: {
+        ...wealthSchemaOptions.columns,
+        opened: { kind: "date", aliases: ["opened", "open date"] },
+        last_contact: { kind: "datetime", aliases: ["contacted", "last contacted"] },
+      },
+      houseTerms,
+    });
     return createGridCue({
       schema,
       adapter: createTanStackAdapter({ schema, table }),
       provider: createRemoteProvider({ endpoint: "/api/gridcue" }),
+      // Local Values: the names the table's rows hold, read in the browser and never sent.
+      localValues: localValuesFromTable(table, ["advisor_name", "household"]),
     });
   });
   const [showDev, setShowDev] = useState(false);
