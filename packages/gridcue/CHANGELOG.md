@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.0 (2026-11-25)
 
 **AG Grid Community adapter** (ADR 0033)
 - New entry `gridcue/ag-grid` exports `createAgGridAdapter`, `gridcueColumnDefs` and `schemaFromAgGrid`, with the types `AgGridAdapterOptions`, `AgGridApiLike`, `AgColDefLike`, `AgColGroupDefLike`, `AgColumnStateLike`, `GridcueColDef`, `GridcueFilterParams`, `GridcueFilterOption` and `GridcueTextMatcherParams`. It imports nothing from AG Grid and AG Grid is not a peer dependency. It is tested with AG Grid Community 34, 35 and 36, on the Client-Side and the Infinite Row Model. Enterprise is not tested.
