@@ -209,7 +209,7 @@ function Neutral() {
           <span className="text-foreground font-medium">Providers:</span> Jev · Mock · your provider
         </p>
         <p>
-          <span className="text-foreground font-medium">Grids:</span> TanStack Table · any array · AG Grid (next)
+          <span className="text-foreground font-medium">Grids:</span> TanStack Table · any array · AG Grid Community
         </p>
       </div>
     </section>

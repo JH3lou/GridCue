@@ -365,6 +365,70 @@
 {"file":"cases-provider-picks.jsonl","id":"pp-ht-value-for-needs-review","lines":["Filter Category to Fees"],"notes":[]}
 {"file":"cases-provider-picks.jsonl","id":"pp-ht-sort-by-large","lines":["Sort by Market value, descending"],"notes":[]}
 {"file":"cases-provider-picks.jsonl","id":"pp-ht-show-column-for-large","lines":["Show Account number and Advisor"],"notes":[]}
+{"file":"cases-query-without-heldout.jsonl","id":"qwh-sort.set-12","lines":["Filter Market value above $1,000,000"],"notes":[]}
+{"file":"cases-query-without-heldout.jsonl","id":"qwh-sort.set-13","lines":["Filter Registration type to Taxable","Filter Concentration above 10%"],"notes":[]}
+{"file":"cases-query-without-heldout.jsonl","id":"qwh-sort.set-14","lines":["Hide Custodian and Account number"],"notes":[]}
+{"file":"cases-query-without-heldout.jsonl","id":"qwh-sort.set-15","lines":["Filter Category to Travel"],"notes":[]}
+{"file":"cases-query-without-heldout.jsonl","id":"qwh-filter.add-12","lines":["Sort by Advisor, ascending; then Market value, descending"],"notes":[]}
+{"file":"cases-query-without-heldout.jsonl","id":"qwh-filter.add-13","lines":["Group by Advisor"],"notes":[]}
+{"file":"cases-query-without-heldout.jsonl","id":"qwh-filter.add-14","lines":["Hide Units and Rate"],"notes":[]}
+{"file":"cases-query-without-heldout.jsonl","id":"qwh-filter.clear-09","lines":["Sort by Unrealized gain, descending"],"notes":[]}
+{"file":"cases-query-without-heldout.jsonl","id":"qwh-filter.clear-11","lines":["Hide Custodian and Account number"],"notes":[]}
+{"file":"cases-query-without-heldout.jsonl","id":"qwh-columns.hide-12","lines":["Show Custodian"],"notes":[]}
+{"file":"cases-query-without-heldout.jsonl","id":"qwh-columns.hide-13","lines":["Sort by Market value, descending"],"notes":[]}
+{"file":"cases-query-without-heldout.jsonl","id":"qwh-columns.hide-14","lines":["Show only rows where Restricted holdings is Yes"],"notes":[]}
+{"file":"cases-query-without-heldout.jsonl","id":"qwh-columns.hide-15","lines":["Sort by Amount, descending"],"notes":[]}
+{"file":"cases-query-without-heldout.jsonl","id":"qwh-columns.show-10","lines":["Hide Household"],"notes":[]}
+{"file":"cases-query-without-heldout.jsonl","id":"qwh-columns.show-11","lines":["Sort by Market value, descending"],"notes":[]}
+{"file":"cases-query-without-heldout.jsonl","id":"qwh-columns.show-12","lines":["Hide Units"],"notes":[]}
+{"file":"cases-query-without-heldout.jsonl","id":"qwh-columns.order-11","lines":["Hide Household"],"notes":[]}
+{"file":"cases-query-without-heldout.jsonl","id":"qwh-columns.order-12","lines":["Filter Registration type to any of IRA and Roth IRA"],"notes":[]}
+{"file":"cases-query-without-heldout.jsonl","id":"qwh-columns.order-13","lines":["Hide Counterparty and Rate"],"notes":[]}
+{"file":"cases-query-without-heldout.jsonl","id":"qwh-view.reset-10","lines":["Remove the filter Registration type to Trust","Clear sorting"],"notes":[]}
+{"file":"cases-query-without-heldout.jsonl","id":"qwh-view.reset-11","lines":["Hide Custodian and Account number"],"notes":[]}
+{"file":"cases-query-without-heldout.jsonl","id":"qwh-view.reset-12","lines":["Filter Category to Fees"],"notes":[]}
+{"file":"cases-query-without.jsonl","id":"qw-sort.set-11","lines":["Filter Registration type to Taxable"],"notes":[]}
+{"file":"cases-query-without.jsonl","id":"qw-sort.set-12","lines":["Hide Custodian"],"notes":[]}
+{"file":"cases-query-without.jsonl","id":"qw-sort.set-13","lines":["Group by Custodian"],"notes":[]}
+{"file":"cases-query-without.jsonl","id":"qw-sort.set-14","lines":["Hide Rate"],"notes":[]}
+{"file":"cases-query-without.jsonl","id":"qw-sort.set-15","lines":["Filter Amount above $5,000"],"notes":[]}
+{"file":"cases-query-without.jsonl","id":"qw-filter.add-11","lines":["Sort by Market value, descending"],"notes":[]}
+{"file":"cases-query-without.jsonl","id":"qw-filter.add-12","lines":["Hide Custodian"],"notes":[]}
+{"file":"cases-query-without.jsonl","id":"qw-filter.add-13","lines":["Group by Custodian"],"notes":[]}
+{"file":"cases-query-without.jsonl","id":"qw-filter.add-14","lines":["Sort by Amount, descending"],"notes":[]}
+{"file":"cases-query-without.jsonl","id":"qw-filter.add-15","lines":["Group by Owner"],"notes":[]}
+{"file":"cases-query-without.jsonl","id":"qw-filter.clear-11","lines":["Sort by Market value, descending"],"notes":[]}
+{"file":"cases-query-without.jsonl","id":"qw-filter.clear-12","lines":["Hide Custodian"],"notes":[]}
+{"file":"cases-query-without.jsonl","id":"qw-filter.clear-13","lines":["Group by Custodian"],"notes":[]}
+{"file":"cases-query-without.jsonl","id":"qw-filter.clear-14","lines":["Sort by Amount, descending"],"notes":[]}
+{"file":"cases-query-without.jsonl","id":"qw-filter.clear-15","lines":["Filter Registration type to Taxable"],"notes":[]}
+{"file":"cases-query-without.jsonl","id":"qw-group.set-11","lines":["Filter Registration type to Taxable"],"notes":[]}
+{"file":"cases-query-without.jsonl","id":"qw-group.set-12","lines":["Sort by Market value, descending"],"notes":[]}
+{"file":"cases-query-without.jsonl","id":"qw-group.set-13","lines":["Hide Custodian"],"notes":[]}
+{"file":"cases-query-without.jsonl","id":"qw-group.set-14","lines":["Sort by Amount, descending"],"notes":[]}
+{"file":"cases-query-without.jsonl","id":"qw-group.set-15","lines":["Filter Amount above $5,000"],"notes":[]}
+{"file":"cases-query-without.jsonl","id":"qw-columns.hide-11","lines":["Filter Registration type to Taxable"],"notes":[]}
+{"file":"cases-query-without.jsonl","id":"qw-columns.hide-12","lines":["Sort by Market value, descending"],"notes":[]}
+{"file":"cases-query-without.jsonl","id":"qw-columns.hide-13","lines":["Show Custodian"],"notes":[]}
+{"file":"cases-query-without.jsonl","id":"qw-columns.hide-14","lines":["Sort by Amount, descending"],"notes":[]}
+{"file":"cases-query-without.jsonl","id":"qw-columns.hide-15","lines":["Group by Owner"],"notes":[]}
+{"file":"cases-query-without.jsonl","id":"qw-columns.show-11","lines":["Hide Custodian"],"notes":[]}
+{"file":"cases-query-without.jsonl","id":"qw-columns.show-12","lines":["Sort by Market value, descending"],"notes":[]}
+{"file":"cases-query-without.jsonl","id":"qw-columns.show-13","lines":["Filter Registration type to Taxable"],"notes":[]}
+{"file":"cases-query-without.jsonl","id":"qw-columns.show-14","lines":["Hide Rate"],"notes":[]}
+{"file":"cases-query-without.jsonl","id":"qw-columns.show-15","lines":["Sort by Amount, descending"],"notes":[]}
+{"file":"cases-query-without.jsonl","id":"qw-columns.order-10","lines":["Hide Custodian"],"notes":[]}
+{"file":"cases-query-without.jsonl","id":"qw-columns.order-11","lines":["Sort by Market value, descending"],"notes":[]}
+{"file":"cases-query-without.jsonl","id":"qw-columns.order-12","lines":["Show Custodian"],"notes":[]}
+{"file":"cases-query-without.jsonl","id":"qw-columns.order-13","lines":["Hide Rate"],"notes":[]}
+{"file":"cases-query-without.jsonl","id":"qw-columns.order-14","lines":["Sort by Amount, descending"],"notes":[]}
+{"file":"cases-query-without.jsonl","id":"qw-view.reset-11","lines":["Remove the filters Custodian to Northgate; Market value above $1,000,000"],"notes":[]}
+{"file":"cases-query-without.jsonl","id":"qw-view.reset-12","lines":["Sort by Market value, descending"],"notes":[]}
+{"file":"cases-query-without.jsonl","id":"qw-view.reset-13","lines":["Hide Custodian"],"notes":[]}
+{"file":"cases-query-without.jsonl","id":"qw-view.reset-14","lines":["Remove the filters Category to Travel; Amount above $5,000"],"notes":[]}
+{"file":"cases-query-without.jsonl","id":"qw-view.reset-15","lines":["Sort by Amount, descending"],"notes":[]}
+{"file":"cases-query-without.jsonl","id":"qw-unsure-02","lines":["Show only rows where Cleared is Yes"],"notes":[]}
+{"file":"cases-query-without.jsonl","id":"qw-unsure-03","lines":["Filter Product to Group Annuity"],"notes":[]}
 {"file":"cases-reading-heldout.jsonl","id":"rh-aum-gte","lines":["Filter Market value at or above $3,000,000"],"notes":[]}
 {"file":"cases-reading-heldout.jsonl","id":"rh-gain-lt","lines":["Filter Unrealized gain below $20,000"],"notes":[]}
 {"file":"cases-reading-heldout.jsonl","id":"rh-balance-eq","lines":["Filter Market value to $2,000,000"],"notes":[]}

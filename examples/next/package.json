@@ -10,6 +10,8 @@
   "dependencies": {
     "@gridcue-internal/wealth-fixtures": "workspace:*",
     "@typesafe-ai/sdk": "0.6.0",
+    "ag-grid-community": "36.3.0",
+    "ag-grid-react": "36.3.0",
     "gridcue": "workspace:*",
     "next": "16.3.6",
     "react": "19.3.0",

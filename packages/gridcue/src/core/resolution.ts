@@ -1,8 +1,9 @@
 import { z } from "zod";
+import { FAMILY_OPERATIONS } from "./adapter";
 import { isExposed, operatorsFor } from "./columns";
 import type { Mention } from "./mentions";
 import type { Clause, Literal, NormalizedInput } from "./normalize";
-import type { ColumnCapability, OperationType, ViewCapabilities, ViewSchema, ViewState } from "./protocol";
+import type { ColumnCapability, ViewCapabilities, ViewSchema, ViewState } from "./protocol";
 import { ColumnKind, EnumValue, FilterOperator, PROTOCOL_VERSION, SortSpec } from "./protocol";
 
 /** The longest Utterance the protocol accepts. */
@@ -40,19 +41,6 @@ export const COLUMN_FAMILIES: Partial<Record<ViewFamily, ColumnCapability[]>> = 
   "columns.show": ["show"],
   "columns.hide": ["hide"],
   "columns.only": ["show", "hide", "reorder"],
-};
-
-const FAMILY_OPERATIONS: Record<ViewFamily, OperationType[]> = {
-  filter: ["filter.add"],
-  sort: ["sort.set"],
-  group: ["group.set"],
-  "columns.show": ["columns.show"],
-  "columns.hide": ["columns.hide"],
-  "columns.only": ["columns.show", "columns.hide", "columns.order"],
-  "filter.clear": ["filter.clear"],
-  "sort.clear": ["sort.set"],
-  "group.clear": ["group.set"],
-  "view.reset": ["view.reset"],
 };
 
 export const CandidateColumn = z.object({

@@ -126,7 +126,7 @@ const { state } = useSyncExternalStore(adapter.subscribe, adapter.getState, adap
 const view = applyView(rows, state, schema); // { columns, rows, groups? }
 ```
 
-The full walkthrough is [Next.js with the Rows Adapter](/docs/guides/next-rows-adapter).
+The full walkthrough is [Next.js with the Rows Adapter](/docs/guides/next-rows-adapter). If your rows come from a server a page at a time, use the Query Adapter instead: see [Rows on a server](/docs/guides/rows-on-a-server).
 
 ## Next
 

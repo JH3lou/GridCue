@@ -14,9 +14,14 @@ import {
   mockOptionsFor,
   onGridWithoutGrouping,
   onGridWithoutRenders,
+  passesOnQueryAdapter,
   passesWithoutRenders,
+  QUERY_WITHOUT_AS_ON_A_DEFAULT_GRID,
+  type QueryCaseResult,
+  queryLeftOut,
   REVIEW_R2_FOR_THE_OWNER,
   runCase,
+  runOnQueryAdapter,
   runOnTanStack,
   runWithoutGrouping,
   runWithoutRenders,
@@ -173,6 +178,51 @@ describe("a grid that can't group, fourth held-out set, with the Mock Provider",
   for (const c of loadCases(new URL("./cases-cant-group-heldout-r4.jsonl", import.meta.url))) {
     it(`cases-cant-group-heldout-r4.jsonl: ${c.id}`, async () => {
       const result = await runCase(c, provider);
+      expect(result.verdict, JSON.stringify(result.plan, null, 1)).not.toBe("unsafe");
+    });
+  }
+});
+
+// An operation a Query Adapter's `without` removes (order plan, section 11). Each case runs on a Query Adapter built with
+// its `without`: a request for each of the eight MVP operations alone and beside another change, on a grid without it,
+// requests for the changes it still lists, two operations removed at once, and requests the rule can't be sure of.
+// Labelled before the code. With the Mock Provider, before the code (2026-11-19): 40 exact, 15 asked as labelled, 68
+// safe misses, 2 wrong views by their labels, of 125. 57 of the misses asked "I'm not sure what to change for …", 6
+// were refused with an operation's ID ("This grid does not support filter.add."), and 3 asked which column to sort a
+// grid that can't sort by. After it: 40 exact, 71 asked as
+// labelled, 12 safe misses, 2 wrong views by their labels. The 14 are QUERY_WITHOUT_AS_ON_A_DEFAULT_GRID, which read
+// as on a default Query Adapter: twelve safe misses and two older wrong views on every grid (order plan, section 12).
+// Every other case must match.
+describe("a Query Adapter without an operation, with the Mock Provider", () => {
+  const ledgerProvider = createMockProvider(mockOptionsFor({ schema: "ledger" }));
+  for (const c of loadCases(new URL("./cases-query-without.jsonl", import.meta.url))) {
+    it(`cases-query-without.jsonl: ${c.id}`, async () => {
+      const provider_ = c.schema === "ledger" ? ledgerProvider : provider;
+      const result = await runCase(c, provider_);
+      if (QUERY_WITHOUT_AS_ON_A_DEFAULT_GRID.includes(c.id)) {
+        expect(result.verdict, "take this case off QUERY_WITHOUT_AS_ON_A_DEFAULT_GRID").toMatch(/^(mismatch|unsafe)$/);
+        const { without: _without, ...plain } = c;
+        const query = await runCase(plain, provider_, undefined, { adapter: "query" });
+        expect(differences(result, query), c.utterance).toEqual([]);
+        return;
+      }
+      expect(result.verdict, JSON.stringify(result.plan, null, 1)).toMatch(/^(exact|safe_abstention|rejected)$/);
+    });
+  }
+});
+
+// The held-out set for the same rule, labelled blind from the order plan's ruling, and first run after the code
+// (2026-11-19), once: 22 exact, 54 asked as labelled, 24 safe misses, no wrong view, of 100. One label was corrected
+// after the run: qwh-filter.clear-10 ("Show accounts over $1 million." with a filter in place) replaces that filter, as
+// ADR 0017 has it, so on a grid without `filter.clear` it asks "This grid can't clear filters.". With it: 22 exact, 55
+// asked as labelled, 23 safe misses. Each safe miss is a request GridCue reads on no grid (a column moved, a reset or a
+// clear said another way, a column brought back or hidden in other words, a sort with no sort verb), which asks the
+// question a default Query Adapter asks. A safe miss is reported by `pnpm eval`; a wrong view fails.
+describe("a Query Adapter without an operation, held-out set, with the Mock Provider", () => {
+  const ledgerProvider = createMockProvider(mockOptionsFor({ schema: "ledger" }));
+  for (const c of loadCases(new URL("./cases-query-without-heldout.jsonl", import.meta.url))) {
+    it(`cases-query-without-heldout.jsonl: ${c.id}`, async () => {
+      const result = await runCase(c, c.schema === "ledger" ? ledgerProvider : provider);
       expect(result.verdict, JSON.stringify(result.plan, null, 1)).not.toBe("unsafe");
     });
   }
@@ -938,15 +988,47 @@ describe("every existing set on a grid without group.set, with the Mock Provider
 // outside them but the 8 of REVIEW_R2_FOR_THE_OWNER, the owner's decisions, which pass as on the Rows Adapter. With the
 // held-out set for two totals under two groupings (31 cases, 2026-11-19): 4240 cases in 59 sets, none different, and
 // the same wrong views and no others.
+// A case with `without` is labelled for its Query Adapter alone, and runs there in every run, so it is left out here.
 describe("every set on the TanStack Table adapter, with the Mock Provider", () => {
   const ledgerProvider = createMockProvider(mockOptionsFor({ schema: "ledger" }));
   for (const file of caseFiles()) {
     for (const c of loadCases(new URL(`./${file}`, import.meta.url))) {
+      if (c.without) continue;
       it(`${file}: ${c.id}`, async () => {
         const result = await runOnTanStack(c, c.schema === "ledger" ? ledgerProvider : provider);
         expect(result.why, `${c.utterance}\n${JSON.stringify(result.tanstack?.plan, null, 1)}`).toEqual([]);
         const forTheOwner = file === "cases-review-fixes-heldout-r2.jsonl" && REVIEW_R2_FOR_THE_OWNER.includes(c.id);
         if (!LIVE_ONLY_SETS.includes(file) && !forTheOwner) expect(result.tanstack?.verdict).not.toBe("unsafe");
+      });
+    }
+  }
+});
+
+// Every existing set, run again on a default Query Adapter, `createQueryAdapter({ schema })` (more grids spec, 5.4 and
+// 10), judged by `passesOnQueryAdapter`, the rule `--grid=query` uses too. It lists no count, totals, pins or density.
+// A case whose starting view holds one of them is left out. A ready plan with a count fails. A sort with a count ("top
+// 10 accounts by market value") asks, or is ready with the sort alone and the note "Count not applied: …". A count
+// alone ends in "This grid can't show only the first N rows." with nothing applied. Clearing a count isn't ready. Pins,
+// density and totals end as on a grid without `renders`. Every other case keeps its Rows Adapter verdict.
+// First run (2026-11-19), Mock Provider: 4240 cases in 59 sets. 192 left out: 87 start with a count, 55 with totals, 49
+// with pins, 1 with a density. Of the 4048 judged: 19 a sort with a count (13 ready with the sort and the note, 5 ask
+// "This grid can't show only the first N rows." for a count said in a part of its own, 1 asks which column, as on the
+// Rows Adapter); 2 a count alone, both "This grid can't …"; 0 clearing a count, since every such case starts with a
+// count; 377 pins, density or totals, none ready; 3650 other, all 3650 with their Rows Adapter verdict. That includes
+// the 9 where a sort with a count is followed by another sort ("top 10 by market value, then sort by household"): they
+// ask on this grid, as on the Rows Adapter, since a sort said after a count the grid can't show asks there too.
+describe("every existing set on a default Query Adapter, with the Mock Provider", () => {
+  const ledgerProvider = createMockProvider(mockOptionsFor({ schema: "ledger" }));
+  for (const file of caseFiles()) {
+    for (const c of loadCases(new URL(`./${file}`, import.meta.url))) {
+      // A case with `without` runs on its own Query Adapter, in its own set above.
+      if (queryLeftOut(c) || c.without) continue;
+      it(`${file}: ${c.id}`, async () => {
+        const result = await runOnQueryAdapter(c, file, c.schema === "ledger" ? ledgerProvider : provider);
+        const shown = result.leftOut
+          ? result.leftOut
+          : { kind: result.kind, rows: result.rows.verdict, query: result.query.status, plan: result.query.plan };
+        expect(!result.leftOut && result.pass, `${c.utterance}\n${JSON.stringify(shown, null, 1)}`).toBe(true);
       });
     }
   }
@@ -1094,5 +1176,62 @@ describe("the verdict", () => {
     expect(passesWithoutRenders("cases-totals-natural-heldout.jsonl", run("n", "safe_abstention", asked))).toBe(false);
     expect(passesWithoutRenders("cases-totals.jsonl", run("n", "mismatch", asked))).toBe(false);
     expect(passesWithoutRenders("cases-totals.jsonl", { ...run("n", "mismatch", asked), pass: true })).toBe(true);
+  });
+
+  it("leaves out of the Query Adapter run a case that starts with what a default Query Adapter can't hold", () => {
+    expect(queryLeftOut({ state: { limit: 10 } })).toBe("starts with a count");
+    expect(queryLeftOut({ state: { aggregations: [{ columnId: "market_value", function: "sum" }] } })).toBe("starts with totals");
+    expect(queryLeftOut({ state: { pinnedColumnIds: { start: [], end: ["market_value"] } } })).toBe("starts with pins");
+    expect(queryLeftOut({ state: { density: "compact" } })).toBe("starts with a density");
+    expect(queryLeftOut({ state: { sorts: [], density: "comfortable", pinnedColumnIds: { start: [], end: [] } } })).toBeUndefined();
+    expect(queryLeftOut({})).toBeUndefined();
+  });
+
+  it("judges a case on a default Query Adapter by its kind, here and in `--grid=query`", () => {
+    const limit = { type: "limit.set", count: 10 };
+    const ran = (status: string, operations: unknown[], notes: string[] = [], prompts: string[] = [], verdict: Verdict = "exact") => ({
+      verdict,
+      status,
+      plan: {
+        operations: operations as never,
+        clarifications: prompts.map((prompt, i) => ({ id: `c${i}.cant`, prompt, required: true as const })),
+        unsupportedSegments: [],
+      },
+      preview: { notes },
+    });
+    const result = (kind: QueryCaseResult["kind"], reading: unknown[], query: QueryCaseResult["query"], rows = query) => ({
+      id: "q",
+      kind,
+      reading,
+      prompts: [],
+      alsoAcceptsAsk: false,
+      rows,
+      query,
+    });
+    const note = "Count not applied: this grid can't show only the first 10";
+    const top10 = (query: QueryCaseResult["query"]) =>
+      passesOnQueryAdapter("cases.jsonl", result("a sort with a count", [sort, limit], query));
+    expect(top10(ran("ready", [sort], [note]))).toBe(true);
+    expect(top10(ran("ready", [sort]))).toBe(false);
+    expect(top10(ran("ready", [sort, limit], [note]))).toBe(false);
+    expect(top10(ran("ready", [{ type: "sort.set", sorts: [...sort.sorts, { columnId: "household", direction: "asc" }] }], [note]))).toBe(
+      false,
+    );
+    expect(top10(ran("needs_clarification", []))).toBe(true);
+    const first10 = (query: QueryCaseResult["query"]) => passesOnQueryAdapter("cases.jsonl", result("a count alone", [limit], query));
+    expect(first10(ran("needs_clarification", [], [], ["This grid can't show only the first 10 rows."]))).toBe(true);
+    expect(first10(ran("needs_clarification", [], [], ["First 10 by which column?"]))).toBe(false);
+    const clears = (query: QueryCaseResult["query"]) =>
+      passesOnQueryAdapter("cases.jsonl", result("clears a count", [{ type: "limit.set", count: null }], query));
+    expect(clears(ran("ready", []))).toBe(false);
+    expect(clears(ran("needs_clarification", [], [], ["?"]))).toBe(true);
+    // A run that ended in an error (the provider threw or timed out) read nothing, so it never passes as "not ready".
+    expect(top10(ran("error", []))).toBe(false);
+    expect(clears(ran("error", []))).toBe(false);
+    const other = (query: QueryCaseResult["query"], rows: QueryCaseResult["rows"]) =>
+      passesOnQueryAdapter("cases.jsonl", result("other", [sort], query, rows));
+    expect(other(ran("ready", [sort]), ran("ready", [sort]))).toBe(true);
+    expect(other(ran("ready", [sort], [], [], "unsafe"), ran("needs_clarification", [], [], ["?"], "safe_abstention"))).toBe(false);
+    expect(other(ran("ready", [hide], [], [], "unsafe"), ran("ready", [sort], [], [], "unsafe"))).toBe(false);
   });
 });

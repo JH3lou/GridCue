@@ -1,4 +1,4 @@
-import type { GridAdapter } from "./adapter";
+import { type GridAdapter, operationsAskedFor } from "./adapter";
 import { type CodeReadFilter, readCodeFilters } from "./code-read";
 import { isExposed, operatorsFor } from "./columns";
 import { type ConfidencePolicy, compile } from "./compile";
@@ -393,7 +393,11 @@ export const createGridCue = (options: GridCueOptions): GridCueController => {
         let localValues: LocalValuesPart[] = [];
         let codeRead: CodeReadFilter[] = [];
         if (restricted.length === 0) {
-          const request = buildResolutionRequest(input, schema, adapter.getCapabilities(), base.state, mentions);
+          // The provider is offered every change a User may ask for but grouping, listed or not, so a part that asks for
+          // one the grid doesn't list reads as on a grid that does, and the compiler ends it in "This grid can't …".
+          const capabilities = adapter.getCapabilities();
+          const asked = { ...capabilities, operations: operationsAskedFor(capabilities.operations) };
+          const request = buildResolutionRequest(input, schema, asked, base.state, mentions);
           // Code-read filters are read from the same input as the provider's request, and change nothing in it (ADR
           // 0023). A date form's days are worked out here, after the request is built: the request is the same with
           // any clock and any Calendar (spec 4.3).

@@ -1,18 +1,9 @@
-import type { ApplyResult, GridAdapter } from "./adapter";
+import type { GridAdapter } from "./adapter";
 import { MVP_OPERATIONS } from "./adapter";
-import { GridCueError } from "./errors";
 import { isEmpty, matchesFilter } from "./evaluate";
-import {
-  type AggregationSpec,
-  emptyViewState,
-  type Scalar,
-  type SortSpec,
-  type VersionedViewState,
-  type ViewSchema,
-  type ViewState,
-} from "./protocol";
+import type { AggregationSpec, Scalar, SortSpec, VersionedViewState, ViewSchema, ViewState } from "./protocol";
+import { createStateAdapter, renderedOperations } from "./state-adapter";
 import { TotalCells } from "./totals";
-import { isApplicable, resultingState } from "./validate";
 
 export interface RowsAdapterOptions {
   schema: ViewSchema;
@@ -35,65 +26,27 @@ export interface RowsAdapter extends GridAdapter {
   setState(update: (state: ViewState) => ViewState): VersionedViewState;
 }
 
-/** The operation each `renders` name lets the Rows Adapter list. */
-const RENDERED = { pinning: "columns.pin", density: "density.set", totals: "aggregation.set" } as const;
-
-/** The operations a Rows Adapter's `renders` lists. Every name it doesn't take throws. */
-const renderedOperations = (renders: unknown): string[] => {
-  if (renders === undefined) return [];
-  if (!Array.isArray(renders)) throw new GridCueError("INPUT_CONFIG", "renders must be a list, such as [“pinning”, “density”].");
-  for (const name of renders) {
-    if (name === "pinning" || name === "density" || name === "totals") continue;
-    if (name === "count") {
-      throw new GridCueError("INPUT_CONFIG", "renders names “count”: the Rows Adapter keeps a count with no option. Leave it out.");
-    }
-    throw new GridCueError(
-      "INPUT_CONFIG",
-      `renders names “${String(name)}”, which the Rows Adapter doesn't take. It takes “pinning”, “density” and “totals”.`,
-    );
-  }
-  return (Object.keys(RENDERED) as Array<keyof typeof RENDERED>).filter((name) => renders.includes(name)).map((name) => RENDERED[name]);
-};
-
-/** A Grid Adapter for Hosts that keep rows in memory. Pair it with `applyView` and any table. */
+/**
+ * A Grid Adapter for Hosts that keep rows in memory. Pair it with `applyView` and any table. For rows on a server, see
+ * `createQueryAdapter`.
+ */
 export const createRowsAdapter = (options: RowsAdapterOptions): RowsAdapter => {
-  const rendered = renderedOperations(options.renders);
-  const defaultState = structuredClone(options.initialState ?? emptyViewState(options.schema.columns.map((c) => c.id)));
-  let n = 0;
-  let current: VersionedViewState = { revision: `rows:${n}`, state: structuredClone(defaultState) };
-  const listeners = new Set<(s: VersionedViewState) => void>();
-  const commit = (state: ViewState): VersionedViewState => {
-    current = { revision: `rows:${++n}`, state: structuredClone(state) };
-    for (const l of listeners) l(current);
-    return current;
-  };
-  return {
-    getSchema: () => options.schema,
-    getCapabilities: () => ({
-      // The rows are all in memory, so a count ("top 10") is exact here (ADR 0018).
-      operations: [...MVP_OPERATIONS, "limit.set", ...rendered],
-      maxSorts: options.maxSorts ?? 3,
-      maxGroups: options.maxGroups ?? 2,
-      supportsAtomicApply: true,
-      supportsSnapshotRestore: true,
-      observesChanges: true,
-    }),
-    getState: () => current,
-    getDefaultState: () => structuredClone(defaultState),
-    async apply(plan): Promise<ApplyResult> {
-      if (!isApplicable(plan)) return { ok: false, code: "ADAPTER_NOT_APPLICABLE", message: "Only validated plans can be applied." };
-      if (plan.baseRevision !== current.revision) return { ok: false, code: "ADAPTER_STALE_REVISION", message: "The view changed first." };
-      return { ok: true, state: commit(resultingState(plan)) };
-    },
-    async restore(snapshot): Promise<ApplyResult> {
-      return { ok: true, state: commit(snapshot.state) };
-    },
-    subscribe(listener) {
-      listeners.add(listener);
-      return () => listeners.delete(listener);
-    },
-    setState: (update) => commit(update(structuredClone(current.state))),
-  };
+  const rendered = renderedOperations(options.renders, {
+    adapter: "the Rows Adapter",
+    takes: ["pinning", "density", "totals"],
+    refused: { count: "renders names “count”: the Rows Adapter keeps a count with no option. Leave it out." },
+    // The Rows Adapter's messages are as they were before the shared holder (more grids plan, task 4.2).
+    nameOf: String,
+  });
+  return createStateAdapter({
+    schema: options.schema,
+    initialState: options.initialState,
+    maxSorts: options.maxSorts,
+    maxGroups: options.maxGroups,
+    // The rows are all in memory, so a count ("top 10") is exact here (ADR 0018).
+    operations: [...MVP_OPERATIONS, "limit.set", ...rendered],
+    revisionPrefix: "rows",
+  });
 };
 
 export interface ViewResult<Row> {

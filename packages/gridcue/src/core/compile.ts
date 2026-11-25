@@ -1,4 +1,4 @@
-import { MVP_OPERATIONS } from "./adapter";
+import { FAMILY_OPERATIONS, MVP_OPERATIONS } from "./adapter";
 import {
   amountWithoutName,
   type CodeReadFilter,
@@ -165,8 +165,11 @@ export interface CompileInput {
    * unpin or density code read ends the whole request in "This grid can't pin columns." or "This grid can't change its
    * density." (operation set spec, 4.2). Where it doesn't list `aggregation.set`, a totals code read, or any word that
    * may ask for a total ("total", "sum", "average") outside a declared name, ends it in "This grid can't show
-   * totals.", and a ranked-group question offers no ranking by a total (spec 5.4). A hint that suggests changes names
-   * only those listed here.
+   * totals.", and a ranked-group question offers no ranking by a total (spec 5.4). Where it doesn't list another MVP
+   * operation, such as one a Query Adapter's `without` takes out, a part that compiles to it, or settles on a family
+   * that needs it, ends the whole request in that operation's "This grid can't …" (order plan, section 11), unless a
+   * grid that lists it would ask the User to say that part again. A hint that suggests changes names only those listed
+   * here.
    */
   operations?: readonly string[];
   newId: (prefix: string) => string;
@@ -358,20 +361,36 @@ const countWords = (count: number) => count.toLocaleString("en-US");
 
 /**
  * An operation a request needs that the grid doesn't list. Pins, density and totals are here for a grid whose Host
- * hasn't turned them on with the adapter's `renders` (operation set 4.2).
+ * hasn't turned them on with the adapter's `renders` (operation set 4.2), and the other MVP operations for a Query
+ * Adapter whose `without` takes them out (order plan, section 11).
  */
 export type UnlistedOperation =
   | { type: "group.set" }
   | { type: "limit.set"; count: number }
   | { type: "columns.pin" }
   | { type: "density.set" }
-  | { type: "aggregation.set" };
+  | { type: "aggregation.set" }
+  | { type: keyof typeof CANT };
+
+/** The MVP operations other than grouping, with each one's question: the kind its ID adds, and its prompt. */
+const CANT = {
+  "sort.set": { kind: "sort", prompt: "This grid can't sort rows." },
+  "filter.add": { kind: "filter", prompt: "This grid can't filter rows." },
+  "filter.clear": { kind: "clear", prompt: "This grid can't clear filters." },
+  "columns.hide": { kind: "hide", prompt: "This grid can't hide columns." },
+  "columns.show": { kind: "show", prompt: "This grid can't show hidden columns." },
+  "columns.order": { kind: "order", prompt: "This grid can't reorder columns." },
+  "view.reset": { kind: "reset", prompt: "This grid can't reset the view." },
+} as const;
+
+/** The ID of a "This grid can't …" question. */
+const CANT_ID = /^c\d+\.cant(?:\.|$)/;
 
 /**
  * "This grid can't …": the one question for a change the grid doesn't list (more grids spec, 5.3). It has no choices,
  * since no answer makes the grid able to. Its ID starts with its part's index, as the compiler's other questions do,
- * so the command bar can show it beside that part. A pin, a density and a total each add their kind to the ID, so one
- * part can ask more than one. The caller decides what else in the request stops with it.
+ * so the command bar can show it beside that part. Each change but grouping and the count adds its kind to the ID, so
+ * one part can ask more than one. The caller decides what else in the request stops with it.
  */
 export const cantQuestion = (clauseIndex: number, op: UnlistedOperation): Clarification => {
   switch (op.type) {
@@ -389,6 +408,10 @@ export const cantQuestion = (clauseIndex: number, op: UnlistedOperation): Clarif
       return { id: `c${clauseIndex}.cant.density`, prompt: "This grid can't change its density.", required: true };
     case "aggregation.set":
       return { id: `c${clauseIndex}.cant.totals`, prompt: "This grid can't show totals.", required: true };
+    default: {
+      const { kind, prompt } = CANT[op.type];
+      return { id: `c${clauseIndex}.cant.${kind}`, prompt, required: true };
+    }
   }
 };
 
@@ -724,6 +747,15 @@ export const compile = (c: CompileInput): ViewPlan => {
   // Parts whose totals don't fit their column's kind (ADR 0030), with the question each asks, or the User's "No".
   const totalsKindAsks = new Map<number, Clarification>();
   const lists = (op: string) => (c.operations ?? MVP_OPERATIONS).includes(op);
+  // An MVP operation other than grouping that the grid doesn't list, such as one a Query Adapter's `without` takes out
+  // (order plan, section 11). The provider is offered it (`operationsAskedFor`), so every part is read and compiled as
+  // on a grid that lists it, questions included. A part that settles on a family that needs it, or compiles to it, is
+  // noted here, and ends the whole request in "This grid can't …" once every check has run (below). Grouping keeps its
+  // own reading (more grids spec, 5.3). On a grid that lists them all, nothing here runs.
+  const cantDo = (op: string): op is keyof typeof CANT => Object.hasOwn(CANT, op) && !lists(op);
+  const cantAsked: Array<{ index: number; op: keyof typeof CANT }> = [];
+  /** The first operation a family needs that the grid can't carry out, if any. */
+  const cantFamily = (family: ViewFamily) => FAMILY_OPERATIONS[family].find(cantDo);
   const holdsTotals = (r: ViewWordsReading | undefined) => !!r?.operations.some((op) => op.type === "aggregation.set");
   for (const clause of c.input.clauses) {
     const codeReadIn = [...codeReadAll.filter((r) => r.clauseIndex === clause.index), ...(local.asks.get(clause.index)?.spans ?? [])];
@@ -1264,8 +1296,23 @@ export const compile = (c: CompileInput): ViewPlan => {
       const placed = placeViewWords(clause, reading.operations);
       if (placed) readTail.set(clause.index, placed);
     };
+    // The part that compiled each operation the grid doesn't list: what a part added or changed, read once it and the
+    // words at its end are placed. Only on a grid that doesn't list one.
+    const anyCant = Object.keys(CANT).some(cantDo);
+    let held = new Map<ViewOperation, string>();
+    let compiling: number | undefined;
+    const noteCant = () => {
+      if (!anyCant) return;
+      if (compiling !== undefined)
+        for (const op of operations)
+          if (cantDo(op.type) && held.get(op) !== JSON.stringify(op)) cantAsked.push({ index: compiling, op: op.type });
+      held = new Map(operations.map((op) => [op, JSON.stringify(op)]));
+    };
+    noteCant();
     for (const clause of input.clauses) {
       placeTail();
+      noteCant();
+      compiling = clause.index;
       const key = `c${clause.index}`;
       // View words come first (spec 4.1). A part read whole uses the reader's operations, and the provider's families
       // for it are ignored. A part not read goes on exactly as before.
@@ -1779,6 +1826,8 @@ export const compile = (c: CompileInput): ViewPlan => {
           // An unsupported action is refused, not confirmed: asking "did you want to edit the data?" invites a yes that is refused anyway.
           accepted.push(f);
         } else if (f.confidence >= bands.clarify) {
+          // A family the grid can't carry out stays here too, so the part settles as it does on a grid that lists it: a
+          // kind that promotes it, or a question about it, is never passed over for another reading.
           middling.push(f);
         }
       }
@@ -1904,6 +1953,12 @@ export const compile = (c: CompileInput): ViewPlan => {
         (a, b) => VIEW_FAMILIES.indexOf(a) - VIEW_FAMILIES.indexOf(b),
       );
       if (blocked.length > 0) continue;
+      // A part that settles on a change the grid doesn't list asks for that change. It goes on as on a grid that lists it,
+      // so the questions it asks there are known when the request ends (below).
+      for (const f of viewFamilies) {
+        const op = cantFamily(f);
+        if (op) cantAsked.push({ index: clause.index, op });
+      }
       // A clear applies only to what its verb governs ("clear the sort, the grouping stays" clears the sort alone).
       // When the part has a clear verb, a proposed clear of anything else is asked about, never applied.
       const clearsOf = governedClears(unquoted(namesBlanked));
@@ -2670,6 +2725,9 @@ export const compile = (c: CompileInput): ViewPlan => {
             if (!current.sorts.some((x) => x.columnId === sort.columnId)) current.sorts.push(sort);
           } else operations.push({ type: "sort.set", sorts: [sort] });
         } else {
+          // The direction asks for a sort, whatever its column: on a grid that can't sort, this part asks for a change it
+          // doesn't list, and every choice below is one.
+          if (cantDo("sort.set")) cantAsked.push({ index: clause.index, op: "sort.set" });
           evidence.push({ key: `${key}.direction`, selectedId: "sort", confidence: 1, source: "deterministic" });
           clarifications.push({
             id: answerKey,
@@ -2745,6 +2803,7 @@ export const compile = (c: CompileInput): ViewPlan => {
       }
     }
     placeTail();
+    noteCant();
     if (unsupportedSegments.length === 0) for (const { index, op } of unlistedIfNotRefused) clarifications.push(cantQuestion(index, op));
     const [leftOutTotals] = totalsBesideRefusal;
     if (unsupportedSegments.length === 0 && leftOutTotals) {
@@ -2957,6 +3016,30 @@ export const compile = (c: CompileInput): ViewPlan => {
       clarifications.push(asks.clarification);
       status = "needs_clarification";
     }
+  }
+  // A part that asks for a change the grid doesn't list ends the whole request in "This grid can't …", as a grouping
+  // does (order plan, section 11): nothing in it applies, other parts included, and the only other questions left are
+  // "This grid can't …" ones. One question for each change, the first part's. A part the provider refuses wins. Every
+  // check above has run as on a grid that lists the change. Where one asks the User to say a part again (a question
+  // with no choices: "What should … filter on?", "I'm not sure what to do with …"), GridCue can't be sure the part asks
+  // for the change, so the part keeps that question, and its new words are read again. A question with choices only
+  // settles more of what the part asks, so the change stays asked for.
+  const sayAgain = (index: number) =>
+    clarifications.some((q) => q.id.startsWith(`c${index}.`) && !CANT_ID.test(q.id) && !q.options?.length);
+  const cantHere = unsupportedSegments.length === 0 ? cantAsked.filter(({ index }) => !sayAgain(index)) : [];
+  if (cantHere.length > 0) {
+    const partOf = (q: Clarification) => Number(/^c(\d+)\./.exec(q.id)?.[1] ?? Number.MAX_SAFE_INTEGER);
+    const first = new Map<string, Clarification>();
+    for (const { index, op } of [...cantHere].sort((a, b) => a.index - b.index))
+      if (!first.has(op)) first.set(op, cantQuestion(index, { type: op }));
+    const asked = [...clarifications.filter((q) => CANT_ID.test(q.id)), ...first.values()].sort((a, b) => partOf(a) - partOf(b));
+    clarifications.splice(0, clarifications.length, ...asked);
+    operations.length = 0;
+    status = "needs_clarification";
+  }
+  // A refused request's plan never applies, and holds no change the grid doesn't list, as for a pin (above).
+  if (unsupportedSegments.length > 0) {
+    for (let at = operations.length - 1; at >= 0; at--) if (cantDo(operations[at]?.type ?? "")) operations.splice(at, 1);
   }
   if (status === "needs_clarification" && clarifications.length === 0) {
     const changes = hintChanges(lists, "try");

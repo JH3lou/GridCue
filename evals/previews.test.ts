@@ -25,7 +25,9 @@ import { loadPreviews, previewOf } from "./previews";
 // joined after the code, so their Previews were recorded then, as the code gave them, the wrong view's Preview included
 // ("total market value and average concentration"). The fix for that wrong view lists it here with its Preview now.
 // Their round 2 (`cases-totals-heldout-r2.jsonl`) joined after that fix, so its Previews were recorded then, as the
-// code gave them.
+// code gave them. The set for a Query Adapter's `without` (`cases-query-without.jsonl`) joined with its code, each case
+// on a Query Adapter built with its `without`, so its Previews were recorded then, as the code gave them. So were those
+// of its held-out set (`cases-query-without-heldout.jsonl`), which joined after the code.
 //
 // None of the changes rewords a Preview line a request had before, but for dates: spec 5.5 and section 9 reword every
 // date filter's line ("Filter Opened above “2026-01-31”" is "Filter Opened after 2026-01-31"), and seven recorded

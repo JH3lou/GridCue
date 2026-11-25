@@ -141,21 +141,21 @@ Spec 5.3.
 Spec 5.4. ADR 0032.
 
 ### Task 4.1: Label (lead)
-- [ ] The held-out run is every existing eval set on a default Query Adapter; no new labels. Confirm which cases expect `limit.set` (two today).
+- [x] The held-out run is every existing eval set on a default Query Adapter; no new labels. Confirm which cases expect `limit.set` (two today).
 
 ### Task 4.2: The adapter (Opus)
 **Files:** new `packages/gridcue/src/core/state-adapter.ts` (the shared holder), `core/rows-adapter.ts`, new `core/query-adapter.ts`, `src/index.ts`, `test/query-adapter.test.ts`, `evals/run.ts`.
-- [ ] Tests first: operations with defaults, with `countBeforePaging`, with `without`; each bad `without` name throws `INPUT_CONFIG` naming it; `setState`; Revisions `query:n`; `renders` lists pins and density only when named, and `renders: ["totals"]` throws `INPUT_CONFIG`.
-- [ ] The contract suite on it.
-- [ ] The Rows Adapter moves onto the shared holder with no change in behaviour: its tests pass unchanged.
+- [x] Tests first: operations with defaults, with `countBeforePaging`, with `without`; each bad `without` name throws `INPUT_CONFIG` naming it; `setState`; Revisions `query:n`; `renders` lists pins and density only when named, and `renders: ["totals"]` throws `INPUT_CONFIG`.
+- [x] The contract suite on it.
+- [x] The Rows Adapter moves onto the shared holder with no change in behaviour: its tests pass unchanged.
 
 ### Task 4.3: Held-out run (lead)
-- [ ] Every existing set on a default Query Adapter. Bar: 0 wrong views. By kind of request: a size word with a count ("top 10") ends as a sort with the count note; a request that only sets a count ("show only the first 5 rows") ends in "This grid can't show only the first 5 rows." with nothing applied; a request that clears a count ends as any clear of something the view doesn't have. The operation set's count sets are among the existing sets by then.
+- [x] Every existing set on a default Query Adapter. Bar: 0 wrong views. By kind of request: a size word with a count ("top 10") ends as a sort with the count note; a request that only sets a count ("show only the first 5 rows") ends in "This grid can't show only the first 5 rows." with nothing applied; a request that clears a count ends as any clear of something the view doesn't have. The operation set's count sets are among the existing sets by then.
 
 ### Task 4.4: Docs (Sonnet), changelog (Haiku)
-- [ ] Site: `api/adapters` (`createQueryAdapter`; the Rows Adapter is for rows in memory).
-- [ ] `skills/gridcue/references/setup.md`: a row for rows on a server that names the Query Adapter. PR 5 adds the link to its guide, since `pnpm check:skills` fails on a link to a page that doesn't exist yet. `pnpm check:skills`.
-- [ ] `packages/gridcue/CHANGELOG.md`.
+- [x] Site: `api/adapters` (`createQueryAdapter`; the Rows Adapter is for rows in memory).
+- [x] `skills/gridcue/references/setup.md`: a row for rows on a server that names the Query Adapter. PR 5 adds the link to its guide, since `pnpm check:skills` fails on a link to a page that doesn't exist yet. `pnpm check:skills`.
+- [x] `packages/gridcue/CHANGELOG.md`.
 
 ### Task 4.5: Review (Opus), gate
 
@@ -164,86 +164,86 @@ Spec 5.4. ADR 0032.
 Spec 4.1 and 5.5. Needs PR 4.
 
 ### Task 5.1: Label (Sonnet, two separate agents)
-- [ ] The ledger fixture already exists (named filters' PR 2, order plan). Check it has number, date and date-and-time columns. Add nothing to `fixtures/`.
-- [ ] At least 12 mutants: wrong translations of the View State, written from spec 4.1 and common SQL habits, as small functions over the example's query shape. Kept outside the repo until the held-out run. This agent never sees `queryCheck`.
+- [x] The ledger fixture already exists (named filters' PR 2, order plan). Check it has number, date and date-and-time columns. Add nothing to `fixtures/`.
+- [x] At least 12 mutants: wrong translations of the View State, written from spec 4.1 and common SQL habits, as small functions over the example's query shape. Kept outside the repo until the held-out run. This agent never sees `queryCheck`.
 
 ### Task 5.2: `queryCheck` (Fable)
 **Files:** new `packages/gridcue/src/testing/index.ts`, `test/query-check.test.ts`.
-- [ ] Tests first: every edge in 4.1 produces a case, with the two rows core changed before this PR: a count never keeps a row with no value in the first sorted column, and a date means the whole day in the calendar's time zone; `notNull`; restricted columns never appear; a count case only with `limit.set` listed; `compare` names missing and extra ids, and checks order only where sort cells aren't empty.
-- [ ] Synthetic rows from kinds and declared values; expected ids from `applyView`; seeded and deterministic.
-- [ ] No test-runner import. No new dependency.
+- [x] Tests first: every edge in 4.1 produces a case, with the two rows core changed before this PR: a count never keeps a row with no value in the first sorted column, and a date means the whole day in the calendar's time zone; `notNull`; restricted columns never appear; a count case only with `limit.set` listed; `compare` names missing and extra ids, and checks order only where sort cells aren't empty.
+- [x] Synthetic rows from kinds and declared values; expected ids from `applyView`; seeded and deterministic.
+- [x] No test-runner import. No new dependency.
 
 ### Task 5.3: The example's Data Query (Opus)
 **Files:** `examples/next/app/api/rows/route.ts`, `examples/next/app/api/rows/query.ts`, a Vitest test in the root run. Needs 5.2.
-- [ ] Tests first: the Query Check on the wealth schema passes.
-- [ ] `node:sqlite` in memory, seeded from the wealth fixture. If it fails to load in the route runtime, an in-memory SQL engine as a dev dependency of the example only, and the PR says why.
-- [ ] Values are parameters. Column IDs are checked against the schema. A comment marks the query as Host code.
+- [x] Tests first: the Query Check on the wealth schema passes.
+- [x] `node:sqlite` in memory, seeded from the wealth fixture. If it fails to load in the route runtime, an in-memory SQL engine as a dev dependency of the example only, and the PR says why.
+- [x] Values are parameters. Column IDs are checked against the schema. A comment marks the query as Host code.
 
 ### Task 5.4: The page (Sonnet)
 **Files:** `examples/next/app/paged/page.tsx`, its CSS.
-- [ ] Load `emil-design-eng`, `better-ui` and `principle-experience-first` first.
-- [ ] The Query Adapter, `<GridCueBar />`, a plain table, paging, and the Host's own loading and error states.
-- [ ] Real-browser check, light and dark. Before/After and screenshots in the PR.
+- [x] Load `emil-design-eng`, `better-ui` and `principle-experience-first` first.
+- [x] The Query Adapter, `<GridCueBar />`, a plain table, paging, and the Host's own loading and error states.
+- [x] Real-browser check, light and dark. Before/After and screenshots in the PR.
 
 ### Task 5.5: Held-out run (lead)
-- [ ] The Query Check on the ledger schema against the example's query: report rows that differ (bar: 0).
-- [ ] Each mutant against both schemas: report which cases caught it (bar: every mutant fails at least one).
-- [ ] The mutants and the ledger cases join the repo as regression tests.
+- [x] The Query Check on the ledger schema against the example's query: report rows that differ (bar: 0).
+- [x] Each mutant against both schemas: report which cases caught it (bar: every mutant fails at least one).
+- [x] The mutants and the ledger cases join the repo as regression tests.
 
 ### Task 5.6: Docs (Sonnet), entries and links (Haiku)
-- [ ] Site: the "Rows on a server" guide (spec 5.5); a new `api/testing`; `meta.json` entries.
-- [ ] `package.json` `exports` and `tsdown` entry for `./testing`; `pnpm check:package`.
-- [ ] `AGENTS.md`: the two lists of entries gain `gridcue/testing`. The owner approved the edit with the order plan's D2.
-- [ ] `skills/gridcue`: the server-rows row links the guide; `pnpm check:skills`. The changelog.
+- [x] Site: the "Rows on a server" guide (spec 5.5); a new `api/testing`; `meta.json` entries.
+- [x] `package.json` `exports` and `tsdown` entry for `./testing`; `pnpm check:package`.
+- [x] `AGENTS.md`: the two lists of entries gain `gridcue/testing`. The owner approved the edit with the order plan's D2.
+- [x] `skills/gridcue`: the server-rows row links the guide; `pnpm check:skills`. The changelog.
 
 ### Task 5.7: Review (Opus, with a security pass on the example's query), gate
-- [ ] The bundle leak check covers `/paged`, and no client bundle imports `gridcue/testing`.
+- [x] The bundle leak check covers `/paged`, and no client bundle imports `gridcue/testing`.
 
 ## PR 6: The AG Grid adapter (`feat/ag-grid-adapter`)
 
 Spec 5.6. ADR 0033. Needs PRs 1, 3, 5.
 
 ### Task 6.1: Spike (Sonnet), in scratch, before any adapter code
-- [ ] Does AG Grid 36 run in jsdom under Vitest? If not, which browser runner, and what it adds.
-- [ ] Run the defaults the grill only read: blank handling in not-equal and comparisons, `inRangeInclusive`, whether blank cells reach `textMatcher`, multi-column sort in Community, and whether `setFilterModel` then `getFilterModel` reads back in the same tick.
-- [ ] Do AG Grid 34 and 35 have every `GridApi` call the adapter will use? Report the oldest that does.
-- [ ] Does an Infinite Row Model datasource get called again after `setFilterModel` and `applyColumnState`?
-- [ ] The lead reports the results to the owner. If any changes spec 5.6, the spec is updated before 6.3.
+- [x] Does AG Grid 36 run in jsdom under Vitest? If not, which browser runner, and what it adds.
+- [x] Run the defaults the grill only read: blank handling in not-equal and comparisons, `inRangeInclusive`, whether blank cells reach `textMatcher`, multi-column sort in Community, and whether `setFilterModel` then `getFilterModel` reads back in the same tick.
+- [x] Do AG Grid 34 and 35 have every `GridApi` call the adapter will use? Report the oldest that does.
+- [x] Does an Infinite Row Model datasource get called again after `setFilterModel` and `applyColumnState`?
+- [x] The lead reports the results to the owner. If any changes spec 5.6, the spec is updated before 6.3.
 
 ### Task 6.2: Label (Sonnet)
-- [ ] At least 30 menu filter models a User can set in AG Grid's text, number and date filters, written from AG Grid's docs and spec 5.6 alone, each with the View State it should read as, or "unreadable". Outside the repo.
-- [ ] `ag-grid-community` and `ag-grid-react` 36.3.0, exact, as dev dependencies where tests and examples need them.
+- [x] At least 30 menu filter models a User can set in AG Grid's text, number and date filters, written from AG Grid's docs and spec 5.6 alone, each with the View State it should read as, or "unreadable". Outside the repo.
+- [x] `ag-grid-community` and `ag-grid-react` 36.3.0, exact, as dev dependencies where tests and examples need them.
 
 ### Task 6.3: The adapter (Opus)
 **Files:** new `packages/gridcue/src/ag-grid/index.ts`, `test/ag-grid.test.ts`. Needs 6.1.
-- [ ] Tests first: the contract suite on the Client-Side and Infinite row models; each creation check; an `in` with another filter on its column fails with `ADAPTER_UNSUPPORTED_FILTER` and nothing written; pins and an Enterprise grouping are written back unchanged; on the Infinite Row Model, a column with the Host's own custom filter set, then a GridCue filter applied on another column: the datasource request still holds the Host's filter, the View State holds only GridCue's, and the example's Data Query returns the rows that pass both.
-- [ ] `AgGridApiLike`, `createAgGridAdapter`, `schemaFromAgGrid`. One apply writes, waits until the grid reads back what was written, then notifies once.
+- [x] Tests first: the contract suite on the Client-Side and Infinite row models; each creation check; an `in` with another filter on its column fails with `ADAPTER_UNSUPPORTED_FILTER` and nothing written; pins and an Enterprise grouping are written back unchanged; on the Infinite Row Model, a column with the Host's own custom filter set, then a GridCue filter applied on another column: the datasource request still holds the Host's filter, the View State holds only GridCue's, and the example's Data Query returns the rows that pass both.
+- [x] `AgGridApiLike`, `createAgGridAdapter`, `schemaFromAgGrid`. One apply writes, waits until the grid reads back what was written, then notifies once.
 
 ### Task 6.4: Meanings and the reader (Fable)
 **Files:** `src/ag-grid/meanings.ts`, `src/ag-grid/read.ts`, tests. Needs 6.3.
-- [ ] Date filters compare whole days in the schema calendar's time zone, as named filters' PR 5 defines them.
-- [ ] `gridcueColDef(schema)`: the settings in spec 5.6, then the row check (the Query Check's cases through AG Grid on the wealth schema) decides, option by option, between AG Grid's setting and a custom option with GridCue's predicate.
-- [ ] The reader: AND conditions, OR on one column, equals-OR-equals as `in`, and "unreadable" kept as the Host's.
-- [ ] Bars on dev: 0 rows differ; same order where sort cells aren't empty.
+- [x] Date filters compare whole days in the schema calendar's time zone, as named filters' PR 5 defines them.
+- [x] `gridcueColumnDefs(schema, columnDefs)` (first planned as one default column definition, `gridcueColDef`; spec 5.6 says why it changed): the settings in spec 5.6, then the row check (the Query Check's cases through AG Grid on the wealth schema) decides, option by option, between AG Grid's setting and a custom option with GridCue's predicate.
+- [x] The reader: AND conditions, OR on one column, equals-OR-equals as `in`, and "unreadable" kept as the Host's.
+- [x] Bars on dev: 0 rows differ; same order where sort cells aren't empty.
 
 ### Task 6.5: Held-out run (lead)
-- [ ] The ledger schema's cases and fresh seeds through AG Grid, on both row models. Report rows that differ (bar: 0) and where empty cells sort (no bar).
-- [ ] The 30 menu filter models. Report misreads (bar: 0) and the share read.
+- [x] The ledger schema's cases and fresh seeds through AG Grid, on both row models. Report rows that differ (bar: 0) and where empty cells sort (no bar).
+- [x] The 30 menu filter models. Report misreads (bar: 0) and the share read.
 
 ### Task 6.6: Examples (Sonnet)
 **Files:** new `examples/ag-grid/` (Vite), `examples/next/app/ag-grid/`.
-- [ ] Load the three design skills first.
-- [ ] The Vite example and the Next.js page, each with `<GridCueBar />` and the Mock Provider, Community modules only.
-- [ ] Real-browser check, light and dark, in both. Before/After and screenshots in the PR.
+- [x] Load the three design skills first.
+- [x] The Vite example and the Next.js page, each with `<GridCueBar />` and the Mock Provider, Community modules only.
+- [x] Real-browser check, light and dark, in both. Before/After and screenshots in the PR.
 
 ### Task 6.7: Docs (Sonnet), entries and links (Haiku)
-- [ ] Site: the "AG Grid" guide (Community only, tested majors, `gridcueColDef`, the Infinite Row Model with the server guide); `api/adapters`; `meta.json`; the marketing page's grid list, if it has one.
-- [ ] `package.json` `exports` and `tsdown` entry for `./ag-grid`; `pnpm check:package`.
-- [ ] `AGENTS.md`: the two lists of entries and the list of Grid Adapters gain `gridcue/ag-grid` and the Query Adapter. The owner approved the edit with the order plan's D2.
-- [ ] `skills/gridcue/references/setup.md`: the AG Grid row; `troubleshooting.md`: each `INPUT_CONFIG` message. `pnpm check:skills`. The changelog.
+- [x] Site: the "AG Grid" guide (Community only, tested majors, `gridcueColumnDefs`, the Infinite Row Model with the server guide); `api/adapters`; `meta.json`; the marketing page's grid list, if it has one.
+- [x] `package.json` `exports` and `tsdown` entry for `./ag-grid`; `pnpm check:package`.
+- [x] `AGENTS.md`: the two lists of entries and the list of Grid Adapters gain `gridcue/ag-grid`. The Query Adapter joined the list of Grid Adapters in PR 4, where it landed (order plan, section 11). The owner approved the edit with the order plan's D2.
+- [x] `skills/gridcue/references/setup.md`: the AG Grid row; `troubleshooting.md`: each `INPUT_CONFIG` message. `pnpm check:skills`. The changelog.
 
 ### Task 6.8: Review (Opus), gate
-- [ ] The bundle leak check covers both new pages.
+- [x] The bundle leak check covers both new pages.
 
 ## Spec coverage
 
