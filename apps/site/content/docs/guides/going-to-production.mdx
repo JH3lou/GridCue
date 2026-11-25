@@ -98,6 +98,19 @@ GridCue's published evidence is scoped to one schema: 186 labelled live requests
 
 List every column GridCue must never see or act on in `restricted`. Restricted columns are never sent to a provider, and a request that names one is refused. See [Safety](/docs/safety).
 
+## 11. Set the time zone
+
+"Today", "last 90 days" and "this quarter" are worked out in the schema's [Calendar](/docs/api/schema#calendar), and a date in a filter means the whole day in its time zone. With no `timeZone`, GridCue uses the runtime's: the browser's in a browser, and the machine's on a server. Set it when
+
+- rows are filtered or rendered on a server, whose zone is usually UTC and not your Users';
+- your data is booked in one zone and Users sit in another, since a view can then be off by a day: a row stamped late on the 13th in New York is on the 14th in UTC.
+
+```ts
+defineSchema(columns, { calendar: { timeZone: "America/New_York", fiscalYearStart: 1 } });
+```
+
+Set `fiscalYearStart` if your year doesn't start in January. A relative date becomes two fixed days when the request is made, so a saved or applied view keeps those days. See [Requests](/docs/concepts/requests#dates). Tests that need a fixed today pass `now` to [`createGridCue`](/docs/api/create-grid-cue#now).
+
 ## Quick reference
 
 | Setting | Where | Default |
@@ -106,6 +119,8 @@ List every column GridCue must never see or act on in `restricted`. Restricted c
 | `confidence` | `createGridCue` | `{ ready: 0.85, clarify: 0.65 }` |
 | `audit` | `createGridCue` | Off |
 | `maxUtteranceLength` | `createGridCue` | `500` |
+| `now` | `createGridCue` | The system clock |
+| `calendar` | `defineSchema` | The runtime's time zone, year starts in January |
 | `model` | `createJevProvider` | `"jev-1.13.0"` |
 | `strategy` | `createJevProvider` | `"fan-out"` |
 | `maxQuestions` | `createJevProvider` | `800` |

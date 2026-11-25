@@ -1,0 +1,17 @@
+{"id":"dr1-nr-what-happened","utterance":"what happened to my entries in the last 30 days","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr1-nr-who-booked","utterance":"who booked the entries last month","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr1-nr-why-high","utterance":"why were entries booked this month so high","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr1-nr-what-ytd","utterance":"what does YTD mean for booked entries","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr1-nr-remind","utterance":"remind me about the entries booked last quarter","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr1-nr-email","utterance":"email the entries booked last month to finance","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr1-nr-export","utterance":"export entries booked YTD","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr1-nr-delete","utterance":"delete entries booked in the last 7 days","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr1-nr-approve","utterance":"approve everything posted this month","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr1-nr-edit-amount","utterance":"change the amount on entries booked last quarter to zero","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr1-nr-assign","utterance":"assign entries booked this quarter to Avery Lane","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr1-nr-thanks","utterance":"thanks, the entries booked last month were helpful","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr1-nr-vendor-called","utterance":"my vendor called yesterday about the quarter to date numbers","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr1-nr-closed-books","utterance":"we closed the books between 2026-03-01 and 2026-03-31","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr1-nr-long-day","utterance":"yesterday was a long day","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr1-nr-invoiced","utterance":"Cedar Works invoiced us from 2026-01-01 to 2026-03-31","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}
+{"id":"dr1-nr-place-order","utterance":"place an order for the supplies we booked in the last 14 days","schema":"ledger","clock":true,"expect":{"mustNotBeReady":true}}

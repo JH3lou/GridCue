@@ -162,6 +162,8 @@ const PHRASES = new RegExp(
   String.raw`(?<![\p{L}\p{N}'])(?:${alt([...ROW_VERBS, ...SMALL_WORDS].filter((w) => w.includes(" ")))})(?![\p{L}\p{N}'])`,
   "gu",
 );
+/** "Or so", which says the words before it are only about right. */
+const OR_SO = /(?<![\p{L}\p{N}'])or so(?![\p{L}\p{N}'])/gu;
 /** A lead-in of `core/lead.ts`, wherever it sits. */
 const LEAD_INS = new RegExp(String.raw`(?<![\p{L}\p{N}'])(?:${LEAD_IN_WORDS})(?![\p{L}\p{N}'])`, "gu");
 const COLUMN_VERB_WORDS: ReadonlySet<string> = new Set(COLUMN_VERBS.split("|"));
@@ -496,6 +498,10 @@ export const unplacedWords = (part: PlacedPart): UnplacedWord[] => {
     .map((m) => ({ start: m.index, end: m.index + m[0].length, text: text.slice(m.index, m.index + m[0].length) }))
     .filter((s) => scan.slice(s.start, s.end).trim() !== "" && !whole.some((w) => within(s, w)));
   let rest = blank(scan, [...placed, ...asked, ...selves]);
+  // "Or so" blurs what stands before it ("booked last month or so"), and is never placed: "or" joins and "so" leads in
+  // only apart.
+  const hedges = [...rest.matchAll(OR_SO)].map((m) => ({ start: m.index, end: m.index + m[0].length, text: m[0] }));
+  rest = blank(rest, hedges);
   for (const pattern of [LEAD_INS, PHRASES, POSSESSIVE]) rest = rest.replace(pattern, (s) => " ".repeat(s.length));
   const stray = tokens(rest).filter(({ text: word, start, end }) => {
     if (ALWAYS_PLACED.has(word)) return false;
@@ -515,7 +521,7 @@ export const unplacedWords = (part: PlacedPart): UnplacedWord[] => {
     return true;
   });
   const unasked = dropped.map((a) => ({ start: a.start, end: a.end, text: text.slice(a.start, a.end) }));
-  return [...stray, ...unasked, ...selves].sort((a, b) => a.start - b.start);
+  return [...stray, ...hedges, ...unasked, ...selves].sort((a, b) => a.start - b.start);
 };
 
 /**
@@ -586,7 +592,9 @@ const CLEARS: ReadonlySet<string> = new Set(["filter.clear", "sort.clear", "grou
  *   filter's own, and names nothing else. A yes/no column named on its own keeps Yes, or No where a negation
  *   leaves it out; the provider's other answer for it is dropped.
  * - The column for a bare amount or a bare date still comes from the provider's pick for it, or, with no pick, from a
- *   column of a kind that can hold it (the kind rule of ADR 0013).
+ *   column of a kind that can hold it (the kind rule of ADR 0013). A date read by code with no column named ("entries in
+ *   the last 90 days") takes the provider's pick of a date column from the proposal, for the date alone: the pick is not
+ *   kept here, so no sort or grouping takes it. An amount inside a date's words ("90") is the date's own and keeps none.
  * - A sort, a grouping, a hide, a show or an only-these-columns change is kept only when the part holds that change's
  *   own words. A clear or a reset is dropped: its words are never placed, so a part that passed holds none.
  * - A refusal stays a refusal.
@@ -601,14 +609,21 @@ export const limitPicks = (res: ClauseResolution, part: PlacedPart, record: (e: 
   const says = (words: readonly string[]) => said.some((t) => words.includes(t.text));
   const column = (id: string) => part.schema.columns.find((col) => col.id === id);
   const namedColumns = new Set(names.filter((m) => m.valueId === undefined).map((m) => m.columnId));
-  // A bare amount's column: the provider's pick for it, or with none, any column of a kind that can hold it.
+  // A bare amount's column: the provider's pick for it, or with none, any column of a kind that can hold it. An amount
+  // inside a date's words is the date's own ("90" in "last 90 days"), and names no column.
   const picks = res.literalColumns ?? [];
   const holdsLiteral = (id: string) =>
     clause.literals.some((lit, j) => {
       if (lit.kind === "text" || lit.kind === "unreadable") return false;
+      if (part.codeRead.some((r) => r.kind === "date" && lit.at >= r.start && lit.at < r.end)) return false;
       const pick = picks.find((l) => l.literalIndex === j);
       return pick ? pick.columnId === id : LITERAL_COLUMN_KINDS[lit.kind].includes(column(id)?.kind ?? "string");
     });
+  // A bare date ("entries in the last 90 days") takes the provider's pick of a date column from the proposal itself, for
+  // the date alone (spec 4.2, 5.5): the pick is not kept here, where a sort or a grouping could take it. It is the
+  // date's own, so its drop is not recorded.
+  const bareDate = part.codeRead.some((r) => r.kind === "date" && r.predicate?.columnId === "");
+  const datesOwn = (id: string) => bareDate && ["date", "datetime"].includes(column(id)?.kind ?? "");
   const keepsColumn = (id: string) => namedColumns.has(id) || holdsLiteral(id);
   // A yes/no column named on its own says Yes ("cleared entries"), or No when a negation leaves it out. The words say
   // nothing else, so a provider's other answer is dropped: "material cleared entries" never shows Cleared is No.
@@ -630,7 +645,7 @@ export const limitPicks = (res: ClauseResolution, part: PlacedPart, record: (e: 
   const values = res.values.filter(keepsValue);
   const families = res.families.filter((f) => asked(f.id));
   const filtersOwn = new Set(part.mentions.filter((m) => m.valueId === undefined && !names.includes(m)).map((m) => m.columnId));
-  for (const p of res.columns.filter((x) => !columns.includes(x) && !filtersOwn.has(x.id)))
+  for (const p of res.columns.filter((x) => !columns.includes(x) && !filtersOwn.has(x.id) && !datesOwn(x.id)))
     record({ key: `dropped:${key}.unnamed`, selectedId: p.id, confidence: p.confidence, source: "deterministic" });
   for (const v of res.values.filter((x) => !values.includes(x)))
     record({ key: `dropped:${key}.unnamed`, selectedId: `${v.columnId}=${v.valueId}`, confidence: v.confidence, source: "deterministic" });

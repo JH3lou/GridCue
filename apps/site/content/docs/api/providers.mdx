@@ -197,6 +197,7 @@ function buildResolutionRequest(
 Builds the `ResolutionRequest` the Controller sends to a provider. You need it only to test a provider or inspect exactly what it receives.
 
 - `input` is the Utterance split into Clauses, from `normalize(text)`.
+- `normalize(text, { today, calendar })`, where `calendar` supplies `fiscalYearStart`, also reads a range of two ISO dates, and with `today` (a day such as `"2026-11-13"`, already in the Calendar's time zone) each relative form, as the fixed days it means. Without `today`, relative forms are not read and the compiler asks about them. Build the request from `normalize(text)` with no options, as the Controller does, so a provider is sent the same literals with any clock or Calendar. A `today` that is not a real day throws `INPUT_CLOCK`.
 - The candidate families are the view families whose operations the grid supports, plus the four `unsupported.*` families.
 - The candidate columns are the exposed columns only, each with the families its capabilities allow, its legal operators, and its aliases, description, enum values, entity and value groups. Restricted columns are never included, and rows never are.
 - `view` carries the visible column IDs, the sorts, the grouping and whether any filter is on. Filter values are not sent.

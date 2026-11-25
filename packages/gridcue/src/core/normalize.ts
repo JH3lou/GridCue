@@ -1,3 +1,7 @@
+import { type DateForm, type DayRange, datesOf, isDay, readDateForm } from "./dates";
+import { GridCueError } from "./errors";
+import type { Calendar } from "./protocol";
+
 export type Comparator = "eq" | "gt" | "gte" | "lt" | "lte" | "between";
 /** `unreadable` marks a number whose format is ambiguous, such as "1.000.000". GridCue asks rather than guesses. */
 export type LiteralKind = "number" | "currency" | "percent" | "date" | "text" | "unreadable";
@@ -16,6 +20,12 @@ export interface Literal {
    * (named filters spec, 5.2). Core reads it; it is never sent to an Intent Provider.
    */
   match?: TextMatchKind;
+  /**
+   * A date read from a relative date form only (named filters spec, 5.5): the form's words as written, such as "last 90
+   * days" or "ytd", when `normalize` is given today. The literal holds the form's fixed days, and the Preview names the
+   * words in brackets after them. Core reads it; it is never sent to an Intent Provider.
+   */
+  words?: string;
 }
 
 /** How quoted text is matched when the words before it say so. Without one, quoted text is "containing". */
@@ -260,14 +270,20 @@ const NEGATED_COMPARISON = /\b(?:not|no|isn't|aren't|never)\s*$/;
 /**
  * Where the comparison words read for an amount or a date sit in its part: before it ("over", "at least", "between"),
  * after it ("or more", "at most"), or both. They are the words `extractLiterals` read, found the same way; nothing is
- * read anew. Empty for quoted text, and for an amount read with no comparison.
+ * read anew. Empty for quoted text, and for an amount read with no comparison. `bare` is the part with its quoted text
+ * blanked (`unquoted`), for a caller that reads many literals of one part.
  */
-export const comparisonSpans = (text: string, lit: Literal): Array<{ start: number; end: number }> => {
+export const comparisonSpans = (text: string, lit: Literal, bare = unquoted(text)): Array<{ start: number; end: number }> => {
   if (lit.kind === "text" || lit.kind === "unreadable") return [];
-  const bare = unquoted(text);
   const spans: Array<{ start: number; end: number }> = [];
   const from = Math.max(0, lit.at - 40);
   const before = bare.slice(from, lit.at);
+  if (lit.words !== undefined) {
+    // A relative form's words are its own, and so is what leads it: "in the last 90 days".
+    const lead = DATE_LEAD_AT_END.exec(before);
+    if (lead) spans.push({ start: from + lead.index, end: lit.at });
+    return spans;
+  }
   if (lit.comparator === "between") {
     const range = /\b(?:between|from)\s*$/.exec(before);
     if (range) spans.push({ start: from + range.index, end: lit.at });
@@ -391,6 +407,13 @@ export const withoutNamedSizes = (
 /** Dotted thousands ("1.000.000"), or commas not in groups of three ("10,5"), are ambiguous across locales. */
 const AMBIGUOUS_NUMBER = /^\d{1,3}(?:\.\d{3})+$|,(?!\d{3}(?:\D|$))/;
 
+/**
+ * "Period" said for a full stop: not after a word that makes a span of time of it ("this period", "prior period", "the
+ * reporting period"), and not before one that carries it on ("period ending", "period over period").
+ */
+const PERIOD_SAID =
+  /(?<!\b(?:this|last|prior|previous|current|next|that|the|same|each|every|per|a|one|reporting|accounting|fiscal|billing|pay|in|for|during|over|within|by|of)) period\b(?! (?:over|ending|ended|end|start|to|of|from|through)\b)/gi;
+
 const cleanText = (raw: string): string =>
   raw
     .replace(/[“”]/g, '"')
@@ -398,7 +421,9 @@ const cleanText = (raw: string): string =>
     // Whitespace collapses first, so no pattern below scans a long run of spaces from every start.
     .replace(/\s+/g, " ")
     .replace(/ comma\b/gi, ",")
-    .replace(/ (?:period|full stop)\b/gi, ".")
+    // A dictated full stop. "Period" stays a word where it names a span of time: "this period", "the period ending".
+    .replace(/ full stop\b/gi, ".")
+    .replace(PERIOD_SAID, ".")
     .trim()
     .toLowerCase();
 
@@ -457,6 +482,13 @@ const extractLiterals = (clause: string): Literal[] => {
 /** A literal's words as written in its part, such as "-$50k" or “$1m and $5m”, for questions that name it. */
 export const literalText = (text: string, lit: Literal): string => {
   if (lit.kind === "text") return `"${lit.value}"`;
+  // A relative date form's literal sits where its words do: "last 90 days".
+  if (lit.words !== undefined) return lit.words;
+  // A range of two ISO dates runs from the first date to the second: "2026-01-01 and 2026-03-31".
+  if (lit.kind === "date" && lit.comparator === "between") {
+    const second = ISO_DAY_AT.exec(text.slice(lit.at + 10, lit.at + 64));
+    return second ? text.slice(lit.at, lit.at + 10 + second.index + second[0].length) : String(lit.value);
+  }
   if (lit.kind === "date" || lit.kind === "unreadable") return String(lit.value);
   const bare = unquoted(text);
   const at = new RegExp(NUMBER.source, "y");
@@ -544,6 +576,128 @@ const mergeBetween = (clause: string, literals: Literal[]): Literal[] => {
   return out;
 };
 
+// --- Dates (named filters spec, 5.5; ADR 0026) ---------------------------------------------------------------------
+
+/** What may lead a date form: "in", "in the", "over the", "during", "during the", "within the" or "for the". */
+const DATE_LEAD = "(?:(?:in|during)(?: the)?|(?:over|within|for) the) ";
+const DAY = String.raw`\d{4}-\d{2}-\d{2}`;
+/** The first ISO date in some text. */
+const ISO_DAY_AT = new RegExp(DAY);
+/**
+ * A relative date form, with what may lead it: "today", "in the last 90 days", "this quarter", "ytd". The words are
+ * checked again by `readDateForm`, which reads a count from 1 to 999 and the right number of the unit: "last 0 days",
+ * "last 1000 days" and "last 2 day" are no form. Compiled once: reading must stay fast.
+ */
+const RELATIVE_FORM = new RegExp(
+  String.raw`(?<![\p{L}\p{N}'])(${DATE_LEAD})?(today|yesterday|(?:last|past) \d+ (?:days?|weeks?|months?|years?)|(?:this|last) (?:month|quarter|year)|(?:month|quarter|year) to date|[mqy]td)(?![\p{L}\p{N}])`,
+  "gu",
+);
+/** Two ISO dates as one range: "between 2026-01-01 and 2026-03-31", "from 2026-01-01 to 2026-03-31", "… through …". */
+const DAY_RANGE = new RegExp(
+  String.raw`(?<![\p{L}\p{N}'])(?:between (${DAY}) and (${DAY})|from (${DAY}) (?:to|through) (${DAY}))(?![\p{L}\p{N}])`,
+  "gu",
+);
+/**
+ * A comparison right before a relative form, which asks: "before this quarter", "since last month", "over last year".
+ * "Over the" leads a form, and is read with it.
+ */
+const COMPARED_BEFORE_FORM =
+  /(?:(?<![\p{L}\p{N}'])(?:over|under|above|below|before|after|since|until|till|through|between|exceeding|prior to|(?:earlier|later|older|newer|more|less|greater|fewer|larger|smaller|higher|lower) than|at (?:least|most)|up to|on or (?:before|after)|at or (?:above|below))|[<>=≤≥])\s*$/u;
+/** A date form's lead-in at the end of some text: "in the ", "during ". */
+const DATE_LEAD_AT_END = new RegExp(String.raw`(?<![\p{L}\p{N}'])${DATE_LEAD}$`, "u");
+
+/** Where a date form or a range of two ISO dates sits in a part's text, and the days it means, both included. */
+export interface DateReading {
+  /** Where its words start, a lead-in included ("in the last 90 days"), and where they end. */
+  start: number;
+  end: number;
+  /** Where the form's own words start, after its lead-in: "last 90 days". For a range, where its first date is written. */
+  at: number;
+  /** A relative form's words as written: "last 90 days", "ytd". A range of two ISO dates has none. */
+  words?: string;
+  first: string;
+  last: string;
+  /** Whether it means one day: "today", "yesterday". */
+  oneDay: boolean;
+}
+
+/** A form's days, or `undefined` when one of them falls outside the years 0001 to 9999 ("this quarter" late in 9999). */
+const daysOf = (form: DateForm, today: string, fiscalYearStart: number): DayRange | undefined => {
+  try {
+    return datesOf(form, today, fiscalYearStart);
+  } catch (error) {
+    if (error instanceof RangeError) return undefined;
+    throw error;
+  }
+};
+
+/** What date words are read with: today in the Calendar's time zone, and the month its year starts in. */
+export interface DateOptions {
+  /** Today, written like 2026-11-13, or a function that gives it, called only when a relative form needs it. */
+  today?: string | (() => string);
+  /** The first month of the year, 1 to 12. Default 1. */
+  fiscalYearStart?: number;
+}
+
+/**
+ * The date forms and ranges in a part's text (spec 5.5), in the order written, never in quoted text:
+ * - a relative form, "today", "last 90 days", "this quarter", "ytd", maybe after "in", "in the", "over the", "during",
+ *   "during the", "within the" or "for the". With no `today`, none is read. Right after a comparison word ("before
+ *   this quarter", "since last month") it is not read either: the caller asks;
+ * - two ISO dates as one range, both real days: "between A and B", "from A to B", "from A through B". Written high to
+ *   low, the ends are swapped. With a comparison after the second date ("… or later") it is no range.
+ * Every other time word is left unread, and the caller asks about it.
+ */
+export const dateReadings = (text: string, options: DateOptions = {}): DateReading[] => {
+  const bare = unquoted(text);
+  const out: DateReading[] = [];
+  for (const m of bare.matchAll(DAY_RANGE)) {
+    const a = m[1] ?? m[3] ?? "";
+    const b = m[2] ?? m[4] ?? "";
+    if (!isDay(a) || !isDay(b)) continue;
+    // A comparison after the second date changes the range again ("from 2026-01-01 to 2026-03-01 or later"): no range
+    // is read, and the two dates are read as they are today.
+    if (trailingComparison(bare.slice(m.index + m[0].length, m.index + m[0].length + 40), true)) continue;
+    const [first, last] = a <= b ? [a, b] : [b, a];
+    out.push({ start: m.index, end: m.index + m[0].length, at: m.index + m[0].indexOf(a), first, last, oneDay: false });
+  }
+  let today: string | undefined;
+  for (const m of bare.matchAll(RELATIVE_FORM)) {
+    const lead = m[1] ?? "";
+    const said = m[2] ?? "";
+    if (!lead && COMPARED_BEFORE_FORM.test(bare.slice(Math.max(0, m.index - 24), m.index))) continue;
+    const form = readDateForm(said);
+    if (!form || options.today === undefined) continue;
+    today ??= typeof options.today === "function" ? options.today() : options.today;
+    const days = daysOf(form, today, options.fiscalYearStart ?? 1);
+    // A form whose days can't be written, past the years 0001 to 9999, is no form: the caller asks about its words.
+    if (!days) continue;
+    const { first, last } = days;
+    const at = m.index + lead.length;
+    // The words as written, in lower case as `normalize` keeps them, but for "MTD", "QTD" and "YTD".
+    const words = text.slice(at, at + said.length).replace(/^[mqy]td$/u, (w) => w.toUpperCase());
+    out.push({ start: m.index, end: m.index + m[0].length, at, words, first, last, oneDay: form.kind === "day" });
+  }
+  return out.sort((x, y) => x.start - y.start);
+};
+
+/** A date reading as a literal: one day, or a range with `between`. A relative form's literal keeps its words. */
+const dateLiteral = (r: DateReading): Literal => ({
+  kind: "date",
+  value: r.first,
+  ...(r.oneDay ? {} : { upper: r.last, comparator: "between" as const }),
+  at: r.at,
+  ...(r.words !== undefined ? { words: r.words } : {}),
+});
+
+/** Replaces the literals inside each date reading with the reading's own literal. */
+const withDates = (text: string, literals: Literal[], options: DateOptions): Literal[] => {
+  const readings = dateReadings(text, options);
+  if (readings.length === 0) return literals;
+  const inside = (lit: Literal) => readings.some((r) => lit.at >= r.start && lit.at < r.end);
+  return [...literals.filter((lit) => !inside(lit)), ...readings.map(dateLiteral)].sort((a, b) => a.at - b.at);
+};
+
 /** A part with no instruction verb at all, such as "advisor" in "group by custodian, then advisor". */
 const NO_VERB = new RegExp(`^(?!.*\\b(?:${VERB_ALT})(?:ed)?\\b)`);
 /** A verb that takes "by", so a following "then by …" part can continue it. */
@@ -589,8 +743,30 @@ const splitKeep = (part: string): string[] => {
   return keep ? [part.slice(0, offset + keep.index), KEPT + part.slice(offset + keep.index + keep[0].length)] : [part];
 };
 
-/** Deterministically splits a request into clauses and extracts literals code handles better than a model. */
-export const normalize = (raw: string): NormalizedInput => {
+/** What `normalize` reads dates with (named filters spec, 5.5). */
+export interface NormalizeOptions {
+  /** Today in the Calendar's time zone, written like 2026-11-13. Without it, relative forms ("last 90 days") are not read. */
+  today?: string;
+  /** The Calendar. Its first month of the year places quarters and years; its time zone is already in `today`. */
+  calendar?: Pick<Calendar, "fiscalYearStart">;
+}
+
+/**
+ * Deterministically splits a request into clauses and extracts literals code handles better than a model.
+ *
+ * With `options`, dates are read too (named filters spec, 5.5): two ISO dates written as one range become one `between`
+ * literal, and with `today` each relative form ("last 90 days", "this quarter", "ytd") becomes a date literal of its
+ * fixed days, with its words in `Literal.words`. Without `today`, relative forms are not read, and the compiler asks
+ * about them. Without `options`, the literals are exactly the ones the Intent Provider is sent.
+ */
+export const normalize = (raw: string, options?: NormalizeOptions): NormalizedInput => {
+  if (options?.today !== undefined && !isDay(options.today)) {
+    throw new GridCueError("INPUT_CLOCK", "today must be a real day, written like 2026-11-13.");
+  }
+  const dates: DateOptions | undefined = options && {
+    ...(options.today !== undefined ? { today: options.today } : {}),
+    ...(options.calendar?.fiscalYearStart !== undefined ? { fiscalYearStart: options.calendar.fiscalYearStart } : {}),
+  };
   const text = cleanText(raw);
   // "group by account type, then by advisor": the second part leaves out its verb and continues the first.
   let levelVerb: string | undefined;
@@ -626,7 +802,7 @@ export const normalize = (raw: string): NormalizedInput => {
       return {
         index,
         text: part,
-        literals: extractLiterals(literalText),
+        literals: dates ? withDates(literalText, extractLiterals(literalText), dates) : extractLiterals(literalText),
         ...(direction ? { direction } : {}),
         ...(continues ? { continues } : {}),
         ...(count ? { limit: Number(digits.replaceAll(",", "")) } : {}),

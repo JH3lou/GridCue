@@ -3,6 +3,7 @@ import { isDeepStrictEqual } from "node:util";
 import { ledgerColumns, ledgerInitialState, ledgerMockOptions, ledgerSchema, ledgerSchemaOptions } from "@gridcue-internal/ledger-fixtures";
 import { wealthColumns, wealthInitialState, wealthMockOptions, wealthSchema, wealthSchemaOptions } from "@gridcue-internal/wealth-fixtures";
 import {
+  type ColumnInput,
   createGridCue,
   createRowsAdapter,
   defineSchema,
@@ -10,10 +11,13 @@ import {
   type IntentProvider,
   type ResolutionResult,
   type RowsAdapter,
+  type SchemaOptions,
   type ViewOperation,
   type ViewPlan,
+  type ViewSchema,
   type ViewState,
 } from "gridcue";
+import { clockFor, EVAL_CALENDAR, evalNow } from "./clock";
 import { type EvalHouseTerm, ledgerHouseTerms, wealthHouseTerms } from "./house-terms";
 import { type EvalLocalValues, ledgerLocalValues, wealthLocalValues } from "./local-values";
 
@@ -41,6 +45,12 @@ export interface EvalCase {
    */
   values?: boolean;
   /**
+   * Runs at the fixed clock with the fixed Calendar (evals/clock.ts): today is 2026-11-13 in America/New_York, and the
+   * year starts in January. Only the ledger schema takes it. A case without it runs with no Calendar and the default
+   * clock, as before.
+   */
+  clock?: boolean;
+  /**
    * A scripted answer from the Intent Provider, written by the labeller before the code. It is replayed in place of
    * the provider the case runs with, the way ADR 0022's tests replay an answer, so the case checks what code does with
    * that proposal. The request is built and sent as for any other case.
@@ -65,54 +75,73 @@ export interface EvalCase {
  * The date schema in packages/gridcue/test/reading-fixes.test.ts, plus one date-and-time column. Its rows are never
  * read: a case judges the plan, not the rows.
  */
-const datedSchema = defineSchema(
-  [
-    { id: "name", label: "Name" },
-    { id: "opened", label: "Opened" },
-    { id: "closed", label: "Close date" },
-    { id: "last_contact", label: "Last contact" },
-    { id: "positions", label: "Positions" },
-    { id: "value", label: "Value" },
-  ],
-  {
-    id: "ledger",
-    version: "1",
-    rowNoun: "account",
-    columns: {
-      opened: { kind: "date", aliases: ["open date"] },
-      closed: { kind: "date", aliases: ["closed"] },
-      last_contact: { kind: "datetime" },
-      positions: { kind: "number", aliases: ["holdings count"] },
-      value: { kind: "currency" },
-    },
+const datedColumns: ColumnInput[] = [
+  { id: "name", label: "Name" },
+  { id: "opened", label: "Opened" },
+  { id: "closed", label: "Close date" },
+  { id: "last_contact", label: "Last contact" },
+  { id: "positions", label: "Positions" },
+  { id: "value", label: "Value" },
+];
+const datedOptions: SchemaOptions = {
+  id: "ledger",
+  version: "1",
+  rowNoun: "account",
+  columns: {
+    opened: { kind: "date", aliases: ["open date"] },
+    closed: { kind: "date", aliases: ["closed"] },
+    last_contact: { kind: "datetime" },
+    positions: { kind: "number", aliases: ["holdings count"] },
+    value: { kind: "currency" },
   },
-);
+};
 
 /** Plans whose names hold the word "group": a product called "Group Annuity" and a "Group name" column. */
-const groupNamesSchema = defineSchema(
-  [
-    { id: "plan_number", label: "Plan number" },
-    { id: "group_name", label: "Group name" },
-    { id: "product", label: "Product" },
-    { id: "premium", label: "Premium" },
-  ],
-  {
-    id: "group-plans",
-    version: "1",
-    rowNoun: "account",
-    columns: {
-      product: {
-        kind: "enum",
-        enumValues: [
-          { id: "group_annuity", label: "Group Annuity" },
-          { id: "individual_annuity", label: "Individual Annuity" },
-          { id: "term_life", label: "Term Life" },
-        ],
-      },
-      premium: { kind: "currency" },
+const groupNamesColumns: ColumnInput[] = [
+  { id: "plan_number", label: "Plan number" },
+  { id: "group_name", label: "Group name" },
+  { id: "product", label: "Product" },
+  { id: "premium", label: "Premium" },
+];
+const groupNamesOptions: SchemaOptions = {
+  id: "group-plans",
+  version: "1",
+  rowNoun: "account",
+  columns: {
+    product: {
+      kind: "enum",
+      enumValues: [
+        { id: "group_annuity", label: "Group Annuity" },
+        { id: "individual_annuity", label: "Individual Annuity" },
+        { id: "term_life", label: "Term Life" },
+      ],
     },
+    premium: { kind: "currency" },
   },
-);
+};
+
+/**
+ * Every schema a case can run on, built as a Host would build it: by its name, with its House Terms when the case says
+ * `terms`, and with the fixed Calendar of `evals/clock.ts` when it runs at the fixed clock. Each is built once.
+ */
+const SCHEMAS = new Map<string, ViewSchema>();
+const schemaOf = (name: EvalCase["schema"], terms: boolean, calendar: boolean): ViewSchema => {
+  const key = `${name ?? "wealth"}:${terms}:${calendar}`;
+  const built = SCHEMAS.get(key);
+  if (built) return built;
+  const dated = calendar ? { calendar: { ...EVAL_CALENDAR } } : {};
+  const [columns, options]: [ColumnInput[], SchemaOptions] =
+    name === "dated"
+      ? [datedColumns, datedOptions]
+      : name === "group-names"
+        ? [groupNamesColumns, groupNamesOptions]
+        : name === "ledger"
+          ? [ledgerColumns, { ...ledgerSchemaOptions, ...(terms ? { houseTerms: ledgerHouseTerms } : {}) }]
+          : [wealthColumns, { ...wealthSchemaOptions, ...(terms ? { houseTerms: wealthHouseTerms } : {}) }];
+  const schema = defineSchema(columns, { ...options, ...dated });
+  SCHEMAS.set(key, schema);
+  return schema;
+};
 
 /**
  * A grid that can't group rows, built as a Host would build one: the Rows Adapter with `group.set` taken out of the
@@ -142,15 +171,15 @@ export const localValuesFor = (c: Pick<EvalCase, "schema" | "values">): EvalLoca
   throw new Error(`No Local Values are set for the "${c.schema}" schema.`);
 };
 
-/** The wealth and ledger fixtures' schemas with their House Terms declared, built as a Host would build them. */
-const wealthSchemaWithTerms = defineSchema(wealthColumns, { ...wealthSchemaOptions, houseTerms: wealthHouseTerms });
-const ledgerSchemaWithTerms = defineSchema(ledgerColumns, { ...ledgerSchemaOptions, houseTerms: ledgerHouseTerms });
-
-/** The schema a wealth or ledger case runs on: its fixture's, with the House Terms declared when it says `terms: true`. */
-export const fixtureSchemaFor = (c: Pick<EvalCase, "schema" | "terms">) => {
+/**
+ * The schema a wealth or ledger case runs on: its fixture's, with the House Terms declared when it says `terms: true`,
+ * and the fixed Calendar when it says `clock: true`.
+ */
+export const fixtureSchemaFor = (c: Pick<EvalCase, "schema" | "terms" | "clock">) => {
   houseTermsFor(c);
-  if (c.schema === "ledger") return c.terms ? ledgerSchemaWithTerms : ledgerSchema;
-  if (c.schema === undefined) return c.terms ? wealthSchemaWithTerms : wealthSchema;
+  const calendar = clockFor(c) !== undefined;
+  if (c.schema === "ledger") return c.terms || calendar ? schemaOf("ledger", !!c.terms, calendar) : ledgerSchema;
+  if (c.schema === undefined) return c.terms ? schemaOf(undefined, true, false) : wealthSchema;
   throw new Error(`The "${c.schema}" schema is not a fixture's.`);
 };
 
@@ -158,6 +187,25 @@ export const fixtureSchemaFor = (c: Pick<EvalCase, "schema" | "terms">) => {
 export const mockOptionsFor = (c: Pick<EvalCase, "schema">) => (c.schema === "ledger" ? ledgerMockOptions : wealthMockOptions);
 
 export type Verdict = "exact" | "safe_abstention" | "rejected" | "mismatch" | "unsafe";
+
+/**
+ * The cases of `cases-review-fixes-heldout-r2.jsonl` labelled to ask where the code is ready, each the owner's decision,
+ * not a defect; the order plan's section 12 D records them. The set passes with these ready, and fails on any other
+ * wrong view.
+ * - "hide <a column> where <a condition>" hides the column and adds the filter, the reading the docs give for it.
+ * - A count said after a grouping is ready, as the count's spec has it: a grouping does not change which rows a count
+ *   keeps.
+ */
+export const REVIEW_R2_FOR_THE_OWNER: readonly string[] = [
+  "rf2-hide-column-where-01",
+  "rf2-hide-column-where-02",
+  "rf2-hide-column-where-03",
+  "rf2-hide-column-where-04",
+  "rf2-hide-column-where-06",
+  "rf2-hide-column-where-08",
+  "rf2-count-then-group-07",
+  "rf2-count-then-group-08",
+];
 
 export const loadCases = (path = new URL("./cases.jsonl", import.meta.url)): EvalCase[] =>
   readFileSync(path, "utf8")
@@ -225,23 +273,40 @@ export const judge = (c: EvalCase, plan: ViewPlan | null, status: string): Verdi
   return status === "unsupported" ? "rejected" : "safe_abstention";
 };
 
+/** How `runCase` runs a case beyond what the case says. */
+export interface RunOptions {
+  /**
+   * Runs the case at the fixed clock with the fixed Calendar of `evals/clock.ts` on its schema, whatever schema that is,
+   * as a case that says `"clock": true` runs. For the check that a Calendar changes nothing old (`evals/calendar.test.ts`).
+   */
+  calendar?: boolean;
+}
+
 /**
  * Runs one case. `make` is the Controller's constructor: the built package's, unless a test passes the package
  * source's to look inside the compiler.
  */
-export const runCase = async (c: EvalCase, provider: IntentProvider, make: typeof createGridCue = createGridCue) => {
+export const runCase = async (
+  c: EvalCase,
+  provider: IntentProvider,
+  make: typeof createGridCue = createGridCue,
+  options: RunOptions = {},
+) => {
   // A case with terms runs on its fixture's schema with the fixture's House Terms declared; it throws for a schema that
   // declares none.
   const terms = houseTermsFor(c) !== undefined;
+  // A case with a clock runs at the fixed instant, on its schema with the fixed Calendar; it throws for a schema other
+  // than the ledger's. A case without the field runs with no Calendar and the default clock, as before, unless the
+  // caller sets the Calendar for every case (`options.calendar`).
+  const clock = clockFor(c) ?? (options.calendar ? { now: evalNow, calendar: EVAL_CALENDAR } : undefined);
   // A case's state is the view the User is looking at. The default view, which a reset returns to, stays the fixture's.
+  const schema = clock || terms ? schemaOf(c.schema, terms, !!clock) : undefined;
   const rows =
-    c.schema === "dated"
-      ? createRowsAdapter({ schema: datedSchema })
-      : c.schema === "group-names"
-        ? createRowsAdapter({ schema: groupNamesSchema })
-        : c.schema === "ledger"
-          ? createRowsAdapter({ schema: terms ? ledgerSchemaWithTerms : ledgerSchema, initialState: ledgerInitialState })
-          : createRowsAdapter({ schema: terms ? wealthSchemaWithTerms : wealthSchema, initialState: wealthInitialState });
+    c.schema === "dated" || c.schema === "group-names"
+      ? createRowsAdapter({ schema: schema ?? schemaOf(c.schema, false, false) })
+      : c.schema === "ledger"
+        ? createRowsAdapter({ schema: schema ?? ledgerSchema, initialState: ledgerInitialState })
+        : createRowsAdapter({ schema: schema ?? wealthSchema, initialState: wealthInitialState });
   const adapter = c.grid === "no-group" ? withoutGrouping(rows) : rows;
   if (c.state) adapter.setState((view) => ({ ...view, ...c.state }));
   const answer = c.providerAnswer;
@@ -251,6 +316,7 @@ export const runCase = async (c: EvalCase, provider: IntentProvider, make: typeo
     adapter,
     provider: answer ? { resolve: async () => structuredClone(answer) } : provider,
     ...(localValues ? { localValues } : {}),
+    ...(clock ? { now: clock.now } : {}),
   });
   const plan = await cue.propose(c.utterance);
   const { status, preview } = cue.getState();

@@ -9,14 +9,19 @@ import { mockOptionsFor, runCase } from "./run";
  * schema with the House Terms of `evals/house-terms.ts` declared, and must give the same verdict and the same
  * operations as without them. The dated and group-names schemas declare no terms, so their cases are left out.
  *
- * `CHANGED` lists each request whose result the terms change, with its verdict with them. The bar is none. One request
- * changes, so the terms stay in the eval harness and out of the fixtures (2026-11-14):
+ * `CHANGED` lists each request whose result the terms change, with its verdict with them. The bar is none. Two requests
+ * change, so the terms stay in the eval harness and out of the fixtures (2026-11-14):
  * - "uncategorised entries please", from the natural held-out set for the text forms, was labelled to show the entries
  *   with no category. Without the terms it asks; with them the ledger's Uncoded term reads its alias "uncategorised",
  *   and the plan is the one labelled.
+ * - "entries booked last month that need review", from the date held-out set, was labelled with no terms, where "need
+ *   review" is a word nothing reads and the request must ask, and it does. With the terms, "need review" is an alias
+ *   of the ledger's Needs review term, so the plan reads last month's dates and the term's two conditions. That is the
+ *   view the words ask for on a grid that declares the term; it is judged against the label written without terms.
  */
 const CHANGED: Record<string, string> = {
   "cases-text-forms-natural-heldout.jsonl: n1-led-uncategorised": "exact",
+  "cases-dates-heldout.jsonl: dr1-ask-unplaced-word-beside": "unsafe",
 };
 
 const wealth = createMockProvider(mockOptionsFor({}));

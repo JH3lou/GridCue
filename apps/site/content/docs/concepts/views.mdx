@@ -118,6 +118,16 @@ Remove the filter Market value above $100,000,000
 Filter Registration type to Trust
 ```
 
+## A view keeps fixed dates
+
+A relative date is worked out when the request is made, and the view keeps the two days as an ordinary filter. On 2026-11-13, "entries booked in the last 90 days" adds
+
+```ts
+{ columnId: "booked", operator: "between", value: { min: "2026-08-15", max: "2026-11-13" } }
+```
+
+The words "last 90 days" are in the plan's Preview, in brackets, and are gone once the plan is applied. The View State, the protocol and the Grid Adapter's interface hold no relative value. So a view applied today shows the same dates next month, and a saved view, an undo or a reload never means something else tomorrow. To see the last 90 days again, the User asks again. See [Dates](/docs/concepts/requests#dates) for the forms.
+
 ## Undo
 
 Every applied plan is undoable, newest first. Each `cue.undo()` restores the exact View State from before one apply, so repeated undos step back to the starting view (up to the last 20 changes). `getState().canUndo` says whether another undo is possible.

@@ -1,11 +1,13 @@
 import { inComparison } from "./code-read";
 import { isExposed, operatorsFor } from "./columns";
+import { isTimeZone } from "./dates";
 import { GridCueError } from "./errors";
 import { matchMentions } from "./mentions";
 import { normalize } from "./normalize";
 import { ownWord } from "./own-words";
 import { rowNouns } from "./placed";
 import {
+  Calendar,
   type ColumnCapability,
   type ColumnDescriptor,
   type ColumnKind,
@@ -62,6 +64,14 @@ export interface SchemaOptions {
    * must be the term's own. They are never sent to an Intent Provider.
    */
   houseTerms?: HouseTerm[];
+  /**
+   * The Calendar (ADR 0026): `{ timeZone: "America/New_York", fiscalYearStart: 1 }`. It turns date words such as "last
+   * 90 days" into fixed days, and a date in a filter means the whole day in its time zone. `timeZone` is an IANA name;
+   * left out, it is the browser's, taken when a request is read or a row is filtered. `fiscalYearStart` is a month from
+   * 1 to 12, default 1. Anything else in it, a time zone the runtime doesn't know, or a month outside 1 to 12 throws
+   * `INPUT_SCHEMA`. It is never sent to an Intent Provider.
+   */
+  calendar?: Calendar;
 }
 
 /** Turns "market_value" or "marketValue" into "Market value". */
@@ -114,7 +124,8 @@ const ownWordIn = (name: string): string | undefined => {
   for (let from = 0; from < words.length; from++) {
     for (let to = from + 1; to <= words.length; to++) {
       const run = words.slice(from, to).join(" ");
-      if (ownWord(run)) return run;
+      // The word after the run in the name, if any: "May items" never puts a number after "may".
+      if (ownWord(run, words[to])) return run;
     }
   }
   if (words.every(inComparison)) return text;
@@ -220,6 +231,35 @@ const checkHouseTerms = (terms: readonly unknown[], schema: ViewSchema): HouseTe
   });
 };
 
+/**
+ * Checks the Host's Calendar (ADR 0026) and returns it parsed: an object holding `timeZone`, an IANA name the runtime
+ * knows, and `fiscalYearStart`, a whole month from 1 to 12, and nothing else. Both may be left out. Throws
+ * `INPUT_SCHEMA`, naming the reason. The time zone a Calendar leaves out is not looked up here: it is the browser's,
+ * taken when a request is read or a row is filtered.
+ */
+const checkCalendar = (input: unknown): Calendar => {
+  const fail = (message: string): never => {
+    throw new GridCueError("INPUT_SCHEMA", message);
+  };
+  if (typeof input !== "object" || input === null || Array.isArray(input)) fail("calendar must be an object.");
+  const raw = input as Record<string, unknown>;
+  const stray = Object.keys(raw).filter((key) => key !== "timeZone" && key !== "fiscalYearStart");
+  if (stray.length > 0) fail(`calendar holds only timeZone and fiscalYearStart, not ${stray.join(", ")}.`);
+  const { timeZone, fiscalYearStart } = raw;
+  if (timeZone !== undefined && (typeof timeZone !== "string" || !isTimeZone(timeZone))) {
+    fail("calendar.timeZone must be an IANA time zone name, such as America/New_York.");
+  }
+  if (
+    fiscalYearStart !== undefined &&
+    (typeof fiscalYearStart !== "number" || !Number.isInteger(fiscalYearStart) || fiscalYearStart < 1 || fiscalYearStart > 12)
+  ) {
+    fail("calendar.fiscalYearStart must be a month from 1 to 12.");
+  }
+  const parsed = Calendar.safeParse(raw);
+  if (!parsed.success) fail(`calendar is malformed: ${parsed.error.issues.map((issue) => issue.message).join("; ")}`);
+  return (parsed as { data: Calendar }).data;
+};
+
 /** Builds a ViewSchema from the columns a table already has. */
 export const defineSchema = (columns: readonly ColumnInput[], options: SchemaOptions = {}): ViewSchema => {
   const restricted = new Set(options.restricted ?? []);
@@ -283,6 +323,7 @@ export const defineSchema = (columns: readonly ColumnInput[], options: SchemaOpt
   }
   const houseTerms = checkHouseTerms(options.houseTerms ?? [], schema);
   if (houseTerms.length > 0) schema.houseTerms = houseTerms;
+  if (options.calendar !== undefined) schema.calendar = checkCalendar(options.calendar);
 
   const parsed = ViewSchema.safeParse(schema);
   if (!parsed.success) {
