@@ -196,7 +196,7 @@ const [{ adapter, cue }] = useState(() => {
 - **Name the columns that hold names,** an advisor or a household, as text columns that are not restricted. A key for any other column makes `createGridCue` throw `INPUT_CONFIG`.
 - **GridCue keeps its index while a function returns the same array.** The form above builds a new array on every request, which is cheap for a few thousand rows. For more, return one array until your rows change.
 - **The `useState` initializer reads `rows` once.** If your rows change, read them through a ref, so each function sees the current array.
-- **A grid that pages from a server holds only its page.** Return your own list of every name instead.
+- **A grid that pages from a server holds only its page.** Return your own list of every name instead. For rows on a server, see [Rows on a server](/docs/guides/rows-on-a-server).
 
 With the fixture's rows, "Avery Lane's accounts" previews `Filter Advisor to exactly “Avery Lane”`, and "Lane's accounts" asks "Did you mean Advisor: Avery Lane?" with "Yes, Avery Lane" and "No". See [Requests](/docs/concepts/requests#local-values) for what reads and what asks, and [`createGridCue`](/docs/api/create-grid-cue#local-values) for the option.
 

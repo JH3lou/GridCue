@@ -56,6 +56,14 @@
       "types": "./dist/tanstack-table.d.ts",
       "default": "./dist/tanstack-table.js"
     },
+    "./testing": {
+      "types": "./dist/testing.d.ts",
+      "default": "./dist/testing.js"
+    },
+    "./ag-grid": {
+      "types": "./dist/ag-grid.d.ts",
+      "default": "./dist/ag-grid.js"
+    },
     "./styles.css": "./dist/styles.css",
     "./package.json": "./package.json"
   },
@@ -95,6 +103,9 @@
     "@types/node": "26.6.2",
     "@types/react": "19.3.0",
     "@typesafe-ai/sdk": "0.6.0",
+    "ag-grid-community": "36.3.0",
+    "ag-grid-community-34": "npm:ag-grid-community@34.3.1",
+    "ag-grid-community-35": "npm:ag-grid-community@35.3.1",
     "express": "5.2.1",
     "jsdom": "30.1.1",
     "publint": "0.3.24",

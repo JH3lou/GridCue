@@ -1,0 +1,57 @@
+:root {
+  color-scheme: light dark;
+  --text: #111827;
+  --muted: #4b5563;
+  --page: #ffffff;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text: #f9fafb;
+    --muted: #d1d5db;
+    --page: #030712;
+  }
+}
+
+/* The page grows a scrollbar when the Preview opens. Keep its room, so nothing shifts. */
+html {
+  scrollbar-gutter: stable;
+}
+body {
+  font-family: system-ui, sans-serif;
+  margin: 0;
+  color: var(--text);
+  background: var(--page);
+}
+main {
+  max-width: 90rem;
+  margin: 0 auto;
+  padding: 24px 16px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+h1 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 16px;
+}
+.note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+.grid {
+  height: 560px;
+  min-width: 0;
+}
+@media (max-width: 640px) {
+  .grid {
+    height: 480px;
+  }
+}

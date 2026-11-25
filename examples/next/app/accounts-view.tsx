@@ -3,6 +3,7 @@
 import { generateAccounts, wealthColumns, wealthInitialState, wealthSchemaOptions } from "@gridcue-internal/wealth-fixtures";
 import { applyView, createGridCue, createRemoteProvider, createRowsAdapter, defineSchema, emptyViewState } from "gridcue";
 import { GridCueBar } from "gridcue/react";
+import Link from "next/link";
 import { useState, useSyncExternalStore } from "react";
 
 // The firm's time zone. Next.js renders these rows on the server first, so the Calendar names it: the server and the
@@ -97,6 +98,9 @@ export function AccountsView({ now }: { now: string }) {
   return (
     <main>
       <h1>Accounts</h1>
+      <nav aria-label="Examples">
+        <Link href="/paged">Rows from a server, paged</Link> · <Link href="/ag-grid">In AG Grid</Link>
+      </nav>
       <GridCueBar controller={cue} />
       <p>{view.rows.length} rows</p>
       <div className="table-scroll">

@@ -1,9 +1,9 @@
 ---
 title: Adapters
-description: The GridAdapter interface, the Rows Adapter with applyView, the Query Adapter, and the TanStack Table adapter.
+description: The GridAdapter interface, the Rows Adapter with applyView, the Query Adapter, the AG Grid adapter, and the TanStack Table adapter.
 ---
 
-A Grid Adapter translates GridCue's View State to one grid library. It holds no language logic: it reports the grid's current view, applies a validated View Plan all at once, restores a snapshot for undo, and tells GridCue when the view changes. GridCue ships three adapters: the Rows Adapter for rows you keep in memory, the Query Adapter for rows your own Data Query fetches, and the TanStack Table adapter.
+A Grid Adapter translates GridCue's View State to one grid library. It holds no language logic: it reports the grid's current view, applies a validated View Plan all at once, restores a snapshot for undo, and tells GridCue when the view changes. GridCue ships four adapters: the Rows Adapter for rows you keep in memory, the Query Adapter for rows your own Data Query fetches, the TanStack Table adapter, and the AG Grid adapter.
 
 ## GridAdapter
 
@@ -129,7 +129,7 @@ interface RowsAdapterOptions {
 }
 ```
 
-A Grid Adapter for Hosts that keep rows in memory. It holds the View State itself; pair it with `applyView` to get the rows to render in any table. It is for rows you hold: `applyView` filters, sorts and counts them here, so a count is exact. For rows your server fetches, use the [Query Adapter](#createqueryadapter). A Rows Adapter over a page of a larger set would preview a count and show every row of the page.
+A Grid Adapter for Hosts that keep rows in memory. It holds the View State itself; pair it with `applyView` to get the rows to render in any table. It is for rows you hold: `applyView` filters, sorts and counts them here, so a count is exact. For rows your server fetches, use the [Query Adapter](#createqueryadapter) and read [Rows on a server](/docs/guides/rows-on-a-server). A Rows Adapter over a page of a larger set would preview a count and show every row of the page.
 
 | Name | Type | Default | Description |
 | --- | --- | --- | --- |
@@ -249,7 +249,7 @@ interface QueryAdapterOptions {
 }
 ```
 
-A Grid Adapter for Hosts whose rows come from their own Data Query: a server that filters, sorts and pages them. It holds the View State and never fetches. GridCue never writes a Data Query. You build yours from the View State, each time it changes.
+A Grid Adapter for Hosts whose rows come from their own Data Query: a server that filters, sorts and pages them. It holds the View State and never fetches. GridCue never writes a Data Query. You build yours from the View State, each time it changes. The [Rows on a server](/docs/guides/rows-on-a-server) guide says what each filter means and how to prove your query with the [Query Check](/docs/api/testing).
 
 | Name | Type | Default | Description |
 | --- | --- | --- | --- |
@@ -348,6 +348,46 @@ It throws `INPUT_CONFIG`, naming the entry, for:
 ### Where `renders` differs
 
 The Query Adapter takes `"pinning"` and `"density"` of [renders](#renders). `"totals"` and `"count"` throw `INPUT_CONFIG` here: a total over rows on a server is a Data Query of its own, and a count comes only from `countBeforePaging`. Your table draws pins and density from the View State, as with the Rows Adapter.
+
+## createAgGridAdapter
+
+```ts
+import { createAgGridAdapter, gridcueColumnDefs, schemaFromAgGrid } from "gridcue/ag-grid";
+
+function createAgGridAdapter(options: AgGridAdapterOptions): GridAdapter;
+function gridcueColumnDefs<D extends object>(schema: ViewSchema, columnDefs: readonly D[]): D[];
+function schemaFromAgGrid(columnDefs: ReadonlyArray<AgColDefLike | AgColGroupDefLike>, options?: SchemaOptions): ViewSchema;
+
+interface AgGridAdapterOptions {
+  schema: ViewSchema;
+  api: AgGridApiLike; // the grid's api, from onGridReady or createGrid
+  maxSorts?: number;
+}
+```
+
+A Grid Adapter over AG Grid Community 34, 35 and 36, on the Client-Side or the Infinite Row Model. It imports nothing from AG Grid, and AG Grid is not a peer dependency: `api` is any object with the calls it uses, and the api an AG Grid grid gives `onGridReady` fits. Enterprise is not tested. See [AG Grid](/docs/guides/ag-grid).
+
+| Name | Type | Default | Description |
+| --- | --- | --- | --- |
+| `schema` | `ViewSchema` | required | The schema for the grid, from `schemaFromAgGrid` or `defineSchema`. Every column in it must be a column of the grid. |
+| `api` | `AgGridApiLike` | required | The grid's api. |
+| `maxSorts` | `number` | `3` | Most sort levels allowed. |
+
+- **Lists** `MVP_OPERATIONS` without `group.set`, since AG Grid Community can't group. It lists no `columns.pin`, `density.set`, `aggregation.set` or `limit.set`, and takes no `renders`. A request for one ends as on any grid that doesn't list it.
+- **Reads and writes** filters (`getFilterModel`, `setFilterModel`), and sorts, hidden columns and order (`getColumnState`, `applyColumnState`). Atomic apply, snapshot restore and `observesChanges: true`. Revisions look like `ag-grid:0`, `ag-grid:1`. Its default state is the grid's view when the adapter is made.
+- **An apply is done when the grid holds it.** It writes, reads back in the same tick and compares. A write the grid doesn't hold is put back and returns `ADAPTER_FAILED`. A filter AG Grid can't hold returns `ADAPTER_UNSUPPORTED_FILTER` before anything is written.
+- **Menu filters are read** into the View State: each column's menu offers only the options GridCue reads there. A filter GridCue can't read, such as text that names no value of an enum, stays the Host's.
+- **`restore`** refuses a view holding a count, totals, pins, a density, or a grouping other than the grid's, with `ADAPTER_NOT_APPLICABLE`. A count of `null` is no count.
+- **`gridcueColumnDefs(schema, columnDefs)`** returns your column definitions with the settings each schema column needs: `columnDefs={gridcueColumnDefs(schema, columnDefs)}`. It sets AG Grid's text, number and date filters to GridCue's meanings and lists on each column only the options GridCue reads there. A column's own settings win. Build it once, from the schema you give the adapter.
+- **`schemaFromAgGrid(columnDefs, options)`** reads column IDs, labels and kinds from the definitions (column groups too) and a sample of rows. It takes the options `defineSchema` takes. A column with a `valueGetter` or `filterValueGetter`, a custom filter or `filter: false` gets no `filter` capability.
+
+`createAgGridAdapter` throws `INPUT_CONFIG` when:
+
+- `api` isn't an object.
+- the api lacks a call the adapter uses: "The grid's api has no …, which GridCue uses."
+- the grid is destroyed.
+- a schema column isn't a column of the grid: "The schema names “…”, which is not a column of this grid."
+- a column the schema lets GridCue filter has a `valueGetter` or `filterValueGetter`, or doesn't carry the filter settings `gridcueColumnDefs` gives it: "The grid can't hold GridCue's filters: …", naming the column and what to set.
 
 ## createTanStackAdapter
 

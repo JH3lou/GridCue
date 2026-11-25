@@ -25,6 +25,10 @@ const RULES: Record<string, RegExp> = {
   react: /^(\.\.\/index|\.\/[\w-]+|react)$/,
   server: /^(\.\.\/index|\.\/[\w-]+|node:[\w/]+|@typesafe-ai\/sdk)$/,
   tanstack: /^\.\.\/index$/,
+  // AG Grid: the root entry and its own files. Nothing from AG Grid, which has no peer dependency (ADR 0033).
+  "ag-grid": /^(\.\.\/index|\.\/[\w-]+)$/,
+  // The Query Check: core only, so no test runner and no dependency of its own.
+  testing: /^\.\.\/core\/[\w-]+$/,
 };
 
 describe("package boundaries", () => {

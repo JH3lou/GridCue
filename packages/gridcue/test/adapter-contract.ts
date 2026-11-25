@@ -59,6 +59,11 @@ export interface ContractOptions {
    * The TanStack Table adapter lists it only with `renders: ["count"]` (ADR 0027).
    */
   keepsCount?: boolean;
+  /**
+   * The MVP operations the adapter never lists, such as `["group.set"]` on AG Grid Community, which can't group (more
+   * grids spec, 5.6). Absent: none.
+   */
+  without?: readonly string[];
 }
 
 type Step = { operations: ViewOperation[]; holds(state: ViewState): void };
@@ -183,7 +188,8 @@ export const runAdapterContract = (name: string, make: () => ContractHarness, op
 
     it("lists the MVP operations, and beyond them only what the suite checks", () => {
       const operations = make().adapter.getCapabilities().operations;
-      expect(operations.filter((op) => MVP_OPERATIONS.includes(op))).toEqual([...MVP_OPERATIONS]);
+      const without = options.without ?? [];
+      expect(operations.filter((op) => MVP_OPERATIONS.includes(op))).toEqual(MVP_OPERATIONS.filter((op) => !without.includes(op)));
       const beyond = operations.filter((op) => !MVP_OPERATIONS.includes(op));
       expect([...beyond].sort()).toEqual([...listed].sort());
       for (const op of beyond) expect(Object.keys(OPERATION_CHECKS), `checks for ${op}`).toContain(op);
@@ -192,6 +198,7 @@ export const runAdapterContract = (name: string, make: () => ContractHarness, op
     it("refuses a plan holding an operation it doesn't list, before it reaches the grid", () => {
       const h = make();
       const unlisted: ViewOperation[] = [
+        { type: "group.set", columnIds: [h.otherColumn] },
         { type: "columns.pin", columnIds: [h.numericColumn], position: "start" },
         { type: "density.set", density: "compact" },
         { type: "aggregation.set", aggregations: [{ columnId: h.numericColumn, function: "sum" }] },
