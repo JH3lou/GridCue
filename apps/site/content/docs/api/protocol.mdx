@@ -112,7 +112,7 @@ interface AggregationSpec {
 }
 ```
 
-The whole view of a grid. `groupBy` lists nested levels, outermost first. `sorts` lists levels in priority order. `limit`, when present, shows only that many rows from the top of the sorted view. A `VersionedViewState` pairs it with a `revision` string that changes whenever the view changes; GridCue uses it to refuse stale plans and stale undos.
+The whole view of a grid. `groupBy` lists nested levels, outermost first. `sorts` lists levels in priority order. `aggregations` lists the view's Totals, one for each column, in the order they were added. `limit`, when present, shows only that many rows from the top of the sorted view. A `VersionedViewState` pairs it with a `revision` string that changes whenever the view changes; GridCue uses it to refuse stale plans and stale undos.
 
 `emptyViewState(columnIds)` returns a view with every given column visible in that order, no pins, filters, sorts, groups or aggregations, and `comfortable` density.
 
@@ -181,15 +181,28 @@ One change to the view. Operations apply in order.
 | `columns.show` | Makes columns visible, keeping `columnOrder`. `columnIds` is non-empty. | yes |
 | `columns.hide` | Hides columns. `columnIds` is non-empty. | yes |
 | `columns.order` | Moves these columns to the front, in this order. `columnIds` is non-empty. | yes |
-| `columns.pin` | Pins columns to the start or end, or unpins them with `none`. | no |
-| `aggregation.set` | Replaces the aggregations. | no |
-| `density.set` | Sets the row density. | no |
-| `limit.set` | Shows only the first `count` rows of the sorted view; `null` shows every row again. A row with no value in the first sorted column never fills the count. A count in a request ("top 10") produces it only where the adapter lists it; elsewhere the plan sorts alone and the Preview's `notes` say the count was not applied. The Preview's lines are "Show only the first 10 rows" and "Show every row". | no |
+| `columns.pin` | Pins columns to the start or end, or unpins them with `none`. A column is pinned once: it leaves both lists before it joins one. The Preview's lines are "Pin Account number to the start", "Unpin Advisor" and "Unpin all columns". | no, but listed by `renders` |
+| `aggregation.set` | Replaces the totals with the list it carries. A request that adds a total sends the view's whole list with the new one in it, so a total on another column never goes unless a request removes it; an empty list is "Remove the totals". The Preview's lines are "Show the total of Market value", "Show the average of Concentration", "Show the average of Market value instead of its total" and "Remove the totals". | no, but listed by `renders` |
+| `density.set` | Sets the row density. | no, but listed by `renders` |
+| `limit.set` | Shows only the first `count` rows of the sorted view; `null` shows every row again. A row with no value in the first sorted column never fills the count. A count in a request ("top 10") produces it only where the adapter lists it (the Rows Adapter always, the TanStack Table adapter with `renders: ["count"]`); elsewhere the plan sorts alone and the Preview's `notes` say the count was not applied. The Preview's lines are "Show only the first 10 rows" and "Show every row". | no |
 | `view.reset` | Returns to the adapter's default view. | yes |
 
 A plan that changes or clears the sort, or adds, replaces or clears a filter, on a view with a `limit`, and has no `limit.set` of its own, is not ready: GridCue asks whether to keep the count or show every row (Clarification id `plan.count`, options `keep` and `all`). `countQuestion(operations, view, defaultView?)` is that rule as a pure function. It is exported from the root, and returns the Clarification with the operations each answer makes, or `undefined` when the plan may go ahead. `compile` calls it after the provider has answered, so it holds for every Intent Provider.
 
-GridCue changes the view only. `aggregation.set` exists in the protocol but is not in `MVP_OPERATIONS`, and neither are `columns.pin` or `density.set`: no first-release adapter supports them, and a plan that uses them fails validation with `PLAN_OPERATION_UNSUPPORTED`. See [Adapters](/docs/api/adapters#mvp_operations).
+GridCue changes the view only. `columns.pin`, `density.set` and `aggregation.set` are not in `MVP_OPERATIONS`: an adapter lists each only when its `renders` option says the Host's table draws it, and a plan that uses one the adapter doesn't list fails validation with `PLAN_OPERATION_UNSUPPORTED`. A request for one on such a grid ends in a question before a plan is built, "This grid can't pin columns.", "This grid can't change its density." or "This grid can't show totals." See [Adapters](/docs/api/adapters#renders).
+
+Requests reach `aggregation.set` through closed words GridCue's own code reads, "total market value by advisor" or "average concentration", with no change to the protocol or to what a provider is sent: see [Totals](/docs/concepts/requests#totals). Only a sum and an average are produced, and both shipped adapters apply only those. `min`, `max` and `count` stay valid in the protocol and no request produces them. A plan that holds one for an adapter that doesn't apply it fails with `PLAN_AGGREGATION_KIND`, and an adapter says which functions it applies with `aggregationFunctions` in its capabilities.
+
+A total is checked against its column's kind, and a column holds one total at a time:
+
+| Plan | Result |
+| --- | --- |
+| A sum of a text, enum, date or yes/no column | `PLAN_AGGREGATION_KIND`: "Registration type can't be totalled." |
+| A sum of a percent column | `PLAN_AGGREGATION_KIND`: "Concentration can't be totalled; try an average." |
+| An average of a text, enum, date or yes/no column | `PLAN_AGGREGATION_KIND`: "Registration type can't be averaged." |
+| Two totals on the same column, with the same function or different ones | `PLAN_INCONSISTENT_STATE`: "A column can hold only one total at a time." |
+
+A sum fits a number or currency column, and an average a number, currency or percent column. A request that names a total that doesn't fit, such as "total concentration", never reaches validation: it asks first, "Concentration can't be totalled. Show its average instead?" 
 
 ## ViewPlan
 
@@ -436,7 +449,7 @@ Every failure has a stable code starting with its stage. Some are thrown as a `G
 | `INPUT_TOO_COMPLEX` | Controller issue | The Utterance has more than 12 Clauses. |
 | `INPUT_CLOCK` | Controller issue | The `now` function threw or returned something that is not a valid `Date`, for a request that holds a relative date. The view does not change. See [createGridCue](/docs/api/create-grid-cue#now). |
 | `INPUT_SCHEMA` | thrown by `defineSchema` | The schema is invalid. See [Schema](/docs/api/schema#input_schema-errors). |
-| `INPUT_CONFIG` | thrown by `createJevProvider` | Unknown strategy or signal name. |
+| `INPUT_CONFIG` | thrown by `createJevProvider`, `createRowsAdapter` and `createTanStackAdapter` | Unknown strategy or signal name, or a `renders` the adapter can't take: an unknown name, `"count"` on the Rows Adapter, `"totals"` on a TanStack table without `gridcueAggregationFn` registered, or `"count"` on a TanStack table that sets a manual setting or has no count piece. See [Adapters](/docs/api/adapters#renders). |
 | `INPUT_METHOD` | Server Handler, 405 | The request is not a `POST`. |
 | `INPUT_CONTENT_TYPE` | Server Handler, 415 | The request is not JSON. |
 | `INPUT_TOO_LARGE` | Server Handler and `toNodeHandler`, 413 | The body is over `maxBodyBytes`. |
@@ -456,12 +469,14 @@ Every failure has a stable code starting with its stage. Some are thrown as a `G
 | `PLAN_OPERATOR_NOT_ALLOWED` | validation issue | A filter uses an operator the column doesn't allow. |
 | `PLAN_VALUE_TYPE` | validation issue | A filter value doesn't fit the column's kind or operator. |
 | `PLAN_CARDINALITY` | validation issue | More sort or group levels than the adapter allows. |
-| `PLAN_INCONSISTENT_STATE` | validation issue | The result would have duplicate columns in the order, a visible column missing from it, or no visible columns. |
+| `PLAN_INCONSISTENT_STATE` | validation issue | The result would have duplicate columns in the order, a visible column missing from it, or no visible columns; or a plan holds two totals on one column. |
+| `PLAN_AGGREGATION_KIND` | validation issue | A total doesn't fit its column's kind, or its function isn't one the adapter applies. |
 | `PLAN_INVALID` | audit event | Fallback `errorCode` for a plan rejected at apply time with no issue code. |
 | `POLICY_RESTRICTED_COLUMN` | validation issue | The plan names a restricted column. |
 | `ADAPTER_NOT_APPLICABLE` | adapter result, thrown by `resultingState` | The plan did not come from `validatePlan`. |
 | `ADAPTER_STALE_REVISION` | adapter result | The view changed before the adapter applied the plan. |
 | `ADAPTER_UNSUPPORTED_FILTER` | TanStack adapter result | TanStack column filters can only be combined with AND. |
+| `ADAPTER_UNSUPPORTED_COUNT` | TanStack adapter result | The table sets `manualPagination`, `manualSorting`, `manualFiltering` or `manualGrouping`, so it holds one page of its rows, or `getSubRows`, so a row can hold sub-rows, and it can't show only the first rows of the view. Nothing changes. |
 | `ADAPTER_FAILED` | Controller issue | The adapter threw while applying or undoing. |
 
 The `RESOLUTION` stage is defined in `ErrorStage`, but no code uses it yet.

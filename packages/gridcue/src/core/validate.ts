@@ -1,6 +1,7 @@
 import { operatorsFor } from "./columns";
 import { GridCueError, type Issue } from "./errors";
 import {
+  type AggregationSpec,
   type ColumnCapability,
   type ColumnDescriptor,
   type FilterPredicate,
@@ -106,6 +107,48 @@ const columnIssue = (column: ColumnDescriptor | undefined, capability: ColumnCap
   return undefined;
 };
 
+/** The column kinds each total fits (ADR 0030): a sum an amount, an average an amount or a percentage. */
+const TOTAL_KINDS: Partial<Record<AggregationSpec["function"], ReadonlySet<string>>> = {
+  sum: new Set(["number", "currency"]),
+  avg: new Set(["number", "currency", "percent"]),
+};
+/** The functions a Grid Adapter applies when its capabilities don't say (ADR 0030). */
+const DEFAULT_TOTAL_FUNCTIONS: ReadonlyArray<AggregationSpec["function"]> = ["sum", "avg"];
+
+/**
+ * Why a total can't be shown on a column of this kind, as the words a User reads, or `undefined` when it fits. A sum
+ * fits a number or currency column, an average a number, currency or percent column (ADR 0030). A minimum, a maximum
+ * and a count have no kind rule; whether the grid applies them is the adapter's.
+ */
+export const totalKindIssue = (column: Pick<ColumnDescriptor, "label" | "kind">, fn: AggregationSpec["function"]): string | undefined => {
+  const kinds = TOTAL_KINDS[fn];
+  if (!kinds || kinds.has(column.kind)) return undefined;
+  if (fn === "sum" && column.kind === "percent") return `${column.label} can't be totalled; try an average.`;
+  return `${column.label} can't be ${fn === "sum" ? "totalled" : "averaged"}.`;
+};
+
+/** The issues of one list of totals: the kind rule, the functions the grid applies, and one total for each column. */
+const totalsIssues = (aggregations: readonly AggregationSpec[], ctx: ValidationContext): Issue[] => {
+  const issues: Issue[] = [];
+  const applies = ctx.capabilities.aggregationFunctions ?? DEFAULT_TOTAL_FUNCTIONS;
+  for (const a of aggregations) {
+    const column = ctx.schema.columns.find((c) => c.id === a.columnId);
+    if (!column || column.sensitivity === "restricted") continue;
+    if (!applies.includes(a.function)) {
+      issues.push({ code: "PLAN_AGGREGATION_KIND", message: `This grid can't show that total of ${column.label}.` });
+      continue;
+    }
+    const kind = totalKindIssue(column, a.function);
+    if (kind) issues.push({ code: "PLAN_AGGREGATION_KIND", message: kind });
+  }
+  // A column holds one total at a time (operation set spec, 5.4).
+  const ids = aggregations.map((a) => a.columnId);
+  if (new Set(ids).size !== ids.length) {
+    issues.push({ code: "PLAN_INCONSISTENT_STATE", message: "A column can hold only one total at a time." });
+  }
+  return issues;
+};
+
 /**
  * Every reason one filter can't apply on this schema: its column does not exist, is restricted or may not be filtered,
  * does not allow the operator, or the value does not fit its kind. `validatePlan` checks a plan's filters with it, and
@@ -162,6 +205,7 @@ export const validatePlan = (input: unknown, ctx: ValidationContext): Validation
         if (issue) add(issue.code, issue.message, path);
       }
     }
+    if (op.type === "aggregation.set") for (const issue of totalsIssues(op.aggregations, ctx)) add(issue.code, issue.message, path);
     if (op.type === "sort.set" && ctx.capabilities.maxSorts && op.sorts.length > ctx.capabilities.maxSorts) {
       add("PLAN_CARDINALITY", `This grid sorts by at most ${ctx.capabilities.maxSorts} columns.`, path);
     }
@@ -178,6 +222,15 @@ export const validatePlan = (input: unknown, ctx: ValidationContext): Validation
     add("PLAN_INCONSISTENT_STATE", "A visible column is missing from the column order.");
   }
   if (state.visibleColumnIds.length === 0) add("PLAN_INCONSISTENT_STATE", "The plan would hide every column.");
+  // A total on a column the view groups by (operation set spec, 5.4): a group row shows its own value there, so the
+  // total can't show. Checked for a plan that groups or sets totals, so a view made with the table's own controls still
+  // takes other changes.
+  const grouped = state.aggregations.find((a) => state.groupBy.includes(a.columnId));
+  const touches = plan.operations.some((op) => op.type === "aggregation.set" || op.type === "group.set");
+  if (grouped && touches && ctx.capabilities.operations.includes("aggregation.set")) {
+    const label = ctx.schema.columns.find((c) => c.id === grouped.columnId)?.label ?? grouped.columnId;
+    add("PLAN_INCONSISTENT_STATE", `GridCue can't group by ${label} and show its ${grouped.function === "avg" ? "average" : "total"} too.`);
+  }
   if (issues.length > 0) return { ok: false, issues };
 
   const frozen = deepFreeze(plan);

@@ -183,6 +183,11 @@ export const ViewCapabilities = z.object({
   supportsSnapshotRestore: z.boolean(),
   /** ADR 0009: true when the adapter reports manual view changes through `subscribe`. */
   observesChanges: z.boolean(),
+  /**
+   * With `aggregation.set`: the functions the adapter's table applies (ADR 0030). Left out, a sum and an average, which
+   * is what both shipped adapters apply. A total with any other function fails validation with `PLAN_AGGREGATION_KIND`.
+   */
+  aggregationFunctions: z.array(AggregationSpec.shape.function).optional(),
 });
 export type ViewCapabilities = z.infer<typeof ViewCapabilities>;
 

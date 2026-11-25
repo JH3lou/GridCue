@@ -96,6 +96,8 @@ advisor_name: { aliases: ["advisor", "rep", "financial advisor"], entity: "advis
 
 A column like Household names another kind of record. "Largest households first" can't sort by the Household column, because you can't rank a name by size. It means households as whole records. So instead of guessing, GridCue asks: "Did you mean households as a whole? GridCue can group by Household." Any name of the column counts, so "top reps first" is handled the same way.
 
+Declare `defaultMeasure` in the schema options, the column that holds the main value ("market_value"), and a grid that shows totals offers a third choice: "Rank households by total Market value". It groups by Household, shows the total of Market value, and sorts by that total, largest first ("smallest first" reverses it). `defaultMeasure` already stood in for the column a size word names; it now also picks the column a group ranking totals. A percent column ranks by its average. Without `defaultMeasure`, or on a grid that doesn't show totals, the question keeps its two choices. See [Ranking groups](/docs/concepts/requests#ranking-groups).
+
 ### `valueGroups`: your categories
 
 ```ts
@@ -180,7 +182,7 @@ A grid that pages holds one page of its rows, and GridCue reads only what the fu
 
 Two more per-column options limit what GridCue may propose:
 
-- `capabilities`: which of `filter`, `sort`, `group`, `show`, `hide` and `reorder` the column allows. The default is all six.
+- `capabilities`: which of `filter`, `sort`, `group`, `show`, `hide`, `reorder`, `pin` and `aggregate` the column allows. The default is the first seven, and `aggregate` as well for a number, currency or percent column, which may then be totalled. A list you write replaces the default, so leave `aggregate` out to keep a column from being totalled.
 - `allowedOperators`: a subset of the operators the column's kind allows, such as `["eq", "in"]`.
 
 A request that needs something the column doesn't allow gets a Clarification or an unsupported result, never a quiet substitute.

@@ -1,6 +1,6 @@
 # Code reads closed view words
 
-**Status:** accepted with the operation set spec (2026-11-13). Not yet built.
+**Status:** accepted with the operation set spec (2026-11-13). Built for the count words, pins, unpins, density and totals.
 
 Pins, density, totals, and setting or clearing a count are reached by code that reads a small, closed set of words. No Operation Family is added for them. The request sent to an Intent Provider, the families it scores, and Jev's questions do not change, so the protocol stays at 0.1.
 
@@ -11,6 +11,7 @@ What makes the reading safe:
 - **A Clause is read whole or not at all.** It is read only when every word is one of the form's own words, a Mention of a column, or a filler word the form allows. One word left over and the Clause goes to the provider exactly as it does today.
 - **Columns come only from Mentions.** A provider's pick, a Row Noun, or a value is never the column. So "pin the Northgate accounts to my watchlist" and "freeze the Alder account" read as nothing here, and stay refused or asked about.
 - **The Host's names come first.** A form word that is also a declared label or alias is a Mention, so the form doesn't read.
+- **A form's word is never dropped.** A form is read as a whole Clause or at its end. A pin or density word said anywhere else ("compact view, top 10 by market value") never leaves a ready plan: the part asks, so the Preview can't leave the density out.
 - **The words are narrow.** "Freeze" counts only with "column". Density takes "compact", "comfortable" or "spacious" beside "view", "rows", "density" or "mode". "Denser" and "tighter" depend on the current density, so they ask.
 - **A word joins the list only on held-out evidence.** Each list is tested on cases labelled before it exists, with no wrong view allowed.
 

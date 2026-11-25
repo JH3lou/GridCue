@@ -42,6 +42,8 @@ Financial services is the proving ground, not a hard-coded domain. Domain meanin
 - Single and multi-column sorting.
 - Set or clear grouping.
 - Show, hide, and reorder columns.
+- Pin and unpin columns, set density, and show totals, on a grid whose Host says its table draws them (ADR 0029). Code reads a closed list of words for these (ADR 0028).
+- A total is a sum or an average of one column, for each group or once for the whole view. The column's kind picks which, a column holds one total, and a sort on it ranks the groups. Both Grid Adapters order the groups the same way (ADR 0030).
 - Reset view.
 - Deterministic preview, apply, cancel, and undo.
 - Schema aliases and concise domain descriptions.
@@ -51,8 +53,7 @@ Financial services is the proving ground, not a hard-coded domain. Domain meanin
 
 ### Designed in the protocol, deferred in implementation
 
-- Aggregations and subtotals.
-- Column pinning and density.
+- Min, max and a count of rows as totals. They are valid in the protocol, and no request produces them.
 - Named/saved views.
 - Additional grid libraries.
 - Host-defined custom view operations.
@@ -149,7 +150,7 @@ The defaults are `ready` 0.85 and `clarify` 0.65. They are unchanged since the f
   - A value group names several values at once.
   - An excluded value filters to the others.
   - A value in a prepositional phrase ("for trusts") is a filter.
-  - A text-valued entity ranked by size ("largest households first") means the records, so GridCue offers to group rather than guess.
+  - A text-valued entity ranked by size ("largest households first") means the records, so GridCue offers to group rather than guess. Where the grid shows totals and the schema declares a main value column (`defaultMeasure`), it also offers to rank the records by their total (ADR 0030).
   - The Host chooses the Jev strategy ("focused" or "fan-out").
 
 ## Domain examples
@@ -159,7 +160,7 @@ The defaults are `ready` 0.85 and `clarify` 0.65. They are unchanged since the f
 | “Taxable households with more than $50,000 of losses” | Filter registration/tax status and unrealized loss using host-defined fields |
 | “Biggest sleeve drift first; group by strategist” | Sort drift descending, group by strategist |
 | “Only accounts with a restriction, and show the restriction reason” | Filter restriction flag; reveal permitted reason column |
-| “Hide PII and give me a compact exceptions view” | Hide columns tagged as PII if the host exposes that alias; density is deferred or unsupported |
+| “Hide PII and give me a compact exceptions view” | Hide columns tagged as PII if the host exposes that alias. “Compact exceptions view” is not a density form ("compact view" is), so the part should ask. Today the part after “and give me” is dropped and only the hide previews: a known wrong view, not yet fixed |
 | “Show gains close to becoming long term” | Clarify, or use a House Term the host declared on its own column; never invent the day threshold |
 | “Sell anything over 10%” | Reject: trade execution is outside the view-only boundary |
 

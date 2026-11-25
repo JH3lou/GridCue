@@ -36,9 +36,9 @@ A "!" that starts a request, follows a space, a comma, a semicolon or a colon, o
 
 A date is a day, on a date column and on a date-and-time column alike: see [Dates](#dates). A date that is not a real day ("2026-02-31") is asked about.
 
-Size words set a sort direction: "largest to smallest", "biggest first", "top" and "largest" sort descending; "smallest to largest", "smallest first" and "smallest" ascending. With no column named, they sort by the schema's [`defaultMeasure`](/docs/api/schema#schemaoptions), or GridCue asks which column. A count after a size word ("top 10", "largest 5") is a count, never a filter value: it becomes [`limit.set`](/docs/api/protocol#viewoperation) where the adapter supports it.
+Size words set a sort direction: "largest to smallest", "biggest first", "top" and "largest" sort descending; "smallest to largest", "smallest first" and "smallest" ascending. With no column named, they sort by the schema's [`defaultMeasure`](/docs/api/schema#schemaoptions), or GridCue asks which column. A count after a size word ("top 10", "largest 5") is a count, never a filter value: it becomes [`limit.set`](/docs/api/protocol#viewoperation) where the adapter supports it: the Rows Adapter always does, and the TanStack Table adapter does with [`renders: ["count"]`](/docs/api/adapters#gridcuecountfeature). On a grid that can't keep a count, the plan sorts alone and the Preview says "Count not applied: this grid can't show only the first 10".
 
-A count stays on the view until something clears it, so a change to the rows it keeps asks first. After "top 10 accounts by market value", a request that changes or clears the sort, or adds, replaces or clears a filter ("sort by advisor", "clear the sort", "only the taxable ones", "clear the filters") could mean the same ten rows in a new order, or the first ten of the new view. GridCue can't tell, so it asks "Keep only the first 10 rows of the new view, or show every row?" with two choices, "Keep the first 10" and "Show every row". Each choice adds its own line to the Preview. Grouping and hiding or showing columns don't change which rows the count keeps, so they don't ask, and a request that sets its own count ("top 5 by gain") doesn't either. "Reset the view" doesn't ask: it returns to the grid's default view, count included, so where the default view has no count it shows every row again. The rule holds for every provider: it is applied to the plan, after the provider has answered.
+A count stays on the view until something clears it, so a change to the rows it keeps asks first. After "top 10 accounts by market value", a request that changes or clears the sort, or adds, replaces or clears a filter ("sort by advisor", "clear the sort", "only the taxable ones", "clear the filters") could mean the same ten rows in a new order, or the first ten of the new view. GridCue can't tell, so it asks "Keep only the first 10 rows of the new view, or show every row?" with two choices, "Keep the first 10" and "Show every row". Each choice adds its own line to the Preview. Grouping and hiding or showing columns don't change which rows the count keeps, so they don't ask, and a request that sets its own count ("top 5 by gain") doesn't either. "Reset the view" doesn't ask: it returns to the grid's default view, count included, so where the default view has no count it shows every row again. The rule holds for every provider, and on both adapters: it is applied to the plan, after the provider has answered.
 
 Two forms set the count directly, and GridCue's own code reads both: the provider is never asked what they mean. The request still goes to the provider first, so a provider error or time limit stops it and leaves the view as it is, as for any request. "Show every row", "show all rows", "remove the count" and "no count" clear it, with the line "Show every row". "Show only the first 5 rows" and "only the first 5 rows" set it, with the line "Show only the first 5 rows"; with no sort on the view, GridCue asks "First 5 by which column?" instead, and on a grid that can't keep a count it says "This grid can't show only the first 5 rows." and changes nothing. The forms are read in the order they are said. "Sort by advisor, then show only the first 5 rows" shows the first 5 by Advisor. "Show only the first 5 rows, then sort by advisor" could mean the 5 rows on screen now, or the first 5 by Advisor, so GridCue asks about that part, as it does about count words said before "reset the view", which would undo them. A sort or grouping said after a count, while one said before the count is still in effect, would replace the one the count was said with, so GridCue asks about the part that set the count, whether that part also named the sort or not: "sort by gain, show only the first 5 rows, then sort by advisor", "group by custodian, show only the first 5 rows, then group by advisor" and "top 10 accounts by market value, sorted by advisor" all ask. On a grid that can't keep a count, where "top 10 by market value" sorts alone with a note, a sort said after it would join that sort as a tiebreaker, so "top 10 by market value, then sort by household" asks there too. Where there is no count to clear, "show every row" on a view with filters may mean the rows the filters leave out, so it goes to the provider, as do the clearing words on a grid that can't keep a count. A count form with a word left over, "remove the limit" for one, goes to the provider and usually asks. "Show all accounts", with the grid's `rowNoun`, is asked about too: on a view with a filter and a count it asks "Show every row, or clear the filters too?".
 
@@ -98,9 +98,9 @@ Any other word asks, and the question names it. These all ask, where the form al
 | "Who has no advisor" | "I'm not sure what to do with “who”. Try rephrasing that part." |
 | "There is no advisor I trust" | "I'm not sure what to do with “there” and “i”. Try rephrasing that part." |
 | "Accounts with no advisor sorted by size" | "I'm not sure what to do with “size”. Try rephrasing that part." |
-| `Advisor starts with "Av", pin advisor` | "I'm not sure what to do with “pin”. Try rephrasing that part." |
+| `Advisor starts with "Av", lock advisor` | "I'm not sure what to do with “lock”. Try rephrasing that part." |
 
-"To", "about", "who" and "what" are not placed, so a request that uses one of them never ends in a ready Preview: "assign Avery Lane to accounts with no advisor" and "who is missing an advisor" ask. A verb GridCue reads only for columns, such as "pin", is placed only when it changes a column, so it asks beside a form. "Size" asks too, because a provider may know it as a synonym, but GridCue doesn't: "sorted by market value" is ready.
+"To", "about", "who" and "what" are not placed, so a request that uses one of them never ends in a ready Preview: "assign Avery Lane to accounts with no advisor" and "who is missing an advisor" ask. A verb GridCue doesn't read, such as "lock" or "freeze" with no "column" after it, is never placed, so it asks beside a form. "Pin", "unpin" and the density words are read: see [Pins and density](#pins-and-density). "Size" asks too, because a provider may know it as a synonym, but GridCue doesn't: "sorted by market value" is ready.
 
 The same rule limits a provider's picks in such a part. A column or value that no name in the part supports is dropped, and a sort, group, show or hide is kept only when the part holds that change's own words.
 
@@ -295,6 +295,118 @@ Whole days, in America/New_York time
 
 A date in a filter means the whole day in the Calendar's time zone, so a cell stamped 2026-11-13T23:30 is kept by "posted today", whatever the hour. The note is shown once, however many date-and-time filters the Preview holds. A date column needs no note. How a cell becomes its day is on [Build an adapter](/docs/guides/build-an-adapter#dates-are-whole-days).
 
+## Pins and density
+
+GridCue's own code reads a small, closed set of words for pinning columns and for density. The provider still receives the request, but never decides what they mean. A part is read only when every word is a form word, a column the grid names, or a filler the form allows. One word left over, and the part goes to the provider as it would before, and usually asks.
+
+| Form | Reads | Doesn't read |
+| --- | --- | --- |
+| Pin | "pin advisor", "pin advisor and household", "pin the advisor column", "pin the custodian and advisor columns", "freeze the advisor column" | "freeze advisor" with no "column", "lock advisor", "pin advisor to my watchlist", "pin the Northgate accounts" (a value, not a column) |
+| Where | "pin advisor to the left", "to the start"; "pin market value to the right", "to the end". With no place, a pin goes to the start | "pin advisor to start" with no "the" |
+| Unpin | "unpin advisor", "unpin the advisor column", "unpin all columns", "unpin all", "unpin everything" | "unfreeze" |
+| Density | "compact", "comfortable" or "spacious" right before "view", "rows", "density" or "mode"; "use compact density" | "make it denser", "tighter", "make it compact", "compact exceptions view", "use compact view" |
+
+- **Columns come only from the names the grid declares.** "Pin the account column" asks, because "account" is the grid's `rowNoun` and may mean the rows: "GridCue can't tell whether “account” means the Account number column or the rows. To pin the column, say “pin the Account number column”." A yes/no column's name, as in "pin restricted", asks the same way until "column" follows it. A restricted column is refused, as everywhere.
+- **"Freeze" reads only with "column"**, and "denser" and "tighter" always ask, because they depend on the density the grid has now.
+- **"Left" and "right" mean the start and the end.** That assumes a grid that reads left to right.
+- **A pin comes with the other parts of a request.** "Group by advisor and pin advisor" previews "Group by Advisor" and "Pin Advisor to the start", and `Advisor starts with "Av", pin advisor` adds the filter and the pin. A request is split before some column names, so a column that starts the next part, as in "pin owner and cleared", may be one more column to pin or the start of another change. GridCue asks.
+- **The grid's own names come first.** Where a name the Host declared holds a form word, such as a size class "Compact", "compact view" may ask for the density or name that value. GridCue can't tell, so it asks, wherever the words sit in the request: "compact view sorted by mileage" and "sort by mileage, compact view" both ask "“compact” is a name in this grid, so GridCue can't tell what “compact view” asks for." "Rows" is the word for the rows themselves, so after a word that takes them, as in "hide the compact rows", "compact rows" says which rows and is read as the value. This doubt exists only on a grid that draws the density (or, for a name that holds "pin", pins). On a grid that doesn't, the words can only be the Host's name, and "compact view" filters by the size class, as it did before density was read.
+- **A pin or density is read as its own part, or at the end of one.** Said anywhere else, as in "compact view, top 10 by market value" or "pin market value above 1m", GridCue can't tell how it fits with the rest, and asks: "GridCue can't tell how “compact view” fits with the rest of that part. Try asking for it on its own." A pin or density word no form reads, as in "group by advisor with advisor pinned" or "northgate accounts, denser", asks about that word. Neither is ever dropped from a Preview. Inside quoted text or a name the grid declares, the word is the text's or the name's, unless the name starts a form there (above), and "the pins stay" asks for nothing.
+- **A pin on a hidden column shows it first.** "Pin concentration" with Concentration hidden previews "Show Concentration" and "Pin Concentration to the start". A column is pinned once: pinning it to the other side moves it.
+- **A pin or unpin names only what it changes.** "Pin advisor" with Advisor already pinned to the start keeps it where it is. "Unpin advisor" with Advisor not pinned, and "unpin everything" with nothing pinned, change nothing, and GridCue says "The grid already shows this view." "Unpin everything" never names a restricted column the Host pinned. While that column is hidden, it stays pinned out of sight and the others are unpinned. While it shows, GridCue asks "GridCue can't unpin every column here. To unpin the others, name them.", without the last sentence when no other column is pinned.
+
+The Preview says what will change:
+
+| Request | Preview |
+| --- | --- |
+| "Pin account number" | Pin Account number to the start |
+| "Pin market value to the right" | Pin Market value to the end |
+| "Unpin advisor" | Unpin Advisor |
+| "Unpin everything" | Unpin all columns |
+| "Compact view" | Use compact density |
+
+Each applies atomically and `cue.undo()` puts the pins and the density back.
+
+### A grid that doesn't draw them
+
+A Grid Adapter lists `columns.pin` and `density.set` only when the Host says its table draws them, with the adapter's [`renders` option](/docs/api/adapters#renders). Without it, a request for either ends in one Clarification with no choices, and nothing in the request applies, the other parts included:
+
+| Request, without `renders` | Clarification |
+| --- | --- |
+| "Pin account number" | "This grid can't pin columns." |
+| "Unpin everything" | "This grid can't pin columns." |
+| "Compact view" | "This grid can't change its density." |
+| "Group by advisor and pin advisor" | "This grid can't pin columns." |
+| "Compact view of taxable accounts" | "This grid can't change its density." |
+| "Pin restricted" | "This grid can't pin columns." |
+
+The form counts wherever it is said in the request, and whatever column it names: on this grid no wording of it could pin. It is the same question as [a grid that can't group](#a-grid-that-cant-group), and not an Unsupported Segment: nothing here is outside the view. A request that also asks for something outside the view, as in "pin advisor and export the list", is refused for that, as on a grid that draws pins. A request with none of these words reads as before.
+
+## Totals
+
+GridCue's own code also reads a small, closed set of words for totals. The provider still receives the request, but never decides what they mean. The same rules apply as for pins: a part is read only when every word is a form word, a column the grid names, or a filler the form allows, and one word left over sends the part to the provider as before.
+
+| Form | Reads | Doesn't read |
+| --- | --- | --- |
+| Total | "total market value", "sum of market value", "show the total of market value", "show total market value" (a number or currency column) | "how much does each advisor manage", "market value totals", "mean market value" |
+| Average | "average concentration", "show the average of concentration" (a number, currency or percent column) | "mean concentration", "avg concentration" |
+| Total by | "total market value by advisor", "sum of market value by advisor", "average concentration by custodian" (the second column can group) | "total market value per advisor": "per" asks |
+| Clear totals | "remove the totals", "clear the totals", "no totals" | "hide the totals", which could mean columns |
+
+"Also" may come before a form: "also total unrealized gain".
+
+- **"Total X by Y" groups by Y too**, replacing the grouping as "group by Y" does. "Group by advisor and show total market value" reads the same two lines. A grouping the same request said first is not replaced without a word, even one the view already has: "group by advisor, total market value by custodian" asks "GridCue can't group by Advisor and by Custodian too. To group by both, say “group by advisor, then custodian”.", and so does "total market value by advisor and total unrealized gain by custodian" on a view grouped by Advisor.
+- **A new total is added** to the totals the view has, and no total goes unless a request removes it. A column holds one total at a time, so "average market value" on a view that totals Market value replaces it. "Total market value, average market value" in one request asks, because it names two totals for one column.
+- **A total that doesn't fit its column asks.** "Total concentration" asks "Concentration can't be totalled. Show its average instead?" with Yes and No. Two such totals in one part are named together, "Concentration and Yield can't be totalled. Show their averages instead?", and Yes averages both. "Total registration type" says "Registration type can't be totalled." and offers no choice, and so does a part that totals Registration type beside a percent column.
+- **A totals form is read as its own part, or at the end of one**, after "and" or a comma. "Northgate accounts, total market value" and "group by advisor and total market value" preview both changes. Said anywhere else, as in "sort by total market value", GridCue can't tell how it fits and asks: "GridCue can't tell how “total market value” fits with the rest of that part. Try asking for it on its own."
+- **After a sort, or a list of columns to hide or show, a totals form asks.** The words may be one more item of that list: "sort by gain and average concentration" may sort by Concentration too. GridCue asks "GridCue can't tell whether “average concentration” is one more column to sort by. To show the average, ask for it on its own." A grouping can't group by a total, so a total after one is read.
+- **After a clear that names what it removes, a totals form asks too.** In "remove the totals and total market value" or "clear the sort and total market value", "remove" may take the total as well, so the User may want no total at all. GridCue asks "GridCue can't tell whether “total market value” is one more thing to remove. To show the total, ask for it on its own." A total with its own verb is read: "remove the totals and show the total of market value" shows only that total. So is one after a clear said in one word, as in "ungroup and total market value".
+- **A totals word no form read never leaves a ready Preview.** "Total", "totals", "sum" and "average" outside a name the grid declares and outside quoted text ask about that word, as in "northgate accounts total": "I'm not sure what to do with “total”. Try rephrasing that part." "Average" right after "above", "below", "over", "under" or "than", or joined to one by a hyphen ("above-average"), is a level to compare with, and is not counted as a totals word. A name the grid declares keeps its words: "Total return", as a label, is a column, and so is "Average cost" in "average cost by holder".
+- **A name made only of totals words is in doubt** where the grid shows totals. If the grid declares "total" or "sum" as a name of a column, "group by owner with totals" or "group by category, total amount" may ask for totals or name the column, so they ask: "“total” is a name in this grid, so GridCue can't tell what “total” asks for. Try rephrasing that part." They ask where the request shows totals or the part groups; "sort by total" still sorts the column. With the name of a column a total fits right after it, as in "sort by total units" or "hide sum of units", the words may ask for that column's total, so they ask wherever they are: "“total” is a name in this grid, so GridCue can't tell what “total units” asks for. Try rephrasing that part." On a grid that doesn't show totals, the words can only be the name, and read as before.
+- **A total on a column hidden in the same request** asks: "GridCue can't hide Market value and total it too."
+- **A total on a column the view groups by** asks, since a group row shows its own value in that column: "GridCue can't group by Unrealized gain and show its total too." That holds for "total gain" on a view grouped by Unrealized gain, and for "group by gain" on one that totals it. Validation refuses the same view with `PLAN_INCONSISTENT_STATE`, for a plan that groups or sets totals.
+- **A total on a hidden column shows it first.** "Total market value" with Market value hidden previews "Show Market value" and "Show the total of Market value".
+- **A column the Host doesn't let take a total** asks, as in "GridCue can't total Unrealized gain here." A total is on by default for number, currency and percent columns, and a Host can narrow it with a column's `capabilities` ([schema](/docs/api/schema)). A restricted column is refused, as everywhere.
+
+The Preview says what will change:
+
+| Request | Preview |
+| --- | --- |
+| "Total market value by advisor" | Group by Advisor; Show the total of Market value |
+| "Average concentration by custodian" | Group by Custodian; Show the average of Concentration |
+| "Total market value" | Show the total of Market value |
+| "Total unrealized gain", with Market value totalled already | Show the total of Unrealized gain |
+| "Average market value", with its total shown | Show the average of Market value instead of its total |
+| "Remove the totals" | Remove the totals |
+
+Each applies atomically and `cue.undo()` puts the totals back. A request that would change nothing, such as "remove the totals" with none shown, says "The grid already shows this view."
+
+### Ranking groups
+
+"Largest households first" can mean the rows, or the groups ranked by a total. When the grid shows totals, groups and sorts, and the request says which way ("largest", "smallest"), the question has a third choice when the schema declares a [`defaultMeasure`](/docs/api/schema), when the request's ranking word is made from a column's name ("most concentrated" for Concentration), or when the Intent Provider names the one column the request ranks by:
+
+| Choice | Applies |
+| --- | --- |
+| Group by Household | The grouping |
+| Use the Household column | A sort or filter on the column, as before |
+| Rank households by total Market value | Group by Household, show the total of Market value, and sort by Market value, descending ("smallest": ascending). The Preview shows all three lines |
+
+The third choice is a sum where the column takes one, else an average: "most concentrated households first" offers "Rank households by average Concentration". The ranking word counts when it follows "most" or "least" and is the column's name with "-ion" written "-ed". The choice is left out on a grid that doesn't show totals, for a column that can't take a total or a sort, for records whose column can't be grouped by, and when no column is there to rank by. Without it, the question is as it was, with two choices.
+
+### A grid that doesn't show totals
+
+A grid lists `aggregation.set` only when the Host says its table draws totals, with [`renders: ["totals"]`](/docs/api/adapters#renders). Without it, a request for one ends in one Clarification with no choices, and nothing in the request applies, the grouping of "total X by Y" included:
+
+| Request, without `renders` | Clarification |
+| --- | --- |
+| "Total market value" | "This grid can't show totals." |
+| "Total market value by advisor" | "This grid can't show totals." |
+| "Remove the totals" | "This grid can't show totals." |
+| "Total concentration" | "This grid can't show totals." |
+| "Northgate accounts total" | "This grid can't show totals." |
+
+The word counts wherever it is said and whatever column it names, as for pins. A request that also asks for something outside the view, as in "total market value by advisor and export the list", is refused for that. A request with none of these words reads as before, and so does a name the grid declares ("Total return").
+
 ## Mention
 
 A column or enum value that a Clause names by one of the Host's declared labels or aliases. Code finds Mentions before any provider call, matching whole words and plurals.
@@ -365,6 +477,8 @@ A Grid Adapter lists the operations it supports in `getCapabilities().operations
 | "Show the Northgate group" | "This grid can't group rows." |
 
 Nothing in the request applies, the other parts included. The User asked for every change, and showing only some would be a different view. Ask again without the grouping to get the rest.
+
+A grid that doesn't draw pins or density ends in the same question for them: see [A grid that doesn't draw them](#a-grid-that-doesnt-draw-them). The same goes for totals: see [A grid that doesn't show totals](#a-grid-that-doesnt-show-totals).
 
 Any word built on "group" counts, as a verb or a noun: "grouping", "groups", "regroup", "groupwise". "The Northgate group" and "groups of taxable accounts" may mean a grouping or only those rows, and GridCue can't tell which, so it asks. Ask for "Northgate accounts" to get the filter. "By" right after the word always asks: "keep the sort and the grouping by advisor".
 

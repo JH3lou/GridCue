@@ -1,6 +1,7 @@
+import { describe, expect, it } from "vitest";
 import { emptyViewState, type FilterPredicate, type ViewSchema, type ViewState } from "../src/core/protocol";
 import { defineSchema } from "../src/core/schema";
-import { type RenderedCase, type Row, runRenderedRows } from "./rendered-rows";
+import { groupedFirst, type RenderedCase, type Row, renderWithRows, renderWithTanStack, runRenderedRows } from "./rendered-rows";
 
 // Both Grid Adapters keep the same rows for the same view (named filters spec, section 10). This file holds the
 // whole-day, empty and exact-text cases. Nothing here reads the machine's own time zone, except the cases that say
@@ -258,6 +259,114 @@ const exactText: RenderedCase[] = [
   },
 ];
 
+// --- Pinned columns and density (operation set spec, 5.3) -----------------------------------------------------
+
+const pinRows: Row[] = [
+  { key: "r1", booked: "2026-01-02", posted: null, stamped: null, owner: "Avery", category: "travel" },
+  { key: "r2", booked: "2026-01-01", posted: null, stamped: null, owner: "Blake", category: "fees" },
+];
+const plain = schemaIn();
+const pinState = (pins: ViewState["pinnedColumnIds"], more: Partial<ViewState> = {}): ViewState => ({
+  ...emptyViewState(COLUMNS),
+  pinnedColumnIds: pins,
+  ...more,
+});
+const pinned: RenderedCase[] = [
+  { name: "no pins: the column order", schema: plain, rows: pinRows, state: pinState({ start: [], end: [] }), columns: COLUMNS },
+  {
+    name: "start pins first, end pins last, each in its pin order",
+    schema: plain,
+    rows: pinRows,
+    state: pinState({ start: ["owner", "key"], end: ["category", "booked"] }),
+    columns: ["owner", "key", "posted", "stamped", "category", "booked"],
+  },
+  {
+    name: "a reordered view, with one side pinned",
+    schema: plain,
+    rows: pinRows,
+    state: pinState(
+      { start: [], end: ["key"] },
+      { columnOrder: ["category", "owner", "stamped", "posted", "booked", "key"], visibleColumnIds: [...COLUMNS] },
+    ),
+    columns: ["category", "owner", "stamped", "posted", "booked", "key"],
+  },
+  {
+    name: "a hidden pinned column is in neither list",
+    schema: plain,
+    rows: pinRows,
+    state: pinState(
+      { start: ["owner", "posted"], end: ["stamped"] },
+      { visibleColumnIds: ["key", "booked", "stamped", "owner", "category"] },
+    ),
+    columns: ["owner", "key", "booked", "category", "stamped"],
+  },
+  {
+    name: "pins beside a sort and a filter",
+    schema: plain,
+    rows: pinRows,
+    state: pinState(
+      { start: ["owner"], end: [] },
+      { sorts: [{ columnId: "booked", direction: "asc" }], filters: stateWith({ columnId: "owner", operator: "isNotEmpty" }).filters },
+    ),
+    expected: ["r2", "r1"],
+  },
+  ...(["compact", "comfortable", "spacious"] as const).map((density) => ({
+    name: `${density} density`,
+    schema: plain,
+    rows: pinRows,
+    state: pinState({ start: ["key"], end: [] }, { density }),
+  })),
+];
+
+runRenderedRows("Pinned columns and density", pinned);
+
+// The columns, pins and density both adapters draw for 400 seeded random views, half of them grouped. The rows, groups
+// and totals of grouped views are compared in rendered-rows-groups.test.ts. On a grouped view TanStack Table
+// puts the grouped columns first among the unpinned ones (`groupedFirst`); the views where that moves a column are
+// counted, so the difference is seen, not hidden.
+describe("Pinned columns and density, seeded random views: what both adapters draw", () => {
+  let seed = 20261114;
+  const random = () => {
+    seed = (seed * 1103515245 + 12345) % 2147483648;
+    return seed / 2147483648;
+  };
+  const shuffle = <T>(items: readonly T[]): T[] => {
+    const out = [...items];
+    for (let i = out.length - 1; i > 0; i--) {
+      const j = Math.floor(random() * (i + 1));
+      [out[i], out[j]] = [out[j] as T, out[i] as T];
+    }
+    return out;
+  };
+  it("draws the same columns, pins and density, apart from TanStack's grouped columns first", async () => {
+    let moved = 0;
+    for (let n = 0; n < 400; n++) {
+      const order = shuffle(COLUMNS);
+      const pool = shuffle(COLUMNS);
+      const k1 = Math.floor(random() * 3);
+      const k2 = Math.floor(random() * 3);
+      const state: ViewState = {
+        ...emptyViewState(COLUMNS),
+        columnOrder: order,
+        visibleColumnIds: order.filter(() => random() < 0.75),
+        pinnedColumnIds: { start: pool.slice(0, k1), end: pool.slice(k1, k1 + k2) },
+        // A grouped column may be pinned or hidden too.
+        groupBy: n % 2 === 0 ? [] : shuffle(COLUMNS).slice(0, 1 + Math.floor(random() * 2)),
+        density: (["compact", "comfortable", "spacious"] as const)[Math.floor(random() * 3)] ?? "comfortable",
+      };
+      const c = { name: `view ${n}`, schema: plain, rows: pinRows, state };
+      const rows = await renderWithRows(c);
+      const table = await renderWithTanStack(c);
+      expect(table.pinned, c.name).toEqual(rows.pinned);
+      expect(table.density, c.name).toBe(rows.density);
+      expect(table.columns, c.name).toEqual(groupedFirst(rows.columns, rows.pinned, state.groupBy));
+      if (state.groupBy.length === 0) expect(table.columns, c.name).toEqual(rows.columns);
+      else if (JSON.stringify(table.columns) !== JSON.stringify(rows.columns)) moved++;
+    }
+    // Measured on this seed (2026-11-14): of the 200 grouped views, 95 draw a grouped column in another place.
+    expect(moved).toBe(95);
+  });
+});
 runRenderedRows("Whole days", [...wholeDays, ...browserZone, ...randomInstants]);
 runRenderedRows("Empty", empties);
 runRenderedRows("Exact text", exactText);

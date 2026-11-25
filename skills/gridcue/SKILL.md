@@ -5,7 +5,7 @@ description: Sets up GridCue, the open-source toolkit that lets people ask a dat
 
 # Set up GridCue
 
-GridCue turns a plain-language request into a change to a grid's **view**: filters, sorts, grouping, and which columns show. A model picks only among closed choices the app declares; code builds the plan, the User previews it, applies it, and can undo it. GridCue never changes data, and it never sends table rows to a model.
+GridCue turns a plain-language request into a change to a grid's **view**: filters, sorts, grouping, totals, which columns show and in what order, which are pinned, and the density. A model picks only among closed choices the app declares; code builds the plan, the User previews it, applies it, and can undo it. GridCue never changes data, and it never sends table rows to a model.
 
 Your job is to add it to the User's app in small steps, checking each one works before the next.
 
@@ -35,7 +35,52 @@ When something doesn't work, read [references/troubleshooting.md](references/tro
 
 ## Counts
 
-"Top 10 accounts by market value" sets a count: the view keeps its first 10 rows. The Rows Adapter supports it. The TanStack Table adapter doesn't list `limit.set` yet, on any table, so there GridCue sorts alone and the Preview says the count was not applied. A count stays on the view until something clears it, so a change to the sort or the filters asks first ("Keep the first 10" or "Show every row"). That is expected, not a bug. To clear a count the User says "show every row", "show all rows", "remove the count" or "no count"; "show only the first 5 rows" sets one. Don't add code to clear or keep a count: the Controller does it, with a Preview, and Undo restores it. See [Requests](https://gridcue.dev/docs/concepts/requests).
+"Top 10 accounts by market value" sets a count: the view keeps its first 10 rows. The Rows Adapter supports it with no option. The TanStack Table adapter lists `limit.set` only with GridCue's count piece, below; without it GridCue sorts alone and the Preview says "Count not applied: this grid can't show only the first 10", which is expected, not a bug. The same count question holds on both adapters. A count stays on the view until something clears it, so a change to the sort or the filters asks first ("Keep the first 10" or "Show every row"). That is expected, not a bug. To clear a count the User says "show every row", "show all rows", "remove the count" or "no count"; "show only the first 5 rows" sets one. Don't add code to clear or keep a count: the Controller does it, with a Preview, and Undo restores it. See [Requests](https://gridcue.dev/docs/concepts/requests).
+
+To show only the first rows on a TanStack Table v9, register GridCue's count piece, then name `"count"` in `renders`:
+
+```ts
+import { gridcueCountFeature, gridcueCountRowModel } from "gridcue/tanstack-table";
+
+const features = tableFeatures({
+  /* …the Host's features, */
+  ...{ gridcueCountFeature }, // spread in: TanStack's types name only its own features
+  filteredRowModel: gridcueCountRowModel(createFilteredRowModel()),
+});
+// …
+createTanStackAdapter({ schema, table, renders: ["count"] });
+```
+
+- **Only on `useTable` or `constructTable`, and never on a table that holds one page or sub-rows.** `createTanStackAdapter` throws `INPUT_CONFIG` when the table sets `manualPagination`, `manualSorting`, `manualFiltering`, `manualGrouping` or `getSubRows`, when its `filteredRowModel` isn't `gridcueCountRowModel(…)`, when it has no `gridcueCountFeature`, and on `useLegacyTable`. Don't work around it: the first rows of a page are not the first rows of the view, and a count can't keep sub-rows. One of those settings turned on later stops the count: the table shows every row it holds, the View State has no count, and `limit.set` is not listed.
+- **The table shows the rows it holds.** The adapter draws nothing, so draw those rows. `rowsBeforeCount(table)?.rows.length` gives the rows before the count, for a caption such as "First 10 of 48 rows". GridCue can't check your markup: never name `"count"` to make a request pass.
+- **Expected, not bugs:** a count never shows a row with no value in the first sorted column, so "top 10" can show fewer than 10; and the User's own header sort changes the view, with the count then keeping the first rows of the new order.
+
+## Pins and density
+
+"Pin account number" pins a column to the start, "unpin everything" clears the pins, and "compact view" sets the density. GridCue's own code reads a closed list of these words ("pin", "unpin", "freeze the advisor column", "compact", "comfortable" or "spacious" before "view", "rows", "density" or "mode"). The provider still receives the request, but never decides what they mean. A column is pinned by default unless it is `restricted` or its `capabilities` leave out `"pin"`.
+
+The adapter lists `columns.pin` and `density.set` only when the Host says its table draws them, with `renders`. **Set `renders` only for what the table draws, and draw it.** The default is none, and a request for either then asks "This grid can't pin columns." or "This grid can't change its density." and changes nothing. That is expected, not a bug.
+
+- **What to draw.** `renders: ["pinning"]` needs the table to keep pinned columns in place while the rest scroll. `renders: ["density"]` needs its own row height and cell spacing from the View State's `density`. With the Rows Adapter, `applyView` returns `pinned` and `density` beside `columns`, which already puts start-pinned columns first. With TanStack Table, register `columnPinningFeature` (and `columnSizingFeature`, for the offset from `column.getStart("start")`).
+- **`createRowsAdapter({ schema, initialState, renders: ["pinning", "density"] })`** and **`createTanStackAdapter({ schema, table, renders: ["pinning", "density"] })`.** TanStack throws `INPUT_CONFIG` for `"pinning"` when the table has no `setColumnPinning`. A name the adapter doesn't take throws `INPUT_CONFIG` too: leave it out, and don't name `"count"` on the Rows Adapter, which keeps a count with no option. `"totals"` is the third name each adapter takes: see Totals below. `"count"` is the fourth name of the TanStack Table adapter only: see Counts.
+- **GridCue can't check what the markup draws.** Never turn `renders` on to make a request pass. A Host that names a pin its table ignores gets a Preview and "View updated." with nothing to see.
+- **These asks are expected, not bugs,** so don't add words or aliases to make them pass: "freeze advisor" with no "column", "lock advisor", "pin advisor to my watchlist", "pin the Northgate accounts", "make it denser", "tighter" and "compact exceptions view". "Pin the account column" asks too when "account" is the grid's `rowNoun`: "pin the Account number column" is read. A pin or density said before or in the middle of another change ("compact view, top 10 by market value") asks; said as its own part or at the end ("top 10 by market value, compact view") it reads. "Unpin everything" with nothing pinned says "The grid already shows this view." "Left" and "right" mean the start and the end, which assumes a grid that reads left to right.
+
+See [Adapters](https://gridcue.dev/docs/api/adapters#renders), [Requests](https://gridcue.dev/docs/concepts/requests#pins-and-density) and [Views](https://gridcue.dev/docs/concepts/views).
+
+## Totals
+
+"Total market value by advisor" shows each advisor's total of Market value, "average concentration" shows one average, and "remove the totals" clears them. A total is a sum or an average of one column, for each group or, with no grouping, once for the view. GridCue's own code reads a closed list of these words, and the provider never decides what they mean, though it still receives the request: "total X", "sum of X", "show the total of X", "average X", "total X by Y", "average X by Y", and "remove the totals", "clear the totals" or "no totals". A number, currency or percent column is totalled by default unless it is `restricted` or its `capabilities` leave out `"aggregate"`. A sum fits a number or currency column and an average also a percent column, so "total concentration" asks "Concentration can't be totalled. Show its average instead?" A column holds one total at a time: "average market value" replaces its total, and the Preview says "instead of its total".
+
+The adapter lists `aggregation.set` only when the Host says its table draws totals, with `renders: ["totals"]`. **Set it only when the table draws them, and draw them.** The default is none, and a request for a total then asks "This grid can't show totals." and changes nothing, the grouping of "total X by Y" included. That is expected, not a bug.
+
+- **Rows Adapter.** `createRowsAdapter({ schema, initialState, renders: ["totals"] })`. `applyView` returns `totals` for the view and `totals` on each group. Draw a group's value with a word such as "total" or "avg" beside it, and draw nothing for `null`, which means no row had a value (never 0).
+- **TanStack Table.** Register `rowAggregationFeature`, and put both functions on `defaultColumn`: `defaultColumn: { filterFn: gridcueFilterFn, aggregationFn: gridcueAggregationFn, getAggregationValue: gridcueAggregationValue }`, with both from `gridcue/tanstack-table`. Then `createTanStackAdapter({ schema, table, renders: ["totals"] })`. A group row's value is `row.getValue(columnId)`, and a footer's is `column.getAggregationValue()`. The adapter throws `INPUT_CONFIG` for `"totals"` when it sees no `rowAggregationFeature`, a column the schema lets it total that the table lacks, or a column that doesn't use the two functions. Leave `aggregationFn` and `getAggregationValue` out of a column's own definition.
+- **One group order.** A grouped, sorted view orders its groups by the total when the sort is on a column with a total, and otherwise in the order they first appear in the rows. The Rows Adapter used to order them by the sorted rows, so a Host that upgrades can see its groups in a different order with the same View State. That is the change, not a bug.
+- **`defaultMeasure` ranks groups too.** With it, and `renders: ["totals"]`, "largest households first" gains a third choice, "Rank households by total Market value".
+- **These ask, and are expected, not bugs,** so don't add words or aliases to make them pass: "total market value per advisor" ("per"), "how much does each advisor manage", "mean market value", "market value totals", and "hide the totals". A totals word no form reads ("northgate accounts total", "sort by total market value") asks about that word. So do a total after a sort or a column list ("sort by gain and average concentration"), a total after a clear ("remove the totals and total market value"), a total on a column the view groups by, and, with `renders: ["totals"]`, an alias made only of totals words ("total" for Amount) beside a grouping or a total, or right before another column's name ("sort by total units"). Never turn `renders: ["totals"]` on to make a request pass.
+
+See [Adapters](https://gridcue.dev/docs/api/adapters#gridcueaggregationfn), [Requests](https://gridcue.dev/docs/concepts/requests#totals) and [Views](https://gridcue.dev/docs/concepts/views#totals).
 
 ## Text and empty forms
 

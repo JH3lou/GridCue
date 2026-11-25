@@ -61,6 +61,7 @@ interface ViewCapabilities {
   supportsAtomicApply: boolean;
   supportsSnapshotRestore: boolean;
   observesChanges: boolean;      // ADR 0009
+  aggregationFunctions?: AggregationSpec["function"][]; // ADR 0030; left out: "sum" and "avg"
 }
 ```
 
@@ -157,7 +158,9 @@ type ViewOperation =
   | { type: "view.reset" };
 ```
 
-The first implementation supports the MVP subset named in the approved build spec under `docs/superpowers/specs/`. A declared-but-unimplemented operation returns `unsupported`; it is not silently dropped.
+The first implementation supports the MVP subset named in the approved build spec under `docs/superpowers/specs/`. `columns.pin`, `density.set` and `aggregation.set` are reached by code that reads a closed list of words (ADR 0028), not by an Operation Family, so the protocol stays at 0.1 and the provider request does not change. An adapter lists them only when the Host's `renders` option says its table draws them (ADR 0029). A request for one the adapter doesn't list ends in a Clarification with no choices, "This grid can't pin columns.", "This grid can't change its density." or "This grid can't show totals.", and nothing in the request applies. A plan that holds one fails validation with `PLAN_OPERATION_UNSUPPORTED`. `columns.pin` removes a column from both lists before it adds it, so a column is pinned once.
+
+`aggregation.set` carries the view's whole list of totals: a new total is added to the list, so a total on another column never goes unless a request removes it, and an empty list is "Remove the totals". A column holds one total at a time. Only a sum and an average are applied (ADR 0030). `min`, `max` and `count` stay valid in the protocol, no request produces them, and an adapter says which functions it applies with `ViewCapabilities.aggregationFunctions`, which defaults to a sum and an average. A declared operation an adapter doesn't apply is not silently dropped: its plan fails validation.
 
 Operation order is significant during compilation and preview, but the validator calculates one final state and the adapter applies it atomically.
 
@@ -217,7 +220,7 @@ Before preview and again before apply:
 6. Every value has the required type and, for closed enums, resolves to an approved ID.
 7. Cardinality limits for sorting/grouping are respected.
 8. The plan contains no clarification or unsupported segment.
-9. The resulting state is internally consistent: no duplicate order IDs, missing visible columns, or incompatible grouping/aggregation.
+9. The resulting state is internally consistent: no duplicate order IDs, missing visible columns, or two totals on one column (`PLAN_INCONSISTENT_STATE`). On an adapter that lists `aggregation.set`, a plan that groups or sets totals may not leave a total on a column the view groups by, where a group row shows its own value (`PLAN_INCONSISTENT_STATE`). A total fits its column's kind and the adapter's functions (`PLAN_AGGREGATION_KIND`): a sum a number or currency column, an average also a percent column, and no other kind.
 10. The whole plan can apply atomically.
 
 Validation failure never mutates view state.

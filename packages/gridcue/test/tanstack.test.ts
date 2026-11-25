@@ -6,6 +6,7 @@ import {
   columnFilteringFeature,
   columnGroupingFeature,
   columnOrderingFeature,
+  columnPinningFeature,
   columnVisibilityFeature,
   constructTable,
   createFilteredRowModel,
@@ -13,6 +14,7 @@ import {
   createPaginatedRowModel,
   createSortedRowModel,
   functionalUpdate,
+  rowAggregationFeature,
   rowPaginationFeature,
   rowSelectionFeature,
   rowSortingFeature,
@@ -23,13 +25,19 @@ import { act, cleanup, renderHook } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import type { GridAdapter } from "../src/core/adapter";
+import { MVP_OPERATIONS } from "../src/core/adapter";
 import { createGridCue } from "../src/core/controller";
 import { isGridCueError } from "../src/core/errors";
+import type { ViewOperation } from "../src/core/protocol";
 import { defineSchema } from "../src/core/schema";
 import { validatePlan } from "../src/core/validate";
 import { createMockProvider } from "../src/mock";
 import {
   createTanStackAdapter,
+  gridcueAggregationFn,
+  gridcueAggregationValue,
+  gridcueCountFeature,
+  gridcueCountRowModel,
   gridcueFilterFn,
   localValuesFromTable,
   schemaFromTanStack,
@@ -44,7 +52,7 @@ const rows = [
   { value: 12, team: "b", name: "z" },
 ];
 
-const features = tableFeatures({
+const featureList = {
   coreReactivityFeature: storeReactivityBindings(),
   columnFilteringFeature,
   rowSortingFeature,
@@ -57,7 +65,22 @@ const features = tableFeatures({
   sortedRowModel: createSortedRowModel(),
   groupedRowModel: createGroupedRowModel(),
   paginatedRowModel: createPaginatedRowModel(),
+};
+const features = tableFeatures(featureList);
+/** The same features with `columnPinningFeature`, which `renders: ["pinning"]` needs. */
+const pinningFeatures = tableFeatures({ ...featureList, columnPinningFeature });
+/** With `columnPinningFeature` and `rowAggregationFeature`, which `renders: ["totals"]` needs. */
+const drawingFeatures = tableFeatures({ ...featureList, columnPinningFeature, rowAggregationFeature });
+/** And GridCue's count piece, which `renders: ["count"]` needs. */
+const countingFeatures = tableFeatures({
+  ...featureList,
+  columnPinningFeature,
+  rowAggregationFeature,
+  ...{ gridcueCountFeature },
+  filteredRowModel: gridcueCountRowModel(createFilteredRowModel()),
 });
+/** What a Host registers on `defaultColumn` for GridCue: its filter function, and its two total functions. */
+const GRIDCUE_COLUMN = { filterFn: gridcueFilterFn, aggregationFn: gridcueAggregationFn, getAggregationValue: gridcueAggregationValue };
 
 type TestTable = TanStackTableLike & {
   getRowModel(): { rows: Array<{ original: (typeof rows)[number] }> };
@@ -65,11 +88,17 @@ type TestTable = TanStackTableLike & {
   setRowSelection(selection: Record<string, boolean>): void;
 };
 
-const makeTable = () =>
+/** A table with no pinning feature, with `columnPinningFeature`, with it and the totals GridCue reads, or with the count too. */
+type Drawn = boolean | "totals" | "count";
+const featuresFor = (drawn: Drawn) =>
+  drawn === "count" ? countingFeatures : drawn === "totals" ? drawingFeatures : drawn ? pinningFeatures : features;
+const defaultColumnFor = (drawn: Drawn) => (drawn === "totals" || drawn === "count" ? GRIDCUE_COLUMN : { filterFn: gridcueFilterFn });
+
+const makeTable = (pinning: Drawn = false) =>
   constructTable({
-    features,
+    features: featuresFor(pinning),
     data: rows,
-    defaultColumn: { filterFn: gridcueFilterFn },
+    defaultColumn: defaultColumnFor(pinning),
     columns: [
       { accessorKey: "value", header: "Value" },
       { accessorKey: "team", header: "Team" },
@@ -95,27 +124,47 @@ const makeTableWithHostFilter = () =>
   } as never) as unknown as TestTable;
 
 /** A table over the contract's dated rows, with a column for each of their keys. */
-const makeDatedTable = () =>
+const makeDatedTable = (pinning: Drawn = false) =>
   constructTable({
-    features,
+    features: featuresFor(pinning),
     data: DATED_ROWS,
-    defaultColumn: { filterFn: gridcueFilterFn },
+    defaultColumn: defaultColumnFor(pinning),
     columns: DATED_COLUMNS.map((id) => ({ accessorKey: id, header: id })),
   } as never) as unknown as TestTable;
 
-runAdapterContract("TanStack Table adapter", () => {
-  const table = makeTable();
-  const adapter = createTanStackAdapter({ schema: schemaFromTanStack(table), table });
+/** What the contract's tables draw when they draw both: pins through `columnPinningFeature`, and the density. */
+const BOTH = ["pinning", "density"] as const;
+/** And when they draw all three: the totals too, through `gridcueAggregationFn`. */
+const ALL = ["pinning", "density", "totals"] as const;
+/** And with the count, through GridCue's count piece. */
+const COUNTED = ["pinning", "density", "totals", "count"] as const;
+type Renders = ReadonlyArray<"pinning" | "density" | "totals" | "count">;
+const drawnFor = (renders: Renders | undefined): Drawn =>
+  renders?.includes("count") ? "count" : renders?.includes("totals") ? "totals" : !!renders;
+
+const constructedHarness = (renders?: Renders) => () => {
+  const table = makeTable(drawnFor(renders));
+  const adapter = createTanStackAdapter({ schema: schemaFromTanStack(table), table, ...(renders ? { renders } : {}) });
   return {
     adapter,
     manualChange: () => table.setSorting([{ id: "team", desc: false }]),
     numericColumn: "value",
     otherColumn: "name",
     dated: () => {
-      const dated = makeDatedTable();
-      return createTanStackAdapter({ schema: schemaFromTanStack(dated), table: dated });
+      const dated = makeDatedTable(drawnFor(renders));
+      return createTanStackAdapter({ schema: schemaFromTanStack(dated), table: dated, ...(renders ? { renders } : {}) });
     },
   };
+};
+
+runAdapterContract("TanStack Table adapter", constructedHarness());
+runAdapterContract("TanStack Table adapter, renders pinning and density", constructedHarness(BOTH), { renders: BOTH });
+runAdapterContract("TanStack Table adapter, renders totals", constructedHarness(["totals"]), { renders: ["totals"] });
+runAdapterContract("TanStack Table adapter, renders pinning, density and totals", constructedHarness(ALL), { renders: ALL });
+// With GridCue's count piece: the adapter lists limit.set, and the count is held in the table's own store.
+runAdapterContract("TanStack Table adapter, renders count", constructedHarness(["count"]), { renders: ["count"] });
+runAdapterContract("TanStack Table adapter, renders pinning, density, totals and count", constructedHarness(COUNTED), {
+  renders: COUNTED,
 });
 
 // The same suite through React's `useTable` and `useLegacyTable`, where the Host may control a slice of the
@@ -127,7 +176,7 @@ beforeAll(() => {
 });
 afterEach(cleanup);
 
-const reactFeatures = tableFeatures({
+const reactFeatureList = {
   columnFilteringFeature,
   rowSortingFeature,
   columnGroupingFeature,
@@ -139,6 +188,16 @@ const reactFeatures = tableFeatures({
   sortedRowModel: createSortedRowModel(),
   groupedRowModel: createGroupedRowModel(),
   paginatedRowModel: createPaginatedRowModel(),
+};
+const reactFeatures = tableFeatures(reactFeatureList);
+const reactPinningFeatures = tableFeatures({ ...reactFeatureList, columnPinningFeature });
+const reactDrawingFeatures = tableFeatures({ ...reactFeatureList, columnPinningFeature, rowAggregationFeature });
+const reactCountingFeatures = tableFeatures({
+  ...reactFeatureList,
+  columnPinningFeature,
+  rowAggregationFeature,
+  ...{ gridcueCountFeature },
+  filteredRowModel: gridcueCountRowModel(createFilteredRowModel()),
 });
 const reactColumns = [
   { accessorKey: "value", header: "Value" },
@@ -148,8 +207,18 @@ const reactColumns = [
 
 type Sorting = Array<{ id: string; desc: boolean }>;
 type Filters = Array<{ id: string; value: unknown }>;
-/** Which slices of the table's state the Host controls, and whether it gives a change handler. */
-type Control = { sorting?: "handler" | "none"; filters?: "handler" };
+type Pinning = { start: string[]; end: string[] };
+/**
+ * Which slices of the table's state the Host controls, and whether it gives a change handler, and what the adapter is
+ * told the table draws. `pinning: "v8"` keeps the Host's pins in TanStack Table v8's shape, `left` and `right`.
+ */
+type Control = {
+  sorting?: "handler" | "none";
+  filters?: "handler";
+  pinning?: "handler" | "none" | "v8";
+  grouping?: "handler";
+  renders?: Renders;
+};
 
 /** The rows and columns a Host table shows: the shared rows, or the contract's dated rows. */
 type Grid = { data: readonly object[]; columns: ReadonlyArray<{ accessorKey: string; header: string }> };
@@ -160,20 +229,38 @@ const datedGrid: Grid = { data: DATED_ROWS, columns: DATED_COLUMNS.map((id) => (
 const useHostOptions = (control: Control, grid: Grid) => {
   const [sorting, setSorting] = useState<Sorting>([]);
   const [columnFilters, setColumnFilters] = useState<Filters>([]);
+  const [columnPinning, setColumnPinning] = useState<Pinning | { left: string[]; right: string[] }>(
+    control.pinning === "v8" ? { left: [], right: [] } : { start: [], end: [] },
+  );
+  const [grouping, setGrouping] = useState<string[]>([]);
   return {
     columns: grid.columns,
     data: grid.data,
-    defaultColumn: { filterFn: gridcueFilterFn },
+    defaultColumn: control.renders?.some((r) => r === "totals" || r === "count") ? GRIDCUE_COLUMN : { filterFn: gridcueFilterFn },
     state: {
       ...(control.sorting ? { sorting } : {}),
       ...(control.filters ? { columnFilters } : {}),
+      ...(control.pinning ? { columnPinning } : {}),
+      ...(control.grouping ? { grouping } : {}),
     },
     ...(control.sorting === "handler" ? { onSortingChange: setSorting } : {}),
     ...(control.filters === "handler" ? { onColumnFiltersChange: setColumnFilters } : {}),
+    ...(control.pinning === "handler" || control.pinning === "v8" ? { onColumnPinningChange: setColumnPinning } : {}),
+    ...(control.grouping === "handler" ? { onGroupingChange: setGrouping } : {}),
   };
 };
 
-const useHostTable = (control: Control, grid: Grid) => useTable({ ...useHostOptions(control, grid), features: reactFeatures } as never);
+const useHostTable = (control: Control, grid: Grid) =>
+  useTable({
+    ...useHostOptions(control, grid),
+    features: control.renders?.includes("count")
+      ? reactCountingFeatures
+      : control.renders?.includes("totals")
+        ? reactDrawingFeatures
+        : control.renders?.includes("pinning") || control.pinning
+          ? reactPinningFeatures
+          : reactFeatures,
+  } as never);
 
 const useHostLegacyTable = (control: Control, grid: Grid) =>
   useLegacyTable({
@@ -188,7 +275,7 @@ const makeHostTable = (control: Control, legacy: boolean, grid: Grid = accounts)
   // Created once, as the Vite example does: useTable returns a new object whenever table state changes.
   const table = hook.result.current as unknown as TestTable;
   const schema = schemaFromTanStack(table);
-  const adapter = createTanStackAdapter({ schema, table });
+  const adapter = createTanStackAdapter({ schema, table, ...(control.renders ? { renders: control.renders } : {}) });
   // The User's own change goes through React, as a header click does.
   const manualChange = () => act(() => table.setSorting([{ id: "team", desc: false }]));
   return { table, schema, adapter, manualChange };
@@ -213,6 +300,53 @@ runAdapterContract(
 runAdapterContract(
   "TanStack Table adapter, Host-controlled sorting and filters with handlers, useLegacyTable",
   harnessOf({ sorting: "handler", filters: "handler" }, true),
+);
+// The same, with the adapter told the table draws pins and density. Pins go through TanStack's own state, which the
+// Host may control too; the adapter holds the density.
+runAdapterContract("TanStack Table adapter, table-owned, useTable, renders pinning and density", harnessOf({ renders: BOTH }, false), {
+  renders: BOTH,
+});
+runAdapterContract(
+  "TanStack Table adapter, Host-controlled sorting, filters and pins with handlers, useTable, renders pinning and density",
+  harnessOf({ sorting: "handler", filters: "handler", pinning: "handler", renders: BOTH }, false),
+  { renders: BOTH },
+);
+runAdapterContract(
+  "TanStack Table adapter, Host-controlled sorting, filters and pins with handlers, useLegacyTable, renders pinning and density",
+  harnessOf({ sorting: "handler", filters: "handler", pinning: "handler", renders: BOTH }, true),
+  { renders: BOTH },
+);
+// And with totals, which the adapter holds and `gridcueAggregationFn` reads; the Host may control the grouping.
+runAdapterContract(
+  "TanStack Table adapter, table-owned, useTable, renders pinning, density and totals",
+  harnessOf({ renders: ALL }, false),
+  {
+    renders: ALL,
+  },
+);
+runAdapterContract(
+  "TanStack Table adapter, Host-controlled sorting, filters, pins and grouping with handlers, useTable, renders pinning, density and totals",
+  harnessOf({ sorting: "handler", filters: "handler", pinning: "handler", grouping: "handler", renders: ALL }, false),
+  { renders: ALL },
+);
+runAdapterContract(
+  "TanStack Table adapter, Host-controlled sorting, filters, pins and grouping with handlers, useLegacyTable, renders pinning, density and totals",
+  harnessOf({ sorting: "handler", filters: "handler", pinning: "handler", grouping: "handler", renders: ALL }, true),
+  { renders: ALL },
+);
+// And with the count, held in the table's own store. `useLegacyTable` builds its own filtered row model, so it can't
+// take the count piece (tanstack-count.test.ts).
+runAdapterContract(
+  "TanStack Table adapter, table-owned, useTable, renders pinning, density, totals and count",
+  harnessOf({ renders: COUNTED }, false),
+  {
+    renders: COUNTED,
+  },
+);
+runAdapterContract(
+  "TanStack Table adapter, Host-controlled sorting, filters, pins and grouping with handlers, useTable, renders pinning, density, totals and count",
+  harnessOf({ sorting: "handler", filters: "handler", pinning: "handler", grouping: "handler", renders: COUNTED }, false),
+  { renders: COUNTED },
 );
 
 describe("TanStack Table adapter, Host-controlled sorting with no change handler", () => {
@@ -918,4 +1052,290 @@ describe("localValuesFromTable", () => {
     expect(cue.getState().status).toBe("error");
     expect(cue.getState().issues.map((i) => i.code)).toEqual(["INPUT_LOCAL_VALUES"]);
   });
+});
+
+// Pins and density (operation set spec, 4.2 and 5.3; ADR 0029). TanStack Table v9 holds pins as `start` and `end`, the
+// View State's own shape, so the adapter writes and reads them through the table's state. TanStack has no density, so
+// the adapter holds it.
+describe("TanStack Table adapter: renders", () => {
+  type Column = { id: string };
+  type PinTable = TestTable & {
+    setColumnPinning(pinning: Pinning): void;
+    getColumn(id: string): { pin(position: "start" | "end" | false): void } | undefined;
+    getStartVisibleLeafColumns(): Column[];
+    getCenterVisibleLeafColumns(): Column[];
+    getEndVisibleLeafColumns(): Column[];
+  };
+  const pinTable = () => makeTable(true) as unknown as PinTable;
+  const drawn = (table: PinTable) => ({
+    start: table.getStartVisibleLeafColumns().map((c) => c.id),
+    center: table.getCenterVisibleLeafColumns().map((c) => c.id),
+    end: table.getEndVisibleLeafColumns().map((c) => c.id),
+  });
+  const configError = (make: () => unknown) => {
+    try {
+      make();
+    } catch (error) {
+      return isGridCueError(error) ? { code: error.code, message: error.message } : { code: "other", message: String(error) };
+    }
+    return undefined;
+  };
+  const planWith = (adapter: GridAdapter, operations: ViewOperation[]) => {
+    const result = validatePlan(
+      {
+        protocolVersion: "0.1",
+        id: `p_${Math.random()}`,
+        baseRevision: adapter.getState().revision,
+        source: { channel: "api" },
+        status: "ready",
+        operations,
+        evidence: [],
+        clarifications: [],
+        unsupportedSegments: [],
+      },
+      {
+        schema: adapter.getSchema(),
+        capabilities: adapter.getCapabilities(),
+        current: adapter.getState(),
+        defaultState: adapter.getDefaultState(),
+      },
+    );
+    if (!result.ok) throw new Error(result.issues.map((i) => i.code).join(","));
+    return result.plan;
+  };
+
+  it("lists exactly today's operations with no renders, on a table with the pinning feature or without", () => {
+    for (const table of [makeTable(), pinTable()]) {
+      const schema = schemaFromTanStack(table);
+      expect(createTanStackAdapter({ schema, table }).getCapabilities().operations).toEqual([...MVP_OPERATIONS]);
+      expect(createTanStackAdapter({ schema, table, renders: [] }).getCapabilities().operations).toEqual([...MVP_OPERATIONS]);
+    }
+  });
+
+  it("lists columns.pin and density.set for what renders names", () => {
+    const table = pinTable();
+    const schema = schemaFromTanStack(table);
+    const ops = (renders: ReadonlyArray<"pinning" | "density">) =>
+      createTanStackAdapter({ schema, table, renders }).getCapabilities().operations;
+    expect(ops(["pinning"])).toEqual([...MVP_OPERATIONS, "columns.pin"]);
+    expect(ops(["density"])).toEqual([...MVP_OPERATIONS, "density.set"]);
+    expect(ops(["density", "pinning", "density"])).toEqual([...MVP_OPERATIONS, "columns.pin", "density.set"]);
+  });
+
+  it("throws INPUT_CONFIG naming a name it doesn't take", () => {
+    const table = pinTable();
+    const schema = schemaFromTanStack(table);
+    const build = (renders: unknown) => () => createTanStackAdapter({ schema, table, renders } as never);
+    expect(configError(build(["pinning", "sticky"]))).toMatchObject({ code: "INPUT_CONFIG", message: expect.stringContaining("“sticky”") });
+    expect(configError(build("pinning"))).toMatchObject({ code: "INPUT_CONFIG" });
+  });
+
+  it("throws INPUT_CONFIG for count and for totals on a table that can't draw them", () => {
+    // This table has no count piece: tanstack-count.test.ts has the rest.
+    const table = pinTable();
+    const schema = schemaFromTanStack(table);
+    expect(configError(() => createTanStackAdapter({ schema, table, renders: ["count"] } as never))).toMatchObject({
+      code: "INPUT_CONFIG",
+      message: expect.stringContaining("“count”"),
+    });
+    // This table has no rowAggregationFeature: tanstack-totals.test.ts has the rest.
+    expect(configError(() => createTanStackAdapter({ schema, table, renders: ["totals"] }))).toMatchObject({
+      code: "INPUT_CONFIG",
+      message: expect.stringContaining("rowAggregationFeature"),
+    });
+  });
+
+  it("lists aggregation.set when renders names totals, on a table with GridCue's total functions", () => {
+    const table = makeTable("totals");
+    const schema = schemaFromTanStack(table);
+    expect(createTanStackAdapter({ schema, table, renders: ["totals"] }).getCapabilities().operations).toEqual([
+      ...MVP_OPERATIONS,
+      "aggregation.set",
+    ]);
+    expect(createTanStackAdapter({ schema, table, renders: ALL }).getCapabilities().operations).toEqual([
+      ...MVP_OPERATIONS,
+      "columns.pin",
+      "density.set",
+      "aggregation.set",
+    ]);
+    expect(createTanStackAdapter({ schema, table }).getCapabilities().operations).toEqual([...MVP_OPERATIONS]);
+  });
+
+  it("throws INPUT_CONFIG when renders names pinning and the table has no setColumnPinning", () => {
+    const table = makeTable();
+    const schema = schemaFromTanStack(table);
+    expect(configError(() => createTanStackAdapter({ schema, table, renders: ["pinning"] }))).toMatchObject({
+      code: "INPUT_CONFIG",
+      message: expect.stringContaining("setColumnPinning"),
+    });
+    // Density needs nothing from the table.
+    expect(createTanStackAdapter({ schema, table, renders: ["density"] }).getCapabilities().operations).toContain("density.set");
+  });
+
+  it("writes pins to TanStack's own state, which the table draws, and undoes them", async () => {
+    const table = pinTable();
+    const adapter = createTanStackAdapter({ schema: schemaFromTanStack(table), table, renders: ["pinning"] });
+    const before = adapter.getState();
+    const applied = await adapter.apply(
+      planWith(adapter, [
+        { type: "columns.pin", columnIds: ["name"], position: "start" },
+        { type: "columns.pin", columnIds: ["value"], position: "end" },
+      ]),
+    );
+    expect(applied.ok).toBe(true);
+    expect(table.store.state.columnPinning).toEqual({ start: ["name"], end: ["value"] });
+    expect(drawn(table)).toEqual({ start: ["name"], center: ["team"], end: ["value"] });
+    expect(adapter.getState().state.pinnedColumnIds).toEqual({ start: ["name"], end: ["value"] });
+    expect((await adapter.restore(before)).ok).toBe(true);
+    expect(table.store.state.columnPinning).toEqual({ start: [], end: [] });
+    expect(drawn(table)).toEqual({ start: [], center: ["value", "team", "name"], end: [] });
+  });
+
+  it("reports a pin the User makes with the table's own controls, so a stale plan is refused (ADR 0009)", async () => {
+    const table = pinTable();
+    const adapter = createTanStackAdapter({ schema: schemaFromTanStack(table), table, renders: ["pinning"] });
+    const stale = sortPlan(adapter);
+    const before = adapter.getState().revision;
+    const heard: string[] = [];
+    adapter.subscribe((s) => heard.push(JSON.stringify(s.state.pinnedColumnIds)));
+    table.getColumn("team")?.pin("end");
+    expect(heard).toEqual([JSON.stringify({ start: [], end: ["team"] })]);
+    expect(adapter.getState().revision).not.toBe(before);
+    expect(await adapter.apply(stale)).toMatchObject({ ok: false, code: "ADAPTER_STALE_REVISION" });
+  });
+
+  it("leaves the table's own pins alone and out of the View State when renders doesn't name pinning", async () => {
+    const table = pinTable();
+    const adapter = createTanStackAdapter({ schema: schemaFromTanStack(table), table });
+    let calls = 0;
+    adapter.subscribe(() => calls++);
+    const before = adapter.getState();
+    table.setColumnPinning({ start: ["name"], end: [] });
+    expect(calls).toBe(0);
+    expect(adapter.getState()).toEqual(before);
+    expect((await adapter.apply(sortPlan(adapter))).ok).toBe(true);
+    expect(table.store.state.columnPinning).toEqual({ start: ["name"], end: [] });
+    expect(adapter.getState().state.pinnedColumnIds).toEqual({ start: [], end: [] });
+  });
+
+  it("keeps a hidden pinned column's pin, and the table draws it again when it shows", async () => {
+    const table = pinTable();
+    const adapter = createTanStackAdapter({ schema: schemaFromTanStack(table), table, renders: ["pinning"] });
+    await adapter.apply(planWith(adapter, [{ type: "columns.pin", columnIds: ["name"], position: "start" }]));
+    await adapter.apply(planWith(adapter, [{ type: "columns.hide", columnIds: ["name"] }]));
+    expect(adapter.getState().state.pinnedColumnIds).toEqual({ start: ["name"], end: [] });
+    expect(drawn(table).start).toEqual([]);
+    await adapter.apply(planWith(adapter, [{ type: "columns.show", columnIds: ["name"] }]));
+    expect(drawn(table).start).toEqual(["name"]);
+  });
+
+  it("holds the density and reads it back, past a manual change, and restores it on undo", async () => {
+    const table = makeTable();
+    const adapter = createTanStackAdapter({ schema: schemaFromTanStack(table), table, renders: ["density"] });
+    const before = adapter.getState();
+    expect(before.state.density).toBe("comfortable");
+    let calls = 0;
+    adapter.subscribe(() => calls++);
+    const applied = await adapter.apply(planWith(adapter, [{ type: "density.set", density: "compact" }]));
+    expect(applied.ok).toBe(true);
+    // A write that changes only the density is one change, with its own Revision.
+    expect(calls).toBe(1);
+    expect(adapter.getState().revision).not.toBe(before.revision);
+    expect(adapter.getState().state.density).toBe("compact");
+    // The User sorts with a header: the density stays as GridCue wrote it.
+    table.setSorting([{ id: "team", desc: false }]);
+    expect(adapter.getState().state.density).toBe("compact");
+    expect((await adapter.restore(before)).ok).toBe(true);
+    expect(adapter.getState().state).toEqual(before.state);
+    // The default view keeps the default density, so a reset returns to it.
+    expect(adapter.getDefaultState().density).toBe("comfortable");
+  });
+
+  it("keeps the default density, and refuses a plan that sets one, when renders doesn't name density", () => {
+    const table = makeTable();
+    const adapter = createTanStackAdapter({ schema: schemaFromTanStack(table), table });
+    expect(adapter.getState().state.density).toBe("comfortable");
+    expect(() => planWith(adapter, [{ type: "density.set", density: "compact" }])).toThrow();
+  });
+
+  it("pins and sets the density through the Controller, and undoes each", async () => {
+    const table = pinTable();
+    const schema = schemaFromTanStack(table);
+    const adapter = createTanStackAdapter({ schema, table, renders: ["pinning", "density"] });
+    const cue = createGridCue({ schema, adapter, provider: createMockProvider() });
+    await cue.propose("pin name to the end");
+    expect(cue.getState().status).toBe("ready");
+    expect(await cue.apply()).toBe(true);
+    expect(drawn(table).end).toEqual(["name"]);
+    await cue.propose("compact view");
+    expect(cue.getState().status).toBe("ready");
+    expect(await cue.apply()).toBe(true);
+    expect(adapter.getState().state.density).toBe("compact");
+    expect(await cue.undo()).toBe(true);
+    expect(adapter.getState().state.density).toBe("comfortable");
+    expect(drawn(table).end).toEqual(["name"]);
+    expect(await cue.undo()).toBe(true);
+    expect(drawn(table).end).toEqual([]);
+  });
+
+  it("asks “This grid can't …” and changes nothing when renders names neither", async () => {
+    const table = pinTable();
+    const schema = schemaFromTanStack(table);
+    const adapter = createTanStackAdapter({ schema, table });
+    const cue = createGridCue({ schema, adapter, provider: createMockProvider() });
+    const before = adapter.getState();
+    await cue.propose("pin name to the end");
+    expect(cue.getState().status).toBe("needs_clarification");
+    expect(cue.getState().plan?.clarifications.map((c) => [c.prompt, c.options?.length ?? 0])).toEqual([
+      ["This grid can't pin columns.", 0],
+    ]);
+    await cue.propose("compact view");
+    expect(cue.getState().plan?.clarifications.map((c) => [c.prompt, c.options?.length ?? 0])).toEqual([
+      ["This grid can't change its density.", 0],
+    ]);
+    expect(await cue.apply()).toBe(false);
+    expect(adapter.getState()).toEqual(before);
+  });
+});
+
+// The pins' shape on each TanStack Table the repo tests: v9's `useTable` and `constructTable`, and a v8 app moved to
+// `useLegacyTable` (tanstack-legacy.test.ts), hold `start` and `end`. TanStack Table v8 itself held `left` and `right`.
+describe("TanStack Table adapter: the pins' shape", () => {
+  for (const legacy of [false, true]) {
+    const hook = legacy ? "useLegacyTable" : "useTable";
+    it(`holds pins as start and end on ${hook}, the Host controlling them or not`, async () => {
+      for (const pinning of [undefined, "handler"] as const) {
+        const { table, adapter } = makeHostTable({ renders: BOTH, ...(pinning ? { pinning } : {}) }, legacy);
+        expect(table.store.state.columnPinning).toEqual({ start: [], end: [] });
+        const plan = validatePlan(
+          {
+            protocolVersion: "0.1",
+            id: "p_pin",
+            baseRevision: adapter.getState().revision,
+            source: { channel: "api" },
+            status: "ready",
+            operations: [{ type: "columns.pin", columnIds: ["name"], position: "start" }],
+            evidence: [],
+            clarifications: [],
+            unsupportedSegments: [],
+          },
+          {
+            schema: adapter.getSchema(),
+            capabilities: adapter.getCapabilities(),
+            current: adapter.getState(),
+            defaultState: adapter.getDefaultState(),
+          },
+        );
+        if (!plan.ok) throw new Error("not valid");
+        expect((await adapter.apply(plan.plan)).ok).toBe(true);
+        expect(table.store.state.columnPinning).toEqual({ start: ["name"], end: [] });
+      }
+    });
+
+    it(`throws INPUT_CONFIG on ${hook} when the Host keeps its pins as v8's left and right`, () => {
+      expect(() => makeHostTable({ pinning: "v8", renders: ["pinning"] }, legacy)).toThrow(/“left” and “right”/);
+      // Without "pinning" the adapter never reads or writes pins, so it builds as before.
+      expect(makeHostTable({ pinning: "v8" }, legacy).adapter.getCapabilities().operations).toEqual([...MVP_OPERATIONS]);
+    });
+  }
 });

@@ -12,7 +12,20 @@ import { loadPreviews, previewOf } from "./previews";
 // the three that joined it with the review's next fixes ("show every household with no advisor", "my restricted
 // accounts with no advisor", "my settled entries with no vendor"), and of the ten ready controls that joined it with the
 // lead's rulings on statements around a form ("accounts whose advisor is empty", "advisor is empty for taxable
-// accounts"), each the Preview it had before those rulings.
+// accounts"), each the Preview it had before those rulings. The pinning and density set (`cases-view-words.jsonl`)
+// joined after its code, with each case on a Rows Adapter built with its `renders`, so its Previews were recorded then,
+// as the code gave them (operation set plan, Task 2.4). So were those of its held-out set
+// (`cases-view-words-heldout.jsonl`, Task 2.5), the wrong view's Preview included ("pin rate and cleared to the start").
+// The fix for that wrong view lists it here as asking. Its round 2 (`cases-view-words-heldout-r2.jsonl`) joined after
+// that fix, so its Previews were recorded then, as the code gave them. The totals set (`cases-totals.jsonl`) joined
+// with its code, each case on a Rows Adapter built with its `renders`, and its Previews were recorded then (operation
+// set plan, Task 3.3). The totals wording (spec 4.5: "Show the total of Market value", where "Summarize Market value
+// (sum)" was) changed no recorded line: no labelled request reached a total before it. Its three held-out sets
+// (`cases-totals-heldout.jsonl`, `cases-totals-ranked-heldout.jsonl`, `cases-totals-natural-heldout.jsonl`, Task 3.5)
+// joined after the code, so their Previews were recorded then, as the code gave them, the wrong view's Preview included
+// ("total market value and average concentration"). The fix for that wrong view lists it here with its Preview now.
+// Their round 2 (`cases-totals-heldout-r2.jsonl`) joined after that fix, so its Previews were recorded then, as the
+// code gave them.
 //
 // None of the changes rewords a Preview line a request had before, but for dates: spec 5.5 and section 9 reword every
 // date filter's line ("Filter Opened above “2026-01-31”" is "Filter Opened after 2026-01-31"), and seven recorded
@@ -370,6 +383,12 @@ const CHANGED: Record<string, Now> = {
     notes: [WHOLE_DAYS_HERE],
   },
   "cases-named-fixes-heldout.jsonl: h1-dt-is": { lines: ["Filter Last contact on 2026-04-02"], notes: [WHOLE_DAYS_HERE] },
+  // A pin list cut where the request splits before a column's name ("cleared" reads as the verb "clear") pinned the
+  // first column alone and filtered the rows by the second; it now asks (operation set spec, 5.2).
+  "cases-view-words-heldout.jsonl: hp1-ledger-pin-rate-cleared": null,
+  // The wrong view of the totals held-out run: two totals forms in one request gave one `aggregation.set` each. The plan
+  // now carries the whole list in one (operation set spec, 5.4), so its one line names both totals.
+  "cases-totals-natural-heldout.jsonl: nat-two-totals": ["Show the total of Market value and the average of Concentration"],
 };
 
 /** A listed Preview as `previewOf` gives it. */
