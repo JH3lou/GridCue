@@ -24,8 +24,23 @@ One part of an Utterance that asks for one kind of change. Code splits Clauses d
 | "Grouped by household sorted largest to smallest" | "grouped by household" · "sorted largest to smallest" |
 | "Roth IRAs grouped by rep" | one Clause: a value before another change's verb describes which rows |
 | "Show accounts where value is over $1M" | one Clause: "show" and "where" both choose rows |
+| `Advisor containing "Smith. Jones"` | one Clause: quoted text is never split and never read as an instruction |
+
+Comparisons are read as words or symbols, spaced or not: "over", "under", "at least", "at most", "at or above", "no greater than", "greater than or equal to", "since", `>`, `<`, `>=`, `<=`, `=`, and "$1M or more" or "$1M max" after the amount. A minus sign or "negative" right before an amount makes it negative ("gain below -$50k"); a hyphen between two amounts is a range ("$50k-$100k", "10-20%"). An amount is read only when what follows it is the end of the part or something GridCue reads, such as a name or "grouped by"; "$1M, roughly" and "over $1M or so" are asked about. With no comparison it is "equal to" only when it sits right by its column ("market value $750k", "opened on 2024-01-01"). Otherwise, as with "around $1M", `!= $1M` or "$1M give or take", GridCue asks. Filters always combine with "and", so "over $1M or at Northgate" is asked about too. "Hide taxable accounts" and "exclude accounts over $1M" keep the other rows when they leave out one simple condition; anything more is asked about.
+
+Quoted text filters a column for rows containing it, and only when the column's name comes right before it. Nothing, ":", "is", "are", or "containing", "contains", "includes", "has", "like" or "matching" may sit between them: `advisor "Lane"`, `advisor: "Lane"` and `advisor containing "Lane"` all read as containing. "Column" after a column's name, and "name" after a column that names another record ("advisor name"), are part of the name. Any other word between them is asked about, because GridCue only matches by containing: `advisor starts with "Av"`, `advisor is exactly "Avery Lane"` and `advisor = "Avery Lane"` ask. The grid's own `rowNoun` right before "for" and quoted text means the rows (`accounts for "Avery Lane"`), and quoted text with no column named before it asks which column should contain it. A provider's pick for that column is offered first, never applied. The words around text with no column are checked first, as below, and a containing word may also sit right before it (`containing "Lane"`): `starts with "Av"`, `exactly "Avery Lane"` and `"Avery Lane" exactly` ask about those words instead. The words right before the column and right after the text must be read too. Before the column: a verb that chooses rows ("show", "keep", "include", "view", "look at"), "only", "all of", the grid's own `rowNoun`, a word that joins the rows to the column, "for", "and" or "but only", and a direction or count (`taxable accounts with advisor "Lane"`, `value over $1M for advisor "Lane"`). The joining words are "with", "where", "whose", "having", "holding", "that have", "which have", and "that", "which" or "who" before "are" or "is". "Filter" also takes "rows", "records", "the grid" or "the table", then "by", "on", "for", "to", "in", "with" or "where" (`filter by advisor "Lane"`). After the text, up to the next name or amount: "'s", the `rowNoun`, "and", "or" or "then", each with "also" after it if you like ("and also"), "but" before "only" or a sort, a joining word, a sort or grouping ("sorted by", "in order of"), "show", "hide" or "unhide" before a name, a direction or count ("largest first", "top 10"), a preposition before a named value ("at Northgate", "in the taxable accounts"), the words that leave a named value out ("but trusts"), "not", "no", "non" or "without" before a yes/no name, after "but" too, and a comparison before an amount, after "valued" or "worth" too (`advisor "Lane" sorted by value`, `advisor "Lane" at Northgate`). At the end of the part: any of "please", "too", "also", "only" and "as well", then "thanks". Anything else is asked about: `accounts sans advisor "Lane"`, `the opposite of advisor "Lane"`, `advisor "Lane" exactly`, `advisor "Lane" accounts exactly` and `advisor "Lane" but restricted` ask. So do some correct requests, such as `advisor's name is "Lane"`, `advisor containing the text "Lane"`, `filter advisor to "Lane"` and `show accounts for advisor "Lane"`; write `advisor containing "Lane"` instead.
+
+A negation in a part with quoted text asks, such as `advisor is not "Avery Lane"`, "isn't", `!=`, "other than", "except", "without" and "excluded", with two exceptions. A negation the grammar reads as leaving a named value out is read: "non-retirement", `advisor "Lane" not at Northgate`, `advisor "Lane" but trusts`, `advisor "Lane" not including trusts`. So is "not", "no", "non" or "without" before a yes/no name (`advisor "Lane" not restricted`). `advisor "Lane" except restricted` and `advisor "Lane" except for trusts` ask.
+
+A "!" that starts a request, follows a space, a comma, a semicolon or a colon, or sits right before a name, quoted text or an amount says "not", and GridCue asks about it, with quoted text or without: `!trusts`, `!advisor "Lane"`, `advisor "Lane" !trusts` and `advisor "Lane",! trusts` ask. A "!" right after a word ends the sentence ("show trusts!"), and `!=` is a comparison.
+
+A date is a day. A date compared with a date-and-time column ("last contact after 2026-01-31" on a column that holds times of day) is asked about, since the time of day would decide which rows stay. A date that is not a real day ("2026-02-31") is asked about too.
 
 Size words set a sort direction: "largest to smallest", "biggest first", "top" and "largest" sort descending; "smallest to largest", "smallest first" and "smallest" ascending. With no column named, they sort by the schema's [`defaultMeasure`](/docs/api/schema#schemaoptions), or GridCue asks which column. A count after a size word ("top 10", "largest 5") is a count, never a filter value: it becomes [`limit.set`](/docs/api/protocol#viewoperation) where the adapter supports it.
+
+A count stays on the view until something clears it, so a change to the rows it keeps asks first. After "top 10 accounts by market value", a request that changes or clears the sort, or adds, replaces or clears a filter ("sort by advisor", "clear the sort", "only the taxable ones", "clear the filters") could mean the same ten rows in a new order, or the first ten of the new view. GridCue can't tell, so it asks "Keep only the first 10 rows of the new view, or show every row?" with two choices, "Keep the first 10" and "Show every row". Each choice adds its own line to the Preview. Grouping and hiding or showing columns don't change which rows the count keeps, so they don't ask, and a request that sets its own count ("top 5 by gain") doesn't either. "Reset the view" doesn't ask: it returns to the grid's default view, count included, so where the default view has no count it shows every row again. The rule holds for every provider: it is applied to the plan, after the provider has answered.
+
+Two forms set the count directly, and GridCue's own code reads both: the provider is never asked what they mean. The request still goes to the provider first, so a provider error or time limit stops it and leaves the view as it is, as for any request. "Show every row", "show all rows", "remove the count" and "no count" clear it, with the line "Show every row". "Show only the first 5 rows" and "only the first 5 rows" set it, with the line "Show only the first 5 rows"; with no sort on the view, GridCue asks "First 5 by which column?" instead, and on a grid that can't keep a count it says "This grid can't show only the first 5 rows." and changes nothing. The forms are read in the order they are said. "Sort by advisor, then show only the first 5 rows" shows the first 5 by Advisor. "Show only the first 5 rows, then sort by advisor" could mean the 5 rows on screen now, or the first 5 by Advisor, so GridCue asks about that part, as it does about count words said before "reset the view", which would undo them. A sort or grouping said after a count, while one said before the count is still in effect, would replace the one the count was said with, so GridCue asks about the part that set the count, whether that part also named the sort or not: "sort by gain, show only the first 5 rows, then sort by advisor", "group by custodian, show only the first 5 rows, then group by advisor" and "top 10 accounts by market value, sorted by advisor" all ask. On a grid that can't keep a count, where "top 10 by market value" sorts alone with a note, a sort said after it would join that sort as a tiebreaker, so "top 10 by market value, then sort by household" asks there too. Where there is no count to clear, "show every row" on a view with filters may mean the rows the filters leave out, so it goes to the provider, as do the clearing words on a grid that can't keep a count. A count form with a word left over, "remove the limit" for one, goes to the provider and usually asks. "Show all accounts", with the grid's `rowNoun`, is asked about too: on a view with a filter and a count it asks "Show every row, or clear the filters too?".
 
 The kind of change a Clause asks for (filter, sort, group, show, hide, show only, clear, or reset) is its **Operation Family**. A provider scores each family; the compiler decides which ones are used.
 
@@ -53,8 +68,18 @@ A single focused question GridCue asks when it can't resolve a request without a
 | "Show the big accounts" | "What should “show the big accounts” filter on? Include a value, such as an amount or a category." |
 | "Largest households first" | "Did you mean households as a whole? GridCue can group by Household." |
 | "Accounts over $1 million", when the provider can't tell which column the amount applies to | "Which column should be above $1,000,000?" |
+| "Market value around $1M" | "I'm not sure how to compare with “$1m”. Try “over”, “under”, “at least”, or “exactly”." |
+| `Advisor starts with "Av"` | "I'm not sure how to match “av”. Try “containing”." |
+| `Advisor "Lane" exactly` | "I'm not sure what to do with “exactly”. Try rephrasing that part." |
+| `Advisor is not "Avery Lane"` | "GridCue can't filter for text that isn't there. Ask for the text to look for instead." |
+| `Containing "Lane"`, with no column named | "Which column should contain “lane”?" |
+| `!trusts` | "GridCue can't tell what “!” leaves out. Say which rows to show." |
+| "Opened after 2026-02-31" | "2026-02-31 isn't a date." |
+| "Last contact after 2026-01-31", on a date-and-time column | "Last contact holds times of day, so GridCue can't filter it by date yet." |
+| "Accounts over $2M or at Northgate" | "GridCue can only show rows that match every condition, not either one. Ask for one at a time." |
+| "Group by custodian over $1M", when nothing in the plan uses the amount | "I'm not sure what to do with “$1m”. Try rephrasing that part." |
 
-GridCue does not invent a threshold for "big" or pick a column for "$1 million" on a guess. Answering is one call:
+GridCue does not invent a threshold for "big" or pick a column for "$1 million" on a guess. Before a plan is ready, GridCue also checks that its operations use every amount, quoted text, date, count and name it read from the request, and asks about anything left over by its words. The check catches a dropped part, not a part read the wrong way, so the comparison and column rules above still matter. Answering is one call:
 
 ```ts
 cue.answer(clarificationId, optionId);
@@ -69,6 +94,37 @@ GridCue declining to propose any change, because the request is too ambiguous or
 > "What's the weather?" → "I'm not sure what to change for “what's the weather”. Try asking to filter, sort, group, or show or hide columns."
 
 If the User answers "No" to a Clarification and nothing is left, GridCue says "Okay, nothing will change," and keeps the request for editing. An Abstention is never reported as a success.
+
+## A grid that can't group
+
+A Grid Adapter lists the operations it supports in `getCapabilities().operations`. When `group.set` isn't in that list, the grid can't group rows. A part of a request that asks to group or ungroup then ends in one Clarification with no choices, since no answer makes the grid able to:
+
+| Request, on a grid without `group.set` | Clarification |
+| --- | --- |
+| "Group by advisor" | "This grid can't group rows." |
+| "Ungroup" | "This grid can't group rows." |
+| "Group by advisor and sort by market value" | "This grid can't group rows." |
+| "Accounts over $1M grouped by custodian" | "This grid can't group rows." |
+| "Sort by market value, groups by advisor" | "This grid can't group rows." |
+| "Show the Northgate group" | "This grid can't group rows." |
+
+Nothing in the request applies, the other parts included. The User asked for every change, and showing only some would be a different view. Ask again without the grouping to get the rest.
+
+Any word built on "group" counts, as a verb or a noun: "grouping", "groups", "regroup", "groupwise". "The Northgate group" and "groups of taxable accounts" may mean a grouping or only those rows, and GridCue can't tell which, so it asks. Ask for "Northgate accounts" to get the filter. "By" right after the word always asks: "keep the sort and the grouping by advisor".
+
+Some of these words GridCue can't read at all: "regroup" or "groupwise" with no "by" next, the text after "contains", "named" or "like", or a grouping said to stay with more after it. Such a request keeps the question it would ask anyway: "regroup my thoughts" and "households containing group" ask what to change. It never ends in a ready Preview, though. Where the rest of the request would be ready, it asks "This grid can't group rows." instead: "sort by gain, regroup on advisor", "sort by gain, by advisor groupwise", "sort by gain, then advisor like groups", "sort by gain, the grouping stays on advisor".
+
+These don't count, and the request reads as on any grid:
+
+- A grouping said to stay or not wanted, with nothing after it in its part but punctuation or a joining word such as "and": "clear the sort, the grouping stays", "clear the filters but keep groups", "sort by gain without grouping". Anything more after it asks, even another thing to keep: "clear the sort, leave the grouping and the filter alone".
+
+  Only these words count. Right before the grouping word, with only "the", "my" and the like between: "keep", "leave", "don't touch", "don't change", "no change to", "retain", "preserve", "maintain", "without changing", "without touching", "not", "no", "without", "w/o", "except", "excluding", "apart from", "other than", and "all", "everything" or "anything but". Or right after it: "stays", "remains", "as is", "alone", "unchanged", "untouched", "intact". Other wording asks, such as "ignore the grouping" or "forget the grouping", which may mean removing it. Leaving out an ungrouping asks too: "sort by gain, not ungrouped" asks for groups.
+- "Group" inside a name the Host declared, such as a value "Group Annuity" or a column "Group name", or inside quoted text: `households containing "group"` filters.
+- A column's own label beside one of its values, where a column is called "Group": "the alpha group", "group = beta".
+
+A request with no word built on "group" ("filter taxable accounts", "sort by gain") is read as on any other grid.
+
+The hint in "I'm not sure what to change" names only what the grid offers. On a grid with `group.set`, "What's the weather?" gets "Try asking to filter, sort, group, or show or hide columns." On a grid without it, the same request gets "Try asking to filter, sort, or show or hide columns." The hint after a request that changes nothing ("Try filtering, sorting, grouping, or showing or hiding columns.") is cut the same way. A grid that lists none of those operations gets no "Try" sentence.
 
 ## Unsupported Segment
 
