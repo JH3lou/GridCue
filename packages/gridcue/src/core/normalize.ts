@@ -74,8 +74,11 @@ const CLAUSE_VERBS = [
   "approve",
 ];
 const QUOTED = /"([^"]+)"/g;
-/** Blanks quoted spans, keeping offsets, so words inside a quoted value never read as an instruction, a size or a count. */
-export const unquoted = (text: string): string => text.replace(QUOTED, (s) => " ".repeat(s.length));
+/**
+ * Blanks quoted spans, keeping offsets, so words inside a quoted value never read as an instruction, a size or a count.
+ * With `mark`, a single character, each span starts with it, so the words on either side of the span don't touch.
+ */
+export const unquoted = (text: string, mark = " "): string => text.replace(QUOTED, (s) => mark + " ".repeat(s.length - 1));
 
 const VERB_ALT = CLAUSE_VERBS.join("|");
 const VERB = `(?:${VERB_ALT})(?:ed)?\\b`;

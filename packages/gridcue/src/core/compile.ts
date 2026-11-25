@@ -1,5 +1,6 @@
+import { MVP_OPERATIONS } from "./adapter";
 import { formatAmount } from "./format";
-import { afterExclusionLead, governedClears, LEAD_IN, leavesRowsOut, viewRequest } from "./lead";
+import { afterExclusionLead, governedClears, LEAD_IN, leavesRowsOut, nothingAfter, saidToStay, viewRequest } from "./lead";
 import { LEAVES_OUT, LITERAL_COLUMN_KINDS, type Mention } from "./mentions";
 import {
   type Clause,
@@ -17,6 +18,7 @@ import {
   type ColumnDescriptor,
   type ColumnKind,
   type DecisionEvidence,
+  emptyViewState,
   type FilterGroup,
   type FilterPredicate,
   PROTOCOL_VERSION,
@@ -26,6 +28,7 @@ import {
   type ViewSchema,
   type ViewState,
 } from "./protocol";
+import { applyOperations } from "./reduce";
 import {
   type ClauseResolution,
   COLUMN_FAMILIES,
@@ -37,7 +40,9 @@ import {
 } from "./resolution";
 import { isExposed, operatorsFor } from "./schema";
 import { REVERSAL_WORDING, unknownTerm } from "./terms";
+import { escapeRegExp } from "./text-match";
 import { unusedReadings } from "./unused";
+import { namesEveryRow, readViewWords } from "./view-words";
 
 export interface ConfidencePolicy {
   /** At or above this, a decision is used as-is. Default 0.85. */
@@ -64,12 +69,15 @@ export interface CompileInput {
   /**
    * The view `view.reset` returns to (the adapter's `getDefaultState()`). A reset that keeps the current filters
    * ("reset everything except the filters") adds them to this view's own, so it is ready only when this is given and
-   * has no filters. Otherwise GridCue asks.
+   * has no filters. Otherwise GridCue asks. Its sort and count are what a reset leaves for the count rule (ADR 0027).
    */
-  defaultState?: { filters: ViewState["filters"] };
+  defaultState?: { filters: ViewState["filters"]; sorts?: ViewState["sorts"]; limit?: ViewState["limit"] };
   /**
-   * The operations the grid supports (its adapter's capabilities). A count ("top 10") becomes `limit.set` only where
-   * this lists it; otherwise the plan sorts alone and records the count as not applied (ADR 0018).
+   * The operations the grid supports (its adapter's capabilities). Left out, they are `MVP_OPERATIONS`. A count ("top
+   * 10") becomes `limit.set` only where this lists it; otherwise the plan sorts alone and records the count as not
+   * applied (ADR 0018). "Show only the first 5 rows" there ends in a question with no choices, and nothing applies
+   * (ADR 0027). Where this doesn't list `group.set`, a part that asks to group or ungroup ends the whole request in
+   * "This grid can't group rows." (more grids spec, 5.3). A hint that suggests changes names only those listed here.
    */
   operations?: readonly string[];
   newId: (prefix: string) => string;
@@ -241,6 +249,187 @@ export const settleFamilies = (
   return { kept, ask: confident ? [] : waiting, dropped, byKind: decidedByKind || !!promoted };
 };
 
+/** The count question (ADR 0027), and the plan each answer makes. */
+export interface CountQuestion {
+  /** "Keep only the first 10 rows of the new view, or show every row?", with the options `keep` and `all`. */
+  clarification: Clarification;
+  /** The plan's operations after each answer. Each ends with the count's own line, so the Preview says it. */
+  answers: { keep: ViewOperation[]; all: ViewOperation[] };
+}
+
+const countWords = (count: number) => count.toLocaleString("en-US");
+
+/**
+ * An operation a request needs that the grid doesn't list. The operation set's pins, density and totals join this list
+ * for a grid whose Host hasn't turned them on (operation set 4.2).
+ */
+export type UnlistedOperation = { type: "group.set" } | { type: "limit.set"; count: number };
+
+/**
+ * "This grid can't …": the one question for a change the grid doesn't list (more grids spec, 5.3). It has no choices,
+ * since no answer makes the grid able to. Its ID starts with its part's index, as the compiler's other questions do,
+ * so the command bar can show it beside that part. The caller decides what else in the request stops with it.
+ */
+export const cantQuestion = (clauseIndex: number, op: UnlistedOperation): Clarification => ({
+  id: `c${clauseIndex}.cant`,
+  prompt:
+    op.type === "group.set"
+      ? "This grid can't group rows."
+      : `This grid can't show only the first ${countWords(op.count)} ${op.count === 1 ? "row" : "rows"}.`,
+  required: true,
+});
+
+/**
+ * Any word built on "group": "group", "groups", "grouped", "grouping", "ungroup", "regroup", "subgroup", "groupwise",
+ * "groupby", "group_by". A word joined to others by "_" is a name ("group_name").
+ */
+const GROUP_WORD = /(?<![\p{L}\p{N}_])[\p{L}\p{N}]*group[\p{L}\p{N}]*(?:_by)?(?![\p{L}\p{N}_])/gu;
+/** The words that ask to group or ungroup, as the spec lists them: "group", "grouped", "ungroup" and their forms. */
+const GROUPING_VERB = /^(?:un)?group(?:s|ed|ing|ings)?$/;
+/** "By" after the word names what to group by: "the grouping by advisor". That asks, whatever comes before it. */
+const BY_NEXT = /^\s+by\b/;
+/** Before the word when it is the text to match: "household contains group", "accounts named group". */
+const TEXT_MATCH_BEFORE =
+  /\b(?:contains?|containing|named|called|matching|matches|like|(?:starts?|starting|begins?|beginning|ends?|ending)\s+with)\s+$/;
+/** Marks where a name or quoted text was, so the words on either side of it don't touch. */
+const NAME_MARK = "\u{fffc}";
+/**
+ * A column's own label or alias that holds "group", said beside a value of that column the part names: "the alpha
+ * group" or "group = beta" on a grid with a column "Group". It names the column, not a grouping (spec 5.3, "would
+ * change if"). Matching records only the value there, so the label is found here. Before the value it counts only
+ * with "=", ":", "is" or "equals" between them, and after it never with "by" next: "alpha group by advisor" asks.
+ */
+const groupLabelsBeside = (text: string, own: readonly Mention[], columns: ViewSchema["columns"]) =>
+  own.flatMap((m) => {
+    if (m.valueId === undefined) return [];
+    const col = columns.find((c) => c.id === m.columnId);
+    const names = [col?.label, ...(col?.aliases ?? [])].filter((n): n is string => !!n && /group/i.test(n));
+    return names.flatMap((name) => {
+      const n = name.trim().split(/\s+/).map(escapeRegExp).join("\\s+");
+      const spans: Array<{ start: number; end: number }> = [];
+      const after = new RegExp(`^(\\s+)(${n})(?![\\p{L}\\p{N}_])(?!\\s+by\\b)`, "iu").exec(text.slice(m.end));
+      if (after?.[1] && after[2]) spans.push({ start: m.end + after[1].length, end: m.end + after[1].length + after[2].length });
+      const before = new RegExp(`(?<![\\p{L}\\p{N}_])(${n})\\s*(?:=|:|\\bis\\b|\\bequals\\b)\\s*$`, "iu").exec(text.slice(0, m.start));
+      if (before?.[1]) spans.push({ start: before.index, end: before.index + before[1].length });
+      return spans;
+    });
+  });
+/**
+ * What a part's words built on "group" ask of a grid that can't group. Words inside a declared name ("Group Annuity",
+ * "Group name"), in quoted text, or a column's own label beside its value ("the alpha group") don't count.
+ *
+ * - `"cant"`: the part asks to group or ungroup, and the whole request ends in "This grid can't group rows.". That is a
+ *   grouping verb ("group", "grouped", "ungroup", "groups"), a word with "by" next ("regroup by advisor", "keep the
+ *   sort and the grouping by advisor"), or a clear verb that governs the grouping ("clear the grouping"). "The
+ *   Northgate group" and "sort groups by value" may each mean a grouping, and code can't tell, so they ask.
+ * - `"unready"`: code can't tell what the word asks: "regroup my thoughts", "advisor like groups", "groupwise", or a
+ *   grouping said to stay with more after it ("the grouping stays on advisor"). The part keeps whatever question it
+ *   asks, but the request never ends ready: if it would, it asks "This grid can't group rows." instead.
+ * - `undefined`: no such word, or each is said to stay or left out with nothing after it in its part but punctuation
+ *   or a joining word: "clear the sort, the grouping stays", "keep the grouping", "sort by value without grouping".
+ *   Only the staying words `saidToStay` knows count; any other wording asks. "Not ungrouped" asks for groups, so an
+ *   "un" word counts only when it is kept ("leave ungrouped"), not left out.
+ */
+const groupingAsked = (clause: Clause, own: readonly Mention[], columns: ViewSchema["columns"]): "cant" | "unready" | undefined => {
+  const names = [...own, ...groupLabelsBeside(clause.text, own, columns)];
+  const words = unquoted(namesBlankedOf(clause.text, names));
+  const marked = unquoted(namesBlankedOf(clause.text, names, NAME_MARK), NAME_MARK);
+  let asked: "cant" | "unready" | undefined = governedClears(words).governed.has("group") ? "cant" : undefined;
+  for (const m of marked.matchAll(GROUP_WORD)) {
+    const word = m[0];
+    const start = m.index ?? 0;
+    const end = start + word.length;
+    if (/by$/.test(word) || BY_NEXT.test(marked.slice(end))) return "cant";
+    // A part a clear or reset says to keep ("reset everything but the grouping") is left out of the clear. Leaving out
+    // an ungrouping asks for groups ("not ungrouped", "except ungrouped"), so for "ungroup" only a word that keeps it
+    // ("leave ungrouped") counts.
+    const said = saidToStay(marked, start, end);
+    const stays = said === "kept" || (!/^un/.test(word) && (clause.keeps || said === "left out"));
+    if (stays && nothingAfter(marked, end)) continue;
+    if (stays || !GROUPING_VERB.test(word) || TEXT_MATCH_BEFORE.test(marked.slice(0, start))) asked ??= "unready";
+    else return "cant";
+  }
+  return asked;
+};
+
+/**
+ * The changes a hint may suggest, in the order it names them, each with the operations it needs and its words: the
+ * first to follow "Try asking to", the second to follow "Try".
+ */
+const HINT_CHANGES: ReadonlyArray<{ needs: string; ask: string; try: string }> = [
+  { needs: "filter.add", ask: "filter", try: "filtering" },
+  { needs: "sort.set", ask: "sort", try: "sorting" },
+  { needs: "group.set", ask: "group", try: "grouping" },
+];
+/** "a, b, or c"; "a or b"; "a". */
+const listOr = (items: readonly string[]) =>
+  items.length > 2 ? `${items.slice(0, -1).join(", ")}, or ${items.at(-1)}` : items.join(" or ");
+/**
+ * What a hint suggests, naming only the changes the grid lists (more grids spec, 5.3): "filter, sort, group, or show or
+ * hide columns" on a grid that lists them all. Empty when the grid lists none of them.
+ */
+const hintChanges = (lists: (op: string) => boolean, form: "ask" | "try") => {
+  const items = HINT_CHANGES.filter((h) => lists(h.needs)).map((h) => h[form]);
+  const show = lists("columns.show");
+  const hide = lists("columns.hide");
+  const words = form === "ask" ? ["show", "hide"] : ["showing", "hiding"];
+  const columns = [show ? words[0] : "", hide ? words[1] : ""].filter(Boolean).join(" or ");
+  if (columns) items.push(`${columns} columns`);
+  return listOr(items);
+};
+/** A sort or the filters as the rows see them: generated IDs dropped, and keys in one order however they were written. */
+const rowsKey = (part: ViewState["sorts"] | FilterGroup | null) =>
+  JSON.stringify(part, (key, value) =>
+    key === "id"
+      ? undefined
+      : value && typeof value === "object" && !Array.isArray(value)
+        ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => (a < b ? -1 : 1)))
+        : value,
+  );
+/** No filters at all is one thing, whether the view holds `null` or an empty group. */
+const filtersKey = (filters: FilterGroup | null) => (predicatesIn(filters) === 0 ? "null" : rowsKey(filters));
+
+/**
+ * The count rule (ADR 0027): a count follows its rows. On a view with a count, a plan that changes or clears the sort,
+ * or adds, replaces or clears a filter, and sets no count of its own, would keep the count over different rows without
+ * saying so. This returns the question to ask instead, or `undefined` when the plan may go ahead.
+ *
+ * It is a pure function of a plan's operations and the view they apply to, not of the request's words, so it holds for
+ * every Intent Provider and for a plan made without compiling. It never asks about a plan that sets its own count, or
+ * one that leaves the sort and the filters as they are. A reset states its whole target view, count included: only the
+ * operations after it are checked, against `defaultView`, the view it returns to.
+ */
+export const countQuestion = (
+  operations: readonly ViewOperation[],
+  view: { sorts: ViewState["sorts"]; filters: ViewState["filters"]; limit?: ViewState["limit"] },
+  defaultView?: { sorts?: ViewState["sorts"]; filters?: ViewState["filters"]; limit?: ViewState["limit"] },
+): CountQuestion | undefined => {
+  const reset = operations.findLastIndex((op) => op.type === "view.reset");
+  const from = reset < 0 ? view : defaultView;
+  const count = from?.limit;
+  const rest = operations.slice(reset + 1);
+  if (count === undefined || rest.some((op) => op.type === "limit.set")) return undefined;
+  const before: ViewState = { ...emptyViewState([]), sorts: from?.sorts ?? [], filters: from?.filters ?? null };
+  const after = applyOperations(before, rest, before);
+  if (rowsKey(after.sorts) === rowsKey(before.sorts) && filtersKey(after.filters) === filtersKey(before.filters)) return undefined;
+  const rows = count === 1 ? "row" : `${countWords(count)} rows`;
+  return {
+    clarification: {
+      id: "plan.count",
+      prompt: `Keep only the first ${rows} of the new view, or show every row?`,
+      options: [
+        { id: "keep", label: `Keep the first ${count === 1 ? "row" : countWords(count)}` },
+        { id: "all", label: "Show every row" },
+      ],
+      required: true,
+    },
+    answers: {
+      keep: [...operations, { type: "limit.set", count }],
+      all: [...operations, { type: "limit.set", count: null }],
+    },
+  };
+};
+
 /** Turns provider picks and parsed literals into a View Plan. Deterministic; never guesses. */
 export const compile = (c: CompileInput): ViewPlan => {
   const bands = c.confidence ?? DEFAULT_CONFIDENCE;
@@ -256,14 +445,24 @@ export const compile = (c: CompileInput): ViewPlan => {
       .filter((col) => isExposed(col) && col.capabilities.includes(capability as never) && (!kinds || kinds.includes(col.kind)))
       .map((col) => ({ id: col.id, label: col.label }));
   // Consecutive sorts or groupings are levels of one, in the order named: the first is the primary sort or the
-  // outermost group. A clear or reset in between, or a part that says "instead", starts a new one.
+  // outermost group. A clear, reset or count in between, or a part that says "instead", starts a new one.
+  // The part that set the plan's count, and whether a sort or grouping was said after the count while one said before
+  // it was still in effect. The later one would replace the sort or grouping the count was said with, so the part
+  // that set the count is asked about (below), wherever the count's own sort was said.
+  // On a grid that keeps no count, "top 10 by ..." pushes no `limit.set`: `droppedCountAt` is where it would sit, so
+  // a sort or grouping said after it asks there too, rather than joining the count's own sort as a tiebreaker.
+  let countPart: number | undefined;
+  let droppedCountAt: number | undefined;
+  let levelAfterCount = false;
   const levelsOf = (type: "sort.set" | "group.set", replaces: boolean) => {
     const at = operations.findLastIndex((o) => o.type === type);
     const current = operations[at];
     if (replaces || !current || operations.slice(at + 1).some((o) => o.type === "view.reset")) return undefined;
-    if (current.type === "sort.set" && current.sorts.length > 0) return current;
-    if (current.type === "group.set" && current.columnIds.length > 0) return current;
-    return undefined;
+    const levels =
+      (current.type === "sort.set" && current.sorts.length > 0) || (current.type === "group.set" && current.columnIds.length > 0);
+    const afterCount = operations.slice(at + 1).some((o) => o.type === "limit.set");
+    if (levels && (afterCount || (droppedCountAt !== undefined && droppedCountAt > at))) levelAfterCount = true;
+    return levels && !afterCount ? current : undefined;
   };
   const nameKey = (s: string) => (s.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []).join(" ");
   const columnsNamed = (term: string) =>
@@ -303,9 +502,98 @@ export const compile = (c: CompileInput): ViewPlan => {
     evidence.push({ key: `c${mention.clauseIndex}.restricted`, selectedId: mention.columnId, source: "host" });
   }
 
-  if (unsupportedSegments.length === 0) {
+  // Parts code read whole as view words (ADR 0028), with the operations each gave the plan.
+  const readWhole = new Map<number, ViewOperation[]>();
+  // Parts that say "every row" of a view with no count and no filters: true only while the request adds no filter.
+  const everyRowOfAll = new Set<number>();
+  const lists = (op: string) => (c.operations ?? MVP_OPERATIONS).includes(op);
+  const canCount = lists("limit.set");
+  // One count per plan: a later one replaces an earlier one, which is then left unused and asked about (ADR 0019).
+  const setCount = (count: number | null, part: number): ViewOperation => {
+    const earlier = operations.findIndex((o) => o.type === "limit.set");
+    if (earlier >= 0) operations.splice(earlier, 1);
+    const op: ViewOperation = { type: "limit.set", count };
+    operations.push(op);
+    countPart = part;
+    return op;
+  };
+
+  // A part that asks to group or ungroup, on a grid that can't group (more grids spec, 5.3), ends the whole request in
+  // one question, and nothing in it applies, other parts included: the User asked for every change, and showing some
+  // would be a different view. The question is the first such part's. A part whose grouping word code can't read
+  // (`unready`) never leaves the plan ready either: that is checked once the plan is built, below.
+  const groupAsks = lists("group.set")
+    ? []
+    : c.input.clauses.map((clause) => ({
+        clause,
+        asked: groupingAsked(
+          clause,
+          (c.mentions ?? []).filter((m) => m.clauseIndex === clause.index),
+          c.schema.columns,
+        ),
+      }));
+  const grouping = groupAsks.find((g) => g.asked === "cant")?.clause;
+  const unreadGrouping = groupAsks.find((g) => g.asked === "unready")?.clause;
+  if (unsupportedSegments.length === 0 && grouping) clarifications.push(cantQuestion(grouping.index, { type: "group.set" }));
+
+  if (unsupportedSegments.length === 0 && !grouping) {
     for (const clause of c.input.clauses) {
       const key = `c${clause.index}`;
+      // View words come first (spec 4.1). A part read whole uses the reader's operations, and the provider's families
+      // for it are ignored. A part not read goes on exactly as before.
+      const viewWords = readViewWords(clause, c.mentions ?? [], c.schema);
+      const readCount = viewWords?.operations.flatMap((op) => (op.type === "limit.set" ? [op.count] : []))[0];
+      if (typeof readCount === "number") {
+        // "Show only the first 5 rows" on a grid that keeps no count: a question with no choices, and nothing applies.
+        if (!canCount) {
+          clarifications.push(cantQuestion(clause.index, { type: "limit.set", count: readCount }));
+          continue;
+        }
+        readWhole.set(clause.index, [setCount(readCount, clause.index)]);
+        note(`${key}.words`, "limit.set", 1, "deterministic");
+        continue;
+      }
+      // "Show every row" and "remove the count" clear the count. On a view with no count that is a clear of nothing, as
+      // "clear the sort" is on a view with no sort. But with filters and no count, "every row" may mean the rows the
+      // filters leave out, and on a grid that keeps no count there is none to clear: both go to the provider, as before.
+      const saysCount = clause.text.endsWith("count");
+      if (readCount === null && canCount && (c.state.limit !== undefined || saysCount || predicatesIn(c.state.filters) === 0)) {
+        readWhole.set(clause.index, [setCount(null, clause.index)]);
+        if (c.state.limit === undefined && !saysCount) everyRowOfAll.add(clause.index);
+        note(`${key}.words`, "limit.set", 1, "deterministic");
+        continue;
+      }
+      // "Show all accounts" on a view with a count and filters: every row of the filtered view, or of the grid?
+      if (
+        canCount &&
+        c.state.limit !== undefined &&
+        predicatesIn(c.state.filters) > 0 &&
+        namesEveryRow(clause, c.mentions ?? [], c.schema)
+      ) {
+        const answerKey = `${key}.rows`;
+        const answer = answers[answerKey];
+        if (answer === "count" || answer === "filters") {
+          const ops = [setCount(null, clause.index)];
+          if (answer === "filters") {
+            const clear: ViewOperation = { type: "filter.clear" };
+            operations.push(clear);
+            ops.push(clear);
+          }
+          readWhole.set(clause.index, ops);
+          note(answerKey, answer, 1, "user");
+        } else {
+          clarifications.push({
+            id: answerKey,
+            prompt: "Show every row, or clear the filters too?",
+            options: [
+              { id: "count", label: "Show every row" },
+              { id: "filters", label: "Clear the filters too" },
+            ],
+            required: true,
+          });
+        }
+        continue;
+      }
       const proposed: ClauseResolution = c.resolution.clauses.find((r) => r.clauseIndex === clause.index) ?? {
         clauseIndex: clause.index,
         families: [],
@@ -672,9 +960,10 @@ export const compile = (c: CompileInput): ViewPlan => {
       }
       if (viewFamilies.length === 0) {
         if (!familyPending) {
+          const changes = hintChanges(lists, "ask");
           clarifications.push({
             id: `${key}.family`,
-            prompt: `I'm not sure what to change for “${clause.text}”. Try asking to filter, sort, group, or show or hide columns.`,
+            prompt: `I'm not sure what to change for “${clause.text}”.${changes ? ` Try asking to ${changes}.` : ""}`,
             required: true,
           });
         }
@@ -1259,13 +1548,13 @@ export const compile = (c: CompileInput): ViewPlan => {
       // "Top 10": the count shows only the first rows of the sorted view, where the grid can (ADR 0018). Elsewhere the
       // plan sorts alone and keeps the count as dropped evidence, which the Preview names in its notes.
       if (clause.limit !== undefined) {
-        if (c.operations?.includes("limit.set")) {
-          const earlier = operations.findIndex((o) => o.type === "limit.set");
-          if (earlier >= 0) operations.splice(earlier, 1);
-          operations.push({ type: "limit.set", count: clause.limit });
+        if (canCount) {
+          setCount(clause.limit, clause.index);
           note(`${key}.limit`, String(clause.limit), 1, "deterministic");
         } else {
           evidence.push({ key: `dropped:${key}.limit`, selectedId: String(clause.limit), confidence: 1, source: "host" });
+          droppedCountAt = operations.length;
+          countPart = clause.index;
         }
       }
       // G2. The provider proposes, code decides (AGENTS.md): a plan is never ready with fewer clears than the clear
@@ -1292,6 +1581,42 @@ export const compile = (c: CompileInput): ViewPlan => {
     }
   }
 
+  // View words are read in the order they are said. Parts whose words the rest of the request undoes are asked about
+  // with ADR 0019's check below:
+  // - a reset said after them returns to the default view, count included, so their line would not be kept;
+  // - "show only the first 5 rows" said before a change to the sort or the filters may mean the 5 rows on screen now,
+  //   or the first 5 of the new view. The View State holds only the second, and neither is certain (ADR 0027).
+  // "Show only the first 5 rows" keeps the first rows of the sorted view as it stands when it is said. With no sort
+  // there, nothing says which rows come first: ask, never pick a column.
+  // - a sort or grouping said after the count would replace the one said before it (above), so the count's rows would
+  //   not be the ones its part names.
+  const undone = new Set<number>();
+  if (levelAfterCount && countPart !== undefined) undone.add(countPart);
+  const viewOf = (v?: { sorts?: ViewState["sorts"]; filters?: ViewState["filters"] }): ViewState => ({
+    ...emptyViewState([]),
+    sorts: v?.sorts ?? [],
+    filters: v?.filters ?? null,
+  });
+  const viewAt = (at: number) => applyOperations(viewOf(c.state), operations.slice(0, at), viewOf(c.defaultState));
+  for (const [index, ops] of readWhole) {
+    for (const op of ops) {
+      const at = operations.indexOf(op);
+      if (at < 0) continue;
+      const later = operations.slice(at + 1);
+      if (later.some((o) => o.type === "view.reset")) {
+        undone.add(index);
+        continue;
+      }
+      if (op.type !== "limit.set" || op.count === null) continue;
+      const said = viewAt(at);
+      const end = applyOperations(said, later, said);
+      if (rowsKey(end.sorts) !== rowsKey(said.sorts) || filtersKey(end.filters) !== filtersKey(said.filters)) undone.add(index);
+      else if (said.sorts.length === 0) {
+        clarifications.push({ id: `c${index}.count`, prompt: `First ${countWords(op.count)} by which column?`, required: true });
+      }
+    }
+  }
+
   // A "No" never dead-ends (v1 grill, Q1): when the User declined something in a part and all that is left there
   // is a question with no choices, say plainly that nothing will change, with the request kept for editing.
   for (const clause of c.input.clauses) {
@@ -1313,7 +1638,21 @@ export const compile = (c: CompileInput): ViewPlan => {
   // This can only turn a ready plan into a question.
   if (status === "ready") {
     const asked = new Set<number>();
-    for (const left of unusedReadings(c.input, c.mentions ?? [], operations, evidence, c.schema.rowNoun)) {
+    // A part read whole as view words used every word (ADR 0028), unless another part replaced what it set (a request
+    // holds one count), "every row" has no count to clear and sits beside a filter this request adds, or the rest of
+    // the request undoes it (above).
+    const others = { ...c.input, clauses: c.input.clauses.filter((clause) => !readWhole.has(clause.index)) };
+    const addsFilter = operations.some((op) => op.type === "filter.add");
+    const leftOver = c.input.clauses
+      .filter(
+        (clause) =>
+          readWhole.get(clause.index)?.some((op) => !operations.includes(op)) ||
+          (addsFilter && everyRowOfAll.has(clause.index)) ||
+          undone.has(clause.index),
+      )
+      .map((clause) => ({ clauseIndex: clause.index, text: clause.text }));
+    const unused = [...unusedReadings(others, c.mentions ?? [], operations, evidence, c.schema.rowNoun), ...leftOver];
+    for (const left of unused.sort((a, b) => a.clauseIndex - b.clauseIndex)) {
       if (asked.has(left.clauseIndex)) continue;
       asked.add(left.clauseIndex);
       clarifications.push({
@@ -1324,10 +1663,31 @@ export const compile = (c: CompileInput): ViewPlan => {
       status = "needs_clarification";
     }
   }
+  // On a grid that can't group, a word built on "group" that code couldn't read never leaves a ready plan (more grids
+  // spec, 5.3): "sort by value, regroup on advisor" would otherwise sort by advisor and drop the grouping asked for.
+  if (status === "ready" && unreadGrouping) {
+    clarifications.push(cantQuestion(unreadGrouping.index, { type: "group.set" }));
+    status = "needs_clarification";
+  }
+  // Then the count rule (ADR 0027): a plan that would keep the view's count over different rows asks which the User
+  // wants. Each answer adds the count's own line, so the Preview says it. Asked here, after compiling, so it holds for
+  // every Intent Provider. Until it is answered, it can only turn a ready plan into a question.
+  if (status === "ready") {
+    const asks = countQuestion(operations, c.state, c.defaultState);
+    const answer = asks && answers[asks.clarification.id];
+    if (asks && (answer === "keep" || answer === "all")) {
+      operations.push(...asks.answers[answer].slice(operations.length));
+      note(asks.clarification.id, answer, 1, "user");
+    } else if (asks) {
+      clarifications.push(asks.clarification);
+      status = "needs_clarification";
+    }
+  }
   if (status === "needs_clarification" && clarifications.length === 0) {
+    const changes = hintChanges(lists, "try");
     clarifications.push({
       id: "plan.empty",
-      prompt: "That request doesn't change the view. Try filtering, sorting, grouping, or showing or hiding columns.",
+      prompt: `That request doesn't change the view.${changes ? ` Try ${changes}.` : ""}`,
       required: true,
     });
   }
@@ -1353,8 +1713,9 @@ const COMPLEMENT: Partial<Record<FilterPredicate["operator"], FilterPredicate["o
   lt: "gte",
   lte: "gt",
 };
-const namesBlankedOf = (text: string, own: readonly Mention[]) =>
-  own.reduce((t, m) => t.slice(0, m.start) + " ".repeat(m.end - m.start) + t.slice(m.end), text);
+/** Blanks the part's own names, keeping offsets. With `mark`, a single character, each name starts with it. */
+const namesBlankedOf = (text: string, own: ReadonlyArray<{ start: number; end: number }>, mark = " ") =>
+  own.reduce((t, m) => (m.end > m.start ? t.slice(0, m.start) + mark + " ".repeat(m.end - m.start - 1) + t.slice(m.end) : t), text);
 
 /** Whether a name appears in the part only inside quoted text: `advisor containing "restricted"`. */
 const onlyQuoted = (text: string, names: readonly string[]) => {
