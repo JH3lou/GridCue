@@ -66,7 +66,7 @@ Never prefix the key with `VITE_` or `NEXT_PUBLIC_`. The repository's `pnpm chec
 - `app/ag-grid/`: the same grid on AG Grid Community, with `gridcueColumnDefs`.
 - `app/paged/`: rows from a server one page at a time, through the Query Adapter and a Data Query its tests check with the Query Check.
 
-**`examples/ag-grid`** is the [AG Grid guide](/docs/guides/ag-grid) in Vite. It has no root `dev:` script: run `pnpm build`, then `pnpm --filter @gridcue-internal/example-ag-grid dev`.
+**`examples/ag-grid`** is the [AG Grid guide](/docs/guides/ag-grid) in Vite. It has no root `dev:` script: run `pnpm build`, then `pnpm --filter @gridcue-internal/example-ag-grid dev`. It and the `/ag-grid` page of `examples/next` always use the Mock Provider, in the browser.
 
 Both read their schema from `fixtures/wealth`, which shows every declaration in [Describe your domain](/docs/get-started/describe-your-domain).
 

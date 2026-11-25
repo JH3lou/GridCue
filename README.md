@@ -164,7 +164,7 @@ pnpm dev:next    # http://localhost:3100, plain table, no Tailwind
 
 `examples/ag-grid` is the AG Grid Community grid, and `examples/next` also has an `/ag-grid` page and a `/paged` page whose rows come from a server one page at a time.
 
-They use the Mock Provider unless `JEV_API_KEY` is set in the repo-root `.env.local`. See `.env.example`. The examples follow your OS light or dark setting.
+`examples/ag-grid` and the `/ag-grid` page of `examples/next` always use the Mock Provider. The others use it unless `JEV_API_KEY` is set in the repo-root `.env.local`. See `.env.example`. The examples follow your OS light or dark setting.
 
 ## Roadmap
 
