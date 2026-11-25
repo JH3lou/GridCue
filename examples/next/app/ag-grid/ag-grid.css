@@ -1,0 +1,49 @@
+/* The page grows a scrollbar when the Preview opens. Keep its room, so nothing shifts. */
+html:has(.ag-example) {
+  scrollbar-gutter: stable;
+}
+/* Nine columns need more than the other pages' 72rem. */
+.ag-example {
+  max-width: 90rem;
+  --ag-muted: #4b5563;
+  --ag-accent: #2563eb;
+}
+@media (prefers-color-scheme: dark) {
+  .ag-example {
+    --ag-muted: #d1d5db;
+    --ag-accent: #60a5fa;
+  }
+}
+
+.ag-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 16px;
+}
+.ag-head h1 {
+  margin: 0;
+}
+.ag-head nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+}
+.ag-head a {
+  color: var(--ag-accent);
+}
+.ag-note {
+  margin: 0;
+  color: var(--ag-muted);
+  font-size: 0.875rem;
+}
+.ag-grid {
+  height: 560px;
+  min-width: 0;
+}
+@media (max-width: 640px) {
+  .ag-grid {
+    height: 480px;
+  }
+}

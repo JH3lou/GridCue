@@ -204,46 +204,46 @@ Spec 4.1 and 5.5. Needs PR 4.
 Spec 5.6. ADR 0033. Needs PRs 1, 3, 5.
 
 ### Task 6.1: Spike (Sonnet), in scratch, before any adapter code
-- [ ] Does AG Grid 36 run in jsdom under Vitest? If not, which browser runner, and what it adds.
-- [ ] Run the defaults the grill only read: blank handling in not-equal and comparisons, `inRangeInclusive`, whether blank cells reach `textMatcher`, multi-column sort in Community, and whether `setFilterModel` then `getFilterModel` reads back in the same tick.
-- [ ] Do AG Grid 34 and 35 have every `GridApi` call the adapter will use? Report the oldest that does.
-- [ ] Does an Infinite Row Model datasource get called again after `setFilterModel` and `applyColumnState`?
-- [ ] The lead reports the results to the owner. If any changes spec 5.6, the spec is updated before 6.3.
+- [x] Does AG Grid 36 run in jsdom under Vitest? If not, which browser runner, and what it adds.
+- [x] Run the defaults the grill only read: blank handling in not-equal and comparisons, `inRangeInclusive`, whether blank cells reach `textMatcher`, multi-column sort in Community, and whether `setFilterModel` then `getFilterModel` reads back in the same tick.
+- [x] Do AG Grid 34 and 35 have every `GridApi` call the adapter will use? Report the oldest that does.
+- [x] Does an Infinite Row Model datasource get called again after `setFilterModel` and `applyColumnState`?
+- [x] The lead reports the results to the owner. If any changes spec 5.6, the spec is updated before 6.3.
 
 ### Task 6.2: Label (Sonnet)
-- [ ] At least 30 menu filter models a User can set in AG Grid's text, number and date filters, written from AG Grid's docs and spec 5.6 alone, each with the View State it should read as, or "unreadable". Outside the repo.
-- [ ] `ag-grid-community` and `ag-grid-react` 36.3.0, exact, as dev dependencies where tests and examples need them.
+- [x] At least 30 menu filter models a User can set in AG Grid's text, number and date filters, written from AG Grid's docs and spec 5.6 alone, each with the View State it should read as, or "unreadable". Outside the repo.
+- [x] `ag-grid-community` and `ag-grid-react` 36.3.0, exact, as dev dependencies where tests and examples need them.
 
 ### Task 6.3: The adapter (Opus)
 **Files:** new `packages/gridcue/src/ag-grid/index.ts`, `test/ag-grid.test.ts`. Needs 6.1.
-- [ ] Tests first: the contract suite on the Client-Side and Infinite row models; each creation check; an `in` with another filter on its column fails with `ADAPTER_UNSUPPORTED_FILTER` and nothing written; pins and an Enterprise grouping are written back unchanged; on the Infinite Row Model, a column with the Host's own custom filter set, then a GridCue filter applied on another column: the datasource request still holds the Host's filter, the View State holds only GridCue's, and the example's Data Query returns the rows that pass both.
-- [ ] `AgGridApiLike`, `createAgGridAdapter`, `schemaFromAgGrid`. One apply writes, waits until the grid reads back what was written, then notifies once.
+- [x] Tests first: the contract suite on the Client-Side and Infinite row models; each creation check; an `in` with another filter on its column fails with `ADAPTER_UNSUPPORTED_FILTER` and nothing written; pins and an Enterprise grouping are written back unchanged; on the Infinite Row Model, a column with the Host's own custom filter set, then a GridCue filter applied on another column: the datasource request still holds the Host's filter, the View State holds only GridCue's, and the example's Data Query returns the rows that pass both.
+- [x] `AgGridApiLike`, `createAgGridAdapter`, `schemaFromAgGrid`. One apply writes, waits until the grid reads back what was written, then notifies once.
 
 ### Task 6.4: Meanings and the reader (Fable)
 **Files:** `src/ag-grid/meanings.ts`, `src/ag-grid/read.ts`, tests. Needs 6.3.
-- [ ] Date filters compare whole days in the schema calendar's time zone, as named filters' PR 5 defines them.
-- [ ] `gridcueColDef(schema)`: the settings in spec 5.6, then the row check (the Query Check's cases through AG Grid on the wealth schema) decides, option by option, between AG Grid's setting and a custom option with GridCue's predicate.
-- [ ] The reader: AND conditions, OR on one column, equals-OR-equals as `in`, and "unreadable" kept as the Host's.
-- [ ] Bars on dev: 0 rows differ; same order where sort cells aren't empty.
+- [x] Date filters compare whole days in the schema calendar's time zone, as named filters' PR 5 defines them.
+- [x] `gridcueColumnDefs(schema, columnDefs)` (first planned as one default column definition, `gridcueColDef`; spec 5.6 says why it changed): the settings in spec 5.6, then the row check (the Query Check's cases through AG Grid on the wealth schema) decides, option by option, between AG Grid's setting and a custom option with GridCue's predicate.
+- [x] The reader: AND conditions, OR on one column, equals-OR-equals as `in`, and "unreadable" kept as the Host's.
+- [x] Bars on dev: 0 rows differ; same order where sort cells aren't empty.
 
 ### Task 6.5: Held-out run (lead)
-- [ ] The ledger schema's cases and fresh seeds through AG Grid, on both row models. Report rows that differ (bar: 0) and where empty cells sort (no bar).
-- [ ] The 30 menu filter models. Report misreads (bar: 0) and the share read.
+- [x] The ledger schema's cases and fresh seeds through AG Grid, on both row models. Report rows that differ (bar: 0) and where empty cells sort (no bar).
+- [x] The 30 menu filter models. Report misreads (bar: 0) and the share read.
 
 ### Task 6.6: Examples (Sonnet)
 **Files:** new `examples/ag-grid/` (Vite), `examples/next/app/ag-grid/`.
-- [ ] Load the three design skills first.
-- [ ] The Vite example and the Next.js page, each with `<GridCueBar />` and the Mock Provider, Community modules only.
-- [ ] Real-browser check, light and dark, in both. Before/After and screenshots in the PR.
+- [x] Load the three design skills first.
+- [x] The Vite example and the Next.js page, each with `<GridCueBar />` and the Mock Provider, Community modules only.
+- [x] Real-browser check, light and dark, in both. Before/After and screenshots in the PR.
 
 ### Task 6.7: Docs (Sonnet), entries and links (Haiku)
-- [ ] Site: the "AG Grid" guide (Community only, tested majors, `gridcueColDef`, the Infinite Row Model with the server guide); `api/adapters`; `meta.json`; the marketing page's grid list, if it has one.
-- [ ] `package.json` `exports` and `tsdown` entry for `./ag-grid`; `pnpm check:package`.
-- [ ] `AGENTS.md`: the two lists of entries and the list of Grid Adapters gain `gridcue/ag-grid`. The Query Adapter joined the list of Grid Adapters in PR 4, where it landed (order plan, section 11). The owner approved the edit with the order plan's D2.
-- [ ] `skills/gridcue/references/setup.md`: the AG Grid row; `troubleshooting.md`: each `INPUT_CONFIG` message. `pnpm check:skills`. The changelog.
+- [x] Site: the "AG Grid" guide (Community only, tested majors, `gridcueColumnDefs`, the Infinite Row Model with the server guide); `api/adapters`; `meta.json`; the marketing page's grid list, if it has one.
+- [x] `package.json` `exports` and `tsdown` entry for `./ag-grid`; `pnpm check:package`.
+- [x] `AGENTS.md`: the two lists of entries and the list of Grid Adapters gain `gridcue/ag-grid`. The Query Adapter joined the list of Grid Adapters in PR 4, where it landed (order plan, section 11). The owner approved the edit with the order plan's D2.
+- [x] `skills/gridcue/references/setup.md`: the AG Grid row; `troubleshooting.md`: each `INPUT_CONFIG` message. `pnpm check:skills`. The changelog.
 
 ### Task 6.8: Review (Opus), gate
-- [ ] The bundle leak check covers both new pages.
+- [x] The bundle leak check covers both new pages.
 
 ## Spec coverage
 

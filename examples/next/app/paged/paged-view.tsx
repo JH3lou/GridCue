@@ -115,7 +115,7 @@ export function PagedView() {
       <div className="paged-head">
         <h1>Accounts, paged</h1>
         <nav aria-label="Examples">
-          <Link href="/">Rows in memory</Link>
+          <Link href="/">Rows in memory</Link> · <Link href="/ag-grid">In AG Grid</Link>
         </nav>
       </div>
       <GridCueBar controller={cue} />

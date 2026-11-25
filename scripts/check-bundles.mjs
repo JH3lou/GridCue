@@ -12,6 +12,8 @@ const NEXT_FORBIDDEN = [...FORBIDDEN, "node:sqlite", "DatabaseSync", "grid_rows"
 const ASSETS = /\.(js|mjs|html|css|json|map)$/;
 const ROOTS = [
   { dir: "examples/vite/dist", files: ASSETS },
+  // The AG Grid example has no server at all: the Mock Provider runs in the browser.
+  { dir: "examples/ag-grid/dist", files: ASSETS },
   // The Site is static and has no key at all (ADR 0016). Its docs quote server code, so names like TypeSafeClient
   // can't be forbidden there. Instead, the Jev provider's own error text (packages/gridcue/src/server/jev.ts), which
   // the docs never quote, marks the provider having been bundled for the browser.
