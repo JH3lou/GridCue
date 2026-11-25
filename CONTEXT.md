@@ -57,7 +57,7 @@ Which questions an Intent Provider asks for each Clause, chosen by the Host. Jev
 _Avoid_: Mode, profile, preset
 
 **Clarification**:
-A single focused question GridCue asks when a request cannot be resolved without a choice only the User can make.
+A question GridCue asks when a request cannot be resolved without something only the User can give. A View Plan can carry several, each about one Clause, answered with a choice or with a new wording of that Clause.
 _Avoid_: Follow-up, disambiguation prompt
 
 **Abstention**:
@@ -71,6 +71,10 @@ _Avoid_: Rejected intent, error
 **Grid Offer**:
 GridCue's offer to open another Declared Grid when a request names that grid or is about its rows. The User chooses, and the Host opens the grid.
 _Avoid_: Redirect, jump, navigation
+
+**Starter**:
+A request the bar offers at an empty input: one of the Host's examples, a recent request, or a change built from the View Schema.
+_Avoid_: Suggestion, completion
 
 ## Views
 
@@ -118,9 +122,17 @@ _Avoid_: Approved plan, valid plan
 The deterministic, human-readable description of exactly what a View Plan would change, shown before anything is applied.
 _Avoid_: Summary, explanation
 
+**Rows Shown**:
+How many rows a ready View Plan would leave, and how many there are in all, as the Host counts them. Shown with the Preview; never sent to an Intent Provider.
+_Avoid_: Row count, match count, hits, results
+
 **View Sentence**:
 The plain-English reading of a whole View State, such as "Taxable accounts over $1,000,000, grouped by Advisor." The View State is the record; the sentence is how it reads.
 _Avoid_: Description, caption, summary
+
+**View Part**:
+One piece of the current View State as the bar shows it, such as one filter condition, the sort, the grouping, or the hidden columns. Removing one proposes the view without it, through a Preview.
+_Avoid_: Chip, tag, pill, facet
 
 **Saved View**:
 A View State the Host stores under a name the User chose. GridCue saves and opens one by request through the Host, and never stores it.
