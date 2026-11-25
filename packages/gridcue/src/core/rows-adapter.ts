@@ -1,6 +1,6 @@
 import type { ApplyResult, GridAdapter } from "./adapter";
 import { MVP_OPERATIONS } from "./adapter";
-import { matchesFilter } from "./evaluate";
+import { isEmpty, matchesFilter } from "./evaluate";
 import { emptyViewState, type Scalar, type VersionedViewState, type ViewSchema, type ViewState } from "./protocol";
 import { isApplicable, resultingState } from "./validate";
 
@@ -89,7 +89,17 @@ export const applyView = <Row extends object>(rows: readonly Row[], state: ViewS
           return 0;
         });
   // A count keeps the first rows of the sorted view, before grouping, so "top 10 grouped by advisor" is still ten rows.
-  const limited = state.limit === undefined ? sorted : sorted.slice(0, state.limit);
+  // A row with no value in the first sorted column never fills a count (ADR 0027), so "top 10" shows 7 when only 7 have one.
+  // No value is what a filter's "is empty" means, plus a number that isn't one (NaN), which no sort can place.
+  const first = state.sorts[0]?.columnId;
+  const counted =
+    state.limit === undefined || first === undefined
+      ? sorted
+      : sorted.filter((row) => {
+          const v = cell(row, first);
+          return !isEmpty(v) && !Number.isNaN(v);
+        });
+  const limited = state.limit === undefined ? sorted : counted.slice(0, state.limit);
   const columns = state.columnOrder.filter((id) => state.visibleColumnIds.includes(id));
   if (state.groupBy.length === 0) return { columns, rows: limited };
   const groups = new Map<string, { key: Record<string, Scalar>; rows: Row[] }>();
