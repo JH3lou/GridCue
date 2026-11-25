@@ -3,6 +3,7 @@ name: babysit-pr
 description: Monitor a pull request through review and CI. Use when the user asks to monitor, watch, or babysit a PR.
 metadata:
   internal: true
+source: https://github.com/t3dotgg/tstack/tree/main
 ---
 
 # Babysit PR
