@@ -1,13 +1,24 @@
+import { MVP_OPERATIONS } from "./adapter";
 import { formatAmount } from "./format";
-import { afterExclusionLead, governedClears, LEAD_IN, leavesRowsOut, viewRequest } from "./lead";
-import { LITERAL_COLUMN_KINDS, type Mention } from "./mentions";
-import { type Clause, type Literal, literalText, type NormalizedInput, SIZE_WORDS, trailingComparison, unquoted } from "./normalize";
+import { afterExclusionLead, governedClears, LEAD_IN, leavesRowsOut, nothingAfter, saidToStay, viewRequest } from "./lead";
+import { LEAVES_OUT, LITERAL_COLUMN_KINDS, type Mention } from "./mentions";
+import {
+  type Clause,
+  directionSpans,
+  type Literal,
+  literalText,
+  type NormalizedInput,
+  SIZE_WORDS,
+  trailingComparison,
+  unquoted,
+} from "./normalize";
 import type { RestrictedMention } from "./policy";
 import {
   type Clarification,
   type ColumnDescriptor,
   type ColumnKind,
   type DecisionEvidence,
+  emptyViewState,
   type FilterGroup,
   type FilterPredicate,
   PROTOCOL_VERSION,
@@ -17,6 +28,7 @@ import {
   type ViewSchema,
   type ViewState,
 } from "./protocol";
+import { applyOperations } from "./reduce";
 import {
   type ClauseResolution,
   COLUMN_FAMILIES,
@@ -28,7 +40,9 @@ import {
 } from "./resolution";
 import { isExposed, operatorsFor } from "./schema";
 import { REVERSAL_WORDING, unknownTerm } from "./terms";
+import { escapeRegExp } from "./text-match";
 import { unusedReadings } from "./unused";
+import { namesEveryRow, readViewWords } from "./view-words";
 
 export interface ConfidencePolicy {
   /** At or above this, a decision is used as-is. Default 0.85. */
@@ -55,12 +69,15 @@ export interface CompileInput {
   /**
    * The view `view.reset` returns to (the adapter's `getDefaultState()`). A reset that keeps the current filters
    * ("reset everything except the filters") adds them to this view's own, so it is ready only when this is given and
-   * has no filters. Otherwise GridCue asks.
+   * has no filters. Otherwise GridCue asks. Its sort and count are what a reset leaves for the count rule (ADR 0027).
    */
-  defaultState?: { filters: ViewState["filters"] };
+  defaultState?: { filters: ViewState["filters"]; sorts?: ViewState["sorts"]; limit?: ViewState["limit"] };
   /**
-   * The operations the grid supports (its adapter's capabilities). A count ("top 10") becomes `limit.set` only where
-   * this lists it; otherwise the plan sorts alone and records the count as not applied (ADR 0018).
+   * The operations the grid supports (its adapter's capabilities). Left out, they are `MVP_OPERATIONS`. A count ("top
+   * 10") becomes `limit.set` only where this lists it; otherwise the plan sorts alone and records the count as not
+   * applied (ADR 0018). "Show only the first 5 rows" there ends in a question with no choices, and nothing applies
+   * (ADR 0027). Where this doesn't list `group.set`, a part that asks to group or ungroup ends the whole request in
+   * "This grid can't group rows." (more grids spec, 5.3). A hint that suggests changes names only those listed here.
    */
   operations?: readonly string[];
   newId: (prefix: string) => string;
@@ -177,7 +194,9 @@ const PLAIN_GAP = /^\s*(?::\s*)?(?:(?:is|are|was|were|of|at|on) )?$/;
 /** Before an amount whose column follows it: "accounts with 5 positions". */
 const PLAIN_BEFORE_AMOUNT = /(?:^|(?:^|\b(?:with|having|has|have|had|of|and|or|show|only|keep|list|find)) |, ?)$/;
 /** A value named inside one of these phrases limits the rows, wherever it sits: "sort by gain for trusts". */
-const PREPOSITION_BEFORE = /\b(?:for|among|at|in|with|from|of|within)\s+(?:(?:the|all|only|just)\s+)?(?:[\p{L}-]+\s+)?$/u;
+const PREPOSITION = String.raw`(?:for|among|at|in|with|from|of|within)\s+`;
+const PREPOSITION_DETERMINER = String.raw`(?:(?:the|all|only|just)\s+)?`;
+const PREPOSITION_BEFORE = new RegExp(String.raw`\b${PREPOSITION}${PREPOSITION_DETERMINER}(?:[\p{L}-]+\s+)?$`, "u");
 
 /**
  * Decides between competing families (ADR 0012). `accepted` are at or above `ready` or confirmed by the User;
@@ -230,6 +249,187 @@ export const settleFamilies = (
   return { kept, ask: confident ? [] : waiting, dropped, byKind: decidedByKind || !!promoted };
 };
 
+/** The count question (ADR 0027), and the plan each answer makes. */
+export interface CountQuestion {
+  /** "Keep only the first 10 rows of the new view, or show every row?", with the options `keep` and `all`. */
+  clarification: Clarification;
+  /** The plan's operations after each answer. Each ends with the count's own line, so the Preview says it. */
+  answers: { keep: ViewOperation[]; all: ViewOperation[] };
+}
+
+const countWords = (count: number) => count.toLocaleString("en-US");
+
+/**
+ * An operation a request needs that the grid doesn't list. The operation set's pins, density and totals join this list
+ * for a grid whose Host hasn't turned them on (operation set 4.2).
+ */
+export type UnlistedOperation = { type: "group.set" } | { type: "limit.set"; count: number };
+
+/**
+ * "This grid can't …": the one question for a change the grid doesn't list (more grids spec, 5.3). It has no choices,
+ * since no answer makes the grid able to. Its ID starts with its part's index, as the compiler's other questions do,
+ * so the command bar can show it beside that part. The caller decides what else in the request stops with it.
+ */
+export const cantQuestion = (clauseIndex: number, op: UnlistedOperation): Clarification => ({
+  id: `c${clauseIndex}.cant`,
+  prompt:
+    op.type === "group.set"
+      ? "This grid can't group rows."
+      : `This grid can't show only the first ${countWords(op.count)} ${op.count === 1 ? "row" : "rows"}.`,
+  required: true,
+});
+
+/**
+ * Any word built on "group": "group", "groups", "grouped", "grouping", "ungroup", "regroup", "subgroup", "groupwise",
+ * "groupby", "group_by". A word joined to others by "_" is a name ("group_name").
+ */
+const GROUP_WORD = /(?<![\p{L}\p{N}_])[\p{L}\p{N}]*group[\p{L}\p{N}]*(?:_by)?(?![\p{L}\p{N}_])/gu;
+/** The words that ask to group or ungroup, as the spec lists them: "group", "grouped", "ungroup" and their forms. */
+const GROUPING_VERB = /^(?:un)?group(?:s|ed|ing|ings)?$/;
+/** "By" after the word names what to group by: "the grouping by advisor". That asks, whatever comes before it. */
+const BY_NEXT = /^\s+by\b/;
+/** Before the word when it is the text to match: "household contains group", "accounts named group". */
+const TEXT_MATCH_BEFORE =
+  /\b(?:contains?|containing|named|called|matching|matches|like|(?:starts?|starting|begins?|beginning|ends?|ending)\s+with)\s+$/;
+/** Marks where a name or quoted text was, so the words on either side of it don't touch. */
+const NAME_MARK = "\u{fffc}";
+/**
+ * A column's own label or alias that holds "group", said beside a value of that column the part names: "the alpha
+ * group" or "group = beta" on a grid with a column "Group". It names the column, not a grouping (spec 5.3, "would
+ * change if"). Matching records only the value there, so the label is found here. Before the value it counts only
+ * with "=", ":", "is" or "equals" between them, and after it never with "by" next: "alpha group by advisor" asks.
+ */
+const groupLabelsBeside = (text: string, own: readonly Mention[], columns: ViewSchema["columns"]) =>
+  own.flatMap((m) => {
+    if (m.valueId === undefined) return [];
+    const col = columns.find((c) => c.id === m.columnId);
+    const names = [col?.label, ...(col?.aliases ?? [])].filter((n): n is string => !!n && /group/i.test(n));
+    return names.flatMap((name) => {
+      const n = name.trim().split(/\s+/).map(escapeRegExp).join("\\s+");
+      const spans: Array<{ start: number; end: number }> = [];
+      const after = new RegExp(`^(\\s+)(${n})(?![\\p{L}\\p{N}_])(?!\\s+by\\b)`, "iu").exec(text.slice(m.end));
+      if (after?.[1] && after[2]) spans.push({ start: m.end + after[1].length, end: m.end + after[1].length + after[2].length });
+      const before = new RegExp(`(?<![\\p{L}\\p{N}_])(${n})\\s*(?:=|:|\\bis\\b|\\bequals\\b)\\s*$`, "iu").exec(text.slice(0, m.start));
+      if (before?.[1]) spans.push({ start: before.index, end: before.index + before[1].length });
+      return spans;
+    });
+  });
+/**
+ * What a part's words built on "group" ask of a grid that can't group. Words inside a declared name ("Group Annuity",
+ * "Group name"), in quoted text, or a column's own label beside its value ("the alpha group") don't count.
+ *
+ * - `"cant"`: the part asks to group or ungroup, and the whole request ends in "This grid can't group rows.". That is a
+ *   grouping verb ("group", "grouped", "ungroup", "groups"), a word with "by" next ("regroup by advisor", "keep the
+ *   sort and the grouping by advisor"), or a clear verb that governs the grouping ("clear the grouping"). "The
+ *   Northgate group" and "sort groups by value" may each mean a grouping, and code can't tell, so they ask.
+ * - `"unready"`: code can't tell what the word asks: "regroup my thoughts", "advisor like groups", "groupwise", or a
+ *   grouping said to stay with more after it ("the grouping stays on advisor"). The part keeps whatever question it
+ *   asks, but the request never ends ready: if it would, it asks "This grid can't group rows." instead.
+ * - `undefined`: no such word, or each is said to stay or left out with nothing after it in its part but punctuation
+ *   or a joining word: "clear the sort, the grouping stays", "keep the grouping", "sort by value without grouping".
+ *   Only the staying words `saidToStay` knows count; any other wording asks. "Not ungrouped" asks for groups, so an
+ *   "un" word counts only when it is kept ("leave ungrouped"), not left out.
+ */
+const groupingAsked = (clause: Clause, own: readonly Mention[], columns: ViewSchema["columns"]): "cant" | "unready" | undefined => {
+  const names = [...own, ...groupLabelsBeside(clause.text, own, columns)];
+  const words = unquoted(namesBlankedOf(clause.text, names));
+  const marked = unquoted(namesBlankedOf(clause.text, names, NAME_MARK), NAME_MARK);
+  let asked: "cant" | "unready" | undefined = governedClears(words).governed.has("group") ? "cant" : undefined;
+  for (const m of marked.matchAll(GROUP_WORD)) {
+    const word = m[0];
+    const start = m.index ?? 0;
+    const end = start + word.length;
+    if (/by$/.test(word) || BY_NEXT.test(marked.slice(end))) return "cant";
+    // A part a clear or reset says to keep ("reset everything but the grouping") is left out of the clear. Leaving out
+    // an ungrouping asks for groups ("not ungrouped", "except ungrouped"), so for "ungroup" only a word that keeps it
+    // ("leave ungrouped") counts.
+    const said = saidToStay(marked, start, end);
+    const stays = said === "kept" || (!/^un/.test(word) && (clause.keeps || said === "left out"));
+    if (stays && nothingAfter(marked, end)) continue;
+    if (stays || !GROUPING_VERB.test(word) || TEXT_MATCH_BEFORE.test(marked.slice(0, start))) asked ??= "unready";
+    else return "cant";
+  }
+  return asked;
+};
+
+/**
+ * The changes a hint may suggest, in the order it names them, each with the operations it needs and its words: the
+ * first to follow "Try asking to", the second to follow "Try".
+ */
+const HINT_CHANGES: ReadonlyArray<{ needs: string; ask: string; try: string }> = [
+  { needs: "filter.add", ask: "filter", try: "filtering" },
+  { needs: "sort.set", ask: "sort", try: "sorting" },
+  { needs: "group.set", ask: "group", try: "grouping" },
+];
+/** "a, b, or c"; "a or b"; "a". */
+const listOr = (items: readonly string[]) =>
+  items.length > 2 ? `${items.slice(0, -1).join(", ")}, or ${items.at(-1)}` : items.join(" or ");
+/**
+ * What a hint suggests, naming only the changes the grid lists (more grids spec, 5.3): "filter, sort, group, or show or
+ * hide columns" on a grid that lists them all. Empty when the grid lists none of them.
+ */
+const hintChanges = (lists: (op: string) => boolean, form: "ask" | "try") => {
+  const items = HINT_CHANGES.filter((h) => lists(h.needs)).map((h) => h[form]);
+  const show = lists("columns.show");
+  const hide = lists("columns.hide");
+  const words = form === "ask" ? ["show", "hide"] : ["showing", "hiding"];
+  const columns = [show ? words[0] : "", hide ? words[1] : ""].filter(Boolean).join(" or ");
+  if (columns) items.push(`${columns} columns`);
+  return listOr(items);
+};
+/** A sort or the filters as the rows see them: generated IDs dropped, and keys in one order however they were written. */
+const rowsKey = (part: ViewState["sorts"] | FilterGroup | null) =>
+  JSON.stringify(part, (key, value) =>
+    key === "id"
+      ? undefined
+      : value && typeof value === "object" && !Array.isArray(value)
+        ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => (a < b ? -1 : 1)))
+        : value,
+  );
+/** No filters at all is one thing, whether the view holds `null` or an empty group. */
+const filtersKey = (filters: FilterGroup | null) => (predicatesIn(filters) === 0 ? "null" : rowsKey(filters));
+
+/**
+ * The count rule (ADR 0027): a count follows its rows. On a view with a count, a plan that changes or clears the sort,
+ * or adds, replaces or clears a filter, and sets no count of its own, would keep the count over different rows without
+ * saying so. This returns the question to ask instead, or `undefined` when the plan may go ahead.
+ *
+ * It is a pure function of a plan's operations and the view they apply to, not of the request's words, so it holds for
+ * every Intent Provider and for a plan made without compiling. It never asks about a plan that sets its own count, or
+ * one that leaves the sort and the filters as they are. A reset states its whole target view, count included: only the
+ * operations after it are checked, against `defaultView`, the view it returns to.
+ */
+export const countQuestion = (
+  operations: readonly ViewOperation[],
+  view: { sorts: ViewState["sorts"]; filters: ViewState["filters"]; limit?: ViewState["limit"] },
+  defaultView?: { sorts?: ViewState["sorts"]; filters?: ViewState["filters"]; limit?: ViewState["limit"] },
+): CountQuestion | undefined => {
+  const reset = operations.findLastIndex((op) => op.type === "view.reset");
+  const from = reset < 0 ? view : defaultView;
+  const count = from?.limit;
+  const rest = operations.slice(reset + 1);
+  if (count === undefined || rest.some((op) => op.type === "limit.set")) return undefined;
+  const before: ViewState = { ...emptyViewState([]), sorts: from?.sorts ?? [], filters: from?.filters ?? null };
+  const after = applyOperations(before, rest, before);
+  if (rowsKey(after.sorts) === rowsKey(before.sorts) && filtersKey(after.filters) === filtersKey(before.filters)) return undefined;
+  const rows = count === 1 ? "row" : `${countWords(count)} rows`;
+  return {
+    clarification: {
+      id: "plan.count",
+      prompt: `Keep only the first ${rows} of the new view, or show every row?`,
+      options: [
+        { id: "keep", label: `Keep the first ${count === 1 ? "row" : countWords(count)}` },
+        { id: "all", label: "Show every row" },
+      ],
+      required: true,
+    },
+    answers: {
+      keep: [...operations, { type: "limit.set", count }],
+      all: [...operations, { type: "limit.set", count: null }],
+    },
+  };
+};
+
 /** Turns provider picks and parsed literals into a View Plan. Deterministic; never guesses. */
 export const compile = (c: CompileInput): ViewPlan => {
   const bands = c.confidence ?? DEFAULT_CONFIDENCE;
@@ -245,14 +445,24 @@ export const compile = (c: CompileInput): ViewPlan => {
       .filter((col) => isExposed(col) && col.capabilities.includes(capability as never) && (!kinds || kinds.includes(col.kind)))
       .map((col) => ({ id: col.id, label: col.label }));
   // Consecutive sorts or groupings are levels of one, in the order named: the first is the primary sort or the
-  // outermost group. A clear or reset in between, or a part that says "instead", starts a new one.
+  // outermost group. A clear, reset or count in between, or a part that says "instead", starts a new one.
+  // The part that set the plan's count, and whether a sort or grouping was said after the count while one said before
+  // it was still in effect. The later one would replace the sort or grouping the count was said with, so the part
+  // that set the count is asked about (below), wherever the count's own sort was said.
+  // On a grid that keeps no count, "top 10 by ..." pushes no `limit.set`: `droppedCountAt` is where it would sit, so
+  // a sort or grouping said after it asks there too, rather than joining the count's own sort as a tiebreaker.
+  let countPart: number | undefined;
+  let droppedCountAt: number | undefined;
+  let levelAfterCount = false;
   const levelsOf = (type: "sort.set" | "group.set", replaces: boolean) => {
     const at = operations.findLastIndex((o) => o.type === type);
     const current = operations[at];
     if (replaces || !current || operations.slice(at + 1).some((o) => o.type === "view.reset")) return undefined;
-    if (current.type === "sort.set" && current.sorts.length > 0) return current;
-    if (current.type === "group.set" && current.columnIds.length > 0) return current;
-    return undefined;
+    const levels =
+      (current.type === "sort.set" && current.sorts.length > 0) || (current.type === "group.set" && current.columnIds.length > 0);
+    const afterCount = operations.slice(at + 1).some((o) => o.type === "limit.set");
+    if (levels && (afterCount || (droppedCountAt !== undefined && droppedCountAt > at))) levelAfterCount = true;
+    return levels && !afterCount ? current : undefined;
   };
   const nameKey = (s: string) => (s.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []).join(" ");
   const columnsNamed = (term: string) =>
@@ -292,9 +502,98 @@ export const compile = (c: CompileInput): ViewPlan => {
     evidence.push({ key: `c${mention.clauseIndex}.restricted`, selectedId: mention.columnId, source: "host" });
   }
 
-  if (unsupportedSegments.length === 0) {
+  // Parts code read whole as view words (ADR 0028), with the operations each gave the plan.
+  const readWhole = new Map<number, ViewOperation[]>();
+  // Parts that say "every row" of a view with no count and no filters: true only while the request adds no filter.
+  const everyRowOfAll = new Set<number>();
+  const lists = (op: string) => (c.operations ?? MVP_OPERATIONS).includes(op);
+  const canCount = lists("limit.set");
+  // One count per plan: a later one replaces an earlier one, which is then left unused and asked about (ADR 0019).
+  const setCount = (count: number | null, part: number): ViewOperation => {
+    const earlier = operations.findIndex((o) => o.type === "limit.set");
+    if (earlier >= 0) operations.splice(earlier, 1);
+    const op: ViewOperation = { type: "limit.set", count };
+    operations.push(op);
+    countPart = part;
+    return op;
+  };
+
+  // A part that asks to group or ungroup, on a grid that can't group (more grids spec, 5.3), ends the whole request in
+  // one question, and nothing in it applies, other parts included: the User asked for every change, and showing some
+  // would be a different view. The question is the first such part's. A part whose grouping word code can't read
+  // (`unready`) never leaves the plan ready either: that is checked once the plan is built, below.
+  const groupAsks = lists("group.set")
+    ? []
+    : c.input.clauses.map((clause) => ({
+        clause,
+        asked: groupingAsked(
+          clause,
+          (c.mentions ?? []).filter((m) => m.clauseIndex === clause.index),
+          c.schema.columns,
+        ),
+      }));
+  const grouping = groupAsks.find((g) => g.asked === "cant")?.clause;
+  const unreadGrouping = groupAsks.find((g) => g.asked === "unready")?.clause;
+  if (unsupportedSegments.length === 0 && grouping) clarifications.push(cantQuestion(grouping.index, { type: "group.set" }));
+
+  if (unsupportedSegments.length === 0 && !grouping) {
     for (const clause of c.input.clauses) {
       const key = `c${clause.index}`;
+      // View words come first (spec 4.1). A part read whole uses the reader's operations, and the provider's families
+      // for it are ignored. A part not read goes on exactly as before.
+      const viewWords = readViewWords(clause, c.mentions ?? [], c.schema);
+      const readCount = viewWords?.operations.flatMap((op) => (op.type === "limit.set" ? [op.count] : []))[0];
+      if (typeof readCount === "number") {
+        // "Show only the first 5 rows" on a grid that keeps no count: a question with no choices, and nothing applies.
+        if (!canCount) {
+          clarifications.push(cantQuestion(clause.index, { type: "limit.set", count: readCount }));
+          continue;
+        }
+        readWhole.set(clause.index, [setCount(readCount, clause.index)]);
+        note(`${key}.words`, "limit.set", 1, "deterministic");
+        continue;
+      }
+      // "Show every row" and "remove the count" clear the count. On a view with no count that is a clear of nothing, as
+      // "clear the sort" is on a view with no sort. But with filters and no count, "every row" may mean the rows the
+      // filters leave out, and on a grid that keeps no count there is none to clear: both go to the provider, as before.
+      const saysCount = clause.text.endsWith("count");
+      if (readCount === null && canCount && (c.state.limit !== undefined || saysCount || predicatesIn(c.state.filters) === 0)) {
+        readWhole.set(clause.index, [setCount(null, clause.index)]);
+        if (c.state.limit === undefined && !saysCount) everyRowOfAll.add(clause.index);
+        note(`${key}.words`, "limit.set", 1, "deterministic");
+        continue;
+      }
+      // "Show all accounts" on a view with a count and filters: every row of the filtered view, or of the grid?
+      if (
+        canCount &&
+        c.state.limit !== undefined &&
+        predicatesIn(c.state.filters) > 0 &&
+        namesEveryRow(clause, c.mentions ?? [], c.schema)
+      ) {
+        const answerKey = `${key}.rows`;
+        const answer = answers[answerKey];
+        if (answer === "count" || answer === "filters") {
+          const ops = [setCount(null, clause.index)];
+          if (answer === "filters") {
+            const clear: ViewOperation = { type: "filter.clear" };
+            operations.push(clear);
+            ops.push(clear);
+          }
+          readWhole.set(clause.index, ops);
+          note(answerKey, answer, 1, "user");
+        } else {
+          clarifications.push({
+            id: answerKey,
+            prompt: "Show every row, or clear the filters too?",
+            options: [
+              { id: "count", label: "Show every row" },
+              { id: "filters", label: "Clear the filters too" },
+            ],
+            required: true,
+          });
+        }
+        continue;
+      }
       const proposed: ClauseResolution = c.resolution.clauses.find((r) => r.clauseIndex === clause.index) ?? {
         clauseIndex: clause.index,
         families: [],
@@ -313,7 +612,12 @@ export const compile = (c: CompileInput): ViewPlan => {
       // Negations GridCue can't be sure about ask, never act: "don't sort by gain", "never hide trusts" (a negation before a
       // view verb other than "show"), "never show never show trusts" (two negations in one part), and "show nothing
       // over $1m" or "show accounts including trusts" (whether the rows are kept or left out is unclear).
-      const unsure = unsureNegation(unquoted(clause.text), own);
+      const unsure = unsureNegation(
+        unquoted(clause.text),
+        own,
+        clause.literals.some((l) => l.kind === "text"),
+        (id) => column(id)?.kind === "boolean",
+      );
       if (unsure) {
         clarifications.push({ id: `${key}.negation`, prompt: unsure, required: true });
         continue;
@@ -335,7 +639,7 @@ export const compile = (c: CompileInput): ViewPlan => {
       // What a clear or reset says to keep ("clear filters except accounts over $1m") is kept only when the view
       // already has it; GridCue never adds a filter the User didn't have in its place.
       if (clause.keeps) {
-        const kept = keepPart(clause, own, c.state, c.defaultState, operations, (id) => column(id)?.kind, c.newId);
+        const kept = keepPart(clause, own, c.state, c.defaultState, operations, column, c.newId, c.schema.rowNoun);
         if ("operations" in kept) operations.push(...kept.operations);
         else clarifications.push({ id: `${key}.keep`, prompt: kept.prompt, required: true });
         continue;
@@ -656,9 +960,10 @@ export const compile = (c: CompileInput): ViewPlan => {
       }
       if (viewFamilies.length === 0) {
         if (!familyPending) {
+          const changes = hintChanges(lists, "ask");
           clarifications.push({
             id: `${key}.family`,
-            prompt: `I'm not sure what to change for “${clause.text}”. Try asking to filter, sort, group, or show or hide columns.`,
+            prompt: `I'm not sure what to change for “${clause.text}”.${changes ? ` Try asking to ${changes}.` : ""}`,
             required: true,
           });
         }
@@ -963,6 +1268,19 @@ export const compile = (c: CompileInput): ViewPlan => {
               });
               return;
             }
+            if (lit.kind === "date" && !realDay(String(lit.value))) {
+              clarifications.push({ id: `${key}.literal${j}.date`, prompt: `${lit.value} isn't a date.`, required: true });
+              return;
+            }
+            // Quoted text is "containing" only after words GridCue reads. Any other word between it and its column asks,
+            // and so does one GridCue didn't read right before the column, right after the text, or, with no column,
+            // right before the text: an answer to which column holds it can't drop them.
+            const quotedAfter = lit.kind === "text" ? columnBeforeText(clause, lit, own, column, c.schema.rowNoun) : undefined;
+            const unread = lit.kind === "text" ? textWordsQuestion(clause, lit, quotedAfter, own, c.schema.rowNoun) : undefined;
+            if (unread) {
+              clarifications.push({ id: `${key}.literal${j}.${unread.id}`, prompt: unread.prompt, required: true });
+              return;
+            }
             if (comparisonUnread(clause, lit, own, readNames)) {
               clarifications.push({
                 id: `${key}.literal${j}.comparison`,
@@ -984,10 +1302,15 @@ export const compile = (c: CompileInput): ViewPlan => {
               .filter((m) => m.valueId === undefined && !m.ambiguous && m.end <= lit.at)
               .sort((a, b) => a.end - b.end)
               .at(-1);
+            // Quoted text belongs to the column named right before it, and to no other: with none, GridCue asks.
             const adjacent =
-              nearest && mentionedColumns.includes(nearest.columnId) && ADJACENT_COMPARISON.test(clause.text.slice(nearest.end, lit.at))
-                ? nearest
-                : undefined;
+              lit.kind === "text"
+                ? quotedAfter && mentionedColumns.includes(quotedAfter.mention.columnId)
+                  ? quotedAfter.mention
+                  : undefined
+                : nearest && mentionedColumns.includes(nearest.columnId) && ADJACENT_COMPARISON.test(clause.text.slice(nearest.end, lit.at))
+                  ? nearest
+                  : undefined;
             const namedCol = adjacent && column(adjacent.columnId);
             // ...and one that can't hold it ("gain over 10%") is asked about, never swapped for another column.
             if (namedCol && !fits.includes(namedCol.kind) && !answered) {
@@ -999,14 +1322,31 @@ export const compile = (c: CompileInput): ViewPlan => {
               return;
             }
             const named = namedCol && fits.includes(namedCol.kind) && !used.has(namedCol.id) ? namedCol : undefined;
-            const target = answered ?? named ?? provided ?? picked.find((col) => fits.includes(col.kind) && !used.has(col.id));
+            // A provider can't see which column holds a name, so for quoted text its pick is offered, never applied,
+            // and one that disagrees with the named column asks.
+            const target =
+              lit.kind === "text"
+                ? (answered ?? (named && (!provided || provided.id === named.id) ? named : undefined))
+                : (answered ?? named ?? provided ?? picked.find((col) => fits.includes(col.kind) && !used.has(col.id)));
             const operator = lit.kind === "text" ? "contains" : (lit.comparator ?? "eq");
+            // A date against a column that holds times of day would keep or drop rows by the hour. GridCue asks.
+            if (lit.kind === "date" && target?.kind === "datetime") {
+              clarifications.push({
+                id: `${key}.literal${j}.datetime`,
+                prompt: `${target.label} holds times of day, so GridCue can't filter it by date yet.`,
+                required: true,
+              });
+              return;
+            }
             if (!target || !operatorsFor(target).includes(operator)) {
-              const options = optionsFor(fits, "filter");
-              const first = pickFits && pick.confidence >= bands.clarify ? pickCol.id : undefined;
+              // A date-and-time column can't take a date yet, so it is never offered for one.
+              const options = optionsFor(lit.kind === "date" ? ["date"] : fits, "filter");
+              const first =
+                pickFits && pick.confidence >= bands.clarify && options.some((o) => o.id === pickCol.id) ? pickCol.id : undefined;
               clarifications.push({
                 id: answerKey,
-                prompt: `Which column should be ${describeLiteral(lit)}?`,
+                prompt:
+                  lit.kind === "text" ? `Which column should contain “${lit.value}”?` : `Which column should be ${describeLiteral(lit)}?`,
                 options: first ? [...options.filter((o) => o.id === first), ...options.filter((o) => o.id !== first)] : options,
                 required: true,
               });
@@ -1208,13 +1548,13 @@ export const compile = (c: CompileInput): ViewPlan => {
       // "Top 10": the count shows only the first rows of the sorted view, where the grid can (ADR 0018). Elsewhere the
       // plan sorts alone and keeps the count as dropped evidence, which the Preview names in its notes.
       if (clause.limit !== undefined) {
-        if (c.operations?.includes("limit.set")) {
-          const earlier = operations.findIndex((o) => o.type === "limit.set");
-          if (earlier >= 0) operations.splice(earlier, 1);
-          operations.push({ type: "limit.set", count: clause.limit });
+        if (canCount) {
+          setCount(clause.limit, clause.index);
           note(`${key}.limit`, String(clause.limit), 1, "deterministic");
         } else {
           evidence.push({ key: `dropped:${key}.limit`, selectedId: String(clause.limit), confidence: 1, source: "host" });
+          droppedCountAt = operations.length;
+          countPart = clause.index;
         }
       }
       // G2. The provider proposes, code decides (AGENTS.md): a plan is never ready with fewer clears than the clear
@@ -1241,6 +1581,42 @@ export const compile = (c: CompileInput): ViewPlan => {
     }
   }
 
+  // View words are read in the order they are said. Parts whose words the rest of the request undoes are asked about
+  // with ADR 0019's check below:
+  // - a reset said after them returns to the default view, count included, so their line would not be kept;
+  // - "show only the first 5 rows" said before a change to the sort or the filters may mean the 5 rows on screen now,
+  //   or the first 5 of the new view. The View State holds only the second, and neither is certain (ADR 0027).
+  // "Show only the first 5 rows" keeps the first rows of the sorted view as it stands when it is said. With no sort
+  // there, nothing says which rows come first: ask, never pick a column.
+  // - a sort or grouping said after the count would replace the one said before it (above), so the count's rows would
+  //   not be the ones its part names.
+  const undone = new Set<number>();
+  if (levelAfterCount && countPart !== undefined) undone.add(countPart);
+  const viewOf = (v?: { sorts?: ViewState["sorts"]; filters?: ViewState["filters"] }): ViewState => ({
+    ...emptyViewState([]),
+    sorts: v?.sorts ?? [],
+    filters: v?.filters ?? null,
+  });
+  const viewAt = (at: number) => applyOperations(viewOf(c.state), operations.slice(0, at), viewOf(c.defaultState));
+  for (const [index, ops] of readWhole) {
+    for (const op of ops) {
+      const at = operations.indexOf(op);
+      if (at < 0) continue;
+      const later = operations.slice(at + 1);
+      if (later.some((o) => o.type === "view.reset")) {
+        undone.add(index);
+        continue;
+      }
+      if (op.type !== "limit.set" || op.count === null) continue;
+      const said = viewAt(at);
+      const end = applyOperations(said, later, said);
+      if (rowsKey(end.sorts) !== rowsKey(said.sorts) || filtersKey(end.filters) !== filtersKey(said.filters)) undone.add(index);
+      else if (said.sorts.length === 0) {
+        clarifications.push({ id: `c${index}.count`, prompt: `First ${countWords(op.count)} by which column?`, required: true });
+      }
+    }
+  }
+
   // A "No" never dead-ends (v1 grill, Q1): when the User declined something in a part and all that is left there
   // is a question with no choices, say plainly that nothing will change, with the request kept for editing.
   for (const clause of c.input.clauses) {
@@ -1262,7 +1638,21 @@ export const compile = (c: CompileInput): ViewPlan => {
   // This can only turn a ready plan into a question.
   if (status === "ready") {
     const asked = new Set<number>();
-    for (const left of unusedReadings(c.input, c.mentions ?? [], operations, evidence, c.schema.rowNoun)) {
+    // A part read whole as view words used every word (ADR 0028), unless another part replaced what it set (a request
+    // holds one count), "every row" has no count to clear and sits beside a filter this request adds, or the rest of
+    // the request undoes it (above).
+    const others = { ...c.input, clauses: c.input.clauses.filter((clause) => !readWhole.has(clause.index)) };
+    const addsFilter = operations.some((op) => op.type === "filter.add");
+    const leftOver = c.input.clauses
+      .filter(
+        (clause) =>
+          readWhole.get(clause.index)?.some((op) => !operations.includes(op)) ||
+          (addsFilter && everyRowOfAll.has(clause.index)) ||
+          undone.has(clause.index),
+      )
+      .map((clause) => ({ clauseIndex: clause.index, text: clause.text }));
+    const unused = [...unusedReadings(others, c.mentions ?? [], operations, evidence, c.schema.rowNoun), ...leftOver];
+    for (const left of unused.sort((a, b) => a.clauseIndex - b.clauseIndex)) {
       if (asked.has(left.clauseIndex)) continue;
       asked.add(left.clauseIndex);
       clarifications.push({
@@ -1273,10 +1663,31 @@ export const compile = (c: CompileInput): ViewPlan => {
       status = "needs_clarification";
     }
   }
+  // On a grid that can't group, a word built on "group" that code couldn't read never leaves a ready plan (more grids
+  // spec, 5.3): "sort by value, regroup on advisor" would otherwise sort by advisor and drop the grouping asked for.
+  if (status === "ready" && unreadGrouping) {
+    clarifications.push(cantQuestion(unreadGrouping.index, { type: "group.set" }));
+    status = "needs_clarification";
+  }
+  // Then the count rule (ADR 0027): a plan that would keep the view's count over different rows asks which the User
+  // wants. Each answer adds the count's own line, so the Preview says it. Asked here, after compiling, so it holds for
+  // every Intent Provider. Until it is answered, it can only turn a ready plan into a question.
+  if (status === "ready") {
+    const asks = countQuestion(operations, c.state, c.defaultState);
+    const answer = asks && answers[asks.clarification.id];
+    if (asks && (answer === "keep" || answer === "all")) {
+      operations.push(...asks.answers[answer].slice(operations.length));
+      note(asks.clarification.id, answer, 1, "user");
+    } else if (asks) {
+      clarifications.push(asks.clarification);
+      status = "needs_clarification";
+    }
+  }
   if (status === "needs_clarification" && clarifications.length === 0) {
+    const changes = hintChanges(lists, "try");
     clarifications.push({
       id: "plan.empty",
-      prompt: "That request doesn't change the view. Try filtering, sorting, grouping, or showing or hiding columns.",
+      prompt: `That request doesn't change the view.${changes ? ` Try ${changes}.` : ""}`,
       required: true,
     });
   }
@@ -1302,8 +1713,9 @@ const COMPLEMENT: Partial<Record<FilterPredicate["operator"], FilterPredicate["o
   lt: "gte",
   lte: "gt",
 };
-const namesBlankedOf = (text: string, own: readonly Mention[]) =>
-  own.reduce((t, m) => t.slice(0, m.start) + " ".repeat(m.end - m.start) + t.slice(m.end), text);
+/** Blanks the part's own names, keeping offsets. With `mark`, a single character, each name starts with it. */
+const namesBlankedOf = (text: string, own: ReadonlyArray<{ start: number; end: number }>, mark = " ") =>
+  own.reduce((t, m) => (m.end > m.start ? t.slice(0, m.start) + mark + " ".repeat(m.end - m.start - 1) + t.slice(m.end) : t), text);
 
 /** Whether a name appears in the part only inside quoted text: `advisor containing "restricted"`. */
 const onlyQuoted = (text: string, names: readonly string[]) => {
@@ -1376,14 +1788,34 @@ const NEGATED_VERB =
   /^(?:don't|dont|do not|never|no longer|not) (?!(?:show|include|display|list|see)\b)(?:hide|unhide|exclude|remove|drop|sort|order|group|ungroup|filter|clear|reset|keep|pin|move|add|put|rank|arrange)\b/;
 const NEGATION_WORD =
   /\b(?:not|no(?! (?:more|less|greater|fewer|higher|lower|larger|smaller|bigger|over|under|above|below)\b)|never|don't|dont|without|excluding|non)\b/g;
+/**
+ * More ways to say "not", read beside quoted text, before or after it: `advisor isn't "Lane"`, `advisor != "Lane"`,
+ * "other than", "except", `advisor "Lane" excluded`.
+ */
+const TEXT_NEGATION =
+  /\b(?:isn't|aren't|doesn't|other than|apart from|besides|except|exclude[sd]|omit(?:s|ted)?|ignor(?:e|es|ed|ing)|(?:leave|leaving|left) out)\b|!=|=\/=|≠|<>/g;
+/** The negations GridCue reads as "No" for a yes/no name: "not restricted", "non-restricted", "no restricted holdings". */
+const BOOLEAN_NOT = /^(?:not|no|non|without)$/;
+const NOT_THERE = "GridCue can't filter for text that isn't there. Ask for the text to look for instead.";
+const BANG_PROMPT = "GridCue can't tell what “!” leaves out. Say which rows to show.";
 /** What may sit between a negation and the value it belongs to: "not at Northgate", "non-retirement", "no restricted". */
 const ATTACHED_GAP = /^[\s-]+(?:(?:at|in|from|with|the|any) )?$/;
+/** The words the Mentions read as leaving the value after them out (`LEAVES_OUT`), and nothing else. */
+const LEFT_OUT = new RegExp(`^${LEAVES_OUT}$`);
 /**
  * Why a part's negation is unsure, as a question, or `undefined`. `bare` is the part with quoted text blanked;
  * `own` its Mentions. A negation attached to one named value or yes/no name ("non-retirement", "not at Northgate",
  * "no restricted holdings") belongs to that value; any other negation, with a second negation of either kind, asks.
  */
-const unsureNegation = (bare: string, own: readonly Mention[]): string | undefined => {
+const unsureNegation = (
+  bare: string,
+  own: readonly Mention[],
+  quoted = false,
+  isBoolean: (columnId: string) => boolean = () => false,
+): string | undefined => {
+  // A "!" left in a part says "not" (normalize splits on every other one), and nothing reads it as leaving a name out:
+  // `!advisor "Lane"` and `advisor "Lane" !trusts` would show the very rows the User asked to leave out.
+  if (/!(?!=)/.test(bare)) return BANG_PROMPT;
   const text = own.reduce((t, m) => t.slice(0, m.start) + " ".repeat(m.end - m.start) + t.slice(m.end), bare);
   const afterLead = text.slice(LEAD_IN.exec(text)?.[0].length ?? 0);
   if (NEGATED_VERB.test(afterLead)) {
@@ -1401,8 +1833,22 @@ const unsureNegation = (bare: string, own: readonly Mention[]): string | undefin
     return !!m && m.valueId === undefined && !/^(?:no|non|without)$/.test(n[0]);
   });
   if (columnChange && negatedColumn) return "GridCue can't tell what “not” leaves out of that change. Name only the columns you want.";
-  if (/\b(?:not|doesn't|does not|don't|do not|never)\s+contain/.test(text)) {
-    return "GridCue can't filter for text that isn't there. Ask for the text to look for instead.";
+  if (/\b(?:not|doesn't|does not|don't|do not|never)\s+contain/.test(text)) return NOT_THERE;
+  // Beside quoted text, a negation asks unless it belongs to a named value or yes/no name ("non-retirement"):
+  // `advisor is not "Avery Lane"` would otherwise show the very rows the User asked to leave out. It belongs to a value
+  // only when the value is read as left out, and to a yes/no name only when GridCue reads it as "No":
+  // `advisor "Lane" except restricted` asks, since nothing reads "except" as "No".
+  if (quoted) {
+    const owned = (n: RegExpMatchArray) => {
+      const m = attachedTo(n);
+      if (m) return m.valueId !== undefined ? !!m.negated : isBoolean(m.columnId) && BOOLEAN_NOT.test(n[0]);
+      // ...or it is one of the words the Mentions read as leaving the next value out: "not including trusts", "don't
+      // show trusts".
+      const at = n.index ?? 0;
+      const next = own.filter((x) => x.start > at).sort((a, b) => a.start - b.start)[0];
+      return !!next && next.valueId !== undefined && !!next.negated && LEFT_OUT.test(bare.slice(at, next.start));
+    };
+    if ([...negations, ...text.matchAll(TEXT_NEGATION)].some((n) => !owned(n))) return NOT_THERE;
   }
   if (/\bno (?:grouping|groups?|sort|sorting|filters?)\b/.test(text)) {
     return "GridCue can't tell whether “no” there clears something. Ask to clear it on its own.";
@@ -1433,8 +1879,9 @@ const keepPart = (
   state: ViewState,
   defaultState: { filters: ViewState["filters"] } | undefined,
   operations: readonly ViewOperation[],
-  kindOf: (columnId: string) => ColumnKind | undefined,
+  column: (columnId: string) => ColumnDescriptor | undefined,
   newId: (prefix: string) => string,
+  rowNoun: string | undefined,
 ): { operations: ViewOperation[] } | { prompt: string } => {
   const what = clause.text.replace(/^(?:keep(?:ing)?|leave) /, "");
   const reset = operations.some((o) => o.type === "view.reset");
@@ -1497,14 +1944,22 @@ const keepPart = (
   const preds = current.children as FilterPredicate[];
   const keep = new Set<FilterPredicate>();
   const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+  // "Leave" before the column says to keep, as "keep" does: `clear filters but leave advisor "Lane"`. Blanked, so
+  // offsets hold.
+  const checked = { ...clause, text: clause.text.replace(/^(?:leave|leaving) /, (s) => " ".repeat(s.length)) };
   for (const lit of clause.literals) {
     if (lit.kind === "unreadable") return absent;
     const operator = lit.kind === "text" ? "contains" : (lit.comparator ?? "eq");
     const value = lit.comparator === "between" ? { min: lit.value, max: lit.upper ?? lit.value } : lit.value;
+    const quotedAfter = lit.kind === "text" ? columnBeforeText(checked, lit, own, column, rowNoun) : undefined;
+    if (quotedAfter && !quotedAfter.read) return absent;
+    // The words beside the text are checked as they are for a new filter: `advisor "Lane" exactly` keeps nothing.
+    const unread = lit.kind === "text" ? textWordsQuestion(checked, lit, quotedAfter, own, rowNoun) : undefined;
+    if (unread) return { prompt: unread.prompt };
     // A column named right before the amount must be the filter's; with none, exactly one filter may match.
-    const owner = own
-      .filter((m) => m.valueId === undefined && m.end <= lit.at && ADJACENT_COMPARISON.test(clause.text.slice(m.end, lit.at)))
-      .at(-1);
+    const owner =
+      quotedAfter?.mention ??
+      own.filter((m) => m.valueId === undefined && m.end <= lit.at && ADJACENT_COMPARISON.test(clause.text.slice(m.end, lit.at))).at(-1);
     const matches = preds.filter((p) => p.operator === operator && same(p.value, value) && (!owner || p.columnId === owner.columnId));
     if (matches.length !== 1 || !matches[0]) return absent;
     keep.add(matches[0]);
@@ -1533,9 +1988,9 @@ const keepPart = (
     for (const m of named) {
       const negated = /\b(?:non|not|no|without)[\s-]*$|\bun$/.test(clause.text.slice(0, m.start));
       const on = preds.filter(
-        (p) => p.columnId === m.columnId && (kindOf(m.columnId) !== "boolean" || (p.operator === "eq" && p.value === !negated)),
+        (p) => p.columnId === m.columnId && (column(m.columnId)?.kind !== "boolean" || (p.operator === "eq" && p.value === !negated)),
       );
-      if (on.length === 0 || (negated && kindOf(m.columnId) !== "boolean")) return absent;
+      if (on.length === 0 || (negated && column(m.columnId)?.kind !== "boolean")) return absent;
       for (const p of on) keep.add(p);
     }
   }
@@ -1646,6 +2101,250 @@ const comparisonUnread = (clause: Clause, lit: Literal, own: readonly Mention[],
     return !followedByRead(clause, after.end, own, names);
   }
   return true;
+};
+
+/** Whether an ISO date is a real day: "2026-02-31" and "2026-00-15" are not. */
+const realDay = (iso: string): boolean => {
+  const [y = 0, m = 0, d = 0] = iso.split("-").map(Number);
+  const day = new Date(0);
+  day.setUTCFullYear(y, m - 1, d);
+  return day.getUTCFullYear() === y && day.getUTCMonth() === m - 1 && day.getUTCDate() === d;
+};
+
+/**
+ * What may sit between a column and quoted text read as "containing": nothing, ":", "is", "are", or a containing word,
+ * after a possessive ("advisor's").
+ */
+const CONTAINING_GAP = /^(?:'s)?\s*(?::\s*|(?:is|are|containing|contains|includes|has|like|matching)\s+)?$/;
+/** "Column" after any column's name, and "name" after one that names another record ("advisor name"), are part of it. */
+const COLUMN_WORD_AFTER = /^\s*columns?\b/;
+const NAME_WORD = /^\s*names?\b/;
+/** The Row Noun before "for" is the rows beside quoted text: `accounts for "Avery Lane"` names no column. */
+const FOR_AFTER = /^\s*for\b/;
+const rowNounKey = (words: string) => words.toLowerCase().replace(/(?:es|s)$/, "");
+const isRowNounBeforeFor = (clause: Clause, m: Mention, rowNoun: string | undefined) =>
+  !!rowNoun &&
+  m.valueId === undefined &&
+  rowNounKey(clause.text.slice(m.start, m.end)) === rowNounKey(rowNoun) &&
+  FOR_AFTER.test(clause.text.slice(m.end));
+
+/**
+ * The column named last before quoted text, and whether only words GridCue reads as "containing" sit between them.
+ * `advisor starts with "Av"` and `advisor named "Lane"` are not read: this is a rule, not a list of bad words. The Row
+ * Noun before "for" names no column, so `accounts for "Avery Lane"` asks which column should contain the text.
+ */
+const columnBeforeText = (
+  clause: Clause,
+  lit: Literal,
+  own: readonly Mention[],
+  column: (columnId: string) => ColumnDescriptor | undefined,
+  rowNoun: string | undefined,
+): { mention: Mention; read: boolean } | undefined => {
+  const mention = own
+    .filter((m) => m.valueId === undefined && m.end <= lit.at)
+    .sort((a, b) => a.end - b.end)
+    .at(-1);
+  if (!mention || isRowNounBeforeFor(clause, mention, rowNoun)) return undefined;
+  const gap = clause.text.slice(mention.end, lit.at);
+  const word = COLUMN_WORD_AFTER.exec(gap) ?? (column(mention.columnId)?.entity ? NAME_WORD.exec(gap) : null);
+  return { mention, read: CONTAINING_GAP.test(gap.slice(word?.[0].length ?? 0)) };
+};
+
+/**
+ * A joining word: "and", "or" or "then", with "also" after it ("and also"), or "but" before "only" or a sort or
+ * grouping ("but sorted by value").
+ */
+const JOIN = String.raw`(?:(?:and|or|then)\s+(?:also\s+)?|but\s+(?=only\b|sort|order|group))?(?:only\s+)?`;
+/**
+ * What joins the rows to a column, before it or after quoted text: "with", "where", "whose", "having", "holding", "that
+ * have", "which have", "that are", "which are" or "who are".
+ */
+const ROWS_JOIN = String.raw`(?:with|where|whose|having|holding|(?:that|which) have|(?:that|which|who) (?:are|is))\s+`;
+/** A possessive right after quoted text: `advisor "Lane"'s accounts`. */
+const POSSESSIVE = "(?:'s)?";
+/**
+ * What may sit after quoted text and before the next name: a joining word, then "with", a sort or grouping ("sorted
+ * by", or "by" before a column: "largest by value"), or a view verb. Before a named value, a preposition is read as
+ * it is anywhere ("at Northgate", "in the taxable accounts"). Before a value the Mentions read as left out, so are the
+ * words that left it out ("but trusts", "not including trusts"); before any other name, only "not", "no", "non" or
+ * "without" ("not restricted"). `nounWords` is the Row Noun, read first ("accounts at Northgate").
+ *
+ * Before a column whose own value the next name leaves out ("at every custodian other than Northgate"), only a joining
+ * word, a preposition and "every", "each", "all" or "any" are read: the negation belongs to the named value.
+ */
+const afterText = (next: Mention, nounWords: string, leavesOwnValue = false) => {
+  const value = next.valueId !== undefined;
+  if (!value && leavesOwnValue) return new RegExp(String.raw`^[\s,]*${nounWords}${JOIN}(?:${PREPOSITION})?(?:every|each|all|any)\s+$`);
+  const sort = String.raw`(?:sorted|ordered|grouped|sort|order|group)\s+(?:by\s+)?${value ? "" : String.raw`|by\s+|in\s+order\s+of\s+`}`;
+  const leaves =
+    value && next.negated ? String.raw`(?:(?:but\s+(?!but\b))?${LEAVES_OUT})?` : String.raw`(?:(?:but\s+)?(?:not|no|non|without)[\s-]+)?`;
+  return new RegExp(
+    String.raw`^${POSSESSIVE}[\s,]*${nounWords}${JOIN}(?:${ROWS_JOIN}|${sort}|(?:hide|show|unhide)\s+)?${value ? `(?:${PREPOSITION})?${PREPOSITION_DETERMINER}` : ""}${leaves}$`,
+  );
+};
+/** Thanks at the end of a part, or at the start of a request before a comma. */
+const COURTESY = String.raw`(?:thanks|thank you)\b`;
+const COURTESY_LEAD = new RegExp(String.raw`^\s*${COURTESY}\s*,\s*`);
+/** What may end a part after quoted text: any of "please", "too", "also", "only" and "as well", then "thanks". */
+const afterTextEnd = (nounWords: string) =>
+  new RegExp(String.raw`^${POSSESSIVE}[\s,]*${nounWords}(?:(?:please|too|also|only|as well)\b[\s,]*)*(?:${COURTESY})?[\s.!?]*$`);
+/** The negation words between a column and its own value that the Mentions read as left out: "other than", "except". */
+const LEAVES_OWN_VALUE = new RegExp(String.raw`^\s*${LEAVES_OUT}$`);
+/** What may sit between quoted text and an amount's comparison: a joining word, "with", and "valued" or "worth". */
+const afterTextJoin = (nounWords: string) =>
+  new RegExp(String.raw`^${POSSESSIVE}[\s,]*${nounWords}${JOIN}(?:${ROWS_JOIN})?(?:(?:valued|worth)\s+)?`);
+
+/**
+ * The part's text with the direction and the count GridCue reads blanked ("largest first", "top 10", "sorted
+ * descending", "in descending order"), so the words beside quoted text are checked without them. A direction is
+ * blanked only when nothing but names and the Row Noun sits inside it ("largest value first"): `largest exact first`
+ * and `largest "Lane" first` keep their words, and ask.
+ */
+const withoutDirection = (clause: Clause, own: readonly Mention[], noun: RegExp | undefined): string => {
+  if (clause.direction === undefined && clause.limit === undefined) return clause.text;
+  const bare = unquoted(clause.text);
+  // By UTF-16 code unit, as every stored position counts: spreading the text would count an emoji as one.
+  let scan = clause.text
+    .split("")
+    .map((ch, i) => (bare[i] === ch ? ch : "x"))
+    .join("");
+  for (const m of own) scan = scan.slice(0, m.start) + " ".repeat(m.end - m.start) + scan.slice(m.end);
+  if (noun) scan = scan.replace(noun, (s) => " ".repeat(s.length));
+  const { direction, count } = directionSpans(scan);
+  const spans = [];
+  if (
+    direction &&
+    clause.direction !== undefined &&
+    /^\S+(?: to \S+| first)?$/.test(scan.slice(direction.start, direction.end).trim().replace(/\s+/g, " "))
+  ) {
+    const lead = /\b(?:sorted|ordered|sort|order|in|from)\s+$/.exec(scan.slice(0, direction.start));
+    const tail = /^\s+order\b/.exec(scan.slice(direction.end));
+    spans.push({ start: direction.start - (lead?.[0].length ?? 0), end: direction.end + (tail?.[0].length ?? 0) });
+  }
+  if (count && clause.limit !== undefined) spans.push(count);
+  return spans.reduce((t, s) => t.slice(0, s.start) + " ".repeat(s.end - s.start) + t.slice(s.end), clause.text);
+};
+
+/**
+ * The words GridCue didn't read right before the column that owns quoted text, or right after the text, if any. Before
+ * the column, only a verb that chooses rows, "only", "all of", the Row Noun, and "for", what `ROWS_JOIN` lists or a
+ * joining word are read, after "thanks," at the start; "filter" also takes "by", "on", "to" and "rows" or "the grid":
+ * `accounts sans advisor "Lane"` and `the opposite of advisor "Lane"` are not read. After the text, only a possessive,
+ * the Row Noun, then what `afterText` lists before a name, a comparison before an amount (`afterTextJoin`), or what
+ * `afterTextEnd` lists at the end: `advisor "Lane" exactly` and `advisor "Lane" accounts exactly` are not. A direction
+ * or count is read on either side (`withoutDirection`).
+ * Like the words between the column and the text, this is a rule, not a list of bad words.
+ *
+ * Text no column owns is checked the same way, up to the text itself, where a containing word may also sit right
+ * before it (`containing "Lane"`, `accounts for "Avery Lane"`): `starts with "Av"`, `filter to "Lane"` and
+ * `"Avery Lane" exactly` are not read, so the User's answer to which column holds the text can't drop them.
+ */
+const unreadBesideText = (
+  clause: Clause,
+  lit: Literal,
+  owner: Mention | undefined,
+  own: readonly Mention[],
+  rowNoun: string | undefined,
+): { before: boolean; words: string } | undefined => {
+  const noun = rowNoun?.toLowerCase().replace(/(?:es|s)$/, "");
+  const nounSource = noun ? String.raw`${noun.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:e?s)?\b` : undefined;
+  const text = withoutDirection(clause, own, nounSource ? new RegExp(String.raw`\b${nounSource}`, "g") : undefined);
+  const isRowNoun = (m: Mention) => !!noun && clause.text.slice(m.start, m.end).replace(/(?:es|s)$/, "") === noun;
+  const literalEnd = (l: Literal) => l.at + literalText(clause.text, l).length;
+  // The words before the column start after the last name or literal GridCue read. The Row Noun left as a name is
+  // not one: it is checked below.
+  const start = owner?.start ?? lit.at;
+  const ends = [
+    ...own.filter((m) => m !== owner && m.end <= start && !isRowNoun(m)).map((m) => m.end),
+    ...clause.literals.filter((l) => l.at < start).map(literalEnd),
+  ];
+  const from = Math.max(0, ...ends);
+  let before = text.slice(from, start);
+  if (from === 0) {
+    before = before.slice(COURTESY_LEAD.exec(before)?.[0].length ?? 0);
+    before = before.slice(LEAD_IN.exec(before)?.[0].length ?? 0);
+  }
+  const nounWords = nounSource ? String.raw`(?:${nounSource}[\s,]*)?` : "";
+  // The verbs that choose rows (see `verbFamily`), with "only" or "just" after them as before them (`LEAD_IN`), then
+  // the rows, then a word that joins them to the column: "show all of", "taxable accounts for", "value over $1m for".
+  // "Filter" takes more: "filter by", "filter accounts by", "filter rows with", "filter the grid to".
+  const rows = String.raw`(?:${nounSource ? `${nounSource}|` : ""}rows?|records?|grid|table)[\s,]*`;
+  const filterLead = String.raw`filter\s+(?:(?:the|all|my)\s+)?(?:${rows})?(?:(?:by|on|for|to|with|where|in)\s+)?`;
+  const chooseLead = String.raw`(?:(?:show|filter(?: to)?|find|list|display|see|view|look at|get|keep|include)\s+)?(?:(?:only|just)\s+)?(?:all(?: of)?\s+)?(?:(?:the|my)\s+)?${nounWords}(?:(?:and|or|then|for)\s+|${ROWS_JOIN})?`;
+  // Right before text no column owns, a containing word (`CONTAINING_GAP`) may sit too. "To" there may mean "equal to",
+  // as it may between a column and its text.
+  const containing = owner ? "" : String.raw`(?:(?::|is|are|containing|contains|includes|has|like|matching)\s*)?`;
+  const BEFORE = new RegExp(String.raw`^[\s,]*(?:${filterLead}|${chooseLead})(?:(?:but\s+)?only\s+)?(?:(?:the|an?)\s+)?${containing}$`);
+  if (!BEFORE.test(before) || (!owner && /\bto\s*$/.test(before))) return { before: true, words: before.trim().replace(/[\s,]+$/, "") };
+  // The Row Noun left as a name before the column means GridCue didn't read how the rows and the column join:
+  // `accounts not at Northgate with advisor "Lane"`, `accounts for advisor "Lane"`. Where the Mentions read it as the
+  // rows, it is not a name, and "for" after it is read above: `taxable accounts for advisor "Lane"`.
+  const rowsName = owner && own.find((m) => m !== owner && m.end <= owner.start && isRowNoun(m));
+  if (owner && rowsName)
+    return {
+      before: true,
+      words: text
+        .slice(rowsName.start, owner.start)
+        .trim()
+        .replace(/[\s,]+$/, ""),
+    };
+  // After the text, the check runs to the next name or literal. The Row Noun is not one: `advisor "Lane" accounts
+  // exactly` is checked to its end.
+  const end = literalEnd(lit);
+  const next = [
+    ...own.filter((m) => m.start >= end && !isRowNoun(m)).map((m) => ({ at: m.start, mention: m })),
+    ...clause.literals.filter((l) => l.at >= end).map((l) => ({ at: l.at, mention: undefined })),
+  ].sort((a, b) => a.at - b.at)[0];
+  const after = text.slice(end, next?.at ?? text.length);
+  // A column whose own value the name after it leaves out, with only the negation between them: `at every custodian
+  // other than Northgate`.
+  const column = next?.mention;
+  const ownValue = column
+    ? own.filter((m) => m.start >= column.end && m !== column && !isRowNoun(m)).sort((a, b) => a.start - b.start)[0]
+    : undefined;
+  const leavesOwnValue =
+    !!column &&
+    !!ownValue &&
+    column.valueId === undefined &&
+    ownValue.valueId !== undefined &&
+    !!ownValue.negated &&
+    ownValue.columnId === column.columnId &&
+    !clause.literals.some((l) => l.at >= column.end && l.at < ownValue.start) &&
+    LEAVES_OWN_VALUE.test(text.slice(column.end, ownValue.start));
+  // Before an amount, the amount's own comparison is read with it: `advisor "Lane" and value over $1m`.
+  const read = !next
+    ? afterTextEnd(nounWords).test(after)
+    : next.mention
+      ? afterText(next.mention, nounWords, leavesOwnValue).test(after)
+      : ADJACENT_COMPARISON.test(after.slice(afterTextJoin(nounWords).exec(after)?.[0].length ?? 0));
+  return read
+    ? undefined
+    : {
+        before: false,
+        words: clause.text
+          .slice(end, next?.at ?? text.length)
+          .trim()
+          .replace(/^[\s,]+|[\s.!?]+$/g, ""),
+      };
+};
+
+/**
+ * The question for the words around quoted text, if GridCue didn't read them: "how to match" for a word between the
+ * text and its column, or before text no column owns; "what to do with" for any other.
+ */
+const textWordsQuestion = (
+  clause: Clause,
+  lit: Literal,
+  quotedAfter: { mention: Mention; read: boolean } | undefined,
+  own: readonly Mention[],
+  rowNoun: string | undefined,
+): { id: "match" | "beside"; prompt: string } | undefined => {
+  const match = { id: "match", prompt: `I'm not sure how to match “${lit.value}”. Try “containing”.` } as const;
+  if (quotedAfter && !quotedAfter.read) return match;
+  const beside = unreadBesideText(clause, lit, quotedAfter?.mention, own, rowNoun);
+  if (!beside) return undefined;
+  if (!quotedAfter && beside.before) return match;
+  return { id: "beside", prompt: `I'm not sure what to do with “${beside.words}”. Try rephrasing that part.` };
 };
 
 const describeLiteral = (lit: Literal): string => {

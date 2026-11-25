@@ -1,0 +1,49 @@
+{"id":"nf-neg-is-not","utterance":"advisor is not \"Avery Lane\"","expect":{"status":"needs_clarification","clarificationPrompt":"GridCue can't filter for text that isn't there. Ask for the text to look for instead."}}
+{"id":"nf-neg-isnt","utterance":"advisor isn't \"Avery Lane\"","expect":{"status":"needs_clarification","clarificationPrompt":"GridCue can't filter for text that isn't there. Ask for the text to look for instead."}}
+{"id":"nf-neg-bang-eq","utterance":"advisor != \"Avery Lane\"","expect":{"status":"needs_clarification","clarificationPrompt":"GridCue can't filter for text that isn't there. Ask for the text to look for instead."}}
+{"id":"nf-neg-other-than","utterance":"advisor other than \"Avery Lane\"","expect":{"status":"needs_clarification","clarificationPrompt":"GridCue can't filter for text that isn't there. Ask for the text to look for instead."}}
+{"id":"nf-neg-except","utterance":"advisor except \"Avery Lane\"","expect":{"status":"needs_clarification","clarificationPrompt":"GridCue can't filter for text that isn't there. Ask for the text to look for instead."}}
+{"id":"nf-neg-without","utterance":"accounts without advisor \"Lane\"","expect":{"status":"needs_clarification","clarificationPrompt":"GridCue can't filter for text that isn't there. Ask for the text to look for instead."}}
+{"id":"nf-neg-household-not","utterance":"household is not \"Hale\"","expect":{"status":"needs_clarification","clarificationPrompt":"GridCue can't filter for text that isn't there. Ask for the text to look for instead."}}
+{"id":"nf-neg-not-containing","utterance":"advisor not containing \"Lane\"","expect":{"status":"needs_clarification","clarificationPrompt":"GridCue can't filter for text that isn't there. Ask for the text to look for instead."}}
+{"id":"nf-neg-sentence","utterance":"Show accounts where the advisor is not \"Hale\" and market value over $1m","expect":{"status":"needs_clarification","clarificationPrompt":"GridCue can't filter for text that isn't there. Ask for the text to look for instead."}}
+{"id":"nf-form-starts-with","utterance":"advisor starts with \"Av\"","expect":{"status":"needs_clarification","clarificationPrompt":"I'm not sure how to match “av”. Try “containing”."}}
+{"id":"nf-form-ends-with","utterance":"advisor ends with \"Lane\"","expect":{"status":"needs_clarification","clarificationPrompt":"I'm not sure how to match “lane”. Try “containing”."}}
+{"id":"nf-form-exactly","utterance":"advisor is exactly \"Avery Lane\"","expect":{"status":"needs_clarification","clarificationPrompt":"I'm not sure how to match “avery lane”. Try “containing”."}}
+{"id":"nf-form-equals","utterance":"advisor = \"Avery Lane\"","expect":{"status":"needs_clarification","clarificationPrompt":"I'm not sure how to match “avery lane”. Try “containing”."}}
+{"id":"nf-form-household-starts","utterance":"household starts with \"Hale\"","expect":{"status":"needs_clarification","clarificationPrompt":"I'm not sure how to match “hale”. Try “containing”."}}
+{"id":"nf-form-household-ends","utterance":"households ending with \"Trust\"","expect":{"status":"needs_clarification"}}
+{"id":"nf-form-account-starts","utterance":"account number starts with \"AC-1\"","expect":{"status":"needs_clarification","clarificationPrompt":"I'm not sure how to match “ac-1”. Try “containing”."}}
+{"id":"nf-form-begins","utterance":"advisor begins with \"Av\"","expect":{"status":"needs_clarification"}}
+{"id":"nf-form-sentence","utterance":"Accounts where advisor starts with \"Av\" and market value over $1m","expect":{"status":"needs_clarification","clarificationPrompt":"I'm not sure how to match “av”. Try “containing”."}}
+{"id":"nf-noun-for-person","utterance":"accounts for \"Avery Lane\"","expect":{"status":"needs_clarification","clarificationPrompt":"Which column should contain “avery lane”?"}}
+{"id":"nf-noun-for-short","utterance":"accounts for \"Lane\"","expect":{"status":"needs_clarification","clarificationPrompt":"Which column should contain “lane”?"}}
+{"id":"nf-noun-for-singular","utterance":"account for \"Hale\"","expect":{"status":"needs_clarification","clarificationPrompt":"Which column should contain “hale”?"}}
+{"id":"nf-noun-for-show","utterance":"Show accounts for \"Hale\"","expect":{"status":"needs_clarification","clarificationPrompt":"Which column should contain “hale”?"}}
+{"id":"nf-bare-quoted","utterance":"\"Avery Lane\"","expect":{"status":"needs_clarification","clarificationPrompt":"Which column should contain “avery lane”?"}}
+{"id":"nf-bare-quoted-short","utterance":"\"Hale\"","expect":{"status":"needs_clarification","clarificationPrompt":"Which column should contain “hale”?"}}
+{"id":"nf-other-word-named","utterance":"advisor named \"Lane\"","expect":{"status":"needs_clarification"}}
+{"id":"nf-other-word-near","utterance":"advisor near \"Lane\"","expect":{"status":"needs_clarification"}}
+{"id":"nf-other-word-similar","utterance":"advisor similar to \"Lane\"","expect":{"status":"needs_clarification"}}
+{"id":"nf-other-word-about","utterance":"household about \"Hale\"","expect":{"status":"needs_clarification"}}
+{"id":"nf-other-word-ish","utterance":"advisor kind of \"Lane\"","expect":{"status":"needs_clarification"}}
+{"id":"nf-other-word-sounds","utterance":"advisor sounds like \"Lane\"","expect":{"status":"needs_clarification"}}
+{"id":"nf-other-word-sentence","utterance":"Accounts with advisor named \"Lane\" over $1m","expect":{"status":"needs_clarification"}}
+{"id":"nf-dt-after","utterance":"last contact after 2026-01-31","schema":"dated","expect":{"status":"needs_clarification","clarificationPrompt":"Last contact holds times of day, so GridCue can't filter it by date yet."}}
+{"id":"nf-dt-before","utterance":"last contact before 2026-01-31","schema":"dated","expect":{"status":"needs_clarification","clarificationPrompt":"Last contact holds times of day, so GridCue can't filter it by date yet."}}
+{"id":"nf-dt-on","utterance":"accounts with last contact on 2026-01-31","schema":"dated","expect":{"status":"needs_clarification","clarificationPrompt":"Last contact holds times of day, so GridCue can't filter it by date yet."}}
+{"id":"nf-dt-since","utterance":"last contact since 2025-10-01","schema":"dated","expect":{"status":"needs_clarification","clarificationPrompt":"Last contact holds times of day, so GridCue can't filter it by date yet."}}
+{"id":"nf-bad-feb31","utterance":"opened after 2026-02-31","schema":"dated","expect":{"status":"needs_clarification","clarificationPrompt":"2026-02-31 isn't a date."}}
+{"id":"nf-bad-nov31","utterance":"close date before 2026-11-31","schema":"dated","expect":{"status":"needs_clarification","clarificationPrompt":"2026-11-31 isn't a date."}}
+{"id":"nf-bad-feb29","utterance":"accounts opened on 2027-02-29","schema":"dated","expect":{"status":"needs_clarification","clarificationPrompt":"2027-02-29 isn't a date."}}
+{"id":"nf-bad-month00","utterance":"opened before 2026-00-15","schema":"dated","expect":{"status":"needs_clarification","clarificationPrompt":"2026-00-15 isn't a date."}}
+{"id":"nf-ctl-containing","utterance":"advisor containing \"Lane\"","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"contains","value":"lane"}}]}}
+{"id":"nf-ctl-contains","utterance":"household contains \"Hale\"","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"household","operator":"contains","value":"hale"}}]}}
+{"id":"nf-ctl-is","utterance":"advisor is \"Lane\"","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"contains","value":"lane"}}]}}
+{"id":"nf-ctl-colon","utterance":"advisor: \"Lane\"","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"contains","value":"lane"}}]}}
+{"id":"nf-ctl-like","utterance":"advisor like \"Lane\"","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"contains","value":"lane"}}]}}
+{"id":"nf-ctl-has","utterance":"household has \"Hale\"","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"household","operator":"contains","value":"hale"}}]}}
+{"id":"nf-ctl-includes","utterance":"household includes \"Hale\"","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"household","operator":"contains","value":"hale"}}]}}
+{"id":"nf-ctl-matching","utterance":"advisor matching \"Lane\"","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"contains","value":"lane"}}]}}
+{"id":"nf-ctl-nothing","utterance":"advisor \"Lane\"","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"contains","value":"lane"}}]}}
+{"id":"nf-ctl-non-retirement","utterance":"Non-retirement accounts with advisor containing \"Lane\"","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"registration_type","operator":"in","value":["taxable","trust"]}},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"contains","value":"lane"}}]}}

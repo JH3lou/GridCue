@@ -22,7 +22,7 @@ What is not counted:
 
 All but the first were found by running the check over every labelled case and by review, not predicted. Two exemptions in the first draft turned out to hide wrong views and were narrowed. "Any name still marked ambiguous" let "market value over $1m and the advisor" pass with Advisor dropped; now only the Row Noun is exempt. "Anything in a part that clears" let "clear filters except accounts over $1m" pass as a plain clear; now only the cleared columns are exempt.
 
-The check runs as the compiler's last step, so every caller gets it, and the plan's own status says what happened. It can turn a ready plan into a question. It can never make a plan ready.
+The check runs as the compiler's last step, so every caller gets it, and the plan's own status says what happened. It can turn a ready plan into a question. It can never make a plan ready. It runs on the plan a request produced: a plan the User edited in the Preview is not checked against the request's words again (ADR 0036).
 
 A second rule closes the same gap for comparisons. An amount whose comparison GridCue couldn't read leads to a question, never to "equal to". "Equal to" is used only when the wording says so ("=", "equals", "exactly"), or when the amount sits directly with its column's name ("market value $750k", "value is $750k", "accounts with 5 positions"). The words after any amount must be ones GridCue reads: the end of the part, a comparison ("or more", "at the most"), or the start of something else it reads. So "$1m or so", "$1m, approximately", and "$1m or later" ask. Before this, "market value > $1m" filtered to exactly $1,000,000.
 

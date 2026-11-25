@@ -74,13 +74,22 @@ const CLAUSE_VERBS = [
   "approve",
 ];
 const QUOTED = /"([^"]+)"/g;
-/** Blanks quoted spans, keeping offsets, so words inside a quoted value never read as an instruction, a size or a count. */
-export const unquoted = (text: string): string => text.replace(QUOTED, (s) => " ".repeat(s.length));
+/**
+ * Blanks quoted spans, keeping offsets, so words inside a quoted value never read as an instruction, a size or a count.
+ * With `mark`, a single character, each span starts with it, so the words on either side of the span don't touch.
+ */
+export const unquoted = (text: string, mark = " "): string => text.replace(QUOTED, (s) => mark + " ".repeat(s.length - 1));
 
 const VERB_ALT = CLAUSE_VERBS.join("|");
 const VERB = `(?:${VERB_ALT})(?:ed)?\\b`;
-// "!=" is a comparison, not the end of a sentence.
-const SPLIT = new RegExp(`[;?]+|!+(?!=)|\\.(?=\\s|$)|,?\\s+then\\s+|,\\s*(?=${VERB})|\\s+and\\s+(?=${VERB})`, "g");
+// "!=" is a comparison, not the end of a sentence. A "!" ends a sentence only right after a word ("show trusts!"):
+// one that starts the request, follows a space, a comma, a semicolon or a colon, or sits right before a name, quoted
+// text or an amount says "not" (`!advisor "Lane"`, `advisor "Lane",! trusts`), so it stays in the part, and the
+// compiler asks about it.
+const SPLIT = new RegExp(
+  `[;?]+|(?<=[^\\s,;:])!+(?![=\\w"'$\\u00c0-\\uffff])|\\.(?=\\s|$)|,?\\s+then\\s+|,\\s*(?=${VERB})|\\s+and\\s+(?=${VERB})`,
+  "g",
+);
 
 /**
  * A change that starts mid-line with no comma or "and" before it: "grouped by household sorted largest to smallest",
@@ -242,6 +251,14 @@ const DIRECTIONS: ReadonlyArray<readonly [RegExp, "asc" | "desc"]> = [
 ];
 
 const directionOf = (text: string) => DIRECTIONS.find(([re]) => re.test(unquoted(text)))?.[1];
+
+type Span = { start: number; end: number };
+const spanOf = (m: RegExpExecArray | null): Span | undefined => (m ? { start: m.index, end: m.index + m[0].length } : undefined);
+/** Where a part writes the direction `directionOf` reads, and the count it reads ("top 10"), if anywhere. */
+export const directionSpans = (text: string): { direction?: Span | undefined; count?: Span | undefined } => {
+  const found = DIRECTIONS.find(([re]) => re.test(text));
+  return { direction: found && spanOf(found[0].exec(text)), count: spanOf(COUNT.exec(text)) };
+};
 
 /**
  * Reads each part's direction again with the columns and values it names blanked, so a size word that belongs to a

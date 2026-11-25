@@ -36,6 +36,10 @@ _Avoid_: Match, hit, reference
 What one row of a grid is, such as "account", declared by the Host. In a request it means the rows, not a column.
 _Avoid_: Entity type, record type
 
+**Declared Grid**:
+One of the grids the Host lists as places a request can be sent, each with its own Row Noun.
+_Avoid_: Screen, page, route, tab
+
 **Value Group**:
 A Host-named category over several enum values of one column, such as Retirement = IRA and Roth IRA.
 _Avoid_: Category, bucket, tag
@@ -53,7 +57,7 @@ Which questions an Intent Provider asks for each Clause, chosen by the Host. Jev
 _Avoid_: Mode, profile, preset
 
 **Clarification**:
-A single focused question GridCue asks when a request cannot be resolved without a choice only the User can make.
+A question GridCue asks when a request cannot be resolved without something only the User can give. A View Plan can carry several, each about one Clause, answered with a choice or with a new wording of that Clause.
 _Avoid_: Follow-up, disambiguation prompt
 
 **Abstention**:
@@ -63,6 +67,14 @@ _Avoid_: Fallback, no-op success
 **Unsupported Segment**:
 A part of an Utterance that asks for something outside the view-only boundary, such as editing data or placing a trade.
 _Avoid_: Rejected intent, error
+
+**Grid Offer**:
+GridCue's offer to open another Declared Grid when a request names that grid or is about its rows. The User chooses, and the Host opens the grid.
+_Avoid_: Redirect, jump, navigation
+
+**Starter**:
+A request the bar offers at an empty input: one of the Host's examples, a recent request, or a change built from the View Schema.
+_Avoid_: Suggestion, completion
 
 ## Views
 
@@ -110,9 +122,21 @@ _Avoid_: Approved plan, valid plan
 The deterministic, human-readable description of exactly what a View Plan would change, shown before anything is applied.
 _Avoid_: Summary, explanation
 
+**Rows Shown**:
+How many rows a ready View Plan would leave, and how many there are in all, as the Host counts them. Shown with the Preview; never sent to an Intent Provider.
+_Avoid_: Row count, match count, hits, results
+
 **View Sentence**:
 The plain-English reading of a whole View State, such as "Taxable accounts over $1,000,000, grouped by Advisor." The View State is the record; the sentence is how it reads.
 _Avoid_: Description, caption, summary
+
+**View Part**:
+One piece of the current View State as the bar shows it, such as one filter condition, the sort, the grouping, or the hidden columns. Removing one proposes the view without it, through a Preview.
+_Avoid_: Chip, tag, pill, facet
+
+**Saved View**:
+A View State the Host stores under a name the User chose. GridCue saves and opens one by request through the Host, and never stores it.
+_Avoid_: Bookmark, preset, layout, favourite
 
 ## Integration points
 
@@ -129,8 +153,20 @@ The translator between GridCue's View State and one specific grid library.
 _Avoid_: Driver, connector, plugin
 
 **Rows Adapter**:
-GridCue's built-in Grid Adapter for Hosts that hold their rows in memory. It applies View State to the rows so any table can render the result.
+GridCue's built-in Grid Adapter for Hosts that hold their rows in memory. It applies View State to the rows so any table can render the result. For rows on a server, see Query Adapter.
 _Avoid_: Default adapter, in-memory grid, local engine
+
+**Data Query**:
+The Host's own request to its server for the rows a View State asks for, such as a database query or an API call. GridCue never writes one.
+_Avoid_: Backend query, server filter, SQL
+
+**Query Adapter**:
+GridCue's built-in Grid Adapter for Hosts whose rows come from their own Data Query. It holds the View State and lists only the View Operations that Data Query can carry out.
+_Avoid_: Remote adapter, server adapter, SQL adapter
+
+**Query Check**:
+Synthetic rows and View States, built from a View Schema, that a Host runs through its own Data Query to prove it keeps the same rows GridCue would.
+_Avoid_: Conformance suite, contract suite, SQL tests
 
 **Candidate**:
 One option in a closed set of choices offered to an Intent Provider, always including an explicit "none" or "unsupported" option.

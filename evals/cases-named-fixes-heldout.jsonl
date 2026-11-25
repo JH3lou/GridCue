@@ -1,0 +1,53 @@
+{"id":"h1-neg-isnt","utterance":"Show accounts where advisor isn't \"Mara Quinn\"","expect":{"status":"needs_clarification","clarificationPrompt":"GridCue can't filter for text that isn't there. Ask for the text to look for instead."}}
+{"id":"h1-neg-bang","utterance":"advisor != \"Quinn\"","expect":{"status":"needs_clarification","clarificationPrompt":"GridCue can't filter for text that isn't there. Ask for the text to look for instead."}}
+{"id":"h1-neg-other-than","utterance":"accounts with advisor other than \"Mara Quinn\"","expect":{"status":"needs_clarification","clarificationPrompt":"GridCue can't filter for text that isn't there. Ask for the text to look for instead."}}
+{"id":"h1-neg-except","utterance":"all accounts except advisor \"Quinn\"","expect":{"status":"needs_clarification","clarificationPrompt":"GridCue can't filter for text that isn't there. Ask for the text to look for instead."}}
+{"id":"h1-neg-is-not-household","utterance":"household is not \"Hale\"","expect":{"status":"needs_clarification","clarificationPrompt":"GridCue can't filter for text that isn't there. Ask for the text to look for instead."}}
+{"id":"h1-neg-without-household","utterance":"accounts without household \"Hale\"","expect":{"status":"needs_clarification","clarificationPrompt":"GridCue can't filter for text that isn't there. Ask for the text to look for instead."}}
+{"id":"h1-neg-bare-not","utterance":"advisor not \"Quinn\"","expect":{"status":"needs_clarification"}}
+{"id":"h1-neg-not-containing","utterance":"accounts with advisor not containing \"Quinn\"","expect":{"status":"needs_clarification"}}
+{"id":"h1-neg-does-not-contain","utterance":"accounts where advisor does not contain \"Quinn\"","expect":{"status":"needs_clarification"}}
+{"id":"h1-neg-with-filter","utterance":"advisor is not \"Quinn\" and market value over $1m","expect":{"status":"needs_clarification"}}
+{"id":"h1-neg-after-value","utterance":"taxable accounts, advisor isn't \"Quinn\"","expect":{"status":"needs_clarification"}}
+{"id":"h1-form-starts","utterance":"advisor starts with \"Qu\"","expect":{"status":"needs_clarification","clarificationPrompt":"I'm not sure how to match “qu”. Try “containing”."}}
+{"id":"h1-form-ends","utterance":"accounts where advisor ends with \"Quinn\"","expect":{"status":"needs_clarification","clarificationPrompt":"I'm not sure how to match “quinn”. Try “containing”."}}
+{"id":"h1-form-exactly","utterance":"advisor is exactly \"Mara Quinn\"","expect":{"status":"needs_clarification","clarificationPrompt":"I'm not sure how to match “mara quinn”. Try “containing”."}}
+{"id":"h1-form-equals-sign","utterance":"advisor = \"Mara Quinn\"","expect":{"status":"needs_clarification","clarificationPrompt":"I'm not sure how to match “mara quinn”. Try “containing”."}}
+{"id":"h1-form-household-starts","utterance":"household starts with \"Ha\"","expect":{"status":"needs_clarification","clarificationPrompt":"I'm not sure how to match “ha”. Try “containing”."}}
+{"id":"h1-form-begins","utterance":"advisor begins with \"Qu\"","expect":{"status":"needs_clarification"}}
+{"id":"h1-form-equals-word","utterance":"household equals \"Hale\"","expect":{"status":"needs_clarification"}}
+{"id":"h1-form-named","utterance":"accounts with advisor named \"Quinn\"","expect":{"status":"needs_clarification"}}
+{"id":"h1-form-ending-in","utterance":"household ending in \"ale\"","expect":{"status":"needs_clarification"}}
+{"id":"h1-ctl-containing","utterance":"advisor containing \"Quinn\"","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"contains","value":"quinn"}}]}}
+{"id":"h1-ctl-contains","utterance":"accounts whose advisor contains \"Mara Quinn\"","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"contains","value":"mara quinn"}}]}}
+{"id":"h1-ctl-includes","utterance":"advisor includes \"Quinn\"","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"contains","value":"quinn"}}]}}
+{"id":"h1-ctl-has","utterance":"accounts where advisor has \"Quinn\"","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"contains","value":"quinn"}}]}}
+{"id":"h1-ctl-matching","utterance":"advisor matching \"Quinn\"","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"contains","value":"quinn"}}]}}
+{"id":"h1-ctl-is","utterance":"advisor is \"Quinn\"","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"contains","value":"quinn"}}]}}
+{"id":"h1-ctl-colon-household","utterance":"household: \"Hale\"","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"household","operator":"contains","value":"hale"}}]}}
+{"id":"h1-ctl-like","utterance":"advisor like \"Quinn\"","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"contains","value":"quinn"}}]}}
+{"id":"h1-ctl-nothing","utterance":"advisor \"Quinn\"","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"contains","value":"quinn"}}]}}
+{"id":"h1-ctl-household-containing","utterance":"show accounts with household containing \"Hale Family\"","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"household","operator":"contains","value":"hale family"}}]}}
+{"id":"h1-ctl-colon-full","utterance":"advisor: \"Mara Quinn\"","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"contains","value":"mara quinn"}}]}}
+{"id":"h1-ctl-non-retirement","utterance":"non-retirement accounts with advisor containing \"Quinn\"","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"registration_type","operator":"in","value":["taxable","trust"]}},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"advisor_name","operator":"contains","value":"quinn"}}]}}
+{"id":"h1-ctl-taxable-like","utterance":"taxable accounts, household like \"Hale\"","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"registration_type","operator":"eq","value":"taxable"}},{"type":"filter.add","combineWith":"and","predicate":{"columnId":"household","operator":"contains","value":"hale"}}]}}
+{"id":"h1-noun-accounts-for","utterance":"accounts for \"Mara Quinn\"","expect":{"status":"needs_clarification","clarificationPrompt":"Which column should contain “mara quinn”?"}}
+{"id":"h1-noun-show-accounts-for","utterance":"show accounts for \"Hale\"","expect":{"status":"needs_clarification","clarificationPrompt":"Which column should contain “hale”?"}}
+{"id":"h1-noun-account-for","utterance":"the account for \"Hale Family\"","expect":{"status":"needs_clarification","clarificationPrompt":"Which column should contain “hale family”?"}}
+{"id":"h1-noun-with-filter","utterance":"accounts for \"Mara Quinn\" over $1m","expect":{"status":"needs_clarification"}}
+{"id":"h1-bare-two-words","utterance":"\"Mara Quinn\"","expect":{"status":"needs_clarification","clarificationPrompt":"Which column should contain “mara quinn”?"}}
+{"id":"h1-bare-one-word","utterance":"\"Hale\"","expect":{"status":"needs_clarification","clarificationPrompt":"Which column should contain “hale”?"}}
+{"id":"h1-bare-show","utterance":"show \"Quinn\"","expect":{"status":"needs_clarification","clarificationPrompt":"Which column should contain “quinn”?"}}
+{"id":"h1-dt-after","utterance":"last contact after 2026-03-15","schema":"dated","expect":{"status":"needs_clarification","clarificationPrompt":"Last contact holds times of day, so GridCue can't filter it by date yet."}}
+{"id":"h1-dt-before","utterance":"accounts with last contact before 2026-03-15","schema":"dated","expect":{"status":"needs_clarification","clarificationPrompt":"Last contact holds times of day, so GridCue can't filter it by date yet."}}
+{"id":"h1-dt-on","utterance":"last contact on 2026-03-15","schema":"dated","expect":{"status":"needs_clarification","clarificationPrompt":"Last contact holds times of day, so GridCue can't filter it by date yet."}}
+{"id":"h1-dt-or-after","utterance":"last contact on or after 2025-12-01","schema":"dated","expect":{"status":"needs_clarification","clarificationPrompt":"Last contact holds times of day, so GridCue can't filter it by date yet."}}
+{"id":"h1-dt-is","utterance":"last contact is 2026-04-02","schema":"dated","expect":{"status":"needs_clarification","clarificationPrompt":"Last contact holds times of day, so GridCue can't filter it by date yet."}}
+{"id":"h1-bad-apr31","utterance":"opened after 2026-04-31","schema":"dated","expect":{"status":"needs_clarification","clarificationPrompt":"2026-04-31 isn't a date."}}
+{"id":"h1-bad-feb29","utterance":"accounts opened before 2025-02-29","schema":"dated","expect":{"status":"needs_clarification","clarificationPrompt":"2025-02-29 isn't a date."}}
+{"id":"h1-bad-month13","utterance":"close date on 2026-13-01","schema":"dated","expect":{"status":"needs_clarification","clarificationPrompt":"2026-13-01 isn't a date."}}
+{"id":"h1-bad-day0","utterance":"opened on 2026-05-00","schema":"dated","expect":{"status":"needs_clarification","clarificationPrompt":"2026-05-00 isn't a date."}}
+{"id":"h1-bad-jun31","utterance":"close date after 2026-06-31","schema":"dated","expect":{"status":"needs_clarification","clarificationPrompt":"2026-06-31 isn't a date."}}
+{"id":"h1-date-ctl-gt","utterance":"opened after 2026-01-31","schema":"dated","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"opened","operator":"gt","value":"2026-01-31"}}]}}
+{"id":"h1-date-ctl-lt","utterance":"close date before 2025-02-28","schema":"dated","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"closed","operator":"lt","value":"2025-02-28"}}]}}
+{"id":"h1-date-ctl-leap","utterance":"opened on 2024-02-29","schema":"dated","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"opened","operator":"eq","value":"2024-02-29"}}]}}
