@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { applyView, createRowsAdapter } from "../src/core/rows-adapter";
 import { defineSchema } from "../src/core/schema";
-import { runAdapterContract } from "./adapter-contract";
+import { DATED_COLUMNS, DATED_ROWS, runAdapterContract } from "./adapter-contract";
 
 const schema = defineSchema([{ id: "value", kind: "number" }, { id: "team" }, { id: "name" }]);
 
@@ -12,6 +12,13 @@ runAdapterContract("Rows Adapter", () => {
     manualChange: () => adapter.setState((s) => ({ ...s, sorts: [{ columnId: "team", direction: "asc" }] })),
     numericColumn: "value",
     otherColumn: "name",
+    dated: () =>
+      createRowsAdapter({
+        schema: defineSchema(
+          DATED_COLUMNS.map((id) => ({ id })),
+          { sampleRows: DATED_ROWS },
+        ),
+      }),
   };
 });
 

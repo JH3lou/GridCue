@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { GridAdapter } from "../src/core/adapter";
-import type { ViewOperation, ViewPlan } from "../src/core/protocol";
+import type { FilterPredicate, ViewOperation, ViewPlan } from "../src/core/protocol";
 import { validatePlan } from "../src/core/validate";
 
 export interface ContractHarness {
@@ -10,7 +10,20 @@ export interface ContractHarness {
   /** Two column IDs that support filter and sort, the first numeric. */
   numericColumn: string;
   otherColumn: string;
+  /**
+   * The same kind of grid over `DATED_ROWS`, with a column for each of its keys and its schema read from those rows,
+   * so `booked` is a date column, and `posted` (ISO strings) and `stamped` (`Date` objects) are date-and-time columns.
+   */
+  dated(): GridAdapter;
 }
+
+/** Synthetic rows for the date checks: a date, a date-and-time string and a `Date` in each. */
+export const DATED_ROWS = [
+  { memo: "a", booked: "2026-01-30", posted: "2026-01-30T23:30:00.000Z", stamped: new Date("2026-01-30T23:30:00.000Z") },
+  { memo: "b", booked: "2026-01-31", posted: "2026-01-31T09:00:00-05:00", stamped: new Date("2026-01-31T14:00:00.000Z") },
+  { memo: "c", booked: "2026-02-01", posted: "2026-02-01T00:30:00+13:00", stamped: new Date("2026-01-31T11:30:00.000Z") },
+];
+export const DATED_COLUMNS = ["memo", "booked", "posted", "stamped"] as const;
 
 const planFor = (adapter: GridAdapter, operations: ViewOperation[]): ViewPlan => ({
   protocolVersion: "0.1",
@@ -174,6 +187,61 @@ export const runAdapterContract = (name: string, make: () => ContractHarness) =>
       await h.adapter.apply(plan);
       h.manualChange();
       expect(calls).toBe(before);
+    });
+
+    describe("date, date-and-time and Date-object filters", () => {
+      // A date means the whole day (ADR 0026), and a filter on a date-and-time column holds a day or a time. The
+      // adapter keeps each filter exactly as the plan gives it.
+      const dateFilters = (): ViewOperation[] =>
+        [
+          { columnId: "booked", operator: "eq", value: "2026-01-31" },
+          { columnId: "booked", operator: "between", value: { min: "2026-01-01", max: "2026-01-31" } },
+          { columnId: "posted", operator: "gt", value: "2026-01-30" },
+          { columnId: "posted", operator: "lte", value: "2026-01-31T12:00:00.000Z" },
+          { columnId: "stamped", operator: "between", value: { min: "2026-01-31", max: "2026-02-01" } },
+          { columnId: "stamped", operator: "isNotEmpty" },
+        ].map((p, i) => ({
+          type: "filter.add",
+          combineWith: "and",
+          predicate: { id: `d${i}`, type: "predicate", ...p } as FilterPredicate,
+        }));
+
+      it("reads the dated columns' kinds from their rows", () => {
+        const kinds = Object.fromEntries(
+          make()
+            .dated()
+            .getSchema()
+            .columns.map((c) => [c.id, c.kind]),
+        );
+        expect(kinds).toMatchObject({ booked: "date", posted: "datetime", stamped: "datetime" });
+      });
+
+      it("applies them, holds each as given, and undoes to the exact snapshot", async () => {
+        const adapter = make().dated();
+        const snapshot = adapter.getState();
+        const ops = dateFilters();
+        const { plan } = validated(adapter, ops);
+        const applied = await adapter.apply(plan);
+        expect(applied.ok).toBe(true);
+        if (!applied.ok) return;
+        const held = adapter.getState();
+        expect(held.revision).toBe(applied.state.revision);
+        expect(held.state.filters?.children).toEqual(ops.map((op) => (op as { predicate: FilterPredicate }).predicate));
+        const restored = await adapter.restore(snapshot);
+        expect(restored.ok).toBe(true);
+        expect(adapter.getState().state).toEqual(snapshot.state);
+      });
+
+      it("adds a date filter to one already held, and clears both", async () => {
+        const adapter = make().dated();
+        const [first, second] = dateFilters();
+        if (!first || !second) throw new Error("no filters");
+        expect((await adapter.apply(validated(adapter, [first]).plan)).ok).toBe(true);
+        expect((await adapter.apply(validated(adapter, [second]).plan)).ok).toBe(true);
+        expect(adapter.getState().state.filters?.children.map((c) => (c as FilterPredicate).id)).toEqual(["d0", "d1"]);
+        expect((await adapter.apply(validated(adapter, [{ type: "filter.clear" }]).plan)).ok).toBe(true);
+        expect(adapter.getState().state.filters).toBeNull();
+      });
     });
 
     it("rejects every kind of invalid apply with a code starting with ADAPTER_", async () => {

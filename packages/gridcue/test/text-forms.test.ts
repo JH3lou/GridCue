@@ -523,6 +523,27 @@ describe("a part with no code-read filter that holds a word nothing reads", () =
     await reads("just the accounts where the custodian is Northgate", [["custodian", "eq", "northgate"]]);
   });
 
+  it("reads a word built on “group” as before, with no Local Values (order plan, section 12 A)", async () => {
+    // A Local Value that holds the word asks about it (test/local-values-controller.test.ts). With none, nothing changes.
+    for (const text of ["show accounts in the Northgate group", "accounts in the Northgate group"]) {
+      expect((await propose(text)).status, text).toBe("ready");
+    }
+    for (const text of ["Travel Group entries", "travel group", "entries in travel group"]) {
+      expect((await propose(text, vendors)).status, text).toBe("ready");
+    }
+  });
+
+  it("reads a grouping, and a grouping said to stay, as before", async () => {
+    const lines = async (text: string) => {
+      const state = await propose(text);
+      expect(state.status, `${text}: ${state.message}`).toBe("ready");
+      return state.preview?.lines;
+    };
+    expect(await lines("group by advisor")).toEqual(["Group by Advisor"]);
+    expect(await lines("group the accounts by household")).toEqual(["Group by Household"]);
+    expect(await lines("sort by market value without grouping")).toEqual(["Sort by Market value, ascending"]);
+  });
+
   it("reads as before when the provider picks a column no Mention names", async () => {
     // "Balance" is no name of Market value here; a provider that knows the synonym picks it, as before.
     const synonym: IntentProvider = {
@@ -541,6 +562,24 @@ describe("a part with no code-read filter that holds a word nothing reads", () =
     const state = await propose("just the balance column", wealth, synonym);
     expect(state.status, `${state.message}`).toBe("ready");
     expect(state.plan?.operations[0]).toEqual({ type: "columns.show", columnIds: ["market_value"] });
+  });
+});
+
+describe("filters on one text column that no row can match together, with no Local Value", () => {
+  // Asking about them is a Local Value's check (test/local-values-controller.test.ts). Forms alone read as before.
+  it("reads them as before", async () => {
+    await reads('accounts where advisor starts with "av" and advisor is empty', [
+      ["advisor_name", "startsWith", "av"],
+      ["advisor_name", "isEmpty"],
+    ]);
+    await reads('accounts where advisor is exactly "avery lane" and advisor is exactly "blake moreno"', [
+      ["advisor_name", "eq", "avery lane"],
+      ["advisor_name", "eq", "blake moreno"],
+    ]);
+    await reads('accounts where advisor starts with "av" and advisor is not empty', [
+      ["advisor_name", "startsWith", "av"],
+      ["advisor_name", "isNotEmpty"],
+    ]);
   });
 });
 

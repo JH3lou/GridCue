@@ -25,7 +25,7 @@ The plan is validated again at apply. A multi-part plan applies completely or no
 
 ## The data boundary
 
-Rows never leave your app. The provider needs only the request and a description of your columns.
+Rows never leave your app. The provider needs only the request and a description of your columns. If you turn on [Local Values](/docs/api/create-grid-cue#local-values), GridCue reads some columns' values from your rows, in the browser, and still sends none of them.
 
 **What is sent to the provider** (through your Server Handler, for Jev):
 
@@ -41,11 +41,22 @@ Rows never leave your app. The provider needs only the request and a description
 - restricted columns: not their names, aliases or values;
 - enum values you didn't list in `enumValues`;
 - the current filter values;
+- your House Terms: a term's name, aliases and conditions, and whether a request used one. A term is read in the browser by GridCue's own code. The request the provider receives is the same with terms declared or not, and it is called as often. The words the User typed are sent as always, so a term's word in the request reaches the provider like any other word;
+- your Local Values: the values GridCue reads from your rows when you set `localValues`, whether a request matched one, which column holds it, the choices in a question about it and the User's answer. They are read in the browser by GridCue's own code. The request the provider receives is built before any value is looked at, so it is the same with `localValues` on or off, and the provider is called once whether or not a value matched. **The words the User typed are sent as always, so a name the User types is in the request.** "Avery Lane's accounts" reaches the provider as those words, with or without `localValues`. A value the User only picks from a question is not in it: the answer is read in the browser and nothing is sent again;
 - keys, cookies or tokens.
 
-To see what your schema exposes, call `describeProviderPayload(schema)` from `gridcue`. It returns each exposed column's id, label, kind, aliases, description, approved values, entity and value groups, the `rowNoun`, and `rows: "never sent"`.
+To see what your schema exposes, call `describeProviderPayload(schema)` from `gridcue`. It returns each exposed column's id, label, kind, aliases, description, approved values, entity and value groups, the `rowNoun`, and `rows: "never sent"`. It has no House Terms or Local Values in it.
 
-`enumValues` is the one place you choose to share values. List only what you are willing to send, and never fill it with every distinct value in your data.
+`enumValues` is the one place you choose to share values. List only what you are willing to send, and never fill it with every distinct value in your data. To let a request name the values of a column such as Advisor without sharing them, use `localValues` instead.
+
+**Where a Local Value can still appear.** A value GridCue reads is a Host-side value, in the browser:
+
+- in the plan GridCue builds: the filter's value, the Preview line ("Filter Advisor to exactly “Avery Lane”") and a question's text and choices. These are shown to the User and held in the Controller's state, and your code can read them there;
+- in an applied view: the filter is part of the View State, so a saved or logged View State holds it;
+- in an audit event, only if you opt in. By default an event has no request text, labels or values. `includeText` adds the User's request, which holds a name only if the User typed one. `includeStructure` adds column ids and operators, never values. A question's text and choices are not in an event;
+- in an error, never: `INPUT_CONFIG` and `INPUT_LOCAL_VALUES` messages name columns, not values.
+
+If you log the controller's state, plans or View States yourself, those logs hold the values.
 
 ## Restricted columns
 
@@ -80,7 +91,7 @@ An event has type `gridcue.plan` and an outcome: `applied`, `cancelled`, `reject
 
 By default it holds no request text, column labels or values. Two opt-ins widen it:
 
-- `includeText`: adds the raw request text;
+- `includeText`: adds the raw request text, which holds a name if the User typed one;
 - `includeStructure`: adds the column ids and operators of each operation. Filter values are never included.
 
 ## Telemetry

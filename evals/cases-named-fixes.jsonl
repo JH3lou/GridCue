@@ -29,10 +29,10 @@
 {"id":"nf-other-word-ish","utterance":"advisor kind of \"Lane\"","expect":{"status":"needs_clarification"}}
 {"id":"nf-other-word-sounds","utterance":"advisor sounds like \"Lane\"","expect":{"status":"needs_clarification"}}
 {"id":"nf-other-word-sentence","utterance":"Accounts with advisor named \"Lane\" over $1m","expect":{"status":"needs_clarification"}}
-{"id":"nf-dt-after","utterance":"last contact after 2026-01-31","schema":"dated","expect":{"status":"needs_clarification","clarificationPrompt":"Last contact holds times of day, so GridCue can't filter it by date yet."}}
-{"id":"nf-dt-before","utterance":"last contact before 2026-01-31","schema":"dated","expect":{"status":"needs_clarification","clarificationPrompt":"Last contact holds times of day, so GridCue can't filter it by date yet."}}
-{"id":"nf-dt-on","utterance":"accounts with last contact on 2026-01-31","schema":"dated","expect":{"status":"needs_clarification","clarificationPrompt":"Last contact holds times of day, so GridCue can't filter it by date yet."}}
-{"id":"nf-dt-since","utterance":"last contact since 2025-10-01","schema":"dated","expect":{"status":"needs_clarification","clarificationPrompt":"Last contact holds times of day, so GridCue can't filter it by date yet."}}
+{"id":"nf-dt-after","utterance":"last contact after 2026-01-31","schema":"dated","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"last_contact","operator":"gt","value":"2026-01-31"}}]}}
+{"id":"nf-dt-before","utterance":"last contact before 2026-01-31","schema":"dated","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"last_contact","operator":"lt","value":"2026-01-31"}}]}}
+{"id":"nf-dt-on","utterance":"accounts with last contact on 2026-01-31","schema":"dated","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"last_contact","operator":"eq","value":"2026-01-31"}}]}}
+{"id":"nf-dt-since","utterance":"last contact since 2025-10-01","schema":"dated","expect":{"status":"ready","operations":[{"type":"filter.add","combineWith":"and","predicate":{"columnId":"last_contact","operator":"gte","value":"2025-10-01"}}]}}
 {"id":"nf-bad-feb31","utterance":"opened after 2026-02-31","schema":"dated","expect":{"status":"needs_clarification","clarificationPrompt":"2026-02-31 isn't a date."}}
 {"id":"nf-bad-nov31","utterance":"close date before 2026-11-31","schema":"dated","expect":{"status":"needs_clarification","clarificationPrompt":"2026-11-31 isn't a date."}}
 {"id":"nf-bad-feb29","utterance":"accounts opened on 2027-02-29","schema":"dated","expect":{"status":"needs_clarification","clarificationPrompt":"2027-02-29 isn't a date."}}

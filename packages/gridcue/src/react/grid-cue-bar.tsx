@@ -98,7 +98,7 @@ export const GridCueBar = ({
             {cue.plan.clarifications[0].options.map((option) => (
               <button
                 key={option.id}
-                className="gridcue-button"
+                className="gridcue-button gridcue-choice"
                 type="button"
                 onClick={() => cue.answer(cue.plan?.clarifications[0]?.id ?? "", option.id)}
               >

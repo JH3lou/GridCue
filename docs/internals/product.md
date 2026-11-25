@@ -87,11 +87,11 @@ The host declares:
 
 ### 3. Data minimization is the normal path
 
-Most view commands can be resolved from the utterance plus schema metadata. Row contents remain local. If a host enables a distinct-value resolver, it must explicitly govern which values may be disclosed.
+Most view commands can be resolved from the utterance plus schema metadata. Row contents remain local. A host may let GridCue read the values of named text columns from its own rows, in the browser, so a request can name a value ("Avery Lane's accounts"). These are Local Values (ADR 0025). Code reads them and the Preview states the filter; they are never sent to an Intent Provider, and the request and the number of provider calls are the same with them on or off. Apart from the approved values a host lists in `enumValues`, the only values a provider sees are the ones the user typed in the request. Sending values to a provider as Candidates would be a separate, explicit decision by the host, and core has no option for it.
 
 ### 4. Ambiguity is visible
 
-“Show large accounts” has no universal threshold. Unless the host supplies an approved meaning for `large`, GridCue asks what the user means. It does not quietly choose $1 million.
+“Show large accounts” has no universal threshold. Unless the host declares `large` as a House Term, a fixed list of conditions such as Market value above $1,000,000, GridCue asks what the user means. With the term declared, code reads it and the Preview states the threshold, so the user sees what `large` meant. A House Term is never sent to an Intent Provider. GridCue never chooses $1 million itself.
 
 ### 5. Mixed-scope requests fail safely
 
@@ -160,7 +160,7 @@ The defaults are `ready` 0.85 and `clarify` 0.65. They are unchanged since the f
 | “Biggest sleeve drift first; group by strategist” | Sort drift descending, group by strategist |
 | “Only accounts with a restriction, and show the restriction reason” | Filter restriction flag; reveal permitted reason column |
 | “Hide PII and give me a compact exceptions view” | Hide columns tagged as PII if the host exposes that alias; density is deferred or unsupported |
-| “Show gains close to becoming long term” | Clarify or use an explicit host-defined semantic alias; never invent the day threshold |
+| “Show gains close to becoming long term” | Clarify, or use a House Term the host declared on its own column; never invent the day threshold |
 | “Sell anything over 10%” | Reject: trade execution is outside the view-only boundary |
 
 ## Success measures

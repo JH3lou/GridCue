@@ -57,6 +57,12 @@ export const namesOf = (op: ViewOperation): string[] => {
   }
 };
 
+/**
+ * Whether two filter values are the same. A form's value is text or nothing; a House Term's may also be a list or a
+ * range, which are compared by what they hold.
+ */
+const sameValue = (a: unknown, b: unknown): boolean => a === b || (typeof a === "object" && JSON.stringify(a) === JSON.stringify(b));
+
 /** The comparison that keeps the rows a part leaves out: "exclude accounts over $1m" keeps "at most $1m". */
 const COMPLEMENT: Partial<Record<string, string>> = { gt: "lte", gte: "lt", lt: "gte", lte: "gt" };
 
@@ -100,7 +106,10 @@ const usesValue = (p: FilterPredicate, m: Mention): boolean => {
  * A code-read filter (named filters spec, 4.4) is read as a whole: it is used when the plan holds its filter, and the
  * names and quoted text inside its words are its own. Its filter uses nothing outside them: a name of its column outside
  * them is used only when another operation names that column. A span with no filter places its words and is never
- * counted.
+ * counted. A House Term gives a code-read filter for each of its conditions, so it is used when the plan holds all of
+ * its filters. Several Local Values of one column share one filter, and each is used when the plan holds it. A date read
+ * by code (spec 5.5) is used when the plan holds its filter: its fixed days on its column, with no column named on the
+ * column the compiler gave it. A date literal `normalize` read from a relative form is used as any date literal is.
  */
 export const unusedReadings = (
   input: NormalizedInput,
@@ -123,7 +132,7 @@ export const unusedReadings = (
         !readOps.has(o) &&
         o.predicate.columnId === columnId &&
         o.predicate.operator === operator &&
-        o.predicate.value === value,
+        sameValue(o.predicate.value, value),
     );
     if (op) readOps.add(op);
   }
@@ -158,9 +167,11 @@ export const unusedReadings = (
     for (const r of spans) {
       if (!("predicate" in r)) continue;
       const { columnId, operator, value } = r.predicate;
-      const at = free.findIndex((p) => p.columnId === columnId && p.operator === operator && p.value === value);
+      const holds = (p: FilterPredicate) => p.columnId === columnId && p.operator === operator && sameValue(p.value, value);
+      const at = free.findIndex(holds);
       if (at >= 0) free.splice(at, 1);
-      else found.push({ at: r.start, text: clause.text.slice(r.start, r.end) });
+      // Several Local Values of one column share one filter: each is used when the plan holds it.
+      else if (!(r.kind === "value" && predicates.some(holds))) found.push({ at: r.start, text: clause.text.slice(r.start, r.end) });
     }
     for (const lit of clause.literals) {
       if (inSpan(lit.at)) continue;

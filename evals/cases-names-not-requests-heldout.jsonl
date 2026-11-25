@@ -1,0 +1,22 @@
+{"id":"lvn1-w-called-me","utterance":"Avery Lane called me yesterday","values":true,"expect":{"mustNotBeReady":true}}
+{"id":"lvn1-w-good-client","utterance":"The Alder Household was a good client","values":true,"expect":{"mustNotBeReady":true}}
+{"id":"lvn1-w-lunch","utterance":"I met Casey Ortiz at lunch","values":true,"expect":{"mustNotBeReady":true}}
+{"id":"lvn1-w-vacation","utterance":"Dana Whitfield is on vacation next week","values":true,"expect":{"mustNotBeReady":true}}
+{"id":"lvn1-w-thanks","utterance":"thanks Blake Moreno","values":true,"expect":{"mustNotBeReady":true}}
+{"id":"lvn1-w-moving","utterance":"Emerson Hale said the Birch Household is moving","values":true,"expect":{"mustNotBeReady":true}}
+{"id":"lvn1-w-great-quarter","utterance":"What a great quarter for the Cedar Household","values":true,"expect":{"mustNotBeReady":true}}
+{"id":"lvn1-w-in-today","utterance":"Is Avery Lane in today?","values":true,"expect":{"mustNotBeReady":true}}
+{"id":"lvn1-w-remind","utterance":"remind me to call the Hollis Household","values":true,"expect":{"mustNotBeReady":true}}
+{"id":"lvn1-w-founded","utterance":"The Jessup Household was founded in 1990","values":true,"expect":{"mustNotBeReady":true}}
+{"id":"lvn1-w-friends","utterance":"Avery Lane and Blake Moreno are friends","values":true,"expect":{"mustNotBeReady":true}}
+{"id":"lvn1-w-feel-sorry","utterance":"I feel sorry for Casey Ortiz","values":true,"expect":{"mustNotBeReady":true}}
+{"id":"lvn1-l-lunch","utterance":"Gale Ivers booked a lunch with Cedar Works","schema":"ledger","values":true,"expect":{"mustNotBeReady":true}}
+{"id":"lvn1-l-works-with","utterance":"Frankie Dunmore works with Dunmore Freight","schema":"ledger","values":true,"expect":{"mustNotBeReady":true}}
+{"id":"lvn1-l-spoke","utterance":"I spoke to Ellery Partners yesterday","schema":"ledger","values":true,"expect":{"mustNotBeReady":true}}
+{"id":"lvn1-l-invoice","utterance":"Birch & Fenn Ltd sent an invoice","schema":"ledger","values":true,"expect":{"mustNotBeReady":true}}
+{"id":"lvn1-l-closing","utterance":"Hollis Travel Group is closing its office","schema":"ledger","values":true,"expect":{"mustNotBeReady":true}}
+{"id":"lvn1-l-acquired","utterance":"Alder Supply Co was acquired last year","schema":"ledger","values":true,"expect":{"mustNotBeReady":true}}
+{"id":"lvn1-l-left","utterance":"Emerson Hale left the company","schema":"ledger","values":true,"expect":{"mustNotBeReady":true}}
+{"id":"lvn1-l-thank","utterance":"Thank you Dana Whitfield","schema":"ledger","values":true,"expect":{"mustNotBeReady":true}}
+{"id":"lvn1-l-who-is","utterance":"who is Fairholm Software","schema":"ledger","values":true,"expect":{"mustNotBeReady":true}}
+{"id":"lvn1-l-owes","utterance":"Greaves Consulting owes Blake Moreno a favour","schema":"ledger","values":true,"expect":{"mustNotBeReady":true}}
