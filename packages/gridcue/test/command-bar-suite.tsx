@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactElement } from "react";
 import { afterEach, describe, expect, it } from "vitest";
@@ -73,6 +73,56 @@ export const runCommandBarSuite = (name: string, renderBar: (controller: GridCue
       expect(await screen.findByRole("group", { name: "Which column should be above $1,000,000?" })).toBeTruthy();
       await user.click(screen.getByRole("button", { name: "Gain" }));
       expect(await screen.findByRole("button", { name: "Apply" })).toBeTruthy();
+    });
+
+    // ADR 0027: after a count, a change to the sort asks, and each answer previews its own line.
+    describe("a count's question", () => {
+      const countedSetup = () => {
+        const adapter = createRowsAdapter({ schema });
+        adapter.setState((v) => ({ ...v, sorts: [{ columnId: "value", direction: "desc" }], limit: 10 }));
+        const controller = createGridCue({ adapter, provider: createMockProvider() });
+        render(renderBar(controller));
+        return { adapter, user: userEvent.setup(), input: screen.getByRole("textbox", { name: /describe the view/i }) };
+      };
+      const question = "Keep only the first 10 rows of the new view, or show every row?";
+
+      it("shows its two choices and no Preview", async () => {
+        const { user, input } = countedSetup();
+        await user.type(input, "sort by name{Enter}");
+        const group = await screen.findByRole("group", { name: question });
+        expect(
+          within(group)
+            .getAllByRole("button")
+            .map((b) => b.textContent),
+        ).toEqual(["Keep the first 10", "Show every row"]);
+        expect(screen.queryByRole("button", { name: "Apply" })).toBeNull();
+      });
+
+      it("previews the count line when the User keeps it", async () => {
+        const { user, input } = countedSetup();
+        await user.type(input, "sort by name{Enter}");
+        await user.click(await screen.findByRole("button", { name: "Keep the first 10" }));
+        expect(await screen.findByText("Sort by Name, ascending")).toBeTruthy();
+        expect(screen.getByText("Show only the first 10 rows")).toBeTruthy();
+        expect(screen.getByRole("button", { name: "Apply" })).toBeTruthy();
+      });
+
+      it("previews the clear line when the User shows every row", async () => {
+        const { adapter, user, input } = countedSetup();
+        await user.type(input, "sort by name{Enter}");
+        await user.click(await screen.findByRole("button", { name: "Show every row" }));
+        expect(await screen.findByText("Sort by Name, ascending")).toBeTruthy();
+        expect(screen.getByText("Show every row")).toBeTruthy();
+        await user.click(screen.getByRole("button", { name: "Apply" }));
+        await waitFor(() => expect(adapter.getState().state.limit).toBeUndefined());
+      });
+
+      it("clears a count in one request, with its own line", async () => {
+        const { user, input } = countedSetup();
+        await user.type(input, "show every row{Enter}");
+        expect(await screen.findByText("Show every row")).toBeTruthy();
+        expect(screen.getByRole("button", { name: "Apply" })).toBeTruthy();
+      });
     });
 
     it("shows typed markup as text and never renders it", async () => {
