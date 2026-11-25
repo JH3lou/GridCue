@@ -71,7 +71,7 @@ interface ViewCapabilities {
 | `supportsAtomicApply` | `boolean` | Whether `apply` changes everything or nothing. When `false`, every plan fails validation with `PLAN_NOT_ATOMIC`. |
 | `supportsSnapshotRestore` | `boolean` | Whether `restore` can put a saved view back. |
 | `observesChanges` | `boolean` | `true` when the adapter reports manual view changes through `subscribe`. |
-| `aggregationFunctions` | `string[]` | With `aggregation.set`: the total functions the grid applies. Left out, a sum and an average, which both shipped adapters apply. A total with any other function fails validation with `PLAN_AGGREGATION_KIND`. |
+| `aggregationFunctions` | `string[]` | With `aggregation.set`: the total functions the grid applies. Left out, a sum and an average, which the Rows Adapter and the TanStack Table adapter apply. A total with any other function fails validation with `PLAN_AGGREGATION_KIND`. |
 
 ## MVP_OPERATIONS
 
@@ -90,7 +90,7 @@ const MVP_OPERATIONS: readonly string[] = [
 ];
 ```
 
-The operations every adapter supports. With no [`renders`](#renders), the TanStack Table adapter reports exactly this list, and the Rows Adapter adds `limit.set`, since its rows are all in memory and a count is exact there. The TanStack Table adapter adds it with `renders: ["count"]` and [GridCue's count piece](#gridcuecountfeature). An adapter whose rows come a page at a time should not list `limit.set`: GridCue then sorts alone and says the count was not applied. The [Query Adapter](#createqueryadapter) lists it only when you say your server cuts before paging. `columns.pin`, `density.set` and `aggregation.set` are not in `MVP_OPERATIONS`: an adapter lists each only when the Host's table draws it, and a plan that uses one the adapter doesn't list fails validation with `PLAN_OPERATION_UNSUPPORTED`.
+The operations every adapter supports but the AG Grid adapter, which lists them without `group.set`. With no [`renders`](#renders), the TanStack Table adapter reports exactly this list, and the Rows Adapter adds `limit.set`, since its rows are all in memory and a count is exact there. The TanStack Table adapter adds it with `renders: ["count"]` and [GridCue's count piece](#gridcuecountfeature). An adapter whose rows come a page at a time should not list `limit.set`: GridCue then sorts alone and says the count was not applied. The [Query Adapter](#createqueryadapter) lists it only when you say your server cuts before paging. `columns.pin`, `density.set` and `aggregation.set` are not in `MVP_OPERATIONS`: an adapter lists each only when the Host's table draws it, and a plan that uses one the adapter doesn't list fails validation with `PLAN_OPERATION_UNSUPPORTED`.
 
 ## renders
 

@@ -32,12 +32,12 @@ pnpm eval:live
 
 Without a key, it prints "Skipping live evals: JEV_API_KEY is not set." and exits cleanly.
 
-A live run scores four case files in turn and prints a verdict table for each:
+A live run scores every labelled set, `evals/cases*.jsonl` (61 files), and prints a verdict table for each. The core set and the three that only a live model judges:
 
 | File | Cases | What it covers |
 | --- | --- | --- |
-| `evals/cases.jsonl` | 37 | The core set, also run under the Mock: filters, sorts, grouping, columns, clears, unsupported actions, restricted columns, "also" |
-| `evals/cases-live.jsonl` | 56 | Wording that needs common sense the Mock doesn't have: "Biggest accounts first", "Show me the retirement accounts" |
+| `evals/cases.jsonl` | 40 | The core set, also run under the Mock: filters, sorts, grouping, columns, clears, unsupported actions, restricted columns, "also" |
+| `evals/cases-live.jsonl` | 59 | Wording that needs common sense the Mock doesn't have: "Biggest accounts first", "Show me the retirement accounts" |
 | `evals/cases-fanout.jsonl` | 50 | Several changes in one part, adding to the view, and nesting: "Roth IRAs grouped by rep" |
 | `evals/cases-chassis.jsonl` | 39 | Domain declarations: row nouns, entities, value groups, exclusions |
 

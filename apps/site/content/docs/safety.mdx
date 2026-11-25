@@ -106,7 +106,7 @@ Within 0.1, new fields are optional, so a provider that ignores them behaves as 
 
 ## Adapter limits: no OR filters
 
-The TanStack Table adapter stores GridCue's filters as TanStack column filters, which can only be combined with AND. It refuses a View State whose filters use OR or nest groups, with `ADAPTER_UNSUPPORTED_FILTER`, and changes nothing.
+The TanStack Table adapter stores GridCue's filters as TanStack column filters, which can only be combined with AND. It refuses a View State whose filters use OR or nest groups, with `ADAPTER_UNSUPPORTED_FILTER`, and changes nothing. The AG Grid adapter refuses an OR across two columns, and a list of values beside another filter on its column, the same way, before anything is written.
 
 The compiler never produces those shapes: every filter it adds combines with AND, and several values of one column ("retirement accounts" = IRA and Roth IRA) become one filter with the `in` operator. The refusal only matters if your own code writes such a state.
 

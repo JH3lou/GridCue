@@ -165,7 +165,7 @@ function WhyNotGenerate() {
 }
 
 const SAFETY = [
-  { icon: ShieldCheck, title: "View-only", body: "Filters, sorts, groups and columns. It never edits a record." },
+  { icon: ShieldCheck, title: "View-only", body: "Filters, sorts, groups, totals and columns. It never edits a record." },
   { icon: Eye, title: "Preview before apply", body: "Every change is shown before it happens, and nothing applies without approval." },
   {
     icon: Lock,
@@ -209,7 +209,7 @@ function Neutral() {
           <span className="text-foreground font-medium">Providers:</span> Jev · Mock · your provider
         </p>
         <p>
-          <span className="text-foreground font-medium">Grids:</span> TanStack Table · any array · AG Grid Community
+          <span className="text-foreground font-medium">Grids:</span> TanStack Table · AG Grid Community · any array · rows on your server
         </p>
       </div>
     </section>
@@ -235,7 +235,8 @@ function Domain() {
         <div className="text-muted-foreground grid gap-4 text-sm leading-relaxed">
           <p>
             Every app says things its own way. Three optional declarations teach GridCue your domain: what a row is, which columns name
-            other records, and your own categories over a column's values.
+            other records, and your own categories over a column's values. House Terms name your own filters, a Calendar reads “this
+            quarter” in your fiscal year, and Local Values let a request name a value your grid holds.
           </p>
           <p>
             Choose how GridCue asks Jev: “fan-out” handles compound requests, nesting and “also”; “focused” asks fewer questions for simpler

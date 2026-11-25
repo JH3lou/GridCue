@@ -7,12 +7,12 @@ Use natural language to get the insights you need from complicated data, dense g
 
 GridCue is an open-source TypeScript toolkit. A person types or dictates a request such as "taxable accounts over $1 million, grouped by advisor, biggest first". GridCue turns it into a filter, sort, group and column change on the grid you already have. It shows exactly what will change, applies it only when the person approves, and offers undo.
 
-GridCue changes the **view**: filters, sorts, grouping, which columns show and in what order, and reset. It does not edit records, compute answers, or aggregate. The answer is the view.
+GridCue changes the **view**: filters, sorts, grouping, totals, which columns show and in what order, pins, density, and reset. It does not edit records or answer questions about your data. The answer is the view.
 
 ## Who it's for
 
 - **The people who work in dense grids.** Advisors, traders, operations and support teams who know the view they want but have to fight the controls to reach it.
-- **The developers who build those screens.** You add a command bar to an existing TanStack Table, or to any table whose rows you hold in memory, in a few lines.
+- **The developers who build those screens.** You add a command bar to an existing TanStack Table, an AG Grid Community grid, any table whose rows you hold in memory, or one whose rows your server fetches, in a few lines.
 
 Two terms appear throughout these docs. The **Host** is your application: it owns the data, the grid, credentials and the final decision to apply a change. The **User** is the person typing or dictating the request.
 
@@ -41,7 +41,9 @@ One npm package, `gridcue`, with separate entries:
 | --- | --- |
 | `gridcue` | The core: protocol, compiler, validation, Preview, audit, the Rows Adapter, the Query Adapter, and `createRemoteProvider` |
 | `gridcue/react` | `useGridCue` and the ready-made `<GridCueBar />` (styled by `gridcue/styles.css`) |
-| `gridcue/tanstack-table` | The adapter for TanStack Table v9, including shadcn's Data Table |
+| `gridcue/tanstack-table` | The adapter for TanStack Table v9, including shadcn's Data Table, and for v8 apps through `useLegacyTable` |
+| `gridcue/ag-grid` | The adapter for AG Grid Community 34 to 36 |
+| `gridcue/testing` | The Query Check, for your own Data Query's tests. Never import it in client code |
 | `gridcue/mock` | The Mock Provider, for keyless development |
 | `gridcue/server` | The Server Handler and the Jev provider, never reachable from a browser bundle |
 
