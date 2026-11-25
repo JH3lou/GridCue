@@ -35,7 +35,25 @@ When something doesn't work, read [references/troubleshooting.md](references/tro
 
 ## Counts
 
-"Top 10 accounts by market value" sets a count: the view keeps its first 10 rows. The Rows Adapter supports it. The TanStack Table adapter doesn't list `limit.set` yet, on any table, so there GridCue sorts alone and the Preview says the count was not applied. A count stays on the view until something clears it, so a change to the sort or the filters asks first ("Keep the first 10" or "Show every row"). That is expected, not a bug. To clear a count the User says "show every row", "show all rows", "remove the count" or "no count"; "show only the first 5 rows" sets one. Don't add code to clear or keep a count: the Controller does it, with a Preview, and Undo restores it. See [Requests](https://gridcue.dev/docs/concepts/requests).
+"Top 10 accounts by market value" sets a count: the view keeps its first 10 rows. The Rows Adapter supports it with no option. The TanStack Table adapter lists `limit.set` only with GridCue's count piece, below; without it GridCue sorts alone and the Preview says "Count not applied: this grid can't show only the first 10", which is expected, not a bug. The same count question holds on both adapters. A count stays on the view until something clears it, so a change to the sort or the filters asks first ("Keep the first 10" or "Show every row"). That is expected, not a bug. To clear a count the User says "show every row", "show all rows", "remove the count" or "no count"; "show only the first 5 rows" sets one. Don't add code to clear or keep a count: the Controller does it, with a Preview, and Undo restores it. See [Requests](https://gridcue.dev/docs/concepts/requests).
+
+To show only the first rows on a TanStack Table v9, register GridCue's count piece, then name `"count"` in `renders`:
+
+```ts
+import { gridcueCountFeature, gridcueCountRowModel } from "gridcue/tanstack-table";
+
+const features = tableFeatures({
+  /* …the Host's features, */
+  ...{ gridcueCountFeature }, // spread in: TanStack's types name only its own features
+  filteredRowModel: gridcueCountRowModel(createFilteredRowModel()),
+});
+// …
+createTanStackAdapter({ schema, table, renders: ["count"] });
+```
+
+- **Only on `useTable` or `constructTable`, and never on a table that holds one page or sub-rows.** `createTanStackAdapter` throws `INPUT_CONFIG` when the table sets `manualPagination`, `manualSorting`, `manualFiltering`, `manualGrouping` or `getSubRows`, when its `filteredRowModel` isn't `gridcueCountRowModel(…)`, when it has no `gridcueCountFeature`, and on `useLegacyTable`. Don't work around it: the first rows of a page are not the first rows of the view, and a count can't keep sub-rows. One of those settings turned on later stops the count: the table shows every row it holds, the View State has no count, and `limit.set` is not listed.
+- **The table shows the rows it holds.** The adapter draws nothing, so draw those rows. `rowsBeforeCount(table)?.rows.length` gives the rows before the count, for a caption such as "First 10 of 48 rows". GridCue can't check your markup: never name `"count"` to make a request pass.
+- **Expected, not bugs:** a count never shows a row with no value in the first sorted column, so "top 10" can show fewer than 10; and the User's own header sort changes the view, with the count then keeping the first rows of the new order.
 
 ## Pins and density
 
@@ -44,7 +62,7 @@ When something doesn't work, read [references/troubleshooting.md](references/tro
 The adapter lists `columns.pin` and `density.set` only when the Host says its table draws them, with `renders`. **Set `renders` only for what the table draws, and draw it.** The default is none, and a request for either then asks "This grid can't pin columns." or "This grid can't change its density." and changes nothing. That is expected, not a bug.
 
 - **What to draw.** `renders: ["pinning"]` needs the table to keep pinned columns in place while the rest scroll. `renders: ["density"]` needs its own row height and cell spacing from the View State's `density`. With the Rows Adapter, `applyView` returns `pinned` and `density` beside `columns`, which already puts start-pinned columns first. With TanStack Table, register `columnPinningFeature` (and `columnSizingFeature`, for the offset from `column.getStart("start")`).
-- **`createRowsAdapter({ schema, initialState, renders: ["pinning", "density"] })`** and **`createTanStackAdapter({ schema, table, renders: ["pinning", "density"] })`.** TanStack throws `INPUT_CONFIG` for `"pinning"` when the table has no `setColumnPinning`. A name no adapter takes (`"count"` on either, today) throws `INPUT_CONFIG` too: leave it out. `"totals"` is the third name each adapter takes: see Totals below.
+- **`createRowsAdapter({ schema, initialState, renders: ["pinning", "density"] })`** and **`createTanStackAdapter({ schema, table, renders: ["pinning", "density"] })`.** TanStack throws `INPUT_CONFIG` for `"pinning"` when the table has no `setColumnPinning`. A name the adapter doesn't take throws `INPUT_CONFIG` too: leave it out, and don't name `"count"` on the Rows Adapter, which keeps a count with no option. `"totals"` is the third name each adapter takes: see Totals below. `"count"` is the fourth name of the TanStack Table adapter only: see Counts.
 - **GridCue can't check what the markup draws.** Never turn `renders` on to make a request pass. A Host that names a pin its table ignores gets a Preview and "View updated." with nothing to see.
 - **These asks are expected, not bugs,** so don't add words or aliases to make them pass: "freeze advisor" with no "column", "lock advisor", "pin advisor to my watchlist", "pin the Northgate accounts", "make it denser", "tighter" and "compact exceptions view". "Pin the account column" asks too when "account" is the grid's `rowNoun`: "pin the Account number column" is read. A pin or density said before or in the middle of another change ("compact view, top 10 by market value") asks; said as its own part or at the end ("top 10 by market value, compact view") it reads. "Unpin everything" with nothing pinned says "The grid already shows this view." "Left" and "right" mean the start and the end, which assumes a grid that reads left to right.
 

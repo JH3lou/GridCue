@@ -2,12 +2,23 @@ import { describe, expect, it } from "vitest";
 import { MVP_OPERATIONS } from "../src/core/adapter";
 import { emptyViewState, type ViewSchema, type ViewState } from "../src/core/protocol";
 import { defineSchema } from "../src/core/schema";
+import {
+  ledgerRows,
+  ledgerSchema,
+  nullAndZeroColumns,
+  type RowSet,
+  seedsFrom,
+  wealthRows,
+  wealthSchema,
+  withZerosBesideNull,
+} from "./rendered-row-sets";
 import { compareDrawn, type DrawnComparison, groupedFirst, type Row, renderWithRows, renderWithTanStack } from "./rendered-rows";
-import { generateView, seededRandom } from "./view-generator";
+import { generateView } from "./view-generator";
 
 // Groups, their order and their totals, the same through both Grid Adapters (operation set spec, 5.4 and 10; ADR
-// 0030). Seeded grouped views from the view generator, on two row sets of 300 rows each, a wealth-like one and a
-// ledger-like one, with ties and empty values in the columns a view sorts, groups and totals. Both adapters get the
+// 0030). Seeded grouped views from the view generator, on two row sets of 300 rows each (`rendered-row-sets.ts`), a
+// wealth-like one and a ledger-like one, with ties and empty values in the columns a view sorts, groups and totals.
+// The views here hold no count; `rendered-rows-counts.test.ts` draws views with one. Both adapters get the
 // same rows and the same View State, and what a Host would draw is compared: rows, their order inside each group, the
 // groups, their order, and every total (`compareDrawn`). The bar is 100% equal. Two things are counted apart from it:
 // views that differ only in where a row with no value in a sorted column sits (spec section 3, out of scope), and views
@@ -20,136 +31,19 @@ import { generateView, seededRandom } from "./view-generator";
 //   GRIDCUE_RENDERED_SEEDS=73001-73500 pnpm --filter gridcue exec vitest run test/rendered-rows-groups.test.ts --reporter=verbose
 //   GRIDCUE_RENDERED_SEEDS=5,17,90210 pnpm --filter gridcue exec vitest run test/rendered-rows-groups.test.ts --reporter=verbose
 
-/** The seeds to draw views from: GRIDCUE_RENDERED_SEEDS as "first-last" or "a,b,c", or 500 fixed ones. */
-const seedsFrom = (given: string | undefined): number[] | undefined => {
-  if (!given?.trim()) return undefined;
-  const range = /^\s*(\d+)\s*-\s*(\d+)\s*$/.exec(given);
-  if (range) {
-    const [first, last] = [Number(range[1]), Number(range[2])];
-    if (last < first) throw new Error(`GRIDCUE_RENDERED_SEEDS: ${given} ends before it starts.`);
-    return Array.from({ length: last - first + 1 }, (_, i) => first + i);
-  }
-  const list = given.split(",").map((s) => Number(s.trim()));
-  if (list.some((n) => !Number.isSafeInteger(n) || n < 0)) {
-    throw new Error(`GRIDCUE_RENDERED_SEEDS: ${given} is not a range or a list of seeds.`);
-  }
-  return list;
-};
 const GIVEN = seedsFrom(process.env.GRIDCUE_RENDERED_SEEDS);
 const SEEDS = GIVEN ?? Array.from({ length: 500 }, (_, i) => 20_261_114 + i);
 
-// --- Two row sets -----------------------------------------------------------------------------------------------
-// Number, currency and percent columns hold their empty cells as `null` or as missing cells, each column one kind.
-// Text, category and date columns, whose cells are text, hold them as `blank`: missing for the bar. Text is in one
-// letter case. Each of these
-// keeps out a difference between the adapters that is older than totals and that this test's bar is not about; the
-// describes at the end count each one: a `null` text cell in a sorted column, letter case, and both kinds of empty
-// cell in one grouped column.
-
-/** What a text or category column's empty cells hold: missing (`undefined`) for the bar, `null` for the count below. */
-type Blank = null | undefined;
-
-const pickFrom =
-  (random: () => number) =>
-  <T>(items: readonly T[]): T =>
-    items[Math.floor(random() * items.length)] as T;
-
-const wealthSchema: ViewSchema = defineSchema(
-  [
-    { id: "key" },
-    { id: "household" },
-    { id: "advisor" },
-    { id: "custodian", kind: "enum" },
-    { id: "registration", kind: "enum" },
-    { id: "market_value", kind: "currency" },
-    { id: "unrealized_gain", kind: "currency" },
-    { id: "concentration", kind: "percent" },
-    { id: "restricted", kind: "boolean" },
-    { id: "opened", kind: "date" },
-    { id: "tax_id" },
-  ],
-  {
-    restricted: ["tax_id"],
-    columns: {
-      custodian: { enumValues: ["northgate", "harborline", "summit"].map((id) => ({ id, label: id })) },
-      registration: { enumValues: ["taxable", "ira", "roth", "trust"].map((id) => ({ id, label: id })) },
-    },
-  },
-);
-
-const wealthRows = (blank: Blank = undefined): Row[] => {
-  const random = seededRandom(8_675_309);
-  const pick = pickFrom(random);
-  const households = Array.from({ length: 24 }, (_, i) => `Household ${String.fromCharCode(65 + i)}`);
-  const advisors = ["Avery Lane", "Blake Moreno", "Casey Ito", "Devon Park", "Emery Shaw", "Finley Ross"];
-  // Cents that a plain loop adds with a drift (0.1 + 0.2), and amounts many rows share.
-  const tied = [125_000.1, 250_000.2, 99_999.99, 0.1, 0.2, 0.3, 1_000_000];
-  return Array.from({ length: 300 }, (_, i) => {
-    const row: Row = {
-      key: `w${String(i).padStart(3, "0")}`,
-      household: random() < 0.06 ? blank : pick(households),
-      advisor: random() < 0.08 ? blank : pick(advisors),
-      custodian: random() < 0.07 ? blank : pick(["northgate", "harborline", "summit"]),
-      registration: random() < 0.05 ? blank : pick(["taxable", "ira", "roth", "trust"]),
-      market_value: random() < 0.1 ? null : random() < 0.3 ? pick(tied) : Math.round(random() * 500_000_000) / 100,
-      concentration: random() < 0.12 ? null : random() < 0.3 ? pick([0.05, 0.1, 0.25]) : Math.round(random() * 10_000) / 10_000,
-      restricted: random() < 0.2,
-      tax_id: `T${i}`,
-    };
-    // Empty as a missing cell.
-    if (random() >= 0.1) row.unrealized_gain = random() < 0.2 ? pick([0, -0.1, 0.1]) : Math.round((random() - 0.4) * 20_000_000) / 100;
-    if (random() >= 0.05) {
-      row.opened = `2026-${String(1 + Math.floor(random() * 6)).padStart(2, "0")}-${String(1 + Math.floor(random() * 4) * 7).padStart(2, "0")}`;
-    }
-    return row;
-  });
-};
-
-const ledgerSchema: ViewSchema = defineSchema(
-  [
-    { id: "key" },
-    { id: "owner" },
-    { id: "counterparty" },
-    { id: "category", kind: "enum" },
-    { id: "booked", kind: "date" },
-    { id: "amount", kind: "currency" },
-    { id: "quantity", kind: "number" },
-    { id: "rate", kind: "percent" },
-    { id: "cleared", kind: "boolean" },
-  ],
-  { columns: { category: { enumValues: ["travel", "fees", "supplies", "payroll"].map((id) => ({ id, label: id })) } } },
-);
-
-const ledgerRows = (blank: Blank = undefined): Row[] => {
-  const random = seededRandom(4_242_424);
-  const pick = pickFrom(random);
-  const counterparties = Array.from({ length: 12 }, (_, i) => `Vendor ${String.fromCharCode(65 + i)}`);
-  return Array.from({ length: 300 }, (_, i) => {
-    const row: Row = {
-      key: `l${String(i).padStart(3, "0")}`,
-      owner: random() < 0.06 ? blank : pick(["Owner A", "Owner B", "Owner C", "Owner D", "Owner E"]),
-      counterparty: random() < 0.08 ? blank : pick(counterparties),
-      category: random() < 0.1 ? blank : pick(["travel", "fees", "supplies", "payroll"]),
-      quantity: random() < 0.1 ? null : random() < 0.4 ? pick([1, 2, 10, 0.5]) : Math.round(random() * 1000) / 10,
-      cleared: random() < 0.5,
-      booked: random() < 0.05 ? blank : `2026-0${1 + Math.floor(random() * 3)}-${String(1 + Math.floor(random() * 10)).padStart(2, "0")}`,
-    };
-    // Empty as a missing cell.
-    if (random() >= 0.1)
-      row.amount = random() < 0.3 ? pick([0.1, 0.2, 0.3, 19.99, -19.99, 1234.56]) : Math.round((random() - 0.3) * 2_000_000) / 100;
-    if (random() >= 0.12) row.rate = random() < 0.3 ? pick([0.01, 0.015, 0.2]) : Math.round(random() * 1000) / 10_000;
-    return row;
-  });
-};
-
-/** What a TanStack Table adapter lists with every `renders` it takes: no count (operation set PR 4). */
+/**
+ * What a TanStack Table adapter lists with `renders: ["pinning", "density", "totals"]`: no count, so these seeds draw the
+ * views they drew before the count (operation set PR 4), and the counts pinned below still hold.
+ */
 const TANSTACK_CAPABILITIES = {
   operations: [...MVP_OPERATIONS, "columns.pin", "density.set", "aggregation.set"],
   maxSorts: 3,
   maxGroups: 2,
 };
 
-type RowSet = { name: string; schema: ViewSchema; rows: Row[] };
 const SETS: RowSet[] = [
   { name: "wealth", schema: wealthSchema, rows: wealthRows() },
   { name: "ledger", schema: ledgerSchema, rows: ledgerRows() },
@@ -236,6 +130,8 @@ describe("Groups, their order and their totals: both adapters draw the same", ()
         expect(held.length, `${set.name} ${column.id}: some cells empty`).toBeLessThan(cells.length);
         expect(new Set(held).size, `${set.name} ${column.id}: some ties`).toBeLessThan(held.length);
       }
+      // The bar's rows keep out a null beside a 0 in one number column; it is counted apart below.
+      expect([...nullAndZeroColumns(set)], set.name).toEqual([]);
     }
   });
 
@@ -354,6 +250,38 @@ describe("Counted: null and missing cells in one grouped column", () => {
     ]);
   });
 });
+
+describe("Counted: a null beside a 0 in a sorted number column", () => {
+  // TanStack's basic sort finds `null` smaller than `0`, and `0` smaller than `null`, so its order is no order: it can
+  // draw the rows that have values out of order, not only the empty row. A missing cell sorts as applyView sorts it.
+  for (const set of SETS.map(withZerosBesideNull)) {
+    it(`${set.name}: every view that differs sorts by a number column holding null and 0`, async () => {
+      const both = nullAndZeroColumns(set);
+      expect(both.size).toBeGreaterThan(0);
+      const { tally, failures } = await drawAll(set, SEEDS);
+      console.log(`rendered rows with zeros beside null, ${set.name}: ${JSON.stringify(tally)}`);
+      const unexplained = failures.filter(({ state }) => !state.sorts.some((s) => both.has(s.columnId)));
+      expect(unexplained.map(describeFailure)).toEqual([]);
+      if (!GIVEN) expect(tally.different).toBe(NULL_ZERO_DIFFERENT[set.name]);
+    }, 30_000);
+  }
+
+  it("TanStack can draw two rows that hold 0 in the other order", async () => {
+    const schema = defineSchema([{ id: "key" }, { id: "amount", kind: "currency" }]);
+    const state: ViewState = { ...emptyViewState(["key", "amount"]), sorts: [{ columnId: "amount", direction: "asc" }] };
+    const valued = async (rows: Row[], render: typeof renderWithRows) =>
+      (await render({ name: "null beside 0", schema, rows, state })).rows.filter((r) => typeof r.amount === "number").map((r) => r.key);
+    const withNull: Row[] = [0, null, 0].map((amount, i) => ({ key: `r${i}`, amount }));
+    expect(await valued(withNull, renderWithRows)).toEqual(["r0", "r2"]);
+    expect(await valued(withNull, renderWithTanStack)).toEqual(["r2", "r0"]);
+    // The same rows with the empty cell missing: both draw r0 before r2.
+    const missing: Row[] = withNull.map((r) => (r.amount === null ? { key: r.key } : r));
+    expect(await valued(missing, renderWithTanStack)).toEqual(["r0", "r2"]);
+  });
+});
+
+/** Measured on the fixed seeds, 2026-11-19. */
+const NULL_ZERO_DIFFERENT: Record<string, number> = { "wealth, zeros beside null": 13, "ledger, zeros beside null": 4 };
 
 describe("Not drawn alike: a total on a column the view groups by", () => {
   // GridCue never applies such a view: the compiler asks, and validation refuses a plan that groups or sets totals into

@@ -1,9 +1,15 @@
 import { readdirSync } from "node:fs";
-import { wealthMockOptions } from "@gridcue-internal/wealth-fixtures";
+import { ledgerInitialState } from "@gridcue-internal/ledger-fixtures";
+import { wealthInitialState, wealthMockOptions } from "@gridcue-internal/wealth-fixtures";
 import { createMockProvider } from "gridcue/mock";
 import { describe, expect, it } from "vitest";
 import {
+  caseFiles,
+  caseSchemaFor,
+  differences,
+  failsTanStackRun,
   judge,
+  LIVE_ONLY_SETS,
   loadCases,
   mockOptionsFor,
   onGridWithoutGrouping,
@@ -11,8 +17,10 @@ import {
   passesWithoutRenders,
   REVIEW_R2_FOR_THE_OWNER,
   runCase,
+  runOnTanStack,
   runWithoutGrouping,
   runWithoutRenders,
+  tanStackAdapterFor,
   type Verdict,
 } from "./run";
 
@@ -918,6 +926,85 @@ describe("every existing set on a grid without group.set, with the Mock Provider
       });
     }
   }
+});
+
+// Every set, run again on the TanStack Table adapter over a real TanStack Table (operation set spec, section 10): the
+// same schema, starting view, House Terms, Local Values, clock and provider, with the case's `renders` plus "count", so
+// the TanStack count path is in the gate. Each case must give exactly what it gives on the Rows Adapter: the verdict, the
+// status, the operations, the questions and their choices, what is refused, and the Preview. And none may be a wrong
+// view by its labels, except in the live-only sets, which the Mock Provider is not judged on and which are held to the
+// Rows Adapter's result alone. First run (2026-11-19): 4019 cases, none different, no wrong view outside those sets.
+// With the review fixes' two held-out sets (133 and 57 cases): 4209 cases in 58 sets, none different, no wrong view
+// outside them but the 8 of REVIEW_R2_FOR_THE_OWNER, the owner's decisions, which pass as on the Rows Adapter. With the
+// held-out set for two totals under two groupings (31 cases, 2026-11-19): 4240 cases in 59 sets, none different, and
+// the same wrong views and no others.
+describe("every set on the TanStack Table adapter, with the Mock Provider", () => {
+  const ledgerProvider = createMockProvider(mockOptionsFor({ schema: "ledger" }));
+  for (const file of caseFiles()) {
+    for (const c of loadCases(new URL(`./${file}`, import.meta.url))) {
+      it(`${file}: ${c.id}`, async () => {
+        const result = await runOnTanStack(c, c.schema === "ledger" ? ledgerProvider : provider);
+        expect(result.why, `${c.utterance}\n${JSON.stringify(result.tanstack?.plan, null, 1)}`).toEqual([]);
+        const forTheOwner = file === "cases-review-fixes-heldout-r2.jsonl" && REVIEW_R2_FOR_THE_OWNER.includes(c.id);
+        if (!LIVE_ONLY_SETS.includes(file) && !forTheOwner) expect(result.tanstack?.verdict).not.toBe("unsafe");
+      });
+    }
+  }
+});
+
+describe("the TanStack run", () => {
+  // `tanStackAdapterFor` throws when the table's default view is not the one the Rows Adapter starts from.
+  it("starts each schema's table from the Rows Adapter's default view, with the count listed", () => {
+    for (const schema of [undefined, "ledger", "dated", "wealth-measure"] as const) {
+      const c = { id: "t", utterance: "", ...(schema ? { schema } : {}), expect: {} };
+      const fixture = schema === "ledger" ? ledgerInitialState : schema === "dated" ? undefined : wealthInitialState;
+      const adapter = tanStackAdapterFor(c, caseSchemaFor(c), fixture);
+      expect(adapter.getDefaultState()).toEqual(fixture ?? adapter.getDefaultState());
+      expect(adapter.getCapabilities().operations).toContain("limit.set");
+    }
+  });
+
+  it("tells apart a TanStack result that differs from the Rows Adapter's", async () => {
+    const c = loadCases(new URL("./cases-count.jsonl", import.meta.url))[0];
+    if (!c) throw new Error("no count case");
+    const rows = await runCase(c, provider);
+    expect(differences(rows, rows)).toEqual([]);
+    const other = { ...rows, status: "unsupported" as const, verdict: "rejected" as const };
+    expect(differences(rows, other).map((line) => line.split(":")[0])).toEqual(["verdict", "status"]);
+  });
+
+  it("tells apart a choice with the same label and another id, which an answer acts on", async () => {
+    let rows: Awaited<ReturnType<typeof runCase>> | undefined;
+    for (const c of loadCases(new URL("./cases-count.jsonl", import.meta.url))) {
+      rows = await runCase(c, provider);
+      if (rows.plan?.clarifications.some((q) => q.options?.length)) break;
+    }
+    const question = rows?.plan?.clarifications.find((q) => q.options?.length);
+    if (!rows?.plan || !question?.options) throw new Error("no count case asks a question with choices");
+    const renamed = {
+      ...question,
+      options: question.options.map((o, i) => (i === 0 ? { ...o, id: `${o.id}-other` } : o)),
+    };
+    const other = {
+      ...rows,
+      plan: { ...rows.plan, clarifications: rows.plan.clarifications.map((q) => (q === question ? renamed : q)) },
+    };
+    expect(differences(rows, other).map((line) => line.split(":")[0])).toEqual(["questions"]);
+  });
+
+  it("fails a case with no TanStack result, with --live too, and only reports a difference between two live runs", async () => {
+    const c = loadCases(new URL("./cases-count.jsonl", import.meta.url))[0];
+    if (!c) throw new Error("no count case");
+    const rows = await runCase(c, provider);
+    for (const live of [false, true]) {
+      // The table couldn't start from the case's view: there is nothing to judge.
+      expect(failsTanStackRun({ same: false }, { wrong: false, live }), `live ${live}`).toBe(true);
+      expect(failsTanStackRun({ same: true, tanstack: rows }, { wrong: false, live }), `live ${live}`).toBe(false);
+      expect(failsTanStackRun({ same: true, tanstack: rows }, { wrong: true, live }), `live ${live}`).toBe(true);
+    }
+    expect(failsTanStackRun({ same: false, tanstack: rows }, { wrong: false, live: false })).toBe(true);
+    expect(failsTanStackRun({ same: false, tanstack: rows }, { wrong: false, live: true })).toBe(false);
+  });
 });
 
 // A held-out set checks only that no case is unsafe, and a request that ends in an error has no plan, which the verdict

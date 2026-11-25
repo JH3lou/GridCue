@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { MVP_OPERATIONS } from "../src/core/adapter";
 import { isGridCueError } from "../src/core/errors";
 import { emptyViewState } from "../src/core/protocol";
-import { applyView, createRowsAdapter, type RowsAdapterOptions } from "../src/core/rows-adapter";
+import { applyView, countOrder, createRowsAdapter, type RowsAdapterOptions } from "../src/core/rows-adapter";
 import { defineSchema } from "../src/core/schema";
 import { DATED_COLUMNS, DATED_ROWS, runAdapterContract } from "./adapter-contract";
 
@@ -237,6 +237,28 @@ describe("applyView", () => {
       expect(shown({ ...base, sorts: [{ columnId: "team", direction: "asc" }], limit: 2 })).toEqual(["seven", "five"]);
       expect(shown({ ...base, sorts: [{ columnId: "value", direction: "desc" }], limit: 2 })).toEqual(["nine", "seven"]);
       expect(shown({ ...base, sorts: [{ columnId: "value", direction: "asc" }], limit: 10 })).toEqual(["five", "seven", "nine"]);
+    });
+
+    // A NaN cell compares as a tie with every row, so sorting before it is dropped could leave the rows out of order.
+    it("drops a number that isn't one before sorting, so the count keeps the right rows", () => {
+      const keep = (values: number[], direction: "asc" | "desc", limit: number) => {
+        const rows = values.map((value, i) => ({ value, team: "", name: String(i) }));
+        const sorts = [{ columnId: "value", direction }];
+        const cell = (i: number, id: string) => (rows[i] as Record<string, unknown>)[id];
+        const order = countOrder(
+          rows.map((_, i) => i),
+          cell,
+          sorts,
+        ).map((i) => values[i]);
+        const shown = applyView(rows, { ...base, sorts, limit }, schema).rows.map((r) => r.value);
+        return { order, shown };
+      };
+      expect(keep([3, Number.NaN, 1], "asc", 1).shown).toEqual([1]);
+      expect(keep([3, Number.NaN, 1], "desc", 1).shown).toEqual([3]);
+      expect(keep([1, Number.NaN, 3], "desc", 1).shown).toEqual([3]);
+      expect(keep([5, 3, Number.NaN, 1, 2], "asc", 2)).toEqual({ order: [1, 2, 3, 5], shown: [1, 2] });
+      expect(keep([1, Number.NaN, 9, Number.NaN, 4, 7], "desc", 2).shown).toEqual([9, 7]);
+      expect(keep([2, 8, Number.NaN, 6, 1, Number.NaN, 9, 3], "asc", 3).shown).toEqual([1, 2, 3]);
     });
 
     it("keeps the first N rows as they are when the view has no sort", () => {

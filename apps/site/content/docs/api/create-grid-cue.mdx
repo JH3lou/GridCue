@@ -257,7 +257,7 @@ interface Preview {
 
 A note says something the User should read before applying:
 
-- "Count not applied: this grid can't show only the first 10", when the request gave a count and the grid can't limit rows.
+- "Count not applied: this grid can't show only the first 10", when the request gave a count and the grid can't limit rows: the Rows Adapter can, the TanStack Table adapter only with `renders: ["count"]`.
 - "Rows with no Market value are hidden too", when the request left rows out ("exclude accounts over $1M") and the filter that keeps the rest also drops rows with no value in that column.
 
 `renderPreview` always sets `notes`, and `text` includes them. A custom UI that shows `lines` should show `notes` too; the built-in bar and the registry's `PreviewPanel` do.

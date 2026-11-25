@@ -188,6 +188,21 @@ describe("generateView", () => {
     }
   });
 
+  it("always holds a count beside a sort, or never, when asked, and draws it from the counts given", () => {
+    for (let seed = 0; seed < 200; seed++) {
+      const always = generateView(seed, wide, { counted: true, counts: [3, 300] });
+      expect(always.sorts.length, `seed ${seed}`).toBeGreaterThan(0);
+      expect([3, 300]).toContain(always.limit);
+      expect(reached(always, wide).ok, `seed ${seed}`).toBe(true);
+      expect(generateView(seed, wide, { counted: false }).limit).toBeUndefined();
+      // Left out, the count is drawn as before: the same view as with no option.
+      expect(generateView(seed, wide, { counted: undefined })).toEqual(generateView(seed, wide));
+    }
+    // A grid that doesn't list limit.set never gets one.
+    const tanstack = { capabilities: { operations: [...MVP_OPERATIONS], maxSorts: 1, maxGroups: 1 }, counted: true };
+    for (let seed = 0; seed < 100; seed++) expect(generateView(seed, wide, tanstack).limit).toBeUndefined();
+  });
+
   it("is always grouped, or never, when asked", () => {
     for (let seed = 0; seed < 200; seed++) {
       expect(generateView(seed, wide, { grouped: true }).groupBy.length).toBeGreaterThan(0);

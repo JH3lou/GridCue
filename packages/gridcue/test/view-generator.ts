@@ -40,6 +40,13 @@ export interface ViewGeneratorOptions {
   rows?: ReadonlyArray<object>;
   /** True: always grouped. False: never. Left out: either. */
   grouped?: boolean;
+  /**
+   * True: always a count, where the grid lists `limit.set`, beside a sort as a request sets one (a sort is drawn when
+   * the view has none). False: never. Left out: sometimes, beside a sort the view already has.
+   */
+  counted?: boolean;
+  /** The counts to draw from. Left out: 1 to 20. */
+  counts?: readonly number[];
 }
 
 /** A seeded sequence of numbers in [0, 1): mulberry32. The same seed gives the same sequence everywhere. */
@@ -146,8 +153,15 @@ export const generateView = (seed: number, schema: ViewSchema, options: ViewGene
     }
     state.sorts = sorts.map((columnId) => ({ columnId, direction: chance(0.5) ? "asc" : "desc" }));
   }
-  // A count, only beside a sort, as a request sets one.
-  if (lists("limit.set") && state.sorts.length > 0 && chance(0.3)) state.limit = 1 + below(20);
+  // A count, only beside a sort, as a request sets one. Left to chance, it draws exactly as it did before `counted`.
+  if (lists("limit.set") && options.counted !== false) {
+    if (options.counted && state.sorts.length === 0 && lists("sort.set") && sortable.length > 0) {
+      state.sorts = [{ columnId: pick(sortable), direction: chance(0.5) ? "asc" : "desc" }];
+    }
+    if (state.sorts.length > 0 && (options.counted || chance(0.3))) {
+      state.limit = options.counts?.length ? pick(options.counts) : 1 + below(20);
+    }
+  }
   if (lists("density.set")) state.density = pick(DENSITIES);
   return state;
 };
