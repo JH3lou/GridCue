@@ -126,6 +126,10 @@
   margin: 0;
   padding-left: 1.25rem;
 }
+/* Where the plan differs from the request's words. Body colour and size: it must be read before Apply. */
+.gridcue-caveat {
+  margin: 4px 0 0;
+}
 .gridcue-note {
   font-size: 0.8125rem;
   color: var(--gridcue-muted);
